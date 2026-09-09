@@ -3,8 +3,8 @@ import { startServer } from "./server.js";
 import { scanFile, scanDirectory } from "./scanner.js";
 import type { Finding } from "./scanner.js";
 import { buildSarif } from "./sarif.js";
-import { statSync } from "fs";
-import { readFileSync } from "fs";
+import { loadConfig, configFilePath } from "./config.js";
+import { statSync, readFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -80,13 +80,23 @@ function shouldFail(findings: Finding[], failOn: string): boolean {
 }
 
 async function runCli(rawArgs: string[]): Promise<void> {
-  const { positionals, failOn, format, maxFiles } = parseArgs(rawArgs);
+  const { positionals, failOn: cliFail, format, maxFiles: cliMax } = parseArgs(rawArgs);
 
   const target = positionals[0];
   if (!target) {
-    console.error("Usage: guardbee-secret-scanner scan <path> [--fail-on=any] [--format=text|json]");
+    console.error("Usage: guardbee-secret-scanner scan <path> [--fail-on=any] [--format=text|json|sarif]");
     process.exit(2);
   }
+
+  // Load guardbee.yml config, CLI flags override
+  const cfg = loadConfig(target, {
+    ...(cliFail !== "any" ? { failOn: cliFail } : {}),
+    ...(cliMax !== 5000 ? { maxFiles: cliMax } : {}),
+  });
+  const cfgPath = configFilePath(target);
+  if (cfgPath && format === "text") process.stderr.write(`[guardbee] Using config: ${cfgPath}\n`);
+
+  const { failOn, maxFiles } = cfg;
 
   let stat;
   try {
@@ -101,7 +111,7 @@ async function runCli(rawArgs: string[]): Promise<void> {
   let durationMs: number;
 
   if (stat.isDirectory()) {
-    const result = scanDirectory(target, { maxFiles });
+    const result = scanDirectory(target, { maxFiles, exclude: cfg.exclude });
     findings = result.findings;
     scannedFiles = result.scannedFiles;
     durationMs = result.durationMs;
@@ -111,6 +121,11 @@ async function runCli(rawArgs: string[]): Promise<void> {
     findings = result.findings;
     scannedFiles = result.skipped ? 0 : 1;
     durationMs = Date.now() - start;
+  }
+
+  // Apply allowlist from config
+  if (cfg.allowlist.length > 0) {
+    findings = findings.filter((f) => !cfg.allowlist.some((a) => f.match.includes(a) || f.context.includes(a)));
   }
 
   if (format === "json") {
