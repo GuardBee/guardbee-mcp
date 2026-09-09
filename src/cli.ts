@@ -2,7 +2,19 @@
 import { startServer } from "./server.js";
 import { scanFile, scanDirectory } from "./scanner.js";
 import type { Finding } from "./scanner.js";
+import { buildSarif } from "./sarif.js";
 import { statSync } from "fs";
+import { readFileSync } from "fs";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+function getVersion(): string {
+  try {
+    const pkg = JSON.parse(readFileSync(resolve(__dirname, "../package.json"), "utf8")) as { version: string };
+    return pkg.version;
+  } catch { return "0.0.0"; }
+}
 
 // ── Output ─────────────────────────────────────────────────────────────────────
 
@@ -103,6 +115,8 @@ async function runCli(rawArgs: string[]): Promise<void> {
 
   if (format === "json") {
     console.log(JSON.stringify({ findings, scannedFiles, durationMs }, null, 2));
+  } else if (format === "sarif") {
+    console.log(JSON.stringify(buildSarif(getVersion(), findings), null, 2));
   } else {
     printText(findings, scannedFiles, durationMs);
   }
@@ -122,7 +136,7 @@ Usage (CLI):
 Options:
   --fail-on=<level>   Exit 1 if secrets at this severity or above are found
                       Levels: any (default) | critical | high | medium | low | none
-  --format=<fmt>      Output format: text (default) | json
+  --format=<fmt>      Output format: text (default) | json | sarif
   --max-files=<n>     Max files to scan (default: 5000)
 
 Exit codes:
