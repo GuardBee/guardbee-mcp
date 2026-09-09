@@ -84,6 +84,62 @@ Bu araç tarama sonuçlarında eşleşen değerleri **kısmen redakte eder** (`s
 
 ---
 
+## CLI — CI/CD Entegrasyonu
+
+MCP server moduna ek olarak doğrudan CLI olarak da kullanılabilir:
+
+```bash
+# Proje dizinini tara
+npx @guardbee/mcp-secret-scanner scan ./my-project
+
+# Tek dosya tara
+npx @guardbee/mcp-secret-scanner scan .env
+
+# Sadece critical/high'da başarısız ol
+npx @guardbee/mcp-secret-scanner scan . --fail-on=high
+
+# JSON çıktı (CI raporlama için)
+npx @guardbee/mcp-secret-scanner scan . --format=json
+```
+
+**Exit kodları:** `0` = secret bulunamadı · `1` = secret bulundu · `2` = hata
+
+### GitHub Actions
+
+```yaml
+name: Secret Scan
+on: [push, pull_request]
+
+jobs:
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan for exposed secrets
+        run: npx @guardbee/mcp-secret-scanner scan . --fail-on=high
+```
+
+### GitLab CI
+
+```yaml
+secret-scan:
+  image: node:20
+  script:
+    - npx @guardbee/mcp-secret-scanner scan . --fail-on=high
+  only:
+    - merge_requests
+    - main
+```
+
+### Pre-commit Hook
+
+```bash
+# .git/hooks/pre-commit
+npx @guardbee/mcp-secret-scanner scan . --fail-on=critical || exit 1
+```
+
+---
+
 ## Geliştirme
 
 ```bash
