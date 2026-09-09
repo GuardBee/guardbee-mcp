@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-ssl-inspector",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "MCP server that inspects TLS certificates, cipher suites, and protocol configurations for any domain",
   "type": "module",
   "bin": {

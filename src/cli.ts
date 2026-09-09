@@ -2,6 +2,18 @@
 import { startServer } from "./server.js";
 import { inspectHost, checkHsts, formatInspectReport } from "./inspector.js";
 import type { TlsInspectResult, Finding } from "./inspector.js";
+import { buildSarif } from "./sarif.js";
+import { readFileSync } from "fs";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+function getVersion(): string {
+  try {
+    const pkg = JSON.parse(readFileSync(resolve(__dirname, "../package.json"), "utf8")) as { version: string };
+    return pkg.version;
+  } catch { return "0.0.0"; }
+}
 
 // ── Severity helpers ───────────────────────────────────────────────────────────
 
@@ -72,6 +84,8 @@ async function runInspect(rawArgs: string[]): Promise<void> {
 
   if (format === "json") {
     console.log(JSON.stringify(results, null, 2));
+  } else if (format === "sarif") {
+    console.log(JSON.stringify(buildSarif(getVersion(), results), null, 2));
   } else {
     console.log(formatInspectReport(results));
   }
