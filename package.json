@@ -1,0 +1,53 @@
+{
+  "name": "@guardbee/mcp-security-proxy",
+  "version": "0.1.0",
+  "description": "Security proxy for MCP servers — intercepts tool calls, detects prompt injection, masks PII, and writes audit logs",
+  "author": "GuardBee <hello@guardbee.ai>",
+  "license": "MIT",
+  "homepage": "https://github.com/GuardBee/guardbee-mcp-security-proxy#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp-security-proxy.git"
+  },
+  "bugs": {
+    "url": "https://github.com/GuardBee/guardbee-mcp-security-proxy/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "security",
+    "proxy",
+    "prompt-injection",
+    "pii",
+    "audit",
+    "guardbee",
+    "llm",
+    "claude"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "guardbee-proxy": "dist/cli.js"
+  },
+  "files": ["dist", "README.md"],
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts",
+    "start": "node dist/cli.js",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm test && npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "^26.5.0",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2",
+    "vitest": "^3.2.7"
+  }
+}
