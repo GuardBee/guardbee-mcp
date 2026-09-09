@@ -96,6 +96,88 @@ Claude'a şunu sorabilirsiniz:
 
 ---
 
+## CLI — CI/CD Entegrasyonu
+
+MCP server moduna ek olarak doğrudan CLI olarak da kullanılabilir:
+
+```bash
+# Tek domain tam TLS denetimi
+npx @guardbee/mcp-ssl-inspector inspect example.com
+
+# Birden fazla domain
+npx @guardbee/mcp-ssl-inspector inspect example.com api.example.com shop.example.com
+
+# Özel port
+npx @guardbee/mcp-ssl-inspector inspect example.com:8443
+
+# Sertifika expiry kontrolü
+npx @guardbee/mcp-ssl-inspector expiry example.com api.example.com
+
+# Sadece critical'da başarısız ol
+npx @guardbee/mcp-ssl-inspector inspect example.com --fail-on=critical
+
+# JSON çıktı
+npx @guardbee/mcp-ssl-inspector inspect example.com --format=json
+```
+
+**Exit kodları:** `0` = sorun yok · `1` = threshold üstü bulgu / süresi dolmuş sert · `2` = hata
+
+### GitHub Actions — Deployment Sonrası Kontrol
+
+```yaml
+name: SSL Check
+on:
+  workflow_run:
+    workflows: ["Deploy"]
+    types: [completed]
+
+jobs:
+  ssl-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect SSL certificate
+        run: npx @guardbee/mcp-ssl-inspector inspect ${{ vars.DOMAIN }} --fail-on=high
+
+      - name: Check cert expiry (warn if < 30 days)
+        run: npx @guardbee/mcp-ssl-inspector expiry ${{ vars.DOMAIN }}
+```
+
+### Scheduled Expiry Monitor
+
+```yaml
+name: Cert Expiry Monitor
+on:
+  schedule:
+    - cron: "0 9 * * 1"  # Her Pazartesi 09:00
+
+jobs:
+  expiry:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check certificate expiry dates
+        run: |
+          npx @guardbee/mcp-ssl-inspector expiry \
+            example.com \
+            api.example.com \
+            shop.example.com \
+            --format=json
+```
+
+### GitLab CI
+
+```yaml
+ssl-inspect:
+  image: node:20
+  script:
+    - npx @guardbee/mcp-ssl-inspector inspect $DOMAIN --fail-on=high
+  environment:
+    name: production
+  only:
+    - main
+```
+
+---
+
 ## Geliştirme
 
 ```bash
