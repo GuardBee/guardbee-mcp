@@ -1,0 +1,262 @@
+export interface SecretPattern {
+  id: string;
+  name: string;
+  pattern: RegExp;
+  severity: "critical" | "high" | "medium" | "low";
+  allowlist?: RegExp[]; // patterns that override (false positives)
+}
+
+export const SECRET_PATTERNS: SecretPattern[] = [
+  // ── Cloud providers ────────────────────────────────────────────────────────
+  {
+    id: "aws_access_key",
+    name: "AWS Access Key ID",
+    pattern: /\b(AKIA|ABIA|ACCA|AIPA|AKIA|ANPA|ANVA|APKA)[0-9A-Z]{16}\b/g,
+    severity: "critical",
+  },
+  {
+    id: "aws_secret_key",
+    name: "AWS Secret Access Key",
+    pattern: /(?<![A-Za-z0-9/+])([A-Za-z0-9/+]{40})(?![A-Za-z0-9/+])/g,
+    severity: "critical",
+    allowlist: [/^[A-Za-z0-9+/]{40}={0,2}$/], // base64 payloads
+  },
+  {
+    id: "google_api_key",
+    name: "Google API Key",
+    pattern: /AIza[0-9A-Za-z\-_]{35}/g,
+    severity: "critical",
+  },
+  {
+    id: "google_oauth",
+    name: "Google OAuth Client Secret",
+    pattern: /GOCSPX-[0-9A-Za-z\-_]{28}/g,
+    severity: "critical",
+  },
+
+  // ── Version control & CI ───────────────────────────────────────────────────
+  {
+    id: "github_pat",
+    name: "GitHub Personal Access Token",
+    pattern: /ghp_[0-9A-Za-z]{36}/g,
+    severity: "critical",
+  },
+  {
+    id: "github_oauth",
+    name: "GitHub OAuth Token",
+    pattern: /gho_[0-9A-Za-z]{36}/g,
+    severity: "critical",
+  },
+  {
+    id: "github_app_token",
+    name: "GitHub App Token",
+    pattern: /ghs_[0-9A-Za-z]{36}/g,
+    severity: "critical",
+  },
+  {
+    id: "github_refresh_token",
+    name: "GitHub Refresh Token",
+    pattern: /ghr_[0-9A-Za-z]{36}/g,
+    severity: "high",
+  },
+  {
+    id: "gitlab_pat",
+    name: "GitLab Personal Access Token",
+    pattern: /glpat-[0-9A-Za-z\-_]{20}/g,
+    severity: "critical",
+  },
+
+  // ── Payment ────────────────────────────────────────────────────────────────
+  {
+    id: "stripe_secret",
+    name: "Stripe Secret Key",
+    pattern: /sk_(live|test)_[0-9A-Za-z]{24,}/g,
+    severity: "critical",
+  },
+  {
+    id: "stripe_publishable",
+    name: "Stripe Publishable Key",
+    pattern: /pk_(live|test)_[0-9A-Za-z]{24,}/g,
+    severity: "medium",
+  },
+  {
+    id: "stripe_restricted",
+    name: "Stripe Restricted Key",
+    pattern: /rk_(live|test)_[0-9A-Za-z]{24,}/g,
+    severity: "critical",
+  },
+
+  // ── AI / ML ────────────────────────────────────────────────────────────────
+  {
+    id: "openai_key",
+    name: "OpenAI API Key",
+    pattern: /sk-[A-Za-z0-9]{20}T3BlbkFJ[A-Za-z0-9]{20}/g,
+    severity: "critical",
+  },
+  {
+    id: "openai_key_v2",
+    name: "OpenAI API Key (v2)",
+    pattern: /sk-proj-[A-Za-z0-9\-_]{50,}/g,
+    severity: "critical",
+  },
+  {
+    id: "anthropic_key",
+    name: "Anthropic API Key",
+    pattern: /sk-ant-[A-Za-z0-9\-_]{32,}/g,
+    severity: "critical",
+  },
+  {
+    id: "huggingface_token",
+    name: "HuggingFace Token",
+    pattern: /hf_[A-Za-z0-9]{34}/g,
+    severity: "high",
+  },
+
+  // ── Communication ──────────────────────────────────────────────────────────
+  {
+    id: "slack_token",
+    name: "Slack Token",
+    pattern: /xox[baprs]-([0-9a-zA-Z]{10,48})/g,
+    severity: "critical",
+  },
+  {
+    id: "slack_webhook",
+    name: "Slack Webhook URL",
+    pattern: /https:\/\/hooks\.slack\.com\/services\/T[0-9A-Z]{8}\/B[0-9A-Z]{8}\/[0-9a-zA-Z]{24}/g,
+    severity: "high",
+  },
+  {
+    id: "twilio_account_sid",
+    name: "Twilio Account SID",
+    pattern: /AC[0-9a-f]{32}/g,
+    severity: "high",
+  },
+  {
+    id: "twilio_auth_token",
+    name: "Twilio Auth Token",
+    pattern: /(?i:twilio).{0,20}[0-9a-f]{32}/g,
+    severity: "critical",
+  },
+  {
+    id: "sendgrid_key",
+    name: "SendGrid API Key",
+    pattern: /SG\.[0-9A-Za-z\-_]{22}\.[0-9A-Za-z\-_]{43}/g,
+    severity: "critical",
+  },
+
+  // ── Database URLs ──────────────────────────────────────────────────────────
+  {
+    id: "db_url_postgres",
+    name: "PostgreSQL Connection String with credentials",
+    pattern: /postgres(?:ql)?:\/\/[^:]+:[^@\s]+@[^\s"']+/gi,
+    severity: "critical",
+    allowlist: [/localhost/, /127\.0\.0\.1/, /\$\{/, /<[A-Z_]+>/],
+  },
+  {
+    id: "db_url_mysql",
+    name: "MySQL Connection String with credentials",
+    pattern: /mysql:\/\/[^:]+:[^@\s]+@[^\s"']+/gi,
+    severity: "critical",
+    allowlist: [/localhost/, /127\.0\.0\.1/, /\$\{/, /<[A-Z_]+>/],
+  },
+  {
+    id: "db_url_mongodb",
+    name: "MongoDB Connection String with credentials",
+    pattern: /mongodb(?:\+srv)?:\/\/[^:]+:[^@\s]+@[^\s"']+/gi,
+    severity: "critical",
+    allowlist: [/localhost/, /127\.0\.0\.1/, /\$\{/, /<[A-Z_]+>/],
+  },
+  {
+    id: "db_url_redis",
+    name: "Redis Connection String with credentials",
+    pattern: /redis:\/\/[^:]+:[^@\s]+@[^\s"']+/gi,
+    severity: "high",
+    allowlist: [/localhost/, /127\.0\.0\.1/, /\$\{/],
+  },
+
+  // ── Private keys ───────────────────────────────────────────────────────────
+  {
+    id: "private_key_rsa",
+    name: "RSA Private Key",
+    pattern: /-----BEGIN RSA PRIVATE KEY-----/g,
+    severity: "critical",
+  },
+  {
+    id: "private_key_ec",
+    name: "EC Private Key",
+    pattern: /-----BEGIN EC PRIVATE KEY-----/g,
+    severity: "critical",
+  },
+  {
+    id: "private_key_openssh",
+    name: "OpenSSH Private Key",
+    pattern: /-----BEGIN OPENSSH PRIVATE KEY-----/g,
+    severity: "critical",
+  },
+  {
+    id: "private_key_generic",
+    name: "Generic Private Key",
+    pattern: /-----BEGIN PRIVATE KEY-----/g,
+    severity: "critical",
+  },
+  {
+    id: "pgp_private_key",
+    name: "PGP Private Key Block",
+    pattern: /-----BEGIN PGP PRIVATE KEY BLOCK-----/g,
+    severity: "critical",
+  },
+
+  // ── Auth tokens & JWTs ─────────────────────────────────────────────────────
+  {
+    id: "jwt",
+    name: "JSON Web Token",
+    pattern: /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g,
+    severity: "high",
+  },
+  {
+    id: "bearer_token",
+    name: "Bearer Token in code",
+    pattern: /['"](Bearer\s+[A-Za-z0-9\-._~+/]+=*)['"]/gi,
+    severity: "high",
+  },
+
+  // ── DevOps & infra ─────────────────────────────────────────────────────────
+  {
+    id: "npm_token",
+    name: "npm Access Token",
+    pattern: /npm_[A-Za-z0-9]{36}/g,
+    severity: "critical",
+  },
+  {
+    id: "docker_pat",
+    name: "Docker Hub Personal Access Token",
+    pattern: /dckr_pat_[A-Za-z0-9\-_]{27}/g,
+    severity: "high",
+  },
+  {
+    id: "vercel_token",
+    name: "Vercel API Token",
+    pattern: /vercel(?:[._-])?(?:token|api)['":\s=]+([A-Za-z0-9]{24})/gi,
+    severity: "high",
+  },
+
+  // ── Generic patterns ───────────────────────────────────────────────────────
+  {
+    id: "generic_secret_assignment",
+    name: "Hardcoded secret assignment",
+    pattern:
+      /(?:password|passwd|secret|api[_-]?key|auth[_-]?token|access[_-]?token|private[_-]?key)\s*[:=]\s*['"][^'"]{8,}['"]/gi,
+    severity: "medium",
+    allowlist: [
+      /process\.env/,
+      /\$\{/,
+      /os\.environ/,
+      /getenv/,
+      /placeholder/i,
+      /example/i,
+      /your[-_]?/i,
+      /<[A-Z_]+>/,
+      /\*{3,}/,
+    ],
+  },
+];
