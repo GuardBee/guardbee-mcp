@@ -17,8 +17,8 @@
   "dependencies": {
     "@guardbee/mcp-secret-scanner": "^0.1.5",
     "@guardbee/mcp-dependency-auditor": "^0.1.5",
-    "@guardbee/mcp-ssl-inspector": "^0.1.4",
-    "@guardbee/mcp-dns-intelligence": "^0.1.4",
+    "@guardbee/mcp-ssl-inspector": "^0.1.5",
+    "@guardbee/mcp-dns-intelligence": "^0.1.5",
     "@modelcontextprotocol/sdk": "^1.0.0"
   },
   "devDependencies": {
