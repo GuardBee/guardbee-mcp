@@ -122,6 +122,22 @@ npx @guardbee/mcp-ssl-inspector inspect example.com --format=json
 
 **Exit kodları:** `0` = sorun yok · `1` = threshold üstü bulgu / süresi dolmuş sert · `2` = hata
 
+### guardbee.yml ile Konfigürasyon
+
+Proje kökünde `guardbee.yml` oluşturarak CLI flag'lerini kalıcı hale getirebilirsiniz. CLI flag'leri her zaman dosya ayarlarını geçersiz kılar.
+
+```yaml
+ssl-inspector:
+  fail-on: high          # critical | high | medium | low
+  port: 443
+  hosts:                 # CLI'da domain verilmezse bu liste kullanılır
+    - example.com
+    - api.example.com
+    - shop.example.com
+```
+
+Örnek dosya için [`guardbee.example.yml`](guardbee.example.yml) dosyasına bakın.
+
 ### GitHub Actions — Deployment Sonrası Kontrol
 
 ```yaml
