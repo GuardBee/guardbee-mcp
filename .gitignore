@@ -3,3 +3,5 @@ dist/
 .turbo/
 *.tsbuildinfo
 *.mcpb
+*.js.map
+.env
