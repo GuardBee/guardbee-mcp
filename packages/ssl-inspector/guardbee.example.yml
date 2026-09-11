@@ -1,0 +1,11 @@
+# guardbee.yml — GuardBee project configuration
+# Place this file in your project root.
+# CLI flags always override file settings.
+
+ssl-inspector:
+  fail-on: high          # critical | high | medium | low
+  port: 443              # default port when not specified in host
+  hosts:                 # domains to inspect when none given on CLI
+    - example.com
+    - api.example.com
+    - shop.example.com
