@@ -51,11 +51,24 @@
     "zod": "^4.5.4"
   },
   "peerDependencies": {
-    "@prisma/client": ">=4.0.0"
+    "@prisma/client": ">=4.0.0",
+    "pg": ">=8.0.0",
+    "mysql2": ">=3.0.0"
   },
   "peerDependenciesMeta": {
     "@prisma/client": {
       "optional": true
+    },
+    "pg": {
+      "optional": true
+    },
+    "mysql2": {
+      "optional": true
     }
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.6",
+    "pg": "^8.13.1",
+    "mysql2": "^3.11.4"
   }
 }

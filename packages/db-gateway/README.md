@@ -26,8 +26,8 @@ Claude ──► MCP Gateway ──► Veritabanı
 - **Rol Bazlı Erişim (RBAC)** — Her rol için tablo beyaz/kara listesi ve alan kuralları
 - **Rate Limiting** — Global ve tablo bazlı istek penceresi
 - **Audit Log** — Console, dosya veya HTTP webhook'a yazılabilir
-- **Prisma Adaptörü** — Mevcut PrismaClient'ı doğrudan bağlayın
-- **61 unit test** — Masker, pipeline, RBAC, rate limiter ve Prisma adaptörü kapsanmış
+- **Prisma / Postgres / MySQL Adaptörleri** — Mevcut PrismaClient'ı, `pg` Pool'unu veya `mysql2` Pool'unu doğrudan bağlayın
+- **88 unit test** — Masker, pipeline, RBAC, rate limiter ve tüm adaptörler kapsanmış
 
 ---
 
@@ -82,6 +82,28 @@ const server = createServer(
   createPrismaAdapter(prisma)
 );
 ```
+
+Prisma kullanmıyorsanız, ham `pg` veya `mysql2` bağlantısını da doğrudan geçirebilirsiniz:
+
+```typescript
+// Postgres
+import { Pool } from "pg";
+import { createServer, createPgAdapter } from "@guardbee/mcp-db-gateway";
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const server = createServer({}, createPgAdapter(pool /*, { schema: "public" } */));
+```
+
+```typescript
+// MySQL
+import mysql from "mysql2/promise";
+import { createServer, createMysqlAdapter } from "@guardbee/mcp-db-gateway";
+
+const pool = mysql.createPool(process.env.DATABASE_URL!);
+const server = createServer({}, createMysqlAdapter(pool /*, { database: "shop" } */));
+```
+
+> **Güvenlik notu:** Prisma adaptörünün aksine `pg`/`mysql2` adaptörleri ham SQL üretir. Tablo ve kolon adları parametrize edilemediği için her sorguda `information_schema` üzerinden canlı şemayla doğrulanır — şemada olmayan bir tablo/kolon adı (örn. bir injection denemesi) SQL'e hiç ulaşmadan reddedilir.
 
 ---
 

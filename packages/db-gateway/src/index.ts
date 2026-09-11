@@ -7,3 +7,7 @@ export { GatewayPipeline } from "./gateway/pipeline";
 export { maskRow, maskRows, applyStrategy } from "./gateway/masker";
 export { AuditLogger, createAuditEvent } from "./audit/logger";
 export { createPrismaAdapter } from "./adapters/prisma";
+export { createPgAdapter } from "./adapters/pg";
+export type { PgQueryable, PgAdapterOptions } from "./adapters/pg";
+export { createMysqlAdapter } from "./adapters/mysql";
+export type { MysqlQueryable, MysqlAdapterOptions } from "./adapters/mysql";
