@@ -1,0 +1,39 @@
+{
+  "name": "@guardbee/mcp-compliance-checker",
+  "version": "0.1.1",
+  "description": "MCP server that checks KVKK, GDPR, and CCPA compliance for websites via the GuardBee API",
+  "type": "module",
+  "bin": {
+    "guardbee-compliance-checker": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0"
+  },
+  "keywords": ["mcp", "compliance", "kvkk", "gdpr", "ccpa", "privacy", "guardbee", "devtools"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp-compliance-checker"
+  }
+}
