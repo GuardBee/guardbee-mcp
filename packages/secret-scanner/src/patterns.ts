@@ -134,7 +134,7 @@ export const SECRET_PATTERNS: SecretPattern[] = [
   {
     id: "twilio_auth_token",
     name: "Twilio Auth Token",
-    pattern: /(?i:twilio).{0,20}[0-9a-f]{32}/g,
+    pattern: /[Tt][Ww][Ii][Ll][Ii][Oo].{0,20}[0-9a-f]{32}/g,
     severity: "critical",
   },
   {
