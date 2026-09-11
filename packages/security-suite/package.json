@@ -1,0 +1,47 @@
+{
+  "name": "@guardbee/security-suite",
+  "version": "0.1.2",
+  "description": "All GuardBee MCP security tools in one package — secret scanner, dependency auditor, SSL inspector, DNS intelligence",
+  "type": "module",
+  "bin": {
+    "guardbee": "./dist/cli.js",
+    "guardbee-suite": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cli.js",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@guardbee/mcp-secret-scanner": "^0.1.5",
+    "@guardbee/mcp-dependency-auditor": "^0.1.5",
+    "@guardbee/mcp-ssl-inspector": "^0.1.6",
+    "@guardbee/mcp-dns-intelligence": "^0.1.6",
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "mcp",
+    "security",
+    "secret-scanner",
+    "dependency-audit",
+    "ssl",
+    "dns",
+    "guardbee",
+    "devtools",
+    "cli"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp-security-suite"
+  }
+}
