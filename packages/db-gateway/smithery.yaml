@@ -1,0 +1,26 @@
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      databaseUrl:
+        type: string
+        description: "Database connection string (e.g. postgresql://user:pass@host:5432/db). Leave empty to run in demo mode."
+      gatewayRole:
+        type: string
+        description: "Active RBAC role name (optional). Must match a role defined in your config."
+      defaultMaxRows:
+        type: number
+        description: "Maximum rows returned per query (default: 50)."
+        default: 50
+    required: []
+  commandFunction: |-
+    config => ({
+      command: 'npx',
+      args: ['-y', '@guardbee/mcp-db-gateway@latest'],
+      env: {
+        ...(config.databaseUrl ? { DATABASE_URL: config.databaseUrl } : {}),
+        ...(config.gatewayRole ? { GATEWAY_ROLE: config.gatewayRole } : {}),
+        ...(config.defaultMaxRows ? { DEFAULT_MAX_ROWS: String(config.defaultMaxRows) } : {})
+      }
+    })

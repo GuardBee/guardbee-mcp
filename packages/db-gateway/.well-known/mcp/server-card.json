@@ -1,0 +1,49 @@
+{
+  "serverInfo": {
+    "name": "@guardbee/mcp-db-gateway",
+    "version": "0.1.1",
+    "description": "KVKK/GDPR-compliant MCP gateway between LLMs and databases. Provides PII masking, RBAC, rate limiting, and audit logging."
+  },
+  "tools": [
+    {
+      "name": "query_table",
+      "description": "Query rows from a database table. PII fields are automatically masked according to configured field rules.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "table": { "type": "string", "description": "Table name to query" },
+          "filter": { "type": "object", "description": "Key-value filter conditions" },
+          "limit": { "type": "number", "description": "Maximum rows to return (default: 50)" }
+        },
+        "required": ["table"]
+      }
+    },
+    {
+      "name": "list_tables",
+      "description": "List all accessible database tables. Role-based access restrictions are applied.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "describe_table",
+      "description": "Show table schema and the active masking policy for each field.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "table": { "type": "string", "description": "Table name to describe" }
+        },
+        "required": ["table"]
+      }
+    },
+    {
+      "name": "gateway_status",
+      "description": "Show active configuration: role, rate limit status, field rules, and table rules.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "manifest_version": "0.3",
+  "name": "@guardbee/mcp-db-gateway",
+  "display_name": "GuardBee MCP DB Gateway",
+  "version": "0.1.1",
+  "description": "KVKK/GDPR-compliant MCP gateway between LLMs and databases. PII masking, RBAC, rate limiting, audit logging.",
+  "long_description": "GuardBee MCP DB Gateway sits between your LLM and database, automatically masking PII fields (TC kimlik, IBAN, email, phone), enforcing role-based table access, rate limiting queries, and writing audit logs. Supports Prisma and any database via custom adapters.",
+  "author": {
+    "name": "GuardBee",
+    "email": "hello@guardbee.ai",
+    "url": "https://guardbee.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp-gateway.git"
+  },
+  "homepage": "https://guardbee.ai",
+  "license": "MIT",
+  "keywords": ["mcp", "gdpr", "kvkk", "pii", "database", "security", "prisma"],
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18"
+    }
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/cli.js"],
+      "env": {
+        "DATABASE_URL": "${user_config.databaseUrl}",
+        "GATEWAY_ROLE": "${user_config.gatewayRole}"
+      }
+    }
+  },
+  "user_config": {
+    "databaseUrl": {
+      "type": "string",
+      "title": "Database URL",
+      "description": "Database connection string (e.g. postgresql://user:pass@host:5432/db). Leave empty to run in demo mode.",
+      "required": false,
+      "sensitive": true
+    },
+    "gatewayRole": {
+      "type": "string",
+      "title": "Active Role",
+      "description": "RBAC role name (optional). Must match a role defined in your config.",
+      "required": false
+    }
+  },
+  "tools_generated": true
+}

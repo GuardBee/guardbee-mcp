@@ -1,0 +1,67 @@
+{
+  "name": "@guardbee/mcp-db-gateway",
+  "version": "0.1.1",
+  "description": "KVKK/GDPR-compliant MCP server gateway between LLMs and databases",
+  "author": "GuardBee <hello@guardbee.ai>",
+  "license": "MIT",
+  "homepage": "https://github.com/GuardBee/guardbee-mcp-gateway#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp-gateway.git"
+  },
+  "bugs": {
+    "url": "https://github.com/GuardBee/guardbee-mcp-gateway/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "llm",
+    "gateway",
+    "kvkk",
+    "gdpr",
+    "pii",
+    "database",
+    "security",
+    "prisma",
+    "claude"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "guardbee-gateway": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts",
+    "start": "node dist/cli.js",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm test && npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.5.4"
+  },
+  "peerDependencies": {
+    "@prisma/client": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@prisma/client": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^26.5.0",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2",
+    "vitest": "^3.2.7"
+  }
+}
