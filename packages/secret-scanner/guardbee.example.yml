@@ -1,0 +1,15 @@
+# guardbee.yml — GuardBee project configuration
+# Place this file in your project root.
+# CLI flags always override file settings.
+
+secret-scanner:
+  fail-on: high          # any | critical | high | medium | low | none
+  max-files: 5000
+  exclude:
+    - "**/*.test.ts"
+    - "fixtures/"
+    - ".env.example"
+  allowlist:             # strings that mark a match as intentionally fake
+    - "EXAMPLE_KEY"
+    - "sk_test_fake"
+    - "YOUR_API_KEY_HERE"
