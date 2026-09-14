@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
 import { parseNpmManifest } from "./parsers/npm.js";
 import { parsePipRequirements } from "./parsers/pip.js";
@@ -57,6 +58,7 @@ export async function startServer() {
     name: "guardbee-dependency-auditor",
     version: "0.1.0",
   });
+  instrumentServer(server, "dependency-auditor");
 
   server.tool(
     "audit_npm",

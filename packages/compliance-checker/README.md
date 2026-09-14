@@ -6,6 +6,8 @@
 
 KVKK, GDPR ve CCPA uyum kontrollerini GuardBee API ile çalıştıran, gizlilik politikalarını analiz eden ve yasal gereksinimleri karşılaştıran MCP sunucusu. Üç araç API anahtarı gerektirmeden çalışır.
 
+> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler — bkz. [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+
 > **GuardBee API anahtarı** `check_compliance` ve `get_compliance_findings` araçları için gereklidir. [app.guardbee.ai/developers](https://app.guardbee.ai/developers) adresinden alın.
 
 ---

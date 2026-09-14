@@ -32,6 +32,9 @@ importers:
 
   packages/ai-code-scanner:
     dependencies:
+      '@guardbee/mcp-telemetry':
+        specifier: workspace:^
+        version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: ^1.0.0
         version: 1.30.0(zod@4.6.2)
@@ -41,6 +44,9 @@ importers:
 
   packages/compliance-checker:
     dependencies:
+      '@guardbee/mcp-telemetry':
+        specifier: workspace:^
+        version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: ^1.0.0
         version: 1.30.0(zod@4.6.2)
@@ -50,6 +56,9 @@ importers:
 
   packages/db-gateway:
     dependencies:
+      '@guardbee/mcp-telemetry':
+        specifier: workspace:^
+        version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: ^1.30.0
         version: 1.30.0(zod@4.6.2)
@@ -72,6 +81,9 @@ importers:
 
   packages/dependency-auditor:
     dependencies:
+      '@guardbee/mcp-telemetry':
+        specifier: workspace:^
+        version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: ^1.0.0
         version: 1.30.0(zod@4.6.2)
@@ -81,6 +93,9 @@ importers:
 
   packages/dns-intelligence:
     dependencies:
+      '@guardbee/mcp-telemetry':
+        specifier: workspace:^
+        version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: ^1.0.0
         version: 1.30.0(zod@4.6.2)
@@ -90,6 +105,9 @@ importers:
 
   packages/secret-scanner:
     dependencies:
+      '@guardbee/mcp-telemetry':
+        specifier: workspace:^
+        version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: ^1.0.0
         version: 1.30.0(zod@4.6.2)
@@ -99,6 +117,9 @@ importers:
 
   packages/security-proxy:
     dependencies:
+      '@guardbee/mcp-telemetry':
+        specifier: workspace:^
+        version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: ^1.30.0
         version: 1.30.0(zod@4.6.2)
@@ -120,6 +141,9 @@ importers:
       '@guardbee/mcp-ssl-inspector':
         specifier: workspace:^
         version: link:../ssl-inspector
+      '@guardbee/mcp-telemetry':
+        specifier: workspace:^
+        version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: ^1.0.0
         version: 1.30.0(zod@4.6.2)
@@ -129,6 +153,9 @@ importers:
 
   packages/ssl-inspector:
     dependencies:
+      '@guardbee/mcp-telemetry':
+        specifier: workspace:^
+        version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: ^1.0.0
         version: 1.30.0(zod@4.6.2)
@@ -136,8 +163,17 @@ importers:
         specifier: ^4.5.4
         version: 4.6.2
 
+  packages/telemetry:
+    devDependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.0.0
+        version: 1.30.0(zod@4.6.2)
+
   packages/vulnerability-scanner:
     dependencies:
+      '@guardbee/mcp-telemetry':
+        specifier: workspace:^
+        version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: ^1.0.0
         version: 1.30.0(zod@4.6.2)

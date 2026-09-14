@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
 import { inspectHost, checkHsts, formatInspectReport } from "./inspector.js";
 
@@ -8,6 +9,7 @@ export async function startServer() {
     name: "guardbee-ssl-inspector",
     version: "0.1.0",
   });
+  instrumentServer(server, "ssl-inspector");
 
   server.tool(
     "inspect_ssl",

@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
 import { scanText, scanFile, scanDirectory } from "./scanner.js";
 import { AI_CODE_PATTERNS } from "./patterns.js";
@@ -36,6 +37,7 @@ export async function startServer() {
     name: "guardbee-ai-code-scanner",
     version: "0.1.0",
   });
+  instrumentServer(server, "ai-code-scanner");
 
   server.tool(
     "scan_text",

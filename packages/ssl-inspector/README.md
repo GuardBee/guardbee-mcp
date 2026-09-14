@@ -6,6 +6,8 @@
 
 TLS sertifikası, cipher suite ve protokol konfigürasyonlarını herhangi bir domain için inceleyen MCP sunucusu. Node.js yerleşik `tls` modülü kullanır — harici bağımlılık yoktur.
 
+> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler — bkz. [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+
 ---
 
 ## Özellikler

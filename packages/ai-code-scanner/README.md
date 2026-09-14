@@ -4,6 +4,8 @@ MCP (Model Context Protocol) sunucusu — kod tabanınızı, LLM/AI entegrasyonl
 
 `secret-scanner` sırlar/API key'ler ararken, bu paket **kalıp** arar: modelin çıktısına ne kadar güvenildiği, modelin çağırabildiği tool'ların ne kadar yetkili olduğu, hangi verinin üçüncü taraf bir LLM'e gönderildiği gibi, statik bir credential taramasıyla yakalanamayan riskler.
 
+> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler, taranan kod hiçbir zaman dahil değil — bkz. [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+
 ```
 Claude ──► ai-code-scanner ──► Kod tabanınız
               │

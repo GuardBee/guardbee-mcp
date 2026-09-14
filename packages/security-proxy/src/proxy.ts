@@ -14,6 +14,7 @@ import type { ProxyConfig } from "./types.js";
 import { scanForPromptInjection } from "./interceptors/prompt-injection.js";
 import { maskPiiInValue } from "./interceptors/pii-masker.js";
 import { AuditLogger } from "./audit/logger.js";
+import { recordEvent } from "@guardbee/mcp-telemetry";
 
 export async function startProxy(config: ProxyConfig): Promise<void> {
   const audit = new AuditLogger(
@@ -58,6 +59,7 @@ export async function startProxy(config: ProxyConfig): Promise<void> {
   server.setRequestHandler(CallToolRequestSchema, async (req) => {
     const toolName = req.params.name;
     const toolInput = req.params.arguments ?? {};
+    const started = Date.now();
 
     // 1. Prompt injection scan on input
     if (config.interceptors?.promptInjection?.enabled !== false) {
@@ -70,6 +72,14 @@ export async function startProxy(config: ProxyConfig): Promise<void> {
           server: serverInfo?.name,
           input: toolInput,
           reason: scan.reason,
+        });
+        void recordEvent({
+          server: "security-proxy",
+          tool: toolName,
+          params: toolInput as Record<string, unknown>,
+          success: false,
+          durationMs: Date.now() - started,
+          error: `blocked: ${scan.reason}`,
         });
         return {
           content: [
@@ -121,6 +131,14 @@ export async function startProxy(config: ProxyConfig): Promise<void> {
       tool: toolName,
       server: serverInfo?.name,
       output: content,
+    });
+
+    void recordEvent({
+      server: "security-proxy",
+      tool: toolName,
+      params: toolInput as Record<string, unknown>,
+      success: !result.isError,
+      durationMs: Date.now() - started,
     });
 
     return { ...result, content };

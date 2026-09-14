@@ -5,6 +5,8 @@
 
 Tüm GuardBee MCP güvenlik araçlarını tek pakette toplayan meta-paket. Secret scanner, dependency auditor, SSL inspector ve DNS intelligence tek kurulumla kullanılabilir.
 
+> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler — bkz. [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+
 ---
 
 ## Hızlı Başlangıç

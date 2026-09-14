@@ -60,6 +60,7 @@ async function runServe(): Promise<void> {
   // into a single McpServer instance.
   const { McpServer } = await import("@modelcontextprotocol/sdk/server/mcp.js");
   const { StdioServerTransport } = await import("@modelcontextprotocol/sdk/server/stdio.js");
+  const { instrumentServer } = await import("@guardbee/mcp-telemetry");
   const { z } = await import("zod");
 
   // Import core functions from each tool
@@ -71,6 +72,7 @@ async function runServe(): Promise<void> {
   const { enumerateDomain, enumerateSubdomains } = await import("@guardbee/mcp-dns-intelligence") as any;
 
   const server = new McpServer({ name: "guardbee-security-suite", version: "0.1.0" });
+  instrumentServer(server, "security-suite");
 
   // ── Secret Scanner tools ────────────────────────────────────────────────────
   server.tool("scan_directory", "Scan a directory for exposed secrets, API keys, and credentials",

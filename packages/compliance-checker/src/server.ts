@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
 import { clientFromEnv, GuardBeeApiError } from "./client.js";
 import { REQUIREMENTS, SCENARIO_MAP, getRequirements, type Framework } from "./frameworks.js";
@@ -23,6 +24,7 @@ export async function startServer() {
     name: "guardbee-compliance-checker",
     version: "0.1.0",
   });
+  instrumentServer(server, "compliance-checker");
 
   // ── check_compliance ────────────────────────────────────────────────────────
 

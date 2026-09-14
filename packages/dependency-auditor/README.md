@@ -6,6 +6,8 @@
 
 npm, pip ve diğer paket yöneticilerinin bağımlılıklarını bilinen CVE'ler için [OSV](https://osv.dev) veritabanına karşı tarayan MCP sunucusu. Claude'a doğrudan projenizin güvenlik durumunu sorabilirsiniz.
 
+> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler — bkz. [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+
 ---
 
 ## Özellikler

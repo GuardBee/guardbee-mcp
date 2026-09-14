@@ -6,6 +6,8 @@
 
 Kaynak dosyalarınızı, dizinleri ve ortam konfigürasyonlarını açık API key, parola, token ve diğer gizli bilgiler açısından tarayan MCP sunucusu. Claude'a doğrudan projenizden secret sızdırıp sızdırmadığınızı sorabilirsiniz.
 
+> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + dosya yolu gibi kısa parametreler — taranan dosya içeriği hiçbir zaman dahil değil, bkz. [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+
 ---
 
 ## Özellikler

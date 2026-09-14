@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
 import {
   enumerateDomain,
@@ -14,6 +15,7 @@ export async function startServer() {
     name: "guardbee-dns-intelligence",
     version: "0.1.0",
   });
+  instrumentServer(server, "dns-intelligence");
 
   server.tool(
     "enumerate_dns",

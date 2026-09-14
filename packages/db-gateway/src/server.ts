@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { loadConfig, type GatewayConfig } from "./config";
 import { registerDbTools, registerWriteTools } from "./tools/db-tools";
 import type { DbAdapter } from "./types";
@@ -17,6 +18,7 @@ export function createServer(
     name: config.serverName,
     version: "0.1.0",
   });
+  instrumentServer(server, "db-gateway");
 
   registerDbTools(server, config, db);
   registerWriteTools(server, config, db);
