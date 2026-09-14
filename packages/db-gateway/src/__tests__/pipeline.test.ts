@@ -161,3 +161,133 @@ describe("GatewayPipeline — filterTables", () => {
     expect(pipeline.filterTables(["users", "products", "orders"])).toEqual(["products"]);
   });
 });
+
+describe("GatewayPipeline — authorizeWrite", () => {
+  it("writesEnabled false iken (default) her write reddedilir", () => {
+    return makePipeline({
+      tableRules: [{ table: "orders", access: "allow", write: { insert: true, update: true, delete: true } }],
+    })
+      .authorizeWrite("insert_row", "orders", "insert", undefined, { amount: 10 })
+      .then((result) => {
+        expect("denied" in result).toBe(true);
+        if ("denied" in result) expect(result.reason).toContain("Writes are disabled");
+      });
+  });
+
+  it("writesEnabled true ama tablo write izni yoksa reddedilir", async () => {
+    const pipeline = makePipeline({
+      writesEnabled: true,
+      tableRules: [{ table: "orders", access: "allow" }],
+    });
+    const result = await pipeline.authorizeWrite("insert_row", "orders", "insert", undefined, { amount: 10 });
+    expect("denied" in result).toBe(true);
+  });
+
+  it("writesEnabled true ve tablo izni varsa kabul edilir", async () => {
+    const pipeline = makePipeline({
+      writesEnabled: true,
+      tableRules: [{ table: "orders", access: "allow", write: { insert: true, update: false, delete: false } }],
+    });
+    const result = await pipeline.authorizeWrite("insert_row", "orders", "insert", undefined, { amount: 10 });
+    expect(result).toEqual({ allowed: true, tableRule: expect.objectContaining({ table: "orders" }) });
+  });
+
+  it("korumalı (redact/mask) alana yazma reddedilir", async () => {
+    const pipeline = makePipeline({
+      writesEnabled: true,
+      tableRules: [{ table: "users", access: "allow", write: { insert: true, update: false, delete: false } }],
+    });
+    const result = await pipeline.authorizeWrite("insert_row", "users", "insert", undefined, { tcKimlik: "1", firstName: "Ali" });
+    expect("denied" in result).toBe(true);
+    if ("denied" in result) expect(result.reason).toContain("tcKimlik");
+  });
+
+  it("update/delete boş filtre ile reddedilir", async () => {
+    const pipeline = makePipeline({
+      writesEnabled: true,
+      tableRules: [{ table: "orders", access: "allow", write: { insert: true, update: true, delete: true } }],
+    });
+    const updateResult = await pipeline.authorizeWrite("update_row", "orders", "update", {}, { status: "shipped" });
+    expect("denied" in updateResult).toBe(true);
+    if ("denied" in updateResult) expect(updateResult.reason).toContain("non-empty filter");
+
+    const deleteResult = await pipeline.authorizeWrite("delete_row", "orders", "delete", undefined, undefined);
+    expect("denied" in deleteResult).toBe(true);
+  });
+
+  it("insert için filtre gerekmez", async () => {
+    const pipeline = makePipeline({
+      writesEnabled: true,
+      tableRules: [{ table: "orders", access: "allow", write: { insert: true, update: false, delete: false } }],
+    });
+    const result = await pipeline.authorizeWrite("insert_row", "orders", "insert", undefined, { amount: 10 });
+    expect("denied" in result).toBe(false);
+  });
+
+  it("global tableRules deny write'ı da engeller", async () => {
+    const pipeline = makePipeline({
+      writesEnabled: true,
+      tableRules: [{ table: "orders", access: "deny", write: { insert: true, update: true, delete: true } }],
+    });
+    const result = await pipeline.authorizeWrite("insert_row", "orders", "insert", undefined, { amount: 10 });
+    expect("denied" in result).toBe(true);
+    if ("denied" in result) expect(result.reason).toContain("denied by gateway policy");
+  });
+
+  it("write rate limiti read'den ayrıdır", async () => {
+    const pipeline = makePipeline({
+      writesEnabled: true,
+      tableRules: [{ table: "orders", access: "allow", write: { insert: true, update: false, delete: false } }],
+      rateLimit: { enabled: true, windowMs: 60_000, maxRequests: 100, maxRequestsPerTable: 100, maxWrites: 1, maxWritesPerTable: 100 },
+    });
+    await pipeline.authorizeWrite("insert_row", "orders", "insert", undefined, { amount: 1 });
+    const result = await pipeline.authorizeWrite("insert_row", "orders", "insert", undefined, { amount: 2 });
+    expect("denied" in result).toBe(true);
+    if ("denied" in result) expect(result.reason).toContain("write rate limit");
+  });
+});
+
+describe("GatewayPipeline — checkAffectedRows", () => {
+  it("limit aşılmazsa izin verir", async () => {
+    const pipeline = makePipeline({ maxAffectedRowsPerWrite: 10 });
+    const result = await pipeline.checkAffectedRows("update_row", "orders", "update", { status: "x" }, { a: 1 }, 5);
+    expect(result).toEqual({ allowed: true });
+  });
+
+  it("limit aşılırsa reddeder ve audit'e yazar", async () => {
+    const pipeline = makePipeline({ maxAffectedRowsPerWrite: 3 });
+    const result = await pipeline.checkAffectedRows("delete_row", "orders", "delete", { status: "x" }, undefined, 4);
+    expect("denied" in result).toBe(true);
+    if ("denied" in result) {
+      expect(result.reason).toContain("exceeds maxAffectedRowsPerWrite");
+      expect(result.auditId).toBeTruthy();
+    }
+  });
+});
+
+describe("GatewayPipeline — recordWrite", () => {
+  it("insert edilen satırı maskeleyerek döner", async () => {
+    const pipeline = makePipeline();
+    const result = await pipeline.recordWrite(
+      "insert_row",
+      "users",
+      "insert",
+      undefined,
+      { tcKimlik: "12345678901", firstName: "Ali" },
+      1,
+      { id: "u9", tcKimlik: "12345678901", firstName: "Ali" },
+      Date.now()
+    );
+    expect(result.row?.["tcKimlik"]).toBe("[REDACTED]");
+    expect(result.row?.["firstName"]).toBe("Ali");
+    expect(result.rowsAffected).toBe(1);
+    expect(result.auditId).toBeTruthy();
+  });
+
+  it("update/delete için row undefined döner", async () => {
+    const pipeline = makePipeline();
+    const result = await pipeline.recordWrite("update_row", "orders", "update", { id: 1 }, { status: "x" }, 2, undefined, Date.now());
+    expect(result.row).toBeUndefined();
+    expect(result.rowsAffected).toBe(2);
+  });
+});

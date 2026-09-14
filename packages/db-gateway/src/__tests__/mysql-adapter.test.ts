@@ -21,6 +21,15 @@ function makeMockPool(): { pool: MysqlQueryable; calls: Array<{ sql: string; val
         const table = values.at(-1);
         return [table === "users" ? usersColumns : [], undefined];
       }
+      if (sql.startsWith("INSERT INTO")) {
+        return [{ affectedRows: 1, insertId: 7 }, undefined];
+      }
+      if (sql.startsWith("UPDATE")) {
+        return [{ affectedRows: 2, insertId: 0 }, undefined];
+      }
+      if (sql.startsWith("DELETE FROM")) {
+        return [{ affectedRows: 1, insertId: 0 }, undefined];
+      }
       if (sql.includes("FROM") && sql.includes("users")) {
         const filtered = values.length > 0 ? usersRows.filter((r) => r.status === values[0]) : usersRows;
         return [filtered, undefined];
@@ -99,5 +108,89 @@ describe("createMysqlAdapter — query()", () => {
     const { pool } = makeMockPool();
     const adapter = createMysqlAdapter(pool);
     await expect(adapter.query("users", {}, 0)).rejects.toThrow("Invalid limit");
+  });
+});
+
+describe("createMysqlAdapter — insert()", () => {
+  it("INSERT SQL üretir, insertId'yi 'id' kolonuna ekler", async () => {
+    const { pool, calls } = makeMockPool();
+    const adapter = createMysqlAdapter(pool);
+    const row = await adapter.insert!("users", { email: "new@x.com", status: "pending" });
+    expect(row).toEqual({ email: "new@x.com", status: "pending", id: 7 });
+
+    const insertCall = calls.at(-1);
+    expect(insertCall?.sql).toContain("INSERT INTO");
+    expect(insertCall?.sql).toContain("`email`, `status`");
+    expect(insertCall?.values).toEqual(["new@x.com", "pending"]);
+  });
+
+  it("data zaten 'id' içeriyorsa insertId'yle üzerine yazmaz", async () => {
+    const { pool } = makeMockPool();
+    const adapter = createMysqlAdapter(pool);
+    const row = await adapter.insert!("users", { id: 99, email: "x@y.com", status: "active" });
+    expect(row["id"]).toBe(99);
+  });
+
+  it("bilinmeyen kolona insert'i reddeder", async () => {
+    const { pool } = makeMockPool();
+    const adapter = createMysqlAdapter(pool);
+    await expect(adapter.insert!("users", { evil: 1 })).rejects.toThrow('Unknown column "evil"');
+  });
+});
+
+describe("createMysqlAdapter — update()", () => {
+  it("SET ve WHERE clause'larını parametrize eder, etkilenen satır sayısını döner", async () => {
+    const { pool, calls } = makeMockPool();
+    const adapter = createMysqlAdapter(pool);
+    const count = await adapter.update!("users", { status: "active" }, { email: "changed@x.com" });
+    expect(count).toBe(2);
+
+    const updateCall = calls.at(-1);
+    expect(updateCall?.sql).toContain("SET `email` = ?");
+    expect(updateCall?.sql).toContain("WHERE `status` = ?");
+    expect(updateCall?.values).toEqual(["changed@x.com", "active"]);
+  });
+
+  it("boş filtre ile reddeder", async () => {
+    const { pool, calls } = makeMockPool();
+    const adapter = createMysqlAdapter(pool);
+    await expect(adapter.update!("users", {}, { email: "x" })).rejects.toThrow("non-empty filter");
+    expect(calls.length).toBe(0);
+  });
+
+  it("boş data ile reddeder", async () => {
+    const { pool } = makeMockPool();
+    const adapter = createMysqlAdapter(pool);
+    await expect(adapter.update!("users", { status: "active" }, {})).rejects.toThrow("at least one field");
+  });
+});
+
+describe("createMysqlAdapter — delete()", () => {
+  it("WHERE clause'unu parametrize eder, silinen satır sayısını döner", async () => {
+    const { pool, calls } = makeMockPool();
+    const adapter = createMysqlAdapter(pool);
+    const count = await adapter.delete!("users", { status: "inactive" });
+    expect(count).toBe(1);
+
+    const deleteCall = calls.at(-1);
+    expect(deleteCall?.sql).toContain("DELETE FROM");
+    expect(deleteCall?.sql).toContain("WHERE `status` = ?");
+    expect(deleteCall?.values).toEqual(["inactive"]);
+  });
+
+  it("boş filtre ile reddeder", async () => {
+    const { pool, calls } = makeMockPool();
+    const adapter = createMysqlAdapter(pool);
+    await expect(adapter.delete!("users", {})).rejects.toThrow("non-empty filter");
+    expect(calls.length).toBe(0);
+  });
+
+  it("SQL injection deneyen tablo adını reddeder", async () => {
+    const { pool, calls } = makeMockPool();
+    const adapter = createMysqlAdapter(pool);
+    await expect(adapter.delete!("users`; DROP TABLE users;--", { status: "x" })).rejects.toThrow(
+      "Invalid table name"
+    );
+    expect(calls.length).toBe(0);
   });
 });

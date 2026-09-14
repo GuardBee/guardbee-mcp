@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { RoleResolver } from "../rbac";
-import { loadConfig } from "../config";
+import { loadConfig, type TableRule } from "../config";
 
 function makeResolver(activeRole?: string, roles = defaultRoles()) {
   const config = loadConfig({ activeRole, roles });
@@ -117,5 +117,47 @@ describe("RoleResolver — effectiveMaxRows", () => {
   it("ikisi de yoksa global defaultMaxRows (50)", () => {
     const r = makeResolver("analyst");
     expect(r.effectiveMaxRows()).toBe(50);
+  });
+});
+
+describe("RoleResolver — checkWriteAccess", () => {
+  const writableTable: TableRule = {
+    table: "orders",
+    access: "allow",
+    write: { insert: true, update: true, delete: false },
+  };
+  const readonlyTable: TableRule = { table: "products", access: "allow" };
+
+  it("rol yokken tablo write izni tek başına yeterli", () => {
+    const r = makeResolver(undefined);
+    expect(r.checkWriteAccess(writableTable, "insert").allowed).toBe(true);
+    expect(r.checkWriteAccess(writableTable, "update").allowed).toBe(true);
+  });
+
+  it("tablo write izni yoksa reddedilir (rol olmasa bile)", () => {
+    const r = makeResolver(undefined);
+    expect(r.checkWriteAccess(readonlyTable, "insert").allowed).toBe(false);
+    expect(r.checkWriteAccess(writableTable, "delete").allowed).toBe(false);
+  });
+
+  it("tableRule tanımsızsa (undefined) her zaman reddedilir", () => {
+    const r = makeResolver(undefined);
+    expect(r.checkWriteAccess(undefined, "insert").allowed).toBe(false);
+  });
+
+  it("rol aktifken write tanımlamamışsa tablo izni olsa bile reddedilir", () => {
+    const r = makeResolver("admin"); // admin rolünde write tanımlı değil
+    expect(r.checkWriteAccess(writableTable, "insert").allowed).toBe(false);
+  });
+
+  it("rol write tanımlıyorsa ve tablo da izin veriyorsa (AND) izin verilir", () => {
+    const roles = [
+      ...defaultRoles(),
+      { name: "writer", write: { insert: true, update: false, delete: false } },
+    ];
+    const r = makeResolver("writer", roles);
+    expect(r.checkWriteAccess(writableTable, "insert").allowed).toBe(true);
+    // rol update'i false diyor → tablo izin verse de reddedilir
+    expect(r.checkWriteAccess(writableTable, "update").allowed).toBe(false);
   });
 });

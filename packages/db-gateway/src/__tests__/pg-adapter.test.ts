@@ -21,6 +21,15 @@ function makeMockPool(): { pool: PgQueryable; calls: Array<{ text: string; value
         const table = values[1];
         return { rows: table === "users" ? usersColumns : [] };
       }
+      if (text.startsWith("INSERT INTO")) {
+        return { rows: [{ id: 3, email: "new@x.com", status: "pending" }] };
+      }
+      if (text.startsWith("UPDATE")) {
+        return { rows: [], rowCount: 2 };
+      }
+      if (text.startsWith("DELETE FROM")) {
+        return { rows: [], rowCount: 1 };
+      }
       if (text.includes("FROM") && text.includes("users")) {
         const filtered =
           values.length > 0
@@ -109,5 +118,106 @@ describe("createPgAdapter — query()", () => {
     const adapter = createPgAdapter(pool, { schema: "tenant_a" });
     await adapter.tables();
     expect(calls[0]?.values).toEqual(["tenant_a"]);
+  });
+});
+
+describe("createPgAdapter — insert()", () => {
+  it("INSERT SQL üretir ve RETURNING * ile eklenen satırı döner", async () => {
+    const { pool, calls } = makeMockPool();
+    const adapter = createPgAdapter(pool);
+    const row = await adapter.insert!("users", { email: "new@x.com", status: "pending" });
+    expect(row).toEqual({ id: 3, email: "new@x.com", status: "pending" });
+
+    const insertCall = calls.at(-1);
+    expect(insertCall?.text).toContain("INSERT INTO");
+    expect(insertCall?.text).toContain('"email", "status"');
+    expect(insertCall?.text).toContain("RETURNING *");
+    expect(insertCall?.values).toEqual(["new@x.com", "pending"]);
+  });
+
+  it("boş data için DEFAULT VALUES kullanır", async () => {
+    const { pool, calls } = makeMockPool();
+    const adapter = createPgAdapter(pool);
+    await adapter.insert!("users", {});
+    expect(calls.at(-1)?.text).toContain("DEFAULT VALUES");
+  });
+
+  it("bilinmeyen kolona insert'i reddeder", async () => {
+    const { pool } = makeMockPool();
+    const adapter = createPgAdapter(pool);
+    await expect(adapter.insert!("users", { evil: 1 })).rejects.toThrow('Unknown column "evil"');
+  });
+
+  it("SQL injection deneyen tablo adını reddeder", async () => {
+    const { pool, calls } = makeMockPool();
+    const adapter = createPgAdapter(pool);
+    await expect(adapter.insert!('users"; DROP TABLE users;--', { email: "x" })).rejects.toThrow(
+      "Invalid table name"
+    );
+    expect(calls.length).toBe(0);
+  });
+});
+
+describe("createPgAdapter — update()", () => {
+  it("SET ve WHERE clause'larını parametrize eder, etkilenen satır sayısını döner", async () => {
+    const { pool, calls } = makeMockPool();
+    const adapter = createPgAdapter(pool);
+    const count = await adapter.update!("users", { status: "active" }, { email: "changed@x.com" });
+    expect(count).toBe(2);
+
+    const updateCall = calls.at(-1);
+    expect(updateCall?.text).toContain('SET "email" = $1');
+    expect(updateCall?.text).toContain('WHERE "status" = $2');
+    expect(updateCall?.values).toEqual(["changed@x.com", "active"]);
+  });
+
+  it("boş filtre ile reddeder", async () => {
+    const { pool, calls } = makeMockPool();
+    const adapter = createPgAdapter(pool);
+    await expect(adapter.update!("users", {}, { email: "x" })).rejects.toThrow("non-empty filter");
+    expect(calls.length).toBe(0);
+  });
+
+  it("boş data ile reddeder", async () => {
+    const { pool } = makeMockPool();
+    const adapter = createPgAdapter(pool);
+    await expect(adapter.update!("users", { status: "active" }, {})).rejects.toThrow(
+      "at least one field"
+    );
+  });
+
+  it("bilinmeyen kolona update'i reddeder", async () => {
+    const { pool } = makeMockPool();
+    const adapter = createPgAdapter(pool);
+    await expect(adapter.update!("users", { status: "active" }, { evil: 1 })).rejects.toThrow(
+      'Unknown column "evil"'
+    );
+  });
+});
+
+describe("createPgAdapter — delete()", () => {
+  it("WHERE clause'unu parametrize eder, silinen satır sayısını döner", async () => {
+    const { pool, calls } = makeMockPool();
+    const adapter = createPgAdapter(pool);
+    const count = await adapter.delete!("users", { status: "inactive" });
+    expect(count).toBe(1);
+
+    const deleteCall = calls.at(-1);
+    expect(deleteCall?.text).toContain('DELETE FROM');
+    expect(deleteCall?.text).toContain('WHERE "status" = $1');
+    expect(deleteCall?.values).toEqual(["inactive"]);
+  });
+
+  it("boş filtre ile reddeder", async () => {
+    const { pool, calls } = makeMockPool();
+    const adapter = createPgAdapter(pool);
+    await expect(adapter.delete!("users", {})).rejects.toThrow("non-empty filter");
+    expect(calls.length).toBe(0);
+  });
+
+  it("SQL injection deneyen filter key'ini reddeder", async () => {
+    const { pool } = makeMockPool();
+    const adapter = createPgAdapter(pool);
+    await expect(adapter.delete!("users", { '1"="1" OR "1': 1 })).rejects.toThrow("Invalid column name");
   });
 });

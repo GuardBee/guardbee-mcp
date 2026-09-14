@@ -27,7 +27,8 @@ Claude ──► MCP Gateway ──► Veritabanı
 - **Rate Limiting** — Global ve tablo bazlı istek penceresi
 - **Audit Log** — Console, dosya veya HTTP webhook'a yazılabilir
 - **Prisma / Postgres / MySQL Adaptörleri** — Mevcut PrismaClient'ı, `pg` Pool'unu veya `mysql2` Pool'unu doğrudan bağlayın
-- **88 unit test** — Masker, pipeline, RBAC, rate limiter ve tüm adaptörler kapsanmış
+- **Yazma Desteği (opsiyonel)** — insert/update/delete, varsayılan kapalı; tablo+rol bazlı izin, korumalı alan koruması ve "tüm tabloyu etkileme" güvenlik ağı ile
+- **140 unit test** — Masker, pipeline, RBAC, rate limiter ve tüm adaptörler (okuma + yazma) kapsanmış
 
 ---
 
@@ -109,7 +110,7 @@ const server = createServer({}, createMysqlAdapter(pool /*, { database: "shop" }
 
 ## MCP Tools
 
-Gateway aşağıdaki 4 tool'u Claude'a sunar:
+Gateway her zaman şu 4 okuma tool'unu Claude'a sunar:
 
 | Tool | Açıklama |
 |------|----------|
@@ -117,6 +118,14 @@ Gateway aşağıdaki 4 tool'u Claude'a sunar:
 | `list_tables` | Erişilebilir tabloları listele (rol kısıtlamaları uygulanır) |
 | `describe_table` | Tablo şeması ve maskeleme politikasını göster |
 | `gateway_status` | Aktif config, roller ve rate limit durumunu göster |
+
+`writesEnabled: true` ayarlandığında (bkz. [Yazma Desteği](#yazma-desteği-writeinsertupdatedelete)) 3 yazma tool'u daha eklenir:
+
+| Tool | Açıklama |
+|------|----------|
+| `insert_row` | Yeni satır ekler |
+| `update_row` | Filtreye uyan satırları günceller (boş filtre kabul edilmez) |
+| `delete_row` | Filtreye uyan satırları siler (boş filtre kabul edilmez) |
 
 ---
 
@@ -137,7 +146,17 @@ createServer({
   tableRules: [
     { table: "audit_logs", access: "deny"  },
     { table: "users",      access: "allow", maxRows: 25 },
+    // write: tanımlanmazsa o tablo için hiçbir write izni yoktur (varsayılan kapalı)
+    { table: "orders",     access: "allow", write: { insert: true, update: true, delete: false } },
   ],
+
+  // Yazma tool'larını (insert_row/update_row/delete_row) aç — varsayılan false.
+  // false iken bu tool'lar Claude'a hiç görünmez.
+  writesEnabled: true,
+
+  // update_row/delete_row bir filtreyle en fazla kaç satırı etkileyebilir.
+  // Aşılırsa işlem hiç yapılmadan reddedilir ("filtreyi daraltın").
+  maxAffectedRowsPerWrite: 10,
 
   // Varsayılan maksimum satır
   defaultMaxRows: 50,
@@ -164,6 +183,9 @@ createServer({
       name: "ai-agent",
       allowTables: ["products", "orders"],  // sadece bu tablolar
       maxRows: 10,
+      // Rol write tanımlamazsa (undefined) o rol için write TAMAMEN kapalıdır,
+      // tablo write'a açık olsa bile. Write istiyorsanız rolde de açıkça belirtin:
+      write: { insert: true, update: true, delete: false },
     },
     {
       name: "analyst",
@@ -171,6 +193,7 @@ createServer({
       fieldRules: [
         { field: "email", strategy: "allow" }, // e-posta maskesiz
       ],
+      // write tanımlanmadı → analyst hiçbir şey yazamaz
     },
   ],
 
@@ -211,6 +234,37 @@ GATEWAY_ROLE=analyst node dist/cli.js
 
 ---
 
+## Yazma Desteği (write/insert/update/delete)
+
+Gateway varsayılan olarak **tamamen salt-okunurdur**. LLM'in veri değiştirebilmesi için bilinçli olarak birkaç kilidi açmanız gerekir:
+
+1. **`writesEnabled: true`** — global kill-switch. `false` (default) iken `insert_row`/`update_row`/`delete_row` Claude'a hiç görünmez.
+2. **Tablo izni** — `tableRules[].write.{insert,update,delete}` — her tablo için ayrı ayrı, varsayılan hepsi kapalı.
+3. **Rol izni** (rol aktifse) — `roles[].write.{insert,update,delete}`. Rol write'ı hiç tanımlamamışsa (undefined) o rol için write tamamen kapalıdır — tablo izin verse bile. Write'a izin vermek için **hem tablo hem rol** açıkça `true` demelidir (AND mantığı; masking kurallarındaki "rol override eder" mantığından farklı, kasıtlı olarak daha katı).
+
+Bu üç kilidin ötesinde iki ek koruma daha var, kapatılamaz:
+
+- **Korumalı alan koruması** — `fieldRules`'da `redact`/`mask`/`hash` olarak işaretli bir alana (örn. `tcKimlik`, `passwordHash`) LLM asla değer yazamaz; `insert_row`/`update_row` böyle bir alanı `data` içinde görürse tüm isteği reddeder.
+- **`maxAffectedRowsPerWrite`** — `update_row`/`delete_row` çağrılmadan önce filtre önce bir read ile denenir; eşleşen satır sayısı bu limiti (default 10) aşarsa işlem hiç yapılmadan reddedilir. `update_row`/`delete_row` ayrıca **boş filtreyi de her zaman reddeder** — "tüm tabloyu güncelle/sil" bu gateway üzerinden asla mümkün değildir.
+
+Her write denemesi (kabul veya red) audit log'a yazılır; `data`'nın kendisi değil sadece hangi alanların yazıldığı loglanır (audit log'un kendisi bir PII sızıntı noktası olmasın diye).
+
+```typescript
+createServer({
+  writesEnabled: true,
+  maxAffectedRowsPerWrite: 10,
+  tableRules: [
+    { table: "orders", access: "allow", write: { insert: true, update: true, delete: false } },
+  ],
+  roles: [
+    { name: "ai-agent", allowTables: ["orders"], write: { insert: true, update: true, delete: false } },
+  ],
+  activeRole: "ai-agent",
+});
+```
+
+---
+
 ## Prisma Adaptörü
 
 PrismaClient'ı doğrudan geçirin — tablo adı → model eşleştirmesi otomatik yapılır:
@@ -229,7 +283,7 @@ PrismaClient'ı doğrudan geçirin — tablo adı → model eşleştirmesi otoma
 ```bash
 npm run dev          # tsx ile geliştirme modu
 npm run build        # TypeScript derleme
-npm test             # 61 unit test
+npm test             # 140 unit test
 npm run test:watch   # İzleme modu
 npm run type-check   # Sadece tip kontrolü
 ```

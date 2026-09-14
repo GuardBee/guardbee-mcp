@@ -46,23 +46,36 @@ function resolveModelKey(
 }
 
 /**
- * Prisma'nın `where` clause'u için filter nesnesini hazırlar.
- * Basit eşitlik filtreleri doğrudan geçer.
+ * Prisma'nın `where`/`data` objesi için değerleri hazırlar.
+ * Basit eşitlik değerleri doğrudan geçer.
  * ISO date string'leri Date objesine çevrilir (Prisma DateTime field'ları için).
+ * Hem filter (where) hem de insert/update data'sı için kullanılır.
  */
-function buildWhereClause(filter: Record<string, unknown>): Record<string, unknown> {
-  const where: Record<string, unknown> = {};
+function coerceDates(input: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
   const isoDateRe = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
 
-  for (const [key, value] of Object.entries(filter)) {
+  for (const [key, value] of Object.entries(input)) {
     if (typeof value === "string" && isoDateRe.test(value)) {
-      where[key] = new Date(value);
+      out[key] = new Date(value);
     } else {
-      where[key] = value;
+      out[key] = value;
     }
   }
 
-  return where;
+  return out;
+}
+
+/** resolveModelKey'i çağırır, bulunamazsa açıklayıcı hata fırlatır. */
+function resolveModelKeyOrThrow(p: Record<string, unknown>, table: string): string {
+  const key = resolveModelKey(p, table);
+  if (!key) {
+    throw new Error(
+      `[guardbee-gateway] Prisma model not found for table "${table}". ` +
+      `Available models: ${availableModels(p).join(", ")}`
+    );
+  }
+  return key;
 }
 
 /**
@@ -89,19 +102,12 @@ export function createPrismaAdapter(
 
   return {
     async query(table, filter, limit) {
-      const key = resolveModelKey(p, table);
-      if (!key) {
-        throw new Error(
-          `[guardbee-gateway] Prisma model not found for table "${table}". ` +
-          `Available models: ${availableModels(p).join(", ")}`
-        );
-      }
-
+      const key = resolveModelKeyOrThrow(p, table);
       const delegate = p[key] as {
         findMany(args: { where: Record<string, unknown>; take: number }): Promise<unknown[]>;
       };
 
-      const where = Object.keys(filter).length > 0 ? buildWhereClause(filter) : {};
+      const where = Object.keys(filter).length > 0 ? coerceDates(filter) : {};
       const rows = await delegate.findMany({ where, take: limit });
 
       return rows as Record<string, unknown>[];
@@ -109,6 +115,32 @@ export function createPrismaAdapter(
 
     async tables() {
       return availableModels(p);
+    },
+
+    async insert(table, data) {
+      const key = resolveModelKeyOrThrow(p, table);
+      const delegate = p[key] as {
+        create(args: { data: Record<string, unknown> }): Promise<Record<string, unknown>>;
+      };
+      return await delegate.create({ data: coerceDates(data) });
+    },
+
+    async update(table, filter, data) {
+      const key = resolveModelKeyOrThrow(p, table);
+      const delegate = p[key] as {
+        updateMany(args: { where: Record<string, unknown>; data: Record<string, unknown> }): Promise<{ count: number }>;
+      };
+      const result = await delegate.updateMany({ where: coerceDates(filter), data: coerceDates(data) });
+      return result.count;
+    },
+
+    async delete(table, filter) {
+      const key = resolveModelKeyOrThrow(p, table);
+      const delegate = p[key] as {
+        deleteMany(args: { where: Record<string, unknown> }): Promise<{ count: number }>;
+      };
+      const result = await delegate.deleteMany({ where: coerceDates(filter) });
+      return result.count;
     },
   };
 }

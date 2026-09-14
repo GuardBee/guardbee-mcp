@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadConfig, type GatewayConfig } from "./config";
-import { registerDbTools } from "./tools/db-tools";
+import { registerDbTools, registerWriteTools } from "./tools/db-tools";
 import type { DbAdapter } from "./types";
 
 export function createServer(
@@ -19,6 +19,7 @@ export function createServer(
   });
 
   registerDbTools(server, config, db);
+  registerWriteTools(server, config, db);
 
   return server;
 }
@@ -80,20 +81,48 @@ function createDemoAdapter(): DbAdapter {
     ],
   };
 
+  function matches(row: Record<string, unknown>, filter: Record<string, unknown>): boolean {
+    return Object.entries(filter).every(([k, v]) => row[k] === v);
+  }
+
   return {
     async query(table, filter, limit) {
       const rows = demoData[table] ?? [];
       let result = rows;
       // Basit eşleşme filtresi
       if (Object.keys(filter).length > 0) {
-        result = rows.filter((row) =>
-          Object.entries(filter).every(([k, v]) => row[k] === v)
-        );
+        result = rows.filter((row) => matches(row, filter));
       }
       return result.slice(0, limit);
     },
     async tables() {
       return Object.keys(demoData);
+    },
+
+    async insert(table, data) {
+      const rows = (demoData[table] ??= []);
+      const row = { id: `${table}-${rows.length + 1}`, ...data };
+      rows.push(row);
+      return row;
+    },
+
+    async update(table, filter, data) {
+      const rows = demoData[table] ?? [];
+      let count = 0;
+      for (const row of rows) {
+        if (matches(row, filter)) {
+          Object.assign(row, data);
+          count++;
+        }
+      }
+      return count;
+    },
+
+    async delete(table, filter) {
+      const rows = demoData[table] ?? [];
+      const before = rows.length;
+      demoData[table] = rows.filter((row) => !matches(row, filter));
+      return before - demoData[table].length;
     },
   };
 }

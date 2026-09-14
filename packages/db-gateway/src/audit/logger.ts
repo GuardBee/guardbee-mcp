@@ -7,12 +7,17 @@ export type AuditEvent = {
   tool: string;
   table: string;
   params: Record<string, unknown>;
+  /** query için döndürülen, write için etkilenen (inserted/updated/deleted) satır sayısı. */
   rowsReturned: number;
   truncated: boolean;
   fieldsRedacted: string[];
   durationMs: number;
   denied?: boolean;
   denyReason?: string;
+  /** Belirtilmezse "read" sayılır (geriye dönük uyumluluk). */
+  operation?: "read" | "insert" | "update" | "delete";
+  /** insert/update için yazılan alan adları (değerler değil — audit log'un kendisi bir PII sızıntı noktası olmasın diye). */
+  fieldsWritten?: string[];
 };
 
 function generateId(): string {

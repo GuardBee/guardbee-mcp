@@ -115,6 +115,36 @@ export function maskRow(
 }
 
 /**
+ * Yazma verisindeki (insert/update `data`) alanları field kurallarına göre
+ * kontrol eder. Okuma tarafında maskelenen bir alan (redact/mask/hash),
+ * yazma tarafında da korumalı sayılır — LLM'in `tcKimlik` veya
+ * `passwordHash` gibi bir alana doğrudan değer yazması engellenir.
+ * Sadece strateji "allow" olan (ya da hiç kural eşleşmeyen) alanlara
+ * yazmaya izin verilir.
+ *
+ * @returns eşleşen kural varsa ve stratejisi "allow" değilse reddedilen
+ *          alan adlarının listesi (boşsa tüm alanlar yazılabilir demektir)
+ */
+export function findProtectedWriteFields(
+  data: Record<string, unknown>,
+  fieldRules: FieldRule[],
+  tableName?: string
+): string[] {
+  const protectedFields: string[] = [];
+
+  for (const key of Object.keys(data)) {
+    const rule = fieldRules.find(
+      (r) => matchesPattern(key, r.field) && (!r.table || r.table === tableName)
+    );
+    if (rule && rule.strategy !== "allow") {
+      protectedFields.push(key);
+    }
+  }
+
+  return protectedFields;
+}
+
+/**
  * Row listesini maskeler ve maxRows sınırını uygular.
  */
 export function maskRows(

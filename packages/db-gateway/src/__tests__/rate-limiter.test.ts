@@ -7,6 +7,8 @@ const cfg: RateLimitConfig = {
   windowMs: 60_000,
   maxRequests: 3,
   maxRequestsPerTable: 2,
+  maxWrites: 2,
+  maxWritesPerTable: 1,
 };
 
 describe("RateLimiter", () => {
@@ -90,5 +92,27 @@ describe("RateLimiter", () => {
     // retryAfterMs ≈ 30_000 (±100ms tolerans)
     expect(result.retryAfterMs).toBeLessThanOrEqual(30_000);
     expect(result.retryAfterMs).toBeGreaterThan(29_000);
+  });
+
+  it("write-global key'de maxWrites uygulanır, maxRequests değil", () => {
+    const rl = new RateLimiter(cfg);
+    rl.check("write-global");
+    rl.check("write-global");
+    const result = rl.check("write-global");
+    expect(result.allowed).toBe(false); // maxWrites=2, 3. istek reddedilir
+  });
+
+  it("write-table: key'de maxWritesPerTable uygulanır", () => {
+    const rl = new RateLimiter(cfg);
+    rl.check("write-table:orders");
+    const result = rl.check("write-table:orders");
+    expect(result.allowed).toBe(false); // maxWritesPerTable=1
+  });
+
+  it("write limiti ve read limiti bağımsız sayılır", () => {
+    const rl = new RateLimiter(cfg);
+    rl.check("write-global");
+    rl.check("write-global"); // write-global doldu (limit 2)
+    expect(rl.check("global").allowed).toBe(true); // read hâlâ serbest
   });
 });

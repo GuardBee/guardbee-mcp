@@ -1,4 +1,6 @@
-import type { FieldRule, GatewayConfig, Role } from "./config";
+import type { FieldRule, GatewayConfig, Role, TableRule } from "./config";
+
+export type WriteOperation = "insert" | "update" | "delete";
 
 export type TableAccessResult =
   | { allowed: true }
@@ -98,5 +100,33 @@ export class RoleResolver {
   effectiveMaxRows(tableMaxRows?: number): number {
     if (this.activeRole?.maxRows !== undefined) return this.activeRole.maxRows;
     return tableMaxRows ?? this.config.defaultMaxRows;
+  }
+
+  /**
+   * Bir tablo için belirli bir write operasyonuna izin var mı kontrol eder.
+   * AND mantığı: tablo kuralı VE (aktif rol varsa) rol, ikisi de o operasyonu
+   * true olarak işaretlemiş olmalı. Aktif rol yokken sadece tablo kuralı
+   * bakılır. Rol aktifken rol write tanımlamamışsa (undefined) → reddedilir.
+   */
+  checkWriteAccess(tableRule: TableRule | undefined, operation: WriteOperation): TableAccessResult {
+    const tableAllows = tableRule?.write?.[operation] === true;
+    if (!tableAllows) {
+      return {
+        allowed: false,
+        reason: `${operation} is not permitted on this table by gateway policy.`,
+      };
+    }
+
+    const role = this.activeRole;
+    if (!role) return { allowed: true };
+
+    if (role.write?.[operation] !== true) {
+      return {
+        allowed: false,
+        reason: `${operation} is not permitted for role '${role.name}'.`,
+      };
+    }
+
+    return { allowed: true };
   }
 }

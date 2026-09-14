@@ -19,12 +19,26 @@ export const FieldRuleSchema = z.object({
 });
 export type FieldRule = z.infer<typeof FieldRuleSchema>;
 
+/**
+ * Bir tablo/rol için hangi write operasyonlarının açık olduğu.
+ * Belirtilmeyen operasyon `false` sayılır — write varsayılan olarak kapalıdır,
+ * her tablo/rol için ayrı ayrı açılması gerekir.
+ */
+export const WritePermissionSchema = z.object({
+  insert: z.boolean().default(false),
+  update: z.boolean().default(false),
+  delete: z.boolean().default(false),
+});
+export type WritePermission = z.infer<typeof WritePermissionSchema>;
+
 export const TableRuleSchema = z.object({
   table: z.string(),
   /** "deny" = bu tablodan hiç veri geçmez */
   access: z.enum(["allow", "deny"]),
   /** Max row count LLM'e döndürülebilir */
   maxRows: z.number().int().positive().optional(),
+  /** Bu tablo için açık write operasyonları. Belirtilmezse hiçbiri açık değildir. */
+  write: WritePermissionSchema.optional(),
 });
 export type TableRule = z.infer<typeof TableRuleSchema>;
 
@@ -48,6 +62,16 @@ export const RoleSchema = z.object({
 
   /** Bu rol için max satır limiti (global defaultMaxRows'un üzerine yazar). */
   maxRows: z.number().int().positive().optional(),
+
+  /**
+   * Bu rol için write operasyonları. fieldRules'ın aksine burada "override"
+   * değil "AND" mantığı geçerlidir: bir aktif rol varken write'a izin
+   * verilmesi için hem tablonun `write` alanı HEM DE rolün `write` alanı
+   * o operasyonu true olarak işaretlemiş olmalıdır. Rol write'ı hiç
+   * tanımlamamışsa (undefined) o rol için hiçbir write izni yok demektir —
+   * tablo write'a açık olsa bile.
+   */
+  write: WritePermissionSchema.optional(),
 });
 export type Role = z.infer<typeof RoleSchema>;
 
@@ -59,6 +83,10 @@ export const RateLimitConfigSchema = z.object({
   maxRequests: z.number().int().positive().default(100),
   /** Pencere başına tablo başına max istek sayısı. Default: 20. */
   maxRequestsPerTable: z.number().int().positive().default(20),
+  /** Pencere başına global max write (insert/update/delete) sayısı. Reads'ten ayrı, daha sıkı. Default: 20. */
+  maxWrites: z.number().int().positive().default(20),
+  /** Pencere başına tablo başına max write sayısı. Default: 5. */
+  maxWritesPerTable: z.number().int().positive().default(5),
 });
 export type RateLimitConfig = z.infer<typeof RateLimitConfigSchema>;
 
@@ -117,7 +145,30 @@ export const GatewayConfigSchema = z.object({
   audit: AuditConfigSchema.default(() => ({ enabled: true, sink: "console" as const })),
 
   /** Rate limiting ayarları */
-  rateLimit: RateLimitConfigSchema.default(() => ({ enabled: true, windowMs: 60_000, maxRequests: 100, maxRequestsPerTable: 20 })),
+  rateLimit: RateLimitConfigSchema.default(() => ({
+    enabled: true,
+    windowMs: 60_000,
+    maxRequests: 100,
+    maxRequestsPerTable: 20,
+    maxWrites: 20,
+    maxWritesPerTable: 5,
+  })),
+
+  /**
+   * Global write kill-switch. `false` (default) iken insert_row/update_row/
+   * delete_row tool'ları hiç register edilmez — tableRules/roles'te write
+   * açık olsa bile. Write desteğini kullanmak için bilinçli olarak `true`
+   * yapılması gerekir.
+   */
+  writesEnabled: z.boolean().default(false),
+
+  /**
+   * update_row/delete_row bir filtreye uyan satırlardan en fazla kaçını
+   * etkileyebilir. Bu limit aşılırsa (filtre çok geniş demektir) işlem hiç
+   * yapılmadan reddedilir — "filtreyi daraltın" hatası döner. Yanlışlıkla
+   * tüm tabloyu güncelleme/silmeye karşı asıl güvenlik ağı budur.
+   */
+  maxAffectedRowsPerWrite: z.number().int().positive().default(10),
 
   /** Tanımlı roller listesi */
   roles: z.array(RoleSchema).default([]),

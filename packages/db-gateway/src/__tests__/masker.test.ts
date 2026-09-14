@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { applyStrategy, maskRow, maskRows } from "../gateway/masker";
+import { applyStrategy, maskRow, maskRows, findProtectedWriteFields } from "../gateway/masker";
 import type { FieldRule } from "../config";
 
 // ─── applyStrategy ───────────────────────────────────────────────────────────
@@ -139,5 +139,48 @@ describe("maskRows", () => {
   it("dönen satırlarda maskeleme uygulanmış", () => {
     const result = maskRows(rows, rules, "users", 10);
     expect((result.rows[0] as Record<string, unknown>)["email"]).toMatch(/\*\*\*/);
+  });
+});
+
+// ─── findProtectedWriteFields ────────────────────────────────────────────────
+
+describe("findProtectedWriteFields", () => {
+  const rules: FieldRule[] = [
+    { field: "email", strategy: "mask" },
+    { field: "tcKimlik", strategy: "redact" },
+    { field: "passwordHash", strategy: "redact" },
+    { field: "status", strategy: "allow" },
+    { field: "*Token*", strategy: "redact" },
+  ];
+
+  it("redact/mask/hash stratejili alanlara yazma reddedilir", () => {
+    const protectedFields = findProtectedWriteFields(
+      { tcKimlik: "12345678901", passwordHash: "x", firstName: "Ali" },
+      rules
+    );
+    expect(protectedFields.sort()).toEqual(["passwordHash", "tcKimlik"]);
+  });
+
+  it("allow stratejili veya kuralsız alanlara yazmaya izin verilir", () => {
+    const protectedFields = findProtectedWriteFields(
+      { status: "active", firstName: "Ali" },
+      rules
+    );
+    expect(protectedFields).toEqual([]);
+  });
+
+  it("glob pattern eşleşen korumalı alanı yakalar", () => {
+    const protectedFields = findProtectedWriteFields({ accessToken: "abc" }, rules);
+    expect(protectedFields).toEqual(["accessToken"]);
+  });
+
+  it("tablo kısıtlı kural sadece o tabloda uygulanır", () => {
+    const tableRules: FieldRule[] = [{ field: "amount", strategy: "redact", table: "orders" }];
+    expect(findProtectedWriteFields({ amount: 100 }, tableRules, "orders")).toEqual(["amount"]);
+    expect(findProtectedWriteFields({ amount: 100 }, tableRules, "products")).toEqual([]);
+  });
+
+  it("boş data için boş liste döner", () => {
+    expect(findProtectedWriteFields({}, rules)).toEqual([]);
   });
 });

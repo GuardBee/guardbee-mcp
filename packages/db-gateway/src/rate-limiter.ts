@@ -8,11 +8,13 @@ type Window = {
 /**
  * Fixed-window rate limiter.
  *
- * İki kural katmanı:
- *   - global   : tüm tool çağrıları için toplam limit
- *   - per-table: her tablo için ayrı limit (query_table çağrılarında)
+ * Dört kural katmanı, key prefix'ine göre:
+ *   - "global"        : read tool çağrıları için toplam limit
+ *   - "table:X"        : X tablosu için read limiti
+ *   - "write-global"   : write (insert/update/delete) çağrıları için toplam limit — read'den ayrı, daha sıkı
+ *   - "write-table:X"  : X tablosu için write limiti
  *
- * LLM döngüye girip yüzlerce sorgu atmasını engeller.
+ * LLM döngüye girip yüzlerce sorgu/write atmasını engeller.
  */
 export class RateLimiter {
   private readonly windows = new Map<string, Window>();
@@ -55,6 +57,9 @@ export class RateLimiter {
   }
 
   private limitFor(key: string): number {
-    return key.startsWith("table:") ? this.config.maxRequestsPerTable : this.config.maxRequests;
+    if (key.startsWith("write-table:")) return this.config.maxWritesPerTable;
+    if (key === "write-global") return this.config.maxWrites;
+    if (key.startsWith("table:")) return this.config.maxRequestsPerTable;
+    return this.config.maxRequests;
   }
 }
