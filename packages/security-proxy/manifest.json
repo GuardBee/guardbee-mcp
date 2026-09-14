@@ -1,0 +1,53 @@
+{
+  "manifest_version": "0.3",
+  "name": "@guardbee/mcp-security-proxy",
+  "display_name": "GuardBee Security Proxy",
+  "version": "0.1.1",
+  "description": "Security proxy for MCP servers — intercepts tool calls, detects prompt injection, masks PII, and writes audit logs",
+  "long_description": "Sits between an MCP client and another MCP server, wrapping its tool calls: detects and can block prompt injection attempts, masks PII in tool inputs/outputs, and writes an audit log of every intercepted call. Unlike GuardBee's other servers, this one does not expose its own fixed tool set — it forwards (and can transform) whichever tools the wrapped server provides. Requires the command to launch the wrapped server (proxyCommand/proxyArgs), not an API key.",
+  "author": {
+    "name": "GuardBee",
+    "email": "hello@guardbee.ai",
+    "url": "https://guardbee.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git"
+  },
+  "homepage": "https://guardbee.ai",
+  "license": "MIT",
+  "keywords": ["mcp", "proxy", "prompt-injection", "pii", "audit-log", "security"],
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18"
+    }
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/cli.js"],
+      "env": {
+        "PROXY_COMMAND": "${user_config.proxyCommand}",
+        "PROXY_ARGS": "${user_config.proxyArgs}"
+      }
+    }
+  },
+  "user_config": {
+    "proxyCommand": {
+      "type": "string",
+      "title": "Wrapped Server Command",
+      "description": "The command to run the MCP server you want to wrap (e.g. 'npx').",
+      "required": true
+    },
+    "proxyArgs": {
+      "type": "string",
+      "title": "Wrapped Server Arguments",
+      "description": "Space-separated arguments for proxyCommand (e.g. '-y @some/mcp-server').",
+      "required": false
+    }
+  },
+  "tools_generated": false
+}

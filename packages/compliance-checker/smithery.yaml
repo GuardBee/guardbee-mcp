@@ -1,0 +1,21 @@
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      apiKey:
+        type: string
+        description: "GuardBee API key. Get yours from https://app.guardbee.ai/developers. Some tools work without it."
+      baseUrl:
+        type: string
+        description: "GuardBee API base URL (default: https://app.guardbee.ai). Override only for self-hosted/staging."
+    required: []
+  commandFunction: |-
+    config => ({
+      command: 'npx',
+      args: ['-y', '@guardbee/mcp-compliance-checker@latest'],
+      env: {
+        ...(config.apiKey ? { GUARDBEE_API_KEY: config.apiKey } : {}),
+        ...(config.baseUrl ? { GUARDBEE_BASE_URL: config.baseUrl } : {})
+      }
+    })

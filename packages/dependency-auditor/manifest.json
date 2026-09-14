@@ -1,0 +1,50 @@
+{
+  "manifest_version": "0.3",
+  "name": "@guardbee/mcp-dependency-auditor",
+  "display_name": "GuardBee Dependency Auditor",
+  "version": "0.1.5",
+  "description": "MCP server that audits npm, pip, and cargo dependencies for known CVEs using the OSV database",
+  "long_description": "Parses package.json/package-lock.json and requirements.txt/pyproject.toml manifests, queries the OSV vulnerability database in batch, and reports known CVEs with severity and fixed-version guidance. No API key required \u2014 runs entirely against public OSV data.",
+  "author": {
+    "name": "GuardBee",
+    "email": "hello@guardbee.ai",
+    "url": "https://guardbee.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git"
+  },
+  "homepage": "https://guardbee.ai",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "dependency",
+    "cve",
+    "vulnerability",
+    "osv",
+    "sca",
+    "security"
+  ],
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "node": ">=18"
+    }
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/dist/cli.js"
+      ]
+    }
+  },
+  "user_config": {},
+  "tools_generated": true
+}

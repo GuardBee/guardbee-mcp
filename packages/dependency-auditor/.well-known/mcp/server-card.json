@@ -1,0 +1,99 @@
+{
+  "serverInfo": {
+    "name": "@guardbee/mcp-dependency-auditor",
+    "version": "0.1.5",
+    "description": "MCP server that audits npm, pip, and cargo dependencies for known CVEs using the OSV database"
+  },
+  "tools": [
+    {
+      "name": "audit_npm",
+      "description": "Audit npm dependencies from a package.json (and optionally package-lock.json) for known CVEs using the OSV database",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "directory": {
+            "type": "string",
+            "description": "Path to the directory containing package.json"
+          },
+          "includeDevDeps": {
+            "type": "boolean",
+            "description": "Include devDependencies in the audit (default: false)"
+          }
+        },
+        "required": [
+          "directory"
+        ]
+      }
+    },
+    {
+      "name": "audit_pip",
+      "description": "Audit Python dependencies from requirements.txt or pyproject.toml for known CVEs using the OSV database",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "directory": {
+            "type": "string",
+            "description": "Path to the directory containing requirements.txt or pyproject.toml"
+          }
+        },
+        "required": [
+          "directory"
+        ]
+      }
+    },
+    {
+      "name": "audit_package",
+      "description": "Audit a single package by name, version, and ecosystem",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Package name"
+          },
+          "version": {
+            "type": "string",
+            "description": "Package version (e.g. 1.2.3)"
+          },
+          "ecosystem": {
+            "type": "string",
+            "description": "Package ecosystem",
+            "enum": [
+              "npm",
+              "PyPI",
+              "crates.io",
+              "Maven",
+              "Go",
+              "RubyGems"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "version",
+          "ecosystem"
+        ]
+      }
+    },
+    {
+      "name": "audit_directory",
+      "description": "Auto-detect and audit all supported manifests (package.json, requirements.txt) in a directory",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "directory": {
+            "type": "string",
+            "description": "Path to the project root directory"
+          },
+          "includeDevDeps": {
+            "type": "boolean",
+            "description": "Include dev dependencies for npm (default: false)"
+          }
+        },
+        "required": [
+          "directory"
+        ]
+      }
+    }
+  ]
+}

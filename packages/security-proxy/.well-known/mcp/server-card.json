@@ -1,0 +1,8 @@
+{
+  "serverInfo": {
+    "name": "@guardbee/mcp-security-proxy",
+    "version": "0.1.1",
+    "description": "Security proxy for MCP servers — intercepts tool calls, detects prompt injection, masks PII, and writes audit logs. Does not expose a fixed tool set of its own: it forwards (and can transform) whichever tools the wrapped MCP server (configured via PROXY_COMMAND/PROXY_ARGS or a guardbee-proxy.json config file) provides."
+  },
+  "tools": []
+}

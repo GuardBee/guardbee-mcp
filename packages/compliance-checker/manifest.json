@@ -1,0 +1,68 @@
+{
+  "manifest_version": "0.3",
+  "name": "@guardbee/mcp-compliance-checker",
+  "display_name": "GuardBee Compliance Checker",
+  "version": "0.1.1",
+  "description": "MCP server that checks KVKK, GDPR, and CCPA compliance for websites via the GuardBee API",
+  "long_description": "Runs full compliance scans against KVKK, GDPR, and CCPA requirements, returns gap analysis and action plans, and can analyze a privacy policy page for completeness without an API key.",
+  "author": {
+    "name": "GuardBee",
+    "email": "hello@guardbee.ai",
+    "url": "https://guardbee.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git"
+  },
+  "homepage": "https://guardbee.ai",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "kvkk",
+    "gdpr",
+    "ccpa",
+    "compliance",
+    "privacy",
+    "security"
+  ],
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "node": ">=18"
+    }
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/dist/cli.js"
+      ],
+      "env": {
+        "GUARDBEE_API_KEY": "${user_config.apiKey}",
+        "GUARDBEE_BASE_URL": "${user_config.baseUrl}"
+      }
+    }
+  },
+  "user_config": {
+    "apiKey": {
+      "type": "string",
+      "title": "GuardBee API Key",
+      "description": "Get yours from https://app.guardbee.ai/developers. Some tools work without it.",
+      "required": false,
+      "sensitive": true
+    },
+    "baseUrl": {
+      "type": "string",
+      "title": "API Base URL",
+      "description": "Override only for self-hosted/staging (default: https://app.guardbee.ai).",
+      "required": false
+    }
+  },
+  "tools_generated": true
+}

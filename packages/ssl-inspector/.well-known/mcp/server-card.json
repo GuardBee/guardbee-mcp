@@ -1,0 +1,99 @@
+{
+  "serverInfo": {
+    "name": "@guardbee/mcp-ssl-inspector",
+    "version": "0.1.6",
+    "description": "MCP server that inspects TLS certificates, cipher suites, and protocol configurations for any domain"
+  },
+  "tools": [
+    {
+      "name": "inspect_ssl",
+      "description": "Inspect TLS certificate, cipher suite, and protocol configuration for a single domain",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string",
+            "description": "Domain name or IP to inspect (e.g. example.com)"
+          },
+          "port": {
+            "type": "number",
+            "description": "Port to connect to (default: 443)"
+          },
+          "checkHsts": {
+            "type": "boolean",
+            "description": "Also check HSTS header via HTTP HEAD (default: true)"
+          }
+        },
+        "required": [
+          "host"
+        ]
+      }
+    },
+    {
+      "name": "inspect_ssl_bulk",
+      "description": "Inspect TLS configuration for multiple domains in parallel",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "hosts": {
+            "type": "array",
+            "description": "List of domain names to inspect",
+            "items": {
+              "type": "string"
+            }
+          },
+          "port": {
+            "type": "number",
+            "description": "Port to use for all domains (default: 443)"
+          }
+        },
+        "required": [
+          "hosts"
+        ]
+      }
+    },
+    {
+      "name": "check_cert_expiry",
+      "description": "Check certificate expiry for one or more domains and highlight certificates expiring soon",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "hosts": {
+            "type": "array",
+            "description": "Domain names to check",
+            "items": {
+              "type": "string"
+            }
+          },
+          "warnDays": {
+            "type": "number",
+            "description": "Warn if expiring within this many days (default: 30)"
+          }
+        },
+        "required": [
+          "hosts"
+        ]
+      }
+    },
+    {
+      "name": "get_cert_info",
+      "description": "Get detailed certificate information for a domain including fingerprint, SANs, and issuer chain",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string",
+            "description": "Domain to inspect"
+          },
+          "port": {
+            "type": "number",
+            "description": "Port (default: 443)"
+          }
+        },
+        "required": [
+          "host"
+        ]
+      }
+    }
+  ]
+}

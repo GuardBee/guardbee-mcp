@@ -1,0 +1,130 @@
+{
+  "serverInfo": {
+    "name": "@guardbee/mcp-compliance-checker",
+    "version": "0.1.1",
+    "description": "MCP server that checks KVKK, GDPR, and CCPA compliance for websites via the GuardBee API"
+  },
+  "tools": [
+    {
+      "name": "check_compliance",
+      "description": "Run a full compliance scan for a URL against a regulatory framework (KVKK, GDPR, or CCPA) using the GuardBee scanner. Returns a gap analysis and action plan.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Target URL to audit for compliance"
+          },
+          "framework": {
+            "type": "string",
+            "description": "Regulatory framework: KVKK, GDPR, or CCPA",
+            "enum": [
+              "KVKK",
+              "GDPR",
+              "CCPA"
+            ]
+          },
+          "wait": {
+            "type": "boolean",
+            "description": "Wait for scan to complete (default: true)"
+          }
+        },
+        "required": [
+          "url",
+          "framework"
+        ]
+      }
+    },
+    {
+      "name": "get_compliance_findings",
+      "description": "Get compliance findings from a completed GuardBee scan, optionally filtered by severity",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "scanId": {
+            "type": "string",
+            "description": "Scan ID from check_compliance or start_scan"
+          },
+          "framework": {
+            "type": "string",
+            "description": "Framework label for the report header",
+            "enum": [
+              "KVKK",
+              "GDPR",
+              "CCPA"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "description": "Filter by severity",
+            "enum": [
+              "CRITICAL",
+              "HIGH",
+              "MEDIUM",
+              "LOW",
+              "INFO"
+            ]
+          }
+        },
+        "required": [
+          "scanId"
+        ]
+      }
+    },
+    {
+      "name": "analyze_privacy_policy",
+      "description": "Fetch and analyze a privacy policy page for completeness against GDPR/KVKK requirements. Works without an API key.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Direct URL to the privacy policy page (or homepage to auto-detect)"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      }
+    },
+    {
+      "name": "list_requirements",
+      "description": "List all compliance requirements for a framework with legal basis references",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "framework": {
+            "type": "string",
+            "description": "Framework: KVKK, GDPR, or CCPA",
+            "enum": [
+              "KVKK",
+              "GDPR",
+              "CCPA"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "description": "Filter by severity",
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low"
+            ]
+          }
+        },
+        "required": [
+          "framework"
+        ]
+      }
+    },
+    {
+      "name": "compare_frameworks",
+      "description": "Compare KVKK, GDPR, and CCPA requirements side by side to understand overlaps and gaps",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ]
+}

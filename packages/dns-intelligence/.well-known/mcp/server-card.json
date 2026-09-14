@@ -1,0 +1,94 @@
+{
+  "serverInfo": {
+    "name": "@guardbee/mcp-dns-intelligence",
+    "version": "0.1.6",
+    "description": "MCP server that enumerates DNS records, detects misconfigurations, and identifies dangling subdomains"
+  },
+  "tools": [
+    {
+      "name": "enumerate_dns",
+      "description": "Enumerate all DNS records for a domain and detect SPF, DMARC, DKIM misconfigurations",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "Domain to enumerate (e.g. example.com)"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      }
+    },
+    {
+      "name": "enumerate_subdomains",
+      "description": "Enumerate common subdomains for a domain and detect dangling subdomain takeover candidates",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "Root domain to enumerate subdomains for (e.g. example.com)"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      }
+    },
+    {
+      "name": "check_email_security",
+      "description": "Check SPF, DMARC, and DKIM configuration for a domain and get actionable remediation advice",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "Domain to check email security for"
+          },
+          "dkimSelectors": {
+            "type": "array",
+            "description": "Additional DKIM selectors to check (default: common selectors)",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      }
+    },
+    {
+      "name": "lookup_dns",
+      "description": "Perform a targeted DNS lookup for specific record types on a domain",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "Domain to query"
+          },
+          "type": {
+            "type": "string",
+            "description": "DNS record type to look up",
+            "enum": [
+              "A",
+              "AAAA",
+              "MX",
+              "NS",
+              "TXT",
+              "CNAME",
+              "SOA"
+            ]
+          }
+        },
+        "required": [
+          "domain",
+          "type"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "manifest_version": "0.3",
+  "name": "@guardbee/security-suite",
+  "display_name": "GuardBee Security Suite",
+  "version": "0.1.2",
+  "description": "All GuardBee MCP security tools in one package \u2014 secret scanner, dependency auditor, SSL inspector, DNS intelligence",
+  "long_description": "Bundles secret scanning, dependency CVE auditing, TLS/SSL inspection, and DNS intelligence into a single combined MCP server. Run `guardbee serve` (this is what the Smithery integration does) to expose all 5 tools at once. No API key required.",
+  "author": {
+    "name": "GuardBee",
+    "email": "hello@guardbee.ai",
+    "url": "https://guardbee.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git"
+  },
+  "homepage": "https://guardbee.ai",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "security",
+    "secret-scanner",
+    "dependency-audit",
+    "ssl",
+    "dns",
+    "guardbee",
+    "devtools"
+  ],
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "node": ">=18"
+    }
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/dist/cli.js",
+        "serve"
+      ]
+    }
+  },
+  "user_config": {},
+  "tools_generated": true
+}

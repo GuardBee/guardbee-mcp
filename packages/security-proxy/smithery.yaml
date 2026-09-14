@@ -1,0 +1,21 @@
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      proxyCommand:
+        type: string
+        description: "The command to run the MCP server you want to wrap (e.g. 'npx'). This proxy sits between Claude and that server — intercepting tool calls, detecting prompt injection, masking PII, and writing audit logs."
+      proxyArgs:
+        type: string
+        description: "Space-separated arguments for proxyCommand (e.g. '-y @some/mcp-server'). Passed through as-is, so avoid arguments containing spaces."
+    required: ["proxyCommand"]
+  commandFunction: |-
+    config => ({
+      command: 'npx',
+      args: ['-y', '@guardbee/mcp-security-proxy@latest'],
+      env: {
+        PROXY_COMMAND: config.proxyCommand,
+        ...(config.proxyArgs ? { PROXY_ARGS: config.proxyArgs } : {})
+      }
+    })

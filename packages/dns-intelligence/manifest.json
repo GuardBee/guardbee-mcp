@@ -1,0 +1,50 @@
+{
+  "manifest_version": "0.3",
+  "name": "@guardbee/mcp-dns-intelligence",
+  "display_name": "GuardBee DNS Intelligence",
+  "version": "0.1.6",
+  "description": "MCP server that enumerates DNS records, detects misconfigurations, and identifies dangling subdomains",
+  "long_description": "Enumerates DNS records for a domain, checks SPF/DMARC/DKIM email security configuration, scans common subdomains for dangling/takeover candidates, and supports targeted lookups by record type. No API key required.",
+  "author": {
+    "name": "GuardBee",
+    "email": "hello@guardbee.ai",
+    "url": "https://guardbee.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git"
+  },
+  "homepage": "https://guardbee.ai",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "dns",
+    "spf",
+    "dmarc",
+    "dkim",
+    "subdomain-takeover",
+    "security"
+  ],
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "node": ">=18"
+    }
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/dist/cli.js"
+      ]
+    }
+  },
+  "user_config": {},
+  "tools_generated": true
+}

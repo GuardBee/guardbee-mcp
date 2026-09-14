@@ -1,0 +1,80 @@
+{
+  "serverInfo": {
+    "name": "@guardbee/mcp-secret-scanner",
+    "version": "0.1.5",
+    "description": "MCP server that scans files and directories for exposed secrets, API keys, and credentials"
+  },
+  "tools": [
+    {
+      "name": "scan_text",
+      "description": "Scan a text string or code snippet for exposed secrets and API keys",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "The text content to scan"
+          },
+          "label": {
+            "type": "string",
+            "description": "Optional label shown in findings (e.g. filename)"
+          }
+        },
+        "required": [
+          "content"
+        ]
+      }
+    },
+    {
+      "name": "scan_file",
+      "description": "Scan a single file for exposed secrets and API keys",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute or relative path to the file to scan"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "scan_directory",
+      "description": "Recursively scan a directory for exposed secrets and API keys. Automatically skips node_modules, .git, dist, and binary files.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute or relative path to the directory to scan"
+          },
+          "maxFiles": {
+            "type": "number",
+            "description": "Maximum number of files to scan (default: 5000)"
+          },
+          "include": {
+            "type": "array",
+            "description": "Glob patterns to include",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "list_patterns",
+      "description": "List all secret patterns that the scanner can detect",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ]
+}

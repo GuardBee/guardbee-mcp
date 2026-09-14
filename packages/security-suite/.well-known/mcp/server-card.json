@@ -1,0 +1,97 @@
+{
+  "serverInfo": {
+    "name": "@guardbee/security-suite",
+    "version": "0.1.2",
+    "description": "All GuardBee MCP security tools in one package \u2014 secret scanner, dependency auditor, SSL inspector, DNS intelligence"
+  },
+  "tools": [
+    {
+      "name": "scan_directory",
+      "description": "Scan a directory for exposed secrets, API keys, and credentials",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "directory": {
+            "type": "string",
+            "description": "Directory to scan"
+          },
+          "maxFiles": {
+            "type": "number",
+            "description": "Maximum number of files to scan (default: 5000)"
+          }
+        },
+        "required": [
+          "directory"
+        ]
+      }
+    },
+    {
+      "name": "scan_file",
+      "description": "Scan a single file for secrets",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to the file to scan"
+          }
+        },
+        "required": [
+          "filePath"
+        ]
+      }
+    },
+    {
+      "name": "audit_dependencies",
+      "description": "Audit npm/pip dependencies for known CVEs",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "directory": {
+            "type": "string",
+            "description": "Directory containing package.json and/or requirements.txt"
+          }
+        },
+        "required": [
+          "directory"
+        ]
+      }
+    },
+    {
+      "name": "inspect_ssl",
+      "description": "Inspect TLS certificate, cipher suite, and HSTS for a domain",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string",
+            "description": "Domain name to inspect"
+          },
+          "port": {
+            "type": "number",
+            "description": "Port to connect to (default: 443)"
+          }
+        },
+        "required": [
+          "host"
+        ]
+      }
+    },
+    {
+      "name": "check_dns",
+      "description": "Enumerate DNS records and check SPF/DMARC/DKIM configuration",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "Domain to check"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      }
+    }
+  ]
+}

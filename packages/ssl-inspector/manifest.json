@@ -1,0 +1,49 @@
+{
+  "manifest_version": "0.3",
+  "name": "@guardbee/mcp-ssl-inspector",
+  "display_name": "GuardBee SSL Inspector",
+  "version": "0.1.6",
+  "description": "MCP server that inspects TLS certificates, cipher suites, and protocol configurations for any domain",
+  "long_description": "Inspects TLS certificate chains, cipher suites, protocol versions, and HSTS headers for one or many domains, and flags certificates expiring soon. No API key required.",
+  "author": {
+    "name": "GuardBee",
+    "email": "hello@guardbee.ai",
+    "url": "https://guardbee.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git"
+  },
+  "homepage": "https://guardbee.ai",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "tls",
+    "ssl",
+    "certificate",
+    "hsts",
+    "security"
+  ],
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "node": ">=18"
+    }
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/dist/cli.js"
+      ]
+    }
+  },
+  "user_config": {},
+  "tools_generated": true
+}

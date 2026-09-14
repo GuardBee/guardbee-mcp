@@ -1,0 +1,49 @@
+{
+  "manifest_version": "0.3",
+  "name": "@guardbee/mcp-secret-scanner",
+  "display_name": "GuardBee Secret Scanner",
+  "version": "0.1.5",
+  "description": "MCP server that scans files and directories for exposed secrets, API keys, and credentials",
+  "long_description": "Scans text, single files, or entire directories for exposed secrets and API keys using a built-in pattern library (AWS, Stripe, Twilio, SendGrid, private keys, and more). Automatically skips node_modules, .git, dist, and binary files. No API key required \u2014 runs entirely locally.",
+  "author": {
+    "name": "GuardBee",
+    "email": "hello@guardbee.ai",
+    "url": "https://guardbee.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git"
+  },
+  "homepage": "https://guardbee.ai",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "secrets",
+    "api-keys",
+    "credentials",
+    "sast",
+    "security"
+  ],
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "node": ">=18"
+    }
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/dist/cli.js"
+      ]
+    }
+  },
+  "user_config": {},
+  "tools_generated": true
+}
