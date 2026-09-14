@@ -30,6 +30,15 @@ importers:
         specifier: 3.2.7
         version: 3.2.7(@types/node@26.5.0)(tsx@4.23.13)(yaml@2.9.0)
 
+  packages/ai-code-scanner:
+    dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.0.0
+        version: 1.30.0(zod@4.6.2)
+      zod:
+        specifier: ^4.5.4
+        version: 4.6.2
+
   packages/compliance-checker:
     dependencies:
       '@modelcontextprotocol/sdk':

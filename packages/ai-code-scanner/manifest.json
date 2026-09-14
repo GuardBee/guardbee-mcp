@@ -1,0 +1,44 @@
+{
+  "manifest_version": "0.3",
+  "name": "@guardbee/mcp-ai-code-scanner",
+  "display_name": "GuardBee AI Code Scanner",
+  "version": "0.1.0",
+  "description": "MCP server that scans code for insecure LLM/AI integration patterns — client-exposed API keys, unsafe handling of model output, excessive agent tool permissions, and PII sent to third-party LLMs",
+  "long_description": "Scans text, single files, or entire directories for insecure AI/LLM integration patterns: API keys bundled into client-side code, model output executed via eval()/exec() or rendered as raw HTML, agent tools that grant unchecked shell/code execution, personal data (email, national ID, card numbers) interpolated directly into prompts, and untrusted input mixed into system prompts. No API key required — runs entirely locally.",
+  "author": {
+    "name": "GuardBee",
+    "email": "hello@guardbee.ai",
+    "url": "https://guardbee.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git"
+  },
+  "homepage": "https://guardbee.ai",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "ai-security",
+    "llm-security",
+    "owasp-llm-top-10",
+    "prompt-injection",
+    "sast",
+    "security"
+  ],
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18"
+    }
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/cli.js"]
+    }
+  },
+  "user_config": {},
+  "tools_generated": true
+}

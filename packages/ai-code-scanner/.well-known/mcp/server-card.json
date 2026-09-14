@@ -1,0 +1,62 @@
+{
+  "serverInfo": {
+    "name": "@guardbee/mcp-ai-code-scanner",
+    "version": "0.1.0",
+    "description": "MCP server that scans code for insecure LLM/AI integration patterns — client-exposed API keys, unsafe handling of model output, excessive agent tool permissions, and PII sent to third-party LLMs"
+  },
+  "tools": [
+    {
+      "name": "scan_text",
+      "description": "Scan a text string or code snippet for insecure AI/LLM integration patterns (client-exposed keys, unsafe output handling, excessive agent tool permissions, PII sent to a model, prompt injection surface).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "content": { "type": "string", "description": "The code content to scan" },
+          "label": { "type": "string", "description": "Optional label shown in findings (e.g. filename)" }
+        },
+        "required": ["content"]
+      }
+    },
+    {
+      "name": "scan_file",
+      "description": "Scan a single file for insecure AI/LLM integration patterns",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Absolute or relative path to the file to scan" }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "scan_directory",
+      "description": "Recursively scan a directory for insecure AI/LLM integration patterns. Automatically skips node_modules, .git, dist, and binary files.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Absolute or relative path to the directory to scan" },
+          "maxFiles": { "type": "number", "description": "Maximum number of files to scan (default: 5000)" },
+          "include": {
+            "type": "array",
+            "description": "Only scan files whose path contains one of these strings",
+            "items": { "type": "string" }
+          },
+          "exclude": {
+            "type": "array",
+            "description": "Skip files/dirs whose path contains one of these strings",
+            "items": { "type": "string" }
+          }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "list_patterns",
+      "description": "List all AI/LLM security patterns that the scanner can detect, grouped by category",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ]
+}
