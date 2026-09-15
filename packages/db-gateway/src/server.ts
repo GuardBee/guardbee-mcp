@@ -3,6 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { loadConfig, type GatewayConfig } from "./config";
 import { registerDbTools, registerWriteTools } from "./tools/db-tools";
+import { GatewayPipeline } from "./gateway/pipeline";
 import type { DbAdapter } from "./types";
 
 export function createServer(
@@ -20,8 +21,12 @@ export function createServer(
   });
   instrumentServer(server, "db-gateway");
 
-  registerDbTools(server, config, db);
-  registerWriteTools(server, config, db);
+  // Tek pipeline örneği read ve write tool'ları arasında paylaşılır —
+  // aksi halde her biri kendi AuditLogger'ını oluşturur ve query_audit_log
+  // sadece kendi tool grubunun event'lerini görebilir.
+  const pipeline = new GatewayPipeline(config);
+  registerDbTools(server, config, db, pipeline);
+  registerWriteTools(server, config, db, pipeline);
 
   return server;
 }

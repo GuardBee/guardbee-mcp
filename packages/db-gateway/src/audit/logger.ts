@@ -34,11 +34,39 @@ export function createAuditEvent(
   };
 }
 
+export type AuditQueryFilter = {
+  table?: string;
+  tool?: string;
+  operation?: AuditEvent["operation"];
+  /** true ise sadece denied=true olan event'leri döner */
+  deniedOnly?: boolean;
+  /** ISO 8601 — bu zamanda veya sonrasındaki event'ler */
+  since?: string;
+  /** En fazla kaç event döner, en yeniden en eskiye (default 50) */
+  limit?: number;
+};
+
 export class AuditLogger {
-  constructor(private readonly config: AuditConfig) {}
+  /**
+   * Sink'ten (console/file/http) bağımsız, her zaman tutulan son N event —
+   * `query_audit_log` tool'u buradan okur. Sink ne olursa olsun (webhook'a
+   * fire-and-forget gönderilmiş olsa bile) sürecin kendi ömrü boyunca
+   * sorgulanabilir bir geçmiş sağlar. Süreç yeniden başlarsa sıfırlanır.
+   */
+  private readonly buffer: AuditEvent[] = [];
+  private readonly bufferSize: number;
+
+  constructor(private readonly config: AuditConfig) {
+    this.bufferSize = config.bufferSize ?? 200;
+  }
 
   async log(event: AuditEvent): Promise<void> {
     if (!this.config.enabled) return;
+
+    this.buffer.push(event);
+    if (this.buffer.length > this.bufferSize) {
+      this.buffer.shift();
+    }
 
     const line = JSON.stringify(event);
 
@@ -72,5 +100,23 @@ export class AuditLogger {
         }
         break;
     }
+  }
+
+  /** Bellek-içi buffer'ı filtreler. En yeni event önce döner. */
+  query(filter: AuditQueryFilter = {}): AuditEvent[] {
+    const { table, tool, operation, deniedOnly, since, limit = 50 } = filter;
+    const sinceMs = since ? new Date(since).getTime() : undefined;
+
+    let results = this.buffer;
+    if (table) results = results.filter((e) => e.table === table);
+    if (tool) results = results.filter((e) => e.tool === tool);
+    if (operation) results = results.filter((e) => (e.operation ?? "read") === operation);
+    if (deniedOnly) results = results.filter((e) => e.denied === true);
+    if (sinceMs !== undefined && !Number.isNaN(sinceMs)) {
+      results = results.filter((e) => new Date(e.timestamp).getTime() >= sinceMs);
+    }
+
+    const capped = Math.max(1, Math.min(limit, this.bufferSize));
+    return results.slice(-capped).reverse();
   }
 }

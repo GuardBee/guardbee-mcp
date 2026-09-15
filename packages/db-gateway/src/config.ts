@@ -98,6 +98,12 @@ export const AuditConfigSchema = z.object({
   filePath: z.string().optional(),
   /** http sink için webhook URL */
   webhookUrl: z.string().url().optional(),
+  /**
+   * `query_audit_log` tool'unun okuduğu bellek-içi ring buffer boyutu.
+   * Sink'ten bağımsız — sink'e ek olarak her zaman son N event RAM'de
+   * tutulur, süreç yeniden başlayınca sıfırlanır.
+   */
+  bufferSize: z.number().int().positive().max(5000).default(200),
 });
 export type AuditConfig = z.infer<typeof AuditConfigSchema>;
 
@@ -142,7 +148,7 @@ export const GatewayConfigSchema = z.object({
   defaultMaxRows: z.number().int().positive().default(50),
 
   /** Audit log ayarları */
-  audit: AuditConfigSchema.default(() => ({ enabled: true, sink: "console" as const })),
+  audit: AuditConfigSchema.default(() => ({ enabled: true, sink: "console" as const, bufferSize: 200 })),
 
   /** Rate limiting ayarları */
   rateLimit: RateLimitConfigSchema.default(() => ({

@@ -41,10 +41,9 @@ function formatResult(result: Awaited<ReturnType<GatewayPipeline["process"]>>): 
 export function registerDbTools(
   server: McpServer,
   config: GatewayConfig,
-  db: DbAdapter
+  db: DbAdapter,
+  pipeline: GatewayPipeline
 ): void {
-  const pipeline = new GatewayPipeline(config);
-
   // ─── Tool 1: query_table ──────────────────────────────────────────────────
   server.tool(
     "query_table",
@@ -140,7 +139,61 @@ export function registerDbTools(
     }
   );
 
-  // ─── Tool 4: gateway_status ───────────────────────────────────────────────
+  // ─── Tool 4: query_audit_log ───────────────────────────────────────────────
+  server.tool(
+    "query_audit_log",
+    "Query the gateway's own audit log — inspect which tools were called, on which tables, whether they were allowed or denied (and why), and which fields were redacted/written. Covers events since this server process started; count is capped by the gateway's audit.bufferSize (default 200).",
+    {
+      table: z.string().optional().describe("Filter by table name"),
+      tool: z.string().optional().describe("Filter by MCP tool name, e.g. 'query_table', 'update_row'"),
+      operation: z
+        .enum(["read", "insert", "update", "delete"])
+        .optional()
+        .describe("Filter by operation type"),
+      deniedOnly: z.boolean().optional().describe("Only return calls the gateway denied/blocked"),
+      since: z.string().optional().describe("ISO 8601 timestamp — only events at or after this time"),
+      limit: z
+        .number()
+        .int()
+        .positive()
+        .max(200)
+        .optional()
+        .describe("Max events to return, most recent first (default 50)"),
+    },
+    async ({ table, tool, operation, deniedOnly, since, limit }) => {
+      if (!config.audit.enabled) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({ error: "Audit logging is disabled (audit.enabled=false) — nothing to query." }),
+            },
+          ],
+        };
+      }
+
+      const events = pipeline.queryAuditLog({ table, tool, operation, deniedOnly, since, limit });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                events,
+                count: events.length,
+                bufferSize: config.audit.bufferSize,
+                note: "In-memory only — resets when the gateway process restarts.",
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    }
+  );
+
+  // ─── Tool 5: gateway_status ───────────────────────────────────────────────
   server.tool(
     "gateway_status",
     "Show the active gateway configuration: field masking rules, table policies, and audit settings.",
@@ -162,6 +215,7 @@ export function registerDbTools(
                 maxAffectedRowsPerWrite: config.maxAffectedRowsPerWrite,
                 auditEnabled: config.audit.enabled,
                 auditSink: config.audit.sink,
+                auditBufferSize: config.audit.bufferSize,
                 rateLimit: config.rateLimit,
                 fieldRules: config.fieldRules,
                 tableRules: config.tableRules,
@@ -185,11 +239,10 @@ export function registerDbTools(
 export function registerWriteTools(
   server: McpServer,
   config: GatewayConfig,
-  db: DbAdapter
+  db: DbAdapter,
+  pipeline: GatewayPipeline
 ): void {
   if (!config.writesEnabled) return;
-
-  const pipeline = new GatewayPipeline(config);
 
   // ─── Tool: insert_row ──────────────────────────────────────────────────────
   server.tool(

@@ -1,8 +1,10 @@
 import type { GatewayConfig, TableRule } from "../config";
 import { maskRows, maskRow, findProtectedWriteFields } from "./masker";
-import { AuditLogger, createAuditEvent } from "../audit/logger";
+import { AuditLogger, createAuditEvent, type AuditEvent, type AuditQueryFilter } from "../audit/logger";
 import { RateLimiter } from "../rate-limiter";
 import { RoleResolver, type WriteOperation } from "../rbac";
+
+export type { AuditEvent, AuditQueryFilter };
 
 export type QueryResult = {
   rows: Record<string, unknown>[];
@@ -48,6 +50,11 @@ export class GatewayPipeline {
   /** Aktif rol adını döner (gateway_status için). */
   get activeRoleName(): string | null {
     return this.roleResolver.role?.name ?? null;
+  }
+
+  /** `query_audit_log` tool'u için — bellek-içi audit event geçmişini filtreler. */
+  queryAuditLog(filter: AuditQueryFilter = {}): AuditEvent[] {
+    return this.audit.query(filter);
   }
 
   /**

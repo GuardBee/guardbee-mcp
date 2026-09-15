@@ -291,3 +291,38 @@ describe("GatewayPipeline — recordWrite", () => {
     expect(result.rowsAffected).toBe(2);
   });
 });
+
+describe("GatewayPipeline — queryAuditLog", () => {
+  function makeAuditedPipeline(overrides = {}) {
+    const config = loadConfig({ audit: { enabled: true, sink: "console" as const }, ...overrides });
+    return new GatewayPipeline(config);
+  }
+
+  it("read ve write tool'ları AYNI pipeline üzerinden aynı buffer'a düşer", async () => {
+    const pipeline = makeAuditedPipeline({ writesEnabled: true });
+    await pipeline.process("query_table", "users", {}, baseRows);
+    await pipeline.recordWrite("insert_row", "orders", "insert", undefined, { status: "new" }, 1, { id: "o1" }, Date.now());
+
+    const events = pipeline.queryAuditLog();
+    expect(events.map((e) => e.tool).sort()).toEqual(["insert_row", "query_table"]);
+  });
+
+  it("deniedOnly + table filtresi birlikte çalışır", async () => {
+    const pipeline = makeAuditedPipeline({
+      tableRules: [{ table: "users", access: "deny" }],
+    });
+    await pipeline.process("query_table", "users", {}, baseRows);
+    await pipeline.process("query_table", "orders", {}, baseRows);
+
+    const denied = pipeline.queryAuditLog({ deniedOnly: true });
+    expect(denied).toHaveLength(1);
+    expect(denied[0].table).toBe("users");
+    expect(denied[0].denyReason).toContain("Table access denied by policy");
+  });
+
+  it("audit.enabled=false ise buffer boş kalır", async () => {
+    const pipeline = makePipeline(); // audit disabled by default in this helper
+    await pipeline.process("query_table", "users", {}, baseRows);
+    expect(pipeline.queryAuditLog()).toEqual([]);
+  });
+});

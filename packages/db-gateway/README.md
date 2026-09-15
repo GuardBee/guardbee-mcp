@@ -119,6 +119,7 @@ Gateway her zaman şu 4 okuma tool'unu Claude'a sunar:
 | `query_table` | Tablodan satır sorgula (PII otomatik maskelenir) |
 | `list_tables` | Erişilebilir tabloları listele (rol kısıtlamaları uygulanır) |
 | `describe_table` | Tablo şeması ve maskeleme politikasını göster |
+| `query_audit_log` | Gateway'in kendi audit geçmişini sorgula (tablo/tool/operation/deniedOnly/since filtreleriyle) — bellek-içi, `audit.bufferSize` ile sınırlı, süreç yeniden başlarsa sıfırlanır |
 | `gateway_status` | Aktif config, roller ve rate limit durumunu göster |
 
 `writesEnabled: true` ayarlandığında (bkz. [Yazma Desteği](#yazma-desteği-writeinsertupdatedelete)) 3 yazma tool'u daha eklenir:
@@ -177,6 +178,7 @@ createServer({
     sink: "file",              // "console" | "file" | "http"
     filePath: "./audit.jsonl",
     // webhookUrl: "https://..."  (sink: "http" için)
+    bufferSize: 200,           // `query_audit_log` tool'unun okuduğu bellek-içi geçmiş boyutu
   },
 
   // Roller
