@@ -1,16 +1,17 @@
 {
   "name": "@guardbee/mcp-security-proxy",
-  "version": "0.2.1",
-  "description": "Security proxy for MCP servers \u2014 intercepts tool calls, detects prompt injection, masks PII, and writes audit logs",
+  "version": "0.2.2",
+  "description": "Security proxy for MCP servers — intercepts tool calls, detects prompt injection, masks PII, and writes audit logs",
   "author": "GuardBee <hello@guardbee.ai>",
   "license": "MIT",
-  "homepage": "https://github.com/GuardBee/guardbee-mcp-security-proxy#readme",
+  "homepage": "https://github.com/GuardBee/guardbee-mcp/tree/main/packages/security-proxy#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/GuardBee/guardbee-mcp-security-proxy.git"
+    "url": "https://github.com/GuardBee/guardbee-mcp.git",
+    "directory": "packages/security-proxy"
   },
   "bugs": {
-    "url": "https://github.com/GuardBee/guardbee-mcp-security-proxy/issues"
+    "url": "https://github.com/GuardBee/guardbee-mcp/issues"
   },
   "keywords": [
     "mcp",

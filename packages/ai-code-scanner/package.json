@@ -1,7 +1,7 @@
 {
   "name": "@guardbee/mcp-ai-code-scanner",
-  "version": "0.2.1",
-  "description": "MCP server that scans code for insecure LLM/AI integration patterns \u2014 client-exposed API keys, unsafe handling of model output, excessive agent tool permissions, and PII sent to third-party LLMs",
+  "version": "0.2.2",
+  "description": "MCP server that scans code for insecure LLM/AI integration patterns — client-exposed API keys, unsafe handling of model output, excessive agent tool permissions, and PII sent to third-party LLMs",
   "type": "module",
   "bin": {
     "guardbee-ai-code-scanner": "./dist/cli.js"
@@ -43,6 +43,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/GuardBee/guardbee-mcp.git"
+    "url": "https://github.com/GuardBee/guardbee-mcp.git",
+    "directory": "packages/ai-code-scanner"
   }
 }

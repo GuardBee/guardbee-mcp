@@ -12,7 +12,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/GuardBee/guardbee-mcp-gateway.git"
+    "url": "https://github.com/GuardBee/guardbee-mcp.git",
+    "directory": "packages/db-gateway"
   },
   "homepage": "https://guardbee.ai",
   "license": "MIT",

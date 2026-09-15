@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-ssl-inspector",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "MCP server that inspects TLS certificates, cipher suites, and protocol configurations for any domain",
   "type": "module",
   "bin": {
@@ -43,6 +43,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/GuardBee/guardbee-mcp-ssl-inspector"
+    "url": "https://github.com/GuardBee/guardbee-mcp.git",
+    "directory": "packages/ssl-inspector"
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-secret-scanner",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "MCP server that scans files and directories for exposed secrets, API keys, and credentials",
   "type": "module",
   "bin": {
@@ -41,6 +41,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/GuardBee/guardbee-mcp-secret-scanner"
+    "url": "https://github.com/GuardBee/guardbee-mcp.git",
+    "directory": "packages/secret-scanner"
   }
 }

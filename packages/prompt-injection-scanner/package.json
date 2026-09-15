@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-prompt-injection-scanner",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "MCP server that scans documents, scraped pages, and RAG content for indirect prompt injection payloads — instruction-override phrases, spoofed chat-template roles, hidden/invisible text, content addressing the AI directly, and data-exfiltration attempts",
   "type": "module",
   "bin": {
@@ -44,6 +44,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/GuardBee/guardbee-mcp.git"
+    "url": "https://github.com/GuardBee/guardbee-mcp.git",
+    "directory": "packages/prompt-injection-scanner"
   }
 }

@@ -1,16 +1,17 @@
 {
   "name": "@guardbee/mcp-db-gateway",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "KVKK/GDPR-compliant MCP server gateway between LLMs and databases",
   "author": "GuardBee <hello@guardbee.ai>",
   "license": "MIT",
-  "homepage": "https://github.com/GuardBee/guardbee-mcp-gateway#readme",
+  "homepage": "https://github.com/GuardBee/guardbee-mcp/tree/main/packages/db-gateway#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/GuardBee/guardbee-mcp-gateway.git"
+    "url": "https://github.com/GuardBee/guardbee-mcp.git",
+    "directory": "packages/db-gateway"
   },
   "bugs": {
-    "url": "https://github.com/GuardBee/guardbee-mcp-gateway/issues"
+    "url": "https://github.com/GuardBee/guardbee-mcp/issues"
   },
   "keywords": [
     "mcp",
