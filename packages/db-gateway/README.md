@@ -1,6 +1,6 @@
 # @guardbee/mcp-db-gateway
 
-**🇬🇧 English** | [🇹🇷 Türkçe](README.tr.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-db-gateway.svg)](https://www.npmjs.com/package/@guardbee/mcp-db-gateway)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-db-gateway.svg)](https://www.npmjs.com/package/@guardbee/mcp-db-gateway)

@@ -1,5 +1,11 @@
 # @guardbee/mcp-db-gateway
 
+## 0.3.2
+
+### Patch Changes
+
+- Rename the Turkish README from `README.tr.md` to `TR.md`. npm's registry picked `README.tr.md` (not `README.md`) as the displayed readme when both existed at the package root — any filename matching `/^readme/i` is apparently a candidate, not just an exact `README.md` match. Renaming the Turkish file so only `README.md` matches that pattern removes the ambiguity.
+
 ## 0.3.1
 
 ### Patch Changes
