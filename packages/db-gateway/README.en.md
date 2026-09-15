@@ -30,15 +30,15 @@ Claude ──► MCP Gateway ──► Database
 - **Role-Based Access (RBAC)** — Per-role table allow/deny lists and field rules
 - **Rate Limiting** — Global and per-table request windows
 - **Audit Log** — Writable to console, a file, or an HTTP webhook
-- **Prisma / Postgres / MySQL / SQLite Adapters** — Plug in an existing `PrismaClient`, a `pg` `Pool`, a `mysql2` `Pool`, or a `better-sqlite3` `Database` directly
+- **Prisma / Postgres / MySQL / SQLite / MongoDB Adapters** — Plug in an existing `PrismaClient`, a `pg` `Pool`, a `mysql2` `Pool`, a `better-sqlite3` `Database`, or a MongoDB `Db` directly
 - **Write Support (optional)** — insert/update/delete, off by default; gated by per-table + per-role permission, protected-field guarding, and a "don't touch the whole table" safety net
-- **174 unit tests** — masking, the pipeline, RBAC, the rate limiter, the audit log, and every adapter (read + write) are covered
+- **193 unit tests** — masking, the pipeline, RBAC, the rate limiter, the audit log, and every adapter (read + write) are covered
 
 ---
 
 ## Recent Changes (2026-09-15)
 
-Two new steps in this package's AI Gateway growth work:
+Three new steps in this package's AI Gateway growth work:
 
 ### 1. The `query_audit_log` tool
 
@@ -71,6 +71,27 @@ const server = createServer({}, createSqliteAdapter(db));
 - **`lastInsertRowid` instead of `RETURNING` for insert:** since SQLite's `RETURNING` support is version-dependent, this follows the same approach as the MySQL adapter's `insertId` — if the table has an `id` column and it's not already in `data`, the inserted row gets `lastInsertRowid` attached.
 - **Bonus fix:** the `AuditEvent`/`AuditQueryFilter` types were not exported from the package root (`index.ts`) at all — added for consumers who want to type their own calls to `GatewayPipeline.queryAuditLog()`.
 - **Tests:** `src/__tests__/sqlite-adapter.test.ts` (21 tests) — the same scenario set as `pg-adapter.test.ts`: table listing, filtered/unfiltered queries, limits, unknown table/column rejection, injection-attempt rejection, insert (including id assignment), update, delete.
+
+### 3. The MongoDB adapter
+
+The gateway now also works with a `Db` instance from the `mongodb` driver:
+
+```typescript
+import { MongoClient } from "mongodb";
+import { createServer, createMongoAdapter } from "@guardbee/mcp-db-gateway";
+
+const client = new MongoClient(process.env.DATABASE_URL!);
+await client.connect();
+const server = createServer({}, createMongoAdapter(client.db("mydb")));
+```
+
+- **A different risk class — not SQL injection, but operator injection:** for pg/mysql/sqlite the risk was a table/column name being embedded in SQL. MongoDB never embeds identifiers, but if a key in `filter`/`data` is a Mongo operator like `$where`/`$ne`, or a value is an operator object like `{ $ne: null }`, the "simple key-value equality filter" a tool declares can silently turn into an arbitrary query. This adapter rejects all of the following up front:
+  - any key starting with `$` (in both `filter` and `data`)
+  - any key containing `.` — a dotted path (e.g. `"passwordHash.reset"`) is both an operator-like risk and a way to bypass `findProtectedWriteFields`'s exact-name matching (outside of its glob support)
+  - any non-scalar (object/array) filter value — including an operator-object bypass attempt like `{ status: { $ne: "active" } }`
+- **`mongodb` is only an optional `peerDependency`** — same as the SQLite adapter, tests were written against a mock object matching the `MongoDatabase` interface, without importing the real package.
+- **"Table" = collection.** `tables()` maps to `listCollections()`; insert attaches `_id` (the driver's `insertedId`) to the returned row; update runs `updateMany` with `{ $set: data }`; delete runs `deleteMany`.
+- **Tests:** `src/__tests__/mongo-adapter.test.ts` (19 tests) — collection listing, filtered/unfiltered queries, limits, three operator-injection scenarios (a `$`-prefixed key, a dotted key, an operator-object value), insert/update/delete.
 
 ---
 
@@ -155,7 +176,17 @@ const db = new Database("./app.db");
 const server = createServer({}, createSqliteAdapter(db));
 ```
 
-> **Security note:** unlike the Prisma adapter, the `pg`/`mysql2`/`better-sqlite3` adapters generate raw SQL. Because table and column names can't be parameterized, they are validated against the live schema on every query (`information_schema`, or `PRAGMA table_info` for SQLite) — a table/column name that isn't in the schema (e.g. an injection attempt) is rejected before it ever reaches SQL.
+```typescript
+// MongoDB
+import { MongoClient } from "mongodb";
+import { createServer, createMongoAdapter } from "@guardbee/mcp-db-gateway";
+
+const client = new MongoClient(process.env.DATABASE_URL!);
+await client.connect();
+const server = createServer({}, createMongoAdapter(client.db("mydb")));
+```
+
+> **Security note:** unlike the Prisma adapter, the `pg`/`mysql2`/`better-sqlite3` adapters generate raw SQL. Because table and column names can't be parameterized, they are validated against the live schema on every query (`information_schema`, or `PRAGMA table_info` for SQLite) — a table/column name that isn't in the schema (e.g. an injection attempt) is rejected before it ever reaches SQL. The MongoDB adapter guards against a different risk ("operator injection" instead of SQL) — see [Recent Changes](#recent-changes-2026-09-15).
 
 ---
 
@@ -336,7 +367,7 @@ Pass a `PrismaClient` directly — table name → model mapping is automatic:
 ```bash
 npm run dev          # dev mode via tsx
 npm run build        # TypeScript compile
-npm test             # 174 unit tests
+npm test             # 193 unit tests
 npm run test:watch   # watch mode
 npm run type-check   # type-check only
 ```

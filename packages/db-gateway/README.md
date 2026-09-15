@@ -30,15 +30,15 @@ Claude ──► MCP Gateway ──► Veritabanı
 - **Rol Bazlı Erişim (RBAC)** — Her rol için tablo beyaz/kara listesi ve alan kuralları
 - **Rate Limiting** — Global ve tablo bazlı istek penceresi
 - **Audit Log** — Console, dosya veya HTTP webhook'a yazılabilir
-- **Prisma / Postgres / MySQL / SQLite Adaptörleri** — Mevcut PrismaClient'ı, `pg` Pool'unu, `mysql2` Pool'unu veya `better-sqlite3` Database'ini doğrudan bağlayın
+- **Prisma / Postgres / MySQL / SQLite / MongoDB Adaptörleri** — Mevcut PrismaClient'ı, `pg` Pool'unu, `mysql2` Pool'unu, `better-sqlite3` Database'ini veya bir MongoDB `Db`'sini doğrudan bağlayın
 - **Yazma Desteği (opsiyonel)** — insert/update/delete, varsayılan kapalı; tablo+rol bazlı izin, korumalı alan koruması ve "tüm tabloyu etkileme" güvenlik ağı ile
-- **174 unit test** — Masker, pipeline, RBAC, rate limiter, audit log ve tüm adaptörler (okuma + yazma) kapsanmış
+- **193 unit test** — Masker, pipeline, RBAC, rate limiter, audit log ve tüm adaptörler (okuma + yazma) kapsanmış
 
 ---
 
 ## Son Değişiklikler (2026-09-15)
 
-AI Gateway büyütme çalışmasının bu paketteki 2 yeni adımı:
+AI Gateway büyütme çalışmasının bu paketteki 3 yeni adımı:
 
 ### 1. `query_audit_log` tool'u
 
@@ -71,6 +71,27 @@ const server = createServer({}, createSqliteAdapter(db));
 - **insert için `RETURNING` yerine `lastInsertRowid`:** SQLite'ın RETURNING desteği sürüme bağlı olduğundan, mysql adaptöründeki `insertId` yaklaşımı izlendi — tabloda `id` kolonu varsa ve `data` içinde zaten yoksa, eklenen satıra `lastInsertRowid` eklenir.
 - **Bonus düzeltme:** `AuditEvent`/`AuditQueryFilter` tipleri paket kökünden (`index.ts`) hiç export edilmiyordu — `GatewayPipeline.queryAuditLog()`'u kendi kodunda tipli çağırmak isteyen tüketiciler için eklendi.
 - **Test:** `src/__tests__/sqlite-adapter.test.ts` (21 test) — pg-adapter.test.ts ile aynı senaryo seti: tablo listesi, filtreli/filtresiz sorgu, limit, bilinmeyen tablo/kolon reddi, injection denemesi reddi, insert (id atama dahil), update, delete.
+
+### 3. MongoDB adaptörü
+
+Gateway artık `mongodb` sürücüsünün `Db` örneğiyle de çalışıyor:
+
+```typescript
+import { MongoClient } from "mongodb";
+import { createServer, createMongoAdapter } from "@guardbee/mcp-db-gateway";
+
+const client = new MongoClient(process.env.DATABASE_URL!);
+await client.connect();
+const server = createServer({}, createMongoAdapter(client.db("mydb")));
+```
+
+- **Farklı bir risk sınıfı — SQL injection değil, operator injection:** pg/mysql/sqlite'ta risk tablo/kolon adının SQL'e gömülmesiydi. MongoDB'de identifier hiç gömülmüyor, ama `filter`/`data` içindeki bir key `$where`/`$ne` gibi bir Mongo operatörü olursa ya da bir değer `{ $ne: null }` gibi bir operatör objesi olursa, tool'un beyan ettiği "basit key-value eşitlik filtresi" gizlice keyfi bir sorguya dönüşebilir. Bu adaptör şunları baştan reddediyor:
+  - `$` ile başlayan her key (`filter` ve `data`'da)
+  - `.` içeren her key — noktalı path (`"passwordHash.reset"` gibi) hem operator-benzeri bir risk hem de `findProtectedWriteFields`'ın tam isim eşleşmesini (glob dışında) es geçebilecek bir bypass yolu
+  - Filter değeri olarak skaler olmayan (obje/array) her şey — `{ status: { $ne: "active" } }` gibi bir operatör-objesi bypass denemesi dahil
+- **`mongodb` sadece opsiyonel bir `peerDependency`** — SQLite adaptöründeki gibi, testler gerçek paketi import etmeden `MongoDatabase` arayüzüne uyan bir mock nesneyle yazıldı.
+- **"Tablo" = collection.** `tables()` → `listCollections()`, insert `_id`'yi (varsa `insertedId`) satıra ekler, update `{ $set: data }` ile `updateMany`, delete `deleteMany` çağırır.
+- **Test:** `src/__tests__/mongo-adapter.test.ts` (19 test) — collection listesi, filtreli/filtresiz sorgu, limit, üç operator-injection senaryosu (`$` key, noktalı key, operatör-objesi değer), insert/update/delete.
 
 ---
 
@@ -155,7 +176,17 @@ const db = new Database("./app.db");
 const server = createServer({}, createSqliteAdapter(db));
 ```
 
-> **Güvenlik notu:** Prisma adaptörünün aksine `pg`/`mysql2`/`better-sqlite3` adaptörleri ham SQL üretir. Tablo ve kolon adları parametrize edilemediği için her sorguda canlı şemayla doğrulanır (`information_schema` ya da SQLite için `PRAGMA table_info`) — şemada olmayan bir tablo/kolon adı (örn. bir injection denemesi) SQL'e hiç ulaşmadan reddedilir.
+```typescript
+// MongoDB
+import { MongoClient } from "mongodb";
+import { createServer, createMongoAdapter } from "@guardbee/mcp-db-gateway";
+
+const client = new MongoClient(process.env.DATABASE_URL!);
+await client.connect();
+const server = createServer({}, createMongoAdapter(client.db("mydb")));
+```
+
+> **Güvenlik notu:** Prisma adaptörünün aksine `pg`/`mysql2`/`better-sqlite3` adaptörleri ham SQL üretir. Tablo ve kolon adları parametrize edilemediği için her sorguda canlı şemayla doğrulanır (`information_schema` ya da SQLite için `PRAGMA table_info`) — şemada olmayan bir tablo/kolon adı (örn. bir injection denemesi) SQL'e hiç ulaşmadan reddedilir. MongoDB adaptörü farklı bir riske karşı korunur (SQL yerine "operator injection") — bkz. [Son Değişiklikler](#son-değişiklikler-2026-09-15).
 
 ---
 
@@ -336,7 +367,7 @@ PrismaClient'ı doğrudan geçirin — tablo adı → model eşleştirmesi otoma
 ```bash
 npm run dev          # tsx ile geliştirme modu
 npm run build        # TypeScript derleme
-npm test             # 174 unit test
+npm test             # 193 unit test
 npm run test:watch   # İzleme modu
 npm run type-check   # Sadece tip kontrolü
 ```

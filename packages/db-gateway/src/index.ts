@@ -15,4 +15,6 @@ export { createMysqlAdapter } from "./adapters/mysql";
 export type { MysqlQueryable, MysqlAdapterOptions } from "./adapters/mysql";
 export { createSqliteAdapter } from "./adapters/sqlite";
 export type { SqliteQueryable, SqliteStatement } from "./adapters/sqlite";
+export { createMongoAdapter } from "./adapters/mongo";
+export type { MongoDatabase, MongoCollection } from "./adapters/mongo";
 export type { AuditEvent, AuditQueryFilter } from "./audit/logger";
