@@ -1,34 +1,36 @@
 # @guardbee/mcp-ai-code-scanner
 
-MCP (Model Context Protocol) sunucusu — kod tabanınızı, LLM/AI entegrasyonlarında sık görülen güvenlik kalıpları için tarar.
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
 
-`secret-scanner` sırlar/API key'ler ararken, bu paket **kalıp** arar: modelin çıktısına ne kadar güvenildiği, modelin çağırabildiği tool'ların ne kadar yetkili olduğu, hangi verinin üçüncü taraf bir LLM'e gönderildiği gibi, statik bir credential taramasıyla yakalanamayan riskler.
+An MCP (Model Context Protocol) server that scans your codebase for security patterns commonly found in LLM/AI integrations.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler, taranan kod hiçbir zaman dahil değil — bkz. [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+While `secret-scanner` looks for leaked secrets/API keys, this package looks for **patterns**: how much a model's output is trusted, how privileged the tools it can call are, what data is sent to a third-party LLM — risks that a static credential scan can't catch.
+
+> This package sends usage telemetry by default (tool name + short parameters, the scanned code is never included — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
 
 ```
-Claude ──► ai-code-scanner ──► Kod tabanınız
+Claude ──► ai-code-scanner ──► Your codebase
               │
               ├─ Client-exposure    (dangerouslyAllowBrowser: true)
-              ├─ Output handling    (eval(llmOutput), JSON.parse doğrulamasız)
-              ├─ Excessive agency   (execute_command adlı bir agent tool'u)
-              ├─ Data privacy       (email/tcKimlik doğrudan prompt'a)
-              └─ Prompt injection   (system prompt'a ham request verisi)
+              ├─ Output handling    (eval(llmOutput), unvalidated JSON.parse)
+              ├─ Excessive agency   (an agent tool named execute_command)
+              ├─ Data privacy       (email/national ID interpolated directly into a prompt)
+              └─ Prompt injection   (raw request data mixed into a system prompt)
 ```
 
 ---
 
-## Özellikler
+## Features
 
-- **10 kalıp, 5 kategori** — client-exposure, output-handling, excessive-agency, data-privacy, prompt-injection
-- Her bulguda **neden riskli olduğu ve ne yapılması gerektiği** (`recommendation`) — sadece "bulundu" demez
-- SARIF 2.1.0 çıktısı — CI/CD entegrasyonu (GitHub Code Scanning vb.)
-- `guardbee.yml` ile config dosyası desteği
-- 28 unit test — her kalıp için hem pozitif hem negatif (yanlış-pozitif) senaryo
+- **10 patterns, 5 categories** — client-exposure, output-handling, excessive-agency, data-privacy, prompt-injection
+- Every finding includes **why it's risky and what to do about it** (`recommendation`) — not just "found it"
+- SARIF 2.1.0 output — CI/CD integration (GitHub Code Scanning, etc.)
+- Config file support via `guardbee.yml`
+- 28 unit tests — a positive and a negative (false-positive) scenario for every pattern
 
 ---
 
-## Hızlı Başlangıç
+## Quick Start
 
 ### Claude Desktop / MCP Client
 
@@ -53,35 +55,35 @@ npx @guardbee/mcp-ai-code-scanner scan ./src --fail-on=high --format=sarif > res
 
 ## MCP Tools
 
-| Tool | Açıklama |
+| Tool | Description |
 |------|----------|
-| `scan_text` | Verilen bir metin/kod parçasını tarar |
-| `scan_file` | Tek bir dosyayı tarar |
-| `scan_directory` | Bir dizini recursive tarar (`node_modules`, `.git`, `dist` otomatik atlanır) |
-| `list_patterns` | Desteklenen tüm kalıpları kategoriye göre listeler |
+| `scan_text` | Scans a given text/code snippet |
+| `scan_file` | Scans a single file |
+| `scan_directory` | Recursively scans a directory (`node_modules`, `.git`, `dist` skipped automatically) |
+| `list_patterns` | Lists all supported patterns by category |
 
 ---
 
-## Tespit Edilen Kalıplar
+## Detected Patterns
 
-| Kategori | Kalıp | Önem | Ne demek |
+| Category | Pattern | Severity | What it means |
 |---|---|---|---|
-| client-exposure | `openai_dangerously_allow_browser` | critical | OpenAI key'i tarayıcıya sızıyor |
-| client-exposure | `client_bundled_ai_api_key` | critical | `NEXT_PUBLIC_`/`VITE_`/`REACT_APP_` ile AI key bundle'a giriyor |
-| output-handling | `eval_llm_output` | critical | Model çıktısı `eval()`/`Function()` ile kod olarak çalıştırılıyor |
-| output-handling | `exec_llm_output` | critical | Model çıktısı shell komutuna geçiriliyor (command injection) |
-| output-handling | `llm_output_dangerously_set_inner_html` | high | Model çıktısı ham HTML olarak render ediliyor (XSS) |
-| output-handling | `llm_json_no_validation` | medium | Model çıktısı şema doğrulaması olmadan `JSON.parse` ediliyor |
-| excessive-agency | `excessive_agency_tool_name` | high | Agent'a shell/kod çalıştırma yetkisi veren bir tool |
-| excessive-agency | `unbounded_agent_loop` | medium | Iterasyon sınırı olmayan agent döngüsü (maliyet/DoS) |
-| data-privacy | `pii_field_in_llm_prompt` | high | E-posta/TC kimlik/kart no gibi veri doğrudan prompt'a giriyor |
-| prompt-injection | `unsanitized_input_in_system_prompt` | medium | Ham request/kullanıcı verisi system prompt'a karışıyor |
+| client-exposure | `openai_dangerously_allow_browser` | critical | OpenAI key leaked to the browser |
+| client-exposure | `client_bundled_ai_api_key` | critical | An AI key enters the client bundle via `NEXT_PUBLIC_`/`VITE_`/`REACT_APP_` |
+| output-handling | `eval_llm_output` | critical | Model output executed as code via `eval()`/`Function()` |
+| output-handling | `exec_llm_output` | critical | Model output passed to a shell command (command injection) |
+| output-handling | `llm_output_dangerously_set_inner_html` | high | Model output rendered as raw HTML (XSS) |
+| output-handling | `llm_json_no_validation` | medium | Model output `JSON.parse`'d without schema validation |
+| excessive-agency | `excessive_agency_tool_name` | high | A tool that grants an agent shell/code execution |
+| excessive-agency | `unbounded_agent_loop` | medium | An agent loop with no iteration bound (cost/DoS) |
+| data-privacy | `pii_field_in_llm_prompt` | high | Data like email/national ID/card number goes directly into a prompt |
+| prompt-injection | `unsanitized_input_in_system_prompt` | medium | Raw request/user data mixed into a system prompt |
 
-Bunlar **heuristic** bulgulardır — tam bir AST analizi değil, statik metin kalıbı taraması yapar. Düşük yanlış-pozitif oranı için tasarlandı ama her bulgu yine de manuel gözden geçirilmelidir.
+These are **heuristic** findings — a static text-pattern scan, not a full AST analysis. Designed for a low false-positive rate, but every finding should still be reviewed manually.
 
 ---
 
-## Yapılandırma (`guardbee.yml`)
+## Configuration (`guardbee.yml`)
 
 ```yaml
 ai-code-scanner:
@@ -94,15 +96,15 @@ ai-code-scanner:
 
 ---
 
-## Geliştirme
+## Development
 
 ```bash
 npm run build
-npm test             # 28 unit test
+npm test             # 28 unit tests
 ```
 
 ---
 
-## Lisans
+## License
 
 MIT — [GuardBee](https://guardbee.ai)

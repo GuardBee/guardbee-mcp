@@ -1,34 +1,36 @@
 # @guardbee/mcp-dependency-auditor
 
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-dependency-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-dependency-auditor)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-dependency-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-dependency-auditor)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-npm, pip ve diğer paket yöneticilerinin bağımlılıklarını bilinen CVE'ler için [OSV](https://osv.dev) veritabanına karşı tarayan MCP sunucusu. Claude'a doğrudan projenizin güvenlik durumunu sorabilirsiniz.
+An MCP server that audits npm, pip, and other package managers' dependencies against the [OSV](https://osv.dev) database for known CVEs. Ask Claude directly about your project's security posture.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler — bkz. [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
-
----
-
-## Özellikler
-
-- **OSV API Entegrasyonu** — Google'ın açık kaynak güvenlik açığı veri tabanı (ücretsiz, kimlik doğrulaması gerektirmez)
-- **npm Desteği** — `package.json` ve `package-lock.json` (v1/v2/v3) okunur; kilitli sürümler tercih edilir
-- **pip Desteği** — `requirements.txt`, `requirements/base.txt`, `requirements/prod.txt` ve `pyproject.toml`
-- **Severity Skorlaması** — CVSS puanına veya metin buluşsal yöntemine göre Critical / High / Medium / Low
-- **Düzeltme Sürümü** — Mevcut olduğunda `upgrade to X@Y.Z.Z` önerisi
-- **CVE Bağlantıları** — NVD veya osv.dev'e doğrudan link
-- **20 Unit Test** — %100 geçen test paketi
+> This package sends usage telemetry by default (tool name + short parameters — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
 
 ---
 
-## Hızlı Başlangıç
+## Features
+
+- **OSV API Integration** — Google's open-source vulnerability database (free, no authentication required)
+- **npm Support** — reads `package.json` and `package-lock.json` (v1/v2/v3); locked versions preferred
+- **pip Support** — `requirements.txt`, `requirements/base.txt`, `requirements/prod.txt`, and `pyproject.toml`
+- **Severity Scoring** — Critical / High / Medium / Low based on CVSS score or a text heuristic
+- **Fix Version** — an `upgrade to X@Y.Z.Z` recommendation when available
+- **CVE Links** — direct links to NVD or osv.dev
+- **20 Unit Tests** — 100% passing test suite
+
+---
+
+## Quick Start
 
 ```bash
 npm install -g @guardbee/mcp-dependency-auditor
 ```
 
-`claude_desktop_config.json` dosyasına ekleyin:
+Add to `claude_desktop_config.json`:
 
 ```json
 {
@@ -45,24 +47,24 @@ npm install -g @guardbee/mcp-dependency-auditor
 
 ## MCP Tools
 
-| Tool | Açıklama |
+| Tool | Description |
 |------|----------|
-| `audit_npm` | `package.json` / `package-lock.json` içindeki npm bağımlılıklarını denetler |
-| `audit_pip` | `requirements.txt` / `pyproject.toml` içindeki Python bağımlılıklarını denetler |
-| `audit_package` | Tek bir paketi ad, sürüm ve ekosisteme göre denetler |
-| `audit_directory` | Desteklenen tüm manifest dosyalarını otomatik tespit ederek denetler |
+| `audit_npm` | Audits npm dependencies in `package.json` / `package-lock.json` |
+| `audit_pip` | Audits Python dependencies in `requirements.txt` / `pyproject.toml` |
+| `audit_package` | Audits a single package by name, version, and ecosystem |
+| `audit_directory` | Auto-detects and audits all supported manifest files |
 
-### Örnek Kullanım
+### Example Usage
 
-Claude'a şunu sorabilirsiniz:
+You can ask Claude:
 
-> "Bu projemin npm bağımlılıklarını denetle: `/Users/me/my-app`"
+> "Audit my project's npm dependencies: `/Users/me/my-app`"
 
-> "lodash 4.17.20 sürümünde CVE var mı?"
+> "Is there a CVE for lodash 4.17.20?"
 
-> "Python projemi tara: `/Users/me/django-app`"
+> "Scan my Python project: `/Users/me/django-app`"
 
-### Örnek Çıktı
+### Example Output
 
 ```
 ⚠️  Found 3 vulnerabilities in 2/142 npm packages (1243ms)
@@ -77,11 +79,11 @@ Claude'a şunu sorabilirsiniz:
 
 ---
 
-## Desteklenen Ekosistemler
+## Supported Ecosystems
 
-`audit_package` tool'u şu ekosistemler için doğrudan sorgu yapabilir:
+The `audit_package` tool can query these ecosystems directly:
 
-| Ekosistem | Parametre |
+| Ecosystem | Parameter |
 |-----------|-----------|
 | npm | `npm` |
 | Python | `PyPI` |
@@ -92,28 +94,28 @@ Claude'a şunu sorabilirsiniz:
 
 ---
 
-## CLI — CI/CD Entegrasyonu
+## CLI — CI/CD Integration
 
-MCP server moduna ek olarak doğrudan CLI olarak da kullanılabilir:
+In addition to MCP server mode, this can also be used directly as a CLI:
 
 ```bash
-# Dizindeki tüm bağımlılıkları denetle (npm + pip otomatik tespit)
+# Audit all dependencies in a directory (npm + pip auto-detected)
 npx @guardbee/mcp-dependency-auditor audit ./my-project
 
-# Sadece npm
+# npm only
 npx @guardbee/mcp-dependency-auditor audit-npm . --fail-on=critical
 
-# Sadece pip
+# pip only
 npx @guardbee/mcp-dependency-auditor audit-pip . --fail-on=high
 
-# Tek paket
+# Single package
 npx @guardbee/mcp-dependency-auditor audit-pkg lodash 4.17.20 npm
 
-# JSON çıktı
+# JSON output
 npx @guardbee/mcp-dependency-auditor audit . --format=json
 ```
 
-**Exit kodları:** `0` = temiz · `1` = threshold üstü bulgu · `2` = hata
+**Exit codes:** `0` = clean · `1` = findings above threshold · `2` = error
 
 ### GitHub Actions
 
@@ -155,16 +157,16 @@ npx @guardbee/mcp-dependency-auditor audit . --fail-on=critical || exit 1
 
 ---
 
-## Geliştirme
+## Development
 
 ```bash
 npm install
-npm test          # 20 unit test
-npm run build     # TypeScript derleme
+npm test          # 20 unit tests
+npm run build     # TypeScript compile
 ```
 
 ---
 
-## Lisans
+## License
 
 MIT — [GuardBee](https://guardbee.ai)

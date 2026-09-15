@@ -1,77 +1,77 @@
 # guardbee-mcp
 
-**🇹🇷 Türkçe** | [🇬🇧 English](README.en.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
 
-GuardBee'nin MCP (Model Context Protocol) server ailesi — tek monorepo, bağımsız npm paketleri.
+GuardBee's family of MCP (Model Context Protocol) servers — a single monorepo, independent npm packages.
 
-## Paketler
+## Packages
 
-| Paket | npm | Açıklama |
+| Package | npm | Description |
 |---|---|---|
-| [`packages/ai-code-scanner`](packages/ai-code-scanner) | `@guardbee/mcp-ai-code-scanner` | Kod tabanında insecure LLM/AI entegrasyon kalıpları taraması (client-exposed key, unsafe output handling, excessive agency, PII→prompt, prompt injection) |
-| [`packages/compliance-checker`](packages/compliance-checker) | `@guardbee/mcp-compliance-checker` | KVKK/GDPR/CCPA uyumluluk kontrolü |
-| [`packages/dependency-auditor`](packages/dependency-auditor) | `@guardbee/mcp-dependency-auditor` | npm/pip/cargo bağımlılıklarında CVE taraması (OSV) |
-| [`packages/dns-intelligence`](packages/dns-intelligence) | `@guardbee/mcp-dns-intelligence` | DNS kayıtları, yanlış yapılandırma, dangling subdomain tespiti |
-| [`packages/db-gateway`](packages/db-gateway) | `@guardbee/mcp-db-gateway` | LLM↔DB arası KVKK/GDPR uyumlu gateway (PII masking, RBAC, rate limit, sorgulanabilir audit log; Prisma/Postgres/MySQL/SQLite/MongoDB adaptörleri; opsiyonel insert/update/delete desteği) |
-| [`packages/mcp-server-auditor`](packages/mcp-server-auditor) | `@guardbee/mcp-server-auditor` | Başka MCP server'ların tool tanımlarını güvensiz kalıplar için tarar (excessive agency, shell/eval/SQL/SSRF sink'leri, gevşek şema, sabit secret, wildcard CORS) |
-| [`packages/prompt-injection-scanner`](packages/prompt-injection-scanner) | `@guardbee/mcp-prompt-injection-scanner` | RAG içeriğini/scrape edilmiş sayfaları dolaylı (indirect) prompt injection için tarar (instruction override, sahte rol/chat-template token'ı, gizli metin, "Dear AI" hitabı, data-exfiltration talimatı) |
-| [`packages/secret-scanner`](packages/secret-scanner) | `@guardbee/mcp-secret-scanner` | Dosyalarda sızmış secret/API key taraması |
-| [`packages/security-proxy`](packages/security-proxy) | `@guardbee/mcp-security-proxy` | MCP client↔server arası güvenlik proxy'si |
-| [`packages/security-suite`](packages/security-suite) | `@guardbee/security-suite` | secret-scanner + dependency-auditor + ssl-inspector + dns-intelligence bundle'ı |
-| [`packages/ssl-inspector`](packages/ssl-inspector) | `@guardbee/mcp-ssl-inspector` | TLS sertifika/cipher/protokol denetimi |
-| [`packages/vulnerability-scanner`](packages/vulnerability-scanner) | `@guardbee/mcp-vulnerability-scanner` | GuardBee tarama tetikleme, bulgu sorgulama, AI destekli düzeltme önerisi |
-| [`packages/telemetry`](packages/telemetry) | `@guardbee/mcp-telemetry` | (internal) Paylaşılan kullanım telemetrisi client'ı — kendi başına bir MCP server değil |
+| [`packages/ai-code-scanner`](packages/ai-code-scanner) | `@guardbee/mcp-ai-code-scanner` | Scans a codebase for insecure LLM/AI integration patterns (client-exposed keys, unsafe output handling, excessive agency, PII→prompt, prompt injection) |
+| [`packages/compliance-checker`](packages/compliance-checker) | `@guardbee/mcp-compliance-checker` | KVKK/GDPR/CCPA compliance checks |
+| [`packages/dependency-auditor`](packages/dependency-auditor) | `@guardbee/mcp-dependency-auditor` | CVE scanning for npm/pip/cargo dependencies (OSV) |
+| [`packages/dns-intelligence`](packages/dns-intelligence) | `@guardbee/mcp-dns-intelligence` | DNS record enumeration, misconfiguration and dangling-subdomain detection |
+| [`packages/db-gateway`](packages/db-gateway) | `@guardbee/mcp-db-gateway` | KVKK/GDPR-compliant gateway between an LLM and a database (PII masking, RBAC, rate limiting, queryable audit log; Prisma/Postgres/MySQL/SQLite/MongoDB adapters; optional insert/update/delete support) |
+| [`packages/mcp-server-auditor`](packages/mcp-server-auditor) | `@guardbee/mcp-server-auditor` | Scans other MCP servers' tool definitions for insecure patterns (excessive agency, shell/eval/SQL/SSRF sinks, loose schemas, hardcoded secrets, wildcard CORS) |
+| [`packages/prompt-injection-scanner`](packages/prompt-injection-scanner) | `@guardbee/mcp-prompt-injection-scanner` | Scans RAG content/scraped pages for indirect prompt injection (instruction override, spoofed role/chat-template tokens, hidden text, "Dear AI" direct address, data-exfiltration instructions) |
+| [`packages/secret-scanner`](packages/secret-scanner) | `@guardbee/mcp-secret-scanner` | Scans files for leaked secrets and API keys |
+| [`packages/security-proxy`](packages/security-proxy) | `@guardbee/mcp-security-proxy` | Security proxy between an MCP client and server |
+| [`packages/security-suite`](packages/security-suite) | `@guardbee/security-suite` | Bundle of secret-scanner + dependency-auditor + ssl-inspector + dns-intelligence |
+| [`packages/ssl-inspector`](packages/ssl-inspector) | `@guardbee/mcp-ssl-inspector` | TLS certificate/cipher/protocol inspection |
+| [`packages/vulnerability-scanner`](packages/vulnerability-scanner) | `@guardbee/mcp-vulnerability-scanner` | Triggers GuardBee scans, queries findings, AI-assisted remediation guidance |
+| [`packages/telemetry`](packages/telemetry) | `@guardbee/mcp-telemetry` | (internal) Shared usage-telemetry client — not an MCP server on its own |
 
-## Son Değişiklikler (2026-09-15)
+## Recent Changes (2026-09-15)
 
-`db-gateway` paketinde AI Gateway büyütme çalışmasına devam edildi:
+Continued growing the AI Gateway (`db-gateway`) work:
 
-- **`query_audit_log` tool'u** — Gateway'in kendi audit geçmişi artık `table`/`tool`/`operation`/`deniedOnly`/`since` filtreleriyle sorgulanabiliyor. Sink'ten (console/file/http) bağımsız, her zaman açık bir bellek-içi ring buffer'dan (`audit.bufferSize`, default 200) okuyor. Bu sırada read ve write tool'larının ayrı `AuditLogger` örneği kullanması yüzünden write olaylarının audit sorgusunda hiç görünmeyeceği bir hata da düzeltildi.
-- **SQLite adaptörü** — `createSqliteAdapter`, `better-sqlite3` Database instance'ı kabul eder; pg/mysql adaptörleriyle aynı desende (`PRAGMA table_info` ile canlı şema doğrulaması) çalışır.
-- **MongoDB adaptörü** — `createMongoAdapter`, bir MongoDB `Db` örneği kabul eder. Farklı bir risk sınıfına (SQL injection değil, "operator injection" — `$` ile başlayan key'ler, noktalı path'ler, operatör-objesi filter değerleri) karşı korunur.
+- **`query_audit_log` tool** — the gateway's own audit history is now queryable, filterable by `table`/`tool`/`operation`/`deniedOnly`/`since`. It reads from an always-on in-memory ring buffer (`audit.bufferSize`, default 200) that is independent of the configured sink (console/file/http). This also fixed a bug where read and write tools each built their own `AuditLogger`, so write events would never have shown up in query results.
+- **SQLite adapter** — `createSqliteAdapter` accepts a `better-sqlite3` `Database` instance, following the same pattern as the `pg`/`mysql2` adapters (identifiers validated against the live schema via `PRAGMA table_info` before being embedded in SQL).
+- **MongoDB adapter** — `createMongoAdapter` accepts a MongoDB `Db` instance. Guards against a different risk class (not SQL injection, but "operator injection" — `$`-prefixed keys, dotted paths, operator-object filter values).
 
-Detaylı anlatım: [`packages/db-gateway/TR.md#son-değişiklikler-2026-09-15`](packages/db-gateway/TR.md#son-değişiklikler-2026-09-15).
+Full write-up: [`packages/db-gateway/README.md#recent-changes-2026-09-15`](packages/db-gateway/README.md#recent-changes-2026-09-15).
 
-Ayrıca yeni bir paket eklendi: **[`@guardbee/mcp-server-auditor`](packages/mcp-server-auditor)** — `ai-code-scanner`'ın mimarisini izleyen (regex kalıp listesi, scanText/scanFile/scanDirectory, SARIF, guardbee.yml) ama farklı bir hedefe bakan bir statik tarayıcı: genel LLM entegrasyon koduna değil, **bir MCP server'ın kendi tool tanımlarına**. `server.tool(...)` ile tanımlanmış bir tool'un adı shell/SQL çalıştırma yetkisi mi ima ediyor, handler'ı tool girdisini doğrudan `exec`/`eval`/`fetch`/SQL sink'ine mi geçiriyor, şeması `z.any()` mi, `process.env`'in tamamını mı sızdırıyor — 10 kalıp, 5 kategori, 32 test.
+Also added a new package: **[`@guardbee/mcp-server-auditor`](packages/mcp-server-auditor)** — follows `ai-code-scanner`'s architecture (a regex pattern list, scanText/scanFile/scanDirectory, SARIF, guardbee.yml) but points it at a different target: not general LLM integration code, but **an MCP server's own tool definitions**. Does a tool name registered via `server.tool(...)` imply shell/SQL execution, does its handler pass raw tool input straight into an `exec`/`eval`/`fetch`/SQL sink, is a parameter typed `z.any()`, does it leak the entire `process.env` — 10 patterns, 5 categories, 32 tests.
 
-Ve bir üçüncüsü: **[`@guardbee/mcp-prompt-injection-scanner`](packages/prompt-injection-scanner)** — aynı motoru (scanText/scanFile/scanDirectory/SARIF) kullanır ama bu kez KOD değil **VERİ** tarar: bir RAG chunk'ı, scrape edilmiş bir web sayfası, bir doküman. Klasik prompt injection'ın aksine saldırgan modele değil, modelin okuyacağı içeriğe talimat gömer (dolaylı/indirect injection) — "ignore previous instructions" gibi override cümleleri, sahte `System:`/`<|im_start|>` rol token'ları, zero-width karakter ya da `display:none` ile insan gözünden gizlenmiş ama scraper'ın hâlâ çıkardığı metin, "Dear AI" gibi modele doğrudan hitap eden ifadeler, ve system prompt sızdırma/veriyi dış URL'e gönderme talimatları. 10 kalıp, 5 kategori, 30 test — emoji ZWJ dizileri ve zararsız `display:none` modal'ları gibi bilinen yanlış-pozitif kaynakları özellikle test edildi.
+And a third: **[`@guardbee/mcp-prompt-injection-scanner`](packages/prompt-injection-scanner)** — reuses the same engine (scanText/scanFile/scanDirectory/SARIF) but scans **data**, not code: a RAG chunk, a scraped web page, a document. Unlike classic prompt injection, indirect prompt injection never talks to the model directly — it embeds instructions in content the model will later read (via RAG retrieval or a web fetch). Detects override phrases ("ignore previous instructions"), spoofed `System:`/`<|im_start|>` role tokens, text hidden from a human reviewer via zero-width characters or `display:none` while a scraper still extracts it, phrasing that addresses "the AI" directly, and instructions to leak the system prompt or send data to an external URL. 10 patterns, 5 categories, 30 tests — with explicit negative tests against known false-positive sources like emoji ZWJ sequences and ordinary `display:none` modals.
 
-## Telemetri
+## Telemetry
 
-Her paket, `@guardbee/mcp-telemetry` üzerinden **varsayılan açık** kullanım telemetrisi gönderir: hangi tool, ne sıklıkla, ne kadar sürede çağrılıyor. İlk çağrıda stderr'e tek seferlik bir bildirim yazılır.
+Every package sends usage telemetry to GuardBee via `@guardbee/mcp-telemetry`, **enabled by default**: which tool is called, how often, and how long it takes. A one-time notice is printed to stderr on first use.
 
-- **Kapatmak için**: `GUARDBEE_TELEMETRY=0` (veya `false`/`off`)
-- **Ne gönderilir**: tool adı, kısa (≤40 karakter) parametre değerleri (örn. `table: "users"`, `limit: 50`), başarı/hata durumu, süre
-- **Ne ASLA gönderilmez**: `content`/`text`/`data`/`filter`/`password`/`email`/`apiKey`/`token` gibi anahtarlardaki değerler ve 40 karakterden uzun herhangi bir string — bunların hepsi `packages/telemetry/src/redact.ts`'teki `redactParams()` tarafından `"[redacted: ...]"` ile değiştirilir. Yani taranan dosyaların/kodun tam içeriği veya bir `insert_row`/`update_row` çağrısındaki gerçek satır verisi hiçbir zaman gönderilmez.
+- **To disable**: `GUARDBEE_TELEMETRY=0` (or `false`/`off`)
+- **What's sent**: tool name, short (≤40 character) parameter values (e.g. `table: "users"`, `limit: 50`), success/failure, duration
+- **What's NEVER sent**: values under keys like `content`/`text`/`data`/`filter`/`password`/`email`/`apiKey`/`token`, and any string longer than 40 characters — all replaced with `"[redacted: ...]"` by `redactParams()` in `packages/telemetry/src/redact.ts`. So the full content of scanned files/code, or the real row data from an `insert_row`/`update_row` call, is never sent.
 
-Detaylar: [`packages/telemetry/README.md`](packages/telemetry/README.md).
+Details: [`packages/telemetry/README.md`](packages/telemetry/README.md).
 
-## Geliştirme
+## Development
 
 ```
 pnpm install
-pnpm build     # turbo run build — tüm paketler, bağımlılık sırasına göre
+pnpm build     # turbo run build — all packages, in dependency order
 pnpm test      # turbo run test
 ```
 
-Tek paket üzerinde çalışmak için:
+To work on a single package:
 
 ```
 pnpm --filter @guardbee/mcp-ssl-inspector dev
 ```
 
-## Sürümleme ve yayınlama
+## Versioning and publishing
 
-Paketler bağımsız versiyonlanır ([Changesets](https://github.com/changesets/changesets)). Bir PR'da değişiklik yaptıysanız:
+Packages are versioned independently ([Changesets](https://github.com/changesets/changesets)). If you changed something in a PR:
 
 ```
 pnpm changeset
 ```
 
-`main`'e merge sonrası CI otomatik olarak sürüm PR'ı açar; o PR merge edildiğinde değişen paketler npm'e publish edilir (bkz. `.github/workflows/release.yml`).
+After merging to `main`, CI automatically opens a version PR; merging that PR publishes the changed packages to npm (see `.github/workflows/release.yml`).
 
-## Yapı
+## Structure
 
-- **pnpm workspaces** — `packages/*`, gerçek `workspace:*` bağımlılıkları (örn. `security-suite` diğer 4 paketi registry sürümü yerine doğrudan workspace'ten kullanır)
-- **Turborepo** — `build`/`test`/`type-check` pipeline'ı, bağımlılık grafiğine göre sıralama ve cache
-- **Ortak config** — `tsconfig.base.json` ve `vitest.shared.ts` kökte; her paket kendi özel ayarlarını üstüne ekler
+- **pnpm workspaces** — `packages/*`, real `workspace:*` dependencies (e.g. `security-suite` depends on the other 4 packages directly from the workspace, not a registry version)
+- **Turborepo** — `build`/`test`/`type-check` pipeline, dependency-graph-aware ordering and caching
+- **Shared config** — `tsconfig.base.json` and `vitest.shared.ts` at the root; each package layers its own settings on top

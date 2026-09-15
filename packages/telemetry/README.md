@@ -1,43 +1,45 @@
 # @guardbee/mcp-telemetry
 
-Diğer GuardBee MCP paketlerinin kullandığı paylaşılan, varsayılan açık (opt-out) kullanım telemetrisi client'ı. Kendi başına bir MCP server değildir, sadece bir kütüphanedir — bu paketi doğrudan kurmanıza gerek yok.
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
 
-## Ne toplanır
+The shared, opt-out usage telemetry client used by other GuardBee MCP packages. Not an MCP server on its own, just a library — you don't need to install this package directly.
 
-Her tool çağrısı için: hangi server, hangi tool, çağrı parametreleri (redakte edilmiş), başarı/hata durumu, süre.
+## What's collected
 
-## Redaksiyon politikası (`redactParams`)
+For every tool call: which server, which tool, the call parameters (redacted), success/failure, duration.
 
-Amaç: "hangi tool, hangi tabloyla, kaç satır" gibi anlamlı kullanım analizi üretmek, asla taranan dosyanın/kodun tam içeriğini ya da bir yazma çağrısındaki gerçek veriyi göndermemek.
+## Redaction policy (`redactParams`)
 
-| Değer | Davranış |
+Goal: produce meaningful usage analytics ("which tool, which table, how many rows") without ever sending the full content of a scanned file/code, or the real data from a write call.
+
+| Value | Behavior |
 |---|---|
-| Sayı, boolean | Olduğu gibi geçer |
-| ≤40 karakterlik string | Olduğu gibi geçer (örn. `table: "users"`) |
-| >40 karakterlik string | `"[redacted: string, N chars]"` |
-| Anahtar adı `content`/`text`/`data`/`filter`/`password`/`email`/`apiKey`/`token`/`secret` (case-insensitive) | Uzunluğa bakılmaksızın redakte edilir |
-| Array/obje | Recursive olarak aynı kurala göre gezilir |
+| Number, boolean | Passed through unchanged |
+| String ≤40 characters | Passed through unchanged (e.g. `table: "users"`) |
+| String >40 characters | `"[redacted: string, N chars]"` |
+| Key named `content`/`text`/`data`/`filter`/`password`/`email`/`apiKey`/`token`/`secret` (case-insensitive) | Redacted regardless of length |
+| Array/object | Walked recursively under the same rule |
 
-## Kapatma
+## Disabling
 
 ```bash
 GUARDBEE_TELEMETRY=0
 ```
 
-Herhangi bir GuardBee MCP paketini çalıştırırken bu env var'ı ayarlayın.
+Set this env var when running any GuardBee MCP package.
 
-## API (kütüphaneyi kendi entegrasyonunuzda kullanmak isterseniz)
+## API (if you want to use the library in your own integration)
 
 ```ts
 import { instrumentServer } from "@guardbee/mcp-telemetry";
 
 const server = new McpServer({ name: "my-server", version: "0.1.0" });
-instrumentServer(server, "my-server"); // server.tool() çağrılarından ÖNCE
+instrumentServer(server, "my-server"); // BEFORE any server.tool() calls
 
-server.tool("my_tool", "...", schema, handler); // otomatik olarak telemetriye kaydedilir
+server.tool("my_tool", "...", schema, handler); // automatically recorded to telemetry
 ```
 
-`McpServer.tool()` kullanmayan (ör. ham `Server.setRequestHandler`) entegrasyonlar için doğrudan `recordEvent()` çağırın:
+For integrations that don't use `McpServer.tool()` (e.g. raw `Server.setRequestHandler`), call `recordEvent()` directly:
 
 ```ts
 import { recordEvent } from "@guardbee/mcp-telemetry";
@@ -45,4 +47,4 @@ import { recordEvent } from "@guardbee/mcp-telemetry";
 await recordEvent({ server: "my-proxy", tool: toolName, params, success: true, durationMs: 12 });
 ```
 
-`recordEvent` asla throw etmez (fire-and-forget, 3sn timeout) — bir MCP tool çağrısının telemetri yüzünden yavaşlaması/başarısız olması söz konusu değildir.
+`recordEvent` never throws (fire-and-forget, 3s timeout) — an MCP tool call will never be slowed down or fail because of telemetry.

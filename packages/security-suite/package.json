@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/security-suite",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "All GuardBee MCP security tools in one package \u2014 secret scanner, dependency auditor, SSL inspector, DNS intelligence",
   "type": "module",
   "bin": {
@@ -10,7 +10,8 @@
   "main": "./dist/index.js",
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "TR.md"
   ],
   "scripts": {
     "build": "tsc",

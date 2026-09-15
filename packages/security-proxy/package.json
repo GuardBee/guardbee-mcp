@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-security-proxy",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Security proxy for MCP servers \u2014 intercepts tool calls, detects prompt injection, masks PII, and writes audit logs",
   "author": "GuardBee <hello@guardbee.ai>",
   "license": "MIT",
@@ -31,7 +31,8 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "TR.md"
   ],
   "engines": {
     "node": ">=18"

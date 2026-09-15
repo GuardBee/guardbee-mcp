@@ -1,23 +1,23 @@
 # @guardbee/security-suite
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe**
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/security-suite.svg)](https://www.npmjs.com/package/@guardbee/security-suite)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-A meta-package that bundles all GuardBee MCP security tools into one package. Secret scanner, dependency auditor, SSL inspector, and DNS intelligence are all available from a single install.
+Tüm GuardBee MCP güvenlik araçlarını tek pakette toplayan meta-paket. Secret scanner, dependency auditor, SSL inspector ve DNS intelligence tek kurulumla kullanılabilir.
 
-> This package sends usage telemetry by default (tool name + short parameters — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
+> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler — bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
 
 ---
 
-## Quick Start
+## Hızlı Başlangıç
 
 ```bash
 npm install -g @guardbee/security-suite
 ```
 
-### Claude Desktop (MCP — all tools, one server)
+### Claude Desktop (MCP — tüm araçlar tek server)
 
 ```json
 {
@@ -32,23 +32,23 @@ npm install -g @guardbee/security-suite
 
 ---
 
-## CLI Usage
+## CLI Kullanımı
 
 ```bash
-guardbee secret-scan <path>           # Secret scanning
-guardbee dep-audit <dir>              # CVE audit
-guardbee ssl-inspect <domain>...      # TLS inspection
-guardbee dns-check <domain>           # DNS/SPF/DMARC check
+guardbee secret-scan <path>           # Secret taraması
+guardbee dep-audit <dir>              # CVE denetimi
+guardbee ssl-inspect <domain>...      # TLS denetimi
+guardbee dns-check <domain>           # DNS/SPF/DMARC kontrolü
 ```
 
-### Common Options
+### Ortak Seçenekler
 
 ```
---fail-on=<level>     critical | high | medium | low  (default: tool-specific)
+--fail-on=<level>     critical | high | medium | low  (varsayılan: araç özelinde)
 --format=text|json|sarif
 ```
 
-### Examples
+### Örnekler
 
 ```bash
 guardbee secret-scan . --fail-on=high
@@ -59,7 +59,7 @@ guardbee dns-check example.com --fail-on=medium
 
 ---
 
-## CI/CD Integration
+## CI/CD Entegrasyonu
 
 ### GitHub Actions
 
@@ -117,17 +117,17 @@ guardbee-security:
 
 ---
 
-## Included Tools
+## Dahil Olan Araçlar
 
-| Command | Package | Description |
+| Araç | Paket | Açıklama |
 |------|-------|----------|
-| `secret-scan` | `@guardbee/mcp-secret-scanner` | Secret detection via 40+ patterns |
-| `dep-audit` | `@guardbee/mcp-dependency-auditor` | OSV CVE database audit |
-| `ssl-inspect` | `@guardbee/mcp-ssl-inspector` | TLS certificate and cipher analysis |
+| `secret-scan` | `@guardbee/mcp-secret-scanner` | 40+ pattern ile secret tespiti |
+| `dep-audit` | `@guardbee/mcp-dependency-auditor` | OSV CVE veritabanı denetimi |
+| `ssl-inspect` | `@guardbee/mcp-ssl-inspector` | TLS sertifika ve cipher analizi |
 | `dns-check` | `@guardbee/mcp-dns-intelligence` | DNS, SPF, DMARC, dangling subdomain |
 
 ---
 
-## License
+## Lisans
 
 MIT — [GuardBee](https://guardbee.ai)

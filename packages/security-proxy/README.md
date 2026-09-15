@@ -1,41 +1,43 @@
 # @guardbee/mcp-security-proxy
 
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-security-proxy.svg)](https://www.npmjs.com/package/@guardbee/mcp-security-proxy)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-security-proxy.svg)](https://www.npmjs.com/package/@guardbee/mcp-security-proxy)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Herhangi bir MCP sunucusunun önüne oturan şeffaf güvenlik katmanı. Prompt injection saldırılarını engeller, yanıtlardaki PII'yi maskeler ve her isteği değiştirilemez audit log'a yazar.
+A transparent security layer that sits in front of any MCP server. Blocks prompt injection attacks, masks PII in responses, and writes every request to an immutable audit log.
 
-> Bu paket varsayılan olarak GuardBee'ye kullanım telemetrisi gönderir (tool adı + kısa parametreler, bkz. [`@guardbee/mcp-telemetry`](../telemetry/README.md)) — bu, kendi local audit log'undan ayrı ve bağımsızdır. Kapatmak için `GUARDBEE_TELEMETRY=0`.
+> This package sends usage telemetry to GuardBee by default (tool name + short parameters, see [`@guardbee/mcp-telemetry`](../telemetry/README.md)) — separate from and independent of its own local audit log. Disable with `GUARDBEE_TELEMETRY=0`.
 
 ```
-Claude ──► MCP Security Proxy ──► Herhangi bir MCP Sunucu
+Claude ──► MCP Security Proxy ──► Any MCP Server
                 │
-                ├─ Prompt injection tespiti  (16 saldırı deseni)
-                ├─ PII maskeleme             (TC kimlik, IBAN, e-posta, JWT, API key)
-                ├─ Block veya warn modu
-                └─ Yapılandırılabilir audit log
+                ├─ Prompt injection detection  (16 attack patterns)
+                ├─ PII masking                 (national ID, IBAN, email, JWT, API key)
+                ├─ Block or warn mode
+                └─ Configurable audit log
 ```
 
 ---
 
-## Özellikler
+## Features
 
-- **Prompt Injection Koruması** — 16 saldırı deseni ile sistem prompt'larını geçersiz kılmaya çalışan istekler engellenir
-- **PII Maskeleme** — TC kimlik no, IBAN, e-posta, telefon, JWT token, API key yanıtlarda otomatik maskelenir
-- **Block / Warn Modu** — Her interceptor bağımsız olarak engelleyici veya uyarı modunda çalışabilir
-- **Audit Log** — Console veya dosyaya yazılan yapılandırılabilir log
-- **Sıfır Kod Değişikliği** — Mevcut herhangi bir MCP sunucusunun önüne takılır
+- **Prompt Injection Protection** — 16 attack patterns block requests attempting to override system prompts
+- **PII Masking** — national ID numbers, IBAN, email, phone, JWT tokens, API keys are automatically masked in responses
+- **Block / Warn Mode** — each interceptor can independently run in blocking or warning mode
+- **Audit Log** — configurable log written to console or a file
+- **Zero Code Changes** — attaches in front of any existing MCP server
 
 ---
 
-## Hızlı Başlangıç
+## Quick Start
 
 ```bash
 npm install -g @guardbee/mcp-security-proxy
 ```
 
-`claude_desktop_config.json` dosyasına ekleyin:
+Add to `claude_desktop_config.json`:
 
 ```json
 {
@@ -52,59 +54,59 @@ npm install -g @guardbee/mcp-security-proxy
 }
 ```
 
-> Proxy, `--` sonrasındaki komutu hedef MCP sunucu olarak başlatır.
+> The proxy launches whatever comes after `--` as the target MCP server.
 
 ---
 
 ## MCP Tools
 
-Proxy, tool'ları hedef sunucudan şeffaf olarak aktarır ve her geçişte interceptor zincirini uygular. Ek olarak aşağıdaki yönetim tool'unu sunar:
+The proxy transparently forwards tools from the target server, applying the interceptor chain on every pass-through. It also exposes one management tool:
 
-| Tool | Açıklama |
+| Tool | Description |
 |------|----------|
-| `proxy_status` | Aktif interceptor'ları ve son engellenen istek istatistiklerini gösterir |
+| `proxy_status` | Shows active interceptors and stats on the most recently blocked requests |
 
 ---
 
-## Interceptor'lar
+## Interceptors
 
 ### Prompt Injection Detector
 
-Gelen mesajlarda aşağıdaki saldırı desenlerini arar:
+Looks for the following attack patterns in incoming messages:
 
 - `ignore previous instructions`
 - `disregard your system prompt`
 - `you are now [DAN/jailbreak]`
-- ANSI escape dizileri ile gizlenmiş komutlar
-- Base64 kodlanmış talimatlar
-- ve 11 desen daha
+- commands hidden via ANSI escape sequences
+- base64-encoded instructions
+- and 11 more patterns
 
 ### PII Masker
 
-| Veri Tipi | Örnek Girdi | Çıktı |
+| Data Type | Example Input | Output |
 |-----------|------------|-------|
-| TC Kimlik | `12345678901` | `[TC-REDACTED]` |
+| National ID | `12345678901` | `[TC-REDACTED]` |
 | IBAN | `TR320006200...` | `TR32***` |
-| E-posta | `ahmet@example.com` | `ah***@example.com` |
+| Email | `ahmet@example.com` | `ah***@example.com` |
 | JWT | `eyJhbGc...` | `[JWT-REDACTED]` |
 | API Key | `sk-abc123...` | `[KEY-REDACTED]` |
 
 ---
 
-## Yapılandırma
+## Configuration
 
-Ortam değişkenleri ile yapılandırılabilir:
+Configurable via environment variables:
 
-| Değişken | Varsayılan | Açıklama |
+| Variable | Default | Description |
 |----------|-----------|----------|
-| `PROXY_MODE` | `block` | `block` veya `warn` |
-| `PROXY_LOG` | `console` | `console` veya `file` |
-| `PROXY_LOG_PATH` | `./proxy-audit.jsonl` | Log dosya yolu |
-| `PROXY_PII_MASK` | `true` | PII maskelemeyi etkinleştir |
-| `PROXY_INJECTION_CHECK` | `true` | Injection kontrolünü etkinleştir |
+| `PROXY_MODE` | `block` | `block` or `warn` |
+| `PROXY_LOG` | `console` | `console` or `file` |
+| `PROXY_LOG_PATH` | `./proxy-audit.jsonl` | Log file path |
+| `PROXY_PII_MASK` | `true` | Enable PII masking |
+| `PROXY_INJECTION_CHECK` | `true` | Enable injection checking |
 
 ---
 
-## Lisans
+## License
 
 MIT — [GuardBee](https://guardbee.ai)

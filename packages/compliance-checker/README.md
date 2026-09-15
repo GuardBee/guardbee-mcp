@@ -1,35 +1,37 @@
 # @guardbee/mcp-compliance-checker
 
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-compliance-checker.svg)](https://www.npmjs.com/package/@guardbee/mcp-compliance-checker)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-compliance-checker.svg)](https://www.npmjs.com/package/@guardbee/mcp-compliance-checker)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-KVKK, GDPR ve CCPA uyum kontrollerini GuardBee API ile çalıştıran, gizlilik politikalarını analiz eden ve yasal gereksinimleri karşılaştıran MCP sunucusu. Üç araç API anahtarı gerektirmeden çalışır.
+An MCP server that runs KVKK (Turkish data protection law), GDPR, and CCPA compliance checks via the GuardBee API, analyzes privacy policies, and compares legal requirements. Three of its tools work without an API key.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler — bkz. [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+> This package sends usage telemetry by default (tool name + short parameters — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
 
-> **GuardBee API anahtarı** `check_compliance` ve `get_compliance_findings` araçları için gereklidir. [app.guardbee.ai/developers](https://app.guardbee.ai/developers) adresinden alın.
-
----
-
-## Özellikler
-
-- **KVKK / GDPR / CCPA Taraması** — GuardBee API ile uyum odaklı tarama başlatır ve bulguları getirir
-- **Gizlilik Politikası Analizi** — URL'den politika metnini çeker; 10 uyum sinyali, puan (0-100) ve harf notu
-- **Çerez Banner Tespiti** — OneTrust, Cookiebot, Axeptio ve 10+ CMP platform tespiti
-- **Gereksinim Kataloğu** — KVKK (9), GDPR (8), CCPA (4) yasal madde referanslarıyla 21 gereksinim
-- **Çerçeve Karşılaştırması** — KVKK / GDPR / CCPA arasındaki ortak ve farklı maddeler
-- **API Anahtarsız Araçlar** — `analyze_privacy_policy`, `list_requirements`, `compare_frameworks` çevrimdışı çalışır
+> **A GuardBee API key is required** for the `check_compliance` and `get_compliance_findings` tools. Get one at [app.guardbee.ai/developers](https://app.guardbee.ai/developers).
 
 ---
 
-## Hızlı Başlangıç
+## Features
+
+- **KVKK / GDPR / CCPA Scanning** — triggers a compliance-focused scan via the GuardBee API and fetches findings
+- **Privacy Policy Analysis** — fetches policy text from a URL; 10 compliance signals, a score (0-100), and a letter grade
+- **Cookie Banner Detection** — detects OneTrust, Cookiebot, Axeptio, and 10+ CMP platforms
+- **Requirements Catalog** — 21 requirements with legal-article references across KVKK (9), GDPR (8), CCPA (4)
+- **Framework Comparison** — common and differing articles across KVKK / GDPR / CCPA
+- **Key-Free Tools** — `analyze_privacy_policy`, `list_requirements`, `compare_frameworks` work offline
+
+---
+
+## Quick Start
 
 ```bash
 npm install -g @guardbee/mcp-compliance-checker
 ```
 
-`claude_desktop_config.json` dosyasına ekleyin:
+Add to `claude_desktop_config.json`:
 
 ```json
 {
@@ -45,33 +47,33 @@ npm install -g @guardbee/mcp-compliance-checker
 }
 ```
 
-API anahtarınızı [app.guardbee.ai/developers](https://app.guardbee.ai/developers) adresinden alın.
+Get your API key at [app.guardbee.ai/developers](https://app.guardbee.ai/developers).
 
 ---
 
 ## MCP Tools
 
-| Tool | API Anahtarı | Açıklama |
+| Tool | API Key | Description |
 |------|:------------:|----------|
-| `check_compliance` | Gerekli | URL veya brand ID için uyum taraması başlatır (KVKK/GDPR/CCPA) |
-| `get_compliance_findings` | Gerekli | Tarama bulgularını çerçeve ve severity filtresiyle getirir |
-| `analyze_privacy_policy` | Hayır | Gizlilik politikası URL'sini analiz eder; puan, not ve eksik maddeler |
-| `list_requirements` | Hayır | Desteklenen çerçeveler için yasal gereksinimleri listeler |
-| `compare_frameworks` | Hayır | KVKK, GDPR ve CCPA arasındaki benzerlikleri ve farklılıkları karşılaştırır |
+| `check_compliance` | Required | Starts a compliance scan (KVKK/GDPR/CCPA) for a URL or brand ID |
+| `get_compliance_findings` | Required | Fetches scan findings, filterable by framework and severity |
+| `analyze_privacy_policy` | No | Analyzes a privacy policy URL — score, grade, missing clauses |
+| `list_requirements` | No | Lists legal requirements for supported frameworks |
+| `compare_frameworks` | No | Compares similarities and differences across KVKK, GDPR, and CCPA |
 
-### Örnek Kullanım
+### Example Usage
 
-Claude'a şunu sorabilirsiniz:
+You can ask Claude:
 
-> "example.com'un KVKK uyumunu kontrol et"
+> "Check example.com's KVKK compliance"
 
-> "GDPR gereksinimlerini listele"
+> "List GDPR requirements"
 
-> "KVKK ile GDPR arasındaki farkları karşılaştır"
+> "Compare the differences between KVKK and GDPR"
 
-> "https://example.com/privacy adresindeki gizlilik politikasını analiz et"
+> "Analyze the privacy policy at https://example.com/privacy"
 
-### Örnek Çıktı
+### Example Output
 
 ```
 Privacy Policy Analysis: https://example.com/privacy
@@ -92,9 +94,9 @@ Recommendation: Add legal basis statements and data subject rights section.
 
 ---
 
-## Desteklenen Çerçeveler
+## Supported Frameworks
 
-| Çerçeve | Gereksinim Sayısı | Tarama Senaryosu |
+| Framework | Requirement Count | Scan Scenario |
 |---------|:-----------------:|-----------------|
 | KVKK | 9 | `kvkkFocus` |
 | GDPR | 8 | `gdprFocus` |
@@ -102,46 +104,46 @@ Recommendation: Add legal basis statements and data subject rights section.
 
 ---
 
-## Gizlilik Politikası Puanlaması
+## Privacy Policy Scoring
 
-`analyze_privacy_policy` aracı politika metninde 10 sinyal arar:
+The `analyze_privacy_policy` tool looks for 10 signals in the policy text:
 
-| Sinyal | Açıklama |
+| Signal | Description |
 |--------|----------|
-| Veri sorumlusu kimliği | Şirket/kuruluş adı belirtilmiş |
-| İşleme amacı | Kişisel verinin neden toplandığı |
-| Hukuki dayanak | GDPR Art. 6 / KVKK Md. 5 referansı |
-| Saklama süreleri | Verinin ne kadar tutulacağı |
-| İlgili kişi hakları | Erişim, silme, taşınabilirlik, itiraz |
-| İletişim / DPO | Veri sorumlusuna ulaşma bilgisi |
-| Çerez politikası | Çerezler ve izleme teknolojileri |
-| Üçüncü taraf paylaşımı | Veri paylaşılan taraflar |
-| Güvenlik önlemleri | Teknik/idari tedbirler |
-| Uluslararası transfer | Yurt dışı aktarım güvenceleri |
+| Data controller identity | Company/organization name is stated |
+| Purpose of processing | Why the personal data is being collected |
+| Legal basis | Reference to GDPR Art. 6 / KVKK Art. 5 |
+| Retention periods | How long the data will be kept |
+| Data subject rights | Access, erasure, portability, objection |
+| Contact / DPO | How to reach the data controller |
+| Cookie policy | Cookies and tracking technologies |
+| Third-party sharing | Parties the data is shared with |
+| Security measures | Technical/administrative safeguards |
+| International transfer | Cross-border transfer safeguards |
 
-**Notlar:** A (90-100) · B (75-89) · C (60-74) · D (45-59) · F (0-44)
+**Grades:** A (90-100) · B (75-89) · C (60-74) · D (45-59) · F (0-44)
 
 ---
 
-## Ortam Değişkenleri
+## Environment Variables
 
-| Değişken | Açıklama |
+| Variable | Description |
 |----------|----------|
-| `GUARDBEE_API_KEY` | GuardBee API anahtarı (check_compliance ve get_compliance_findings için zorunlu) |
-| `GUARDBEE_BASE_URL` | Özel endpoint (varsayılan: `https://app.guardbee.ai`) |
+| `GUARDBEE_API_KEY` | GuardBee API key (required for check_compliance and get_compliance_findings) |
+| `GUARDBEE_BASE_URL` | Custom endpoint (default: `https://app.guardbee.ai`) |
 
 ---
 
-## Geliştirme
+## Development
 
 ```bash
 npm install
-npm test          # unit testler
-npm run build     # TypeScript derleme
+npm test          # unit tests
+npm run build     # TypeScript compile
 ```
 
 ---
 
-## Lisans
+## License
 
 MIT — [GuardBee](https://guardbee.ai)

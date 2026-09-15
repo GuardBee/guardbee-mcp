@@ -1,34 +1,36 @@
 # @guardbee/mcp-server-auditor
 
-MCP (Model Context Protocol) sunucusu — **başka MCP server'ların** tool tanımlarını güvensiz kalıplar için tarar.
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
 
-`ai-code-scanner` genel LLM/AI entegrasyon koduna bakarken, bu paket özellikle bir MCP server'ın kendisine bakar: `server.tool(...)` ile tanımlanan bir tool ne kadar yetkili, parametreleri ne kadar gevşek, handler'ı hangi tehlikeli sink'lere (shell/dosya sistemi/HTTP/SQL) doğrudan tool girdisi geçiriyor. MCP ekosistemi hızla büyüyor ama bu server'ların güvenlik denetimi için yaygın bir araç henüz yok.
+An MCP (Model Context Protocol) server that scans **other MCP servers'** tool definitions for insecure patterns.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler, taranan kod hiçbir zaman dahil değil — bkz. [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+While `ai-code-scanner` looks at general LLM/AI integration code, this package specifically looks at an MCP server itself: how privileged a tool defined via `server.tool(...)` is, how loose its parameters are, which dangerous sinks (shell/filesystem/HTTP/SQL) its handler passes tool input into directly. The MCP ecosystem is growing fast, but there's no common tool yet for auditing these servers' security.
+
+> This package sends usage telemetry by default (tool name + short parameters, the scanned code is never included — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
 
 ```
-Claude ──► mcp-server-auditor ──► Bir MCP server'ın kaynak kodu
+Claude ──► mcp-server-auditor ──► An MCP server's source code
               │
-              ├─ Excessive agency    (execSync(input.command), "run_shell" adlı bir tool)
+              ├─ Excessive agency    (execSync(input.command), a tool named "run_shell")
               ├─ Unsafe input        (fetch(input.url) → SSRF, SQL string interpolation)
-              ├─ Loose schema        (bir parametre z.any()/z.unknown() tipinde)
-              ├─ Secrets exposure    (şema default'unda sabit API key, process.env'in tamamı)
+              ├─ Loose schema        (a parameter typed z.any()/z.unknown())
+              ├─ Secrets exposure    (a hardcoded API key in a schema default, the entire process.env)
               └─ Network exposure    (wildcard CORS)
 ```
 
 ---
 
-## Özellikler
+## Features
 
-- **10 kalıp, 5 kategori** — excessive-agency, unsafe-input, loose-schema, secrets-exposure, network-exposure
-- Her bulguda **neden riskli olduğu ve ne yapılması gerektiği** (`recommendation`) — sadece "bulundu" demez
-- SARIF 2.1.0 çıktısı — CI/CD entegrasyonu (GitHub Code Scanning vb.)
-- `guardbee.yml` ile config dosyası desteği
-- 32 unit test — her kalıp için hem pozitif hem negatif (yanlış-pozitif) senaryo
+- **10 patterns, 5 categories** — excessive-agency, unsafe-input, loose-schema, secrets-exposure, network-exposure
+- Every finding includes **why it's risky and what to do about it** (`recommendation`) — not just "found it"
+- SARIF 2.1.0 output — CI/CD integration (GitHub Code Scanning, etc.)
+- Config file support via `guardbee.yml`
+- 32 unit tests — a positive and a negative (false-positive) scenario for every pattern
 
 ---
 
-## Hızlı Başlangıç
+## Quick Start
 
 ### Claude Desktop / MCP Client
 
@@ -53,35 +55,35 @@ npx @guardbee/mcp-server-auditor scan ./src --fail-on=high --format=sarif > resu
 
 ## MCP Tools
 
-| Tool | Açıklama |
+| Tool | Description |
 |------|----------|
-| `scan_text` | Verilen bir metin/kod parçasını tarar |
-| `scan_file` | Tek bir dosyayı tarar |
-| `scan_directory` | Bir dizini recursive tarar (`node_modules`, `.git`, `dist` otomatik atlanır) |
-| `list_patterns` | Desteklenen tüm kalıpları kategoriye göre listeler |
+| `scan_text` | Scans a given text/code snippet |
+| `scan_file` | Scans a single file |
+| `scan_directory` | Recursively scans a directory (`node_modules`, `.git`, `dist` skipped automatically) |
+| `list_patterns` | Lists all supported patterns by category |
 
 ---
 
-## Tespit Edilen Kalıplar
+## Detected Patterns
 
-| Kategori | Kalıp | Önem | Ne demek |
+| Category | Pattern | Severity | What it means |
 |---|---|---|---|
-| excessive-agency | `shell_exec_from_tool_input` | critical | Tool handler'ı, tool girdisini doğrudan `execSync`/`spawn` gibi bir shell çağrısına geçiriyor |
-| excessive-agency | `eval_of_tool_input` | critical | Tool girdisi `eval()`/`new Function()` ile kod olarak çalıştırılıyor |
-| excessive-agency | `unrestricted_shell_tool_name` | high | Tool adı (`run_shell`, `execute_sql` vb.) doğrudan shell/SQL çalıştırma yetkisi ima ediyor |
-| unsafe-input | `fs_write_from_raw_tool_input` | high | Tool girdisindeki bir path, doğrulama olmadan dosya yazma/silme çağrısına geçiyor (path traversal) |
-| unsafe-input | `ssrf_fetch_from_tool_input` | high | Tool girdisindeki bir URL, allowlist olmadan doğrudan `fetch`/`axios`'a geçiyor (SSRF) |
-| unsafe-input | `sql_injection_via_tool_input` | critical | Tool girdisi bir SQL string'ine template-literal ile enjekte ediliyor |
-| loose-schema | `overly_permissive_tool_schema` | medium | Bir tool parametresi `z.any()`/`z.unknown()` tipinde — her şeyi kabul ediyor |
-| secrets-exposure | `hardcoded_secret_in_tool_schema` | critical | Credential-benzeri bir şema alanının default değeri sabit bir literal |
-| secrets-exposure | `full_env_exposed_to_tool_caller` | critical | `process.env`'in tamamı spread/stringify/return ediliyor (tek bir named değişken değil) |
-| network-exposure | `permissive_cors_on_server` | medium | Wildcard CORS (`Access-Control-Allow-Origin: *`) ya da opsiyonsuz `cors()` |
+| excessive-agency | `shell_exec_from_tool_input` | critical | A tool handler passes tool input directly into a shell call like `execSync`/`spawn` |
+| excessive-agency | `eval_of_tool_input` | critical | Tool input is executed as code via `eval()`/`new Function()` |
+| excessive-agency | `unrestricted_shell_tool_name` | high | A tool name (`run_shell`, `execute_sql`, etc.) implies shell/SQL execution directly |
+| unsafe-input | `fs_write_from_raw_tool_input` | high | A path from tool input flows into a file write/delete call with no validation (path traversal) |
+| unsafe-input | `ssrf_fetch_from_tool_input` | high | A URL from tool input flows directly into `fetch`/`axios` with no allowlist (SSRF) |
+| unsafe-input | `sql_injection_via_tool_input` | critical | Tool input is interpolated into a SQL string via a template literal |
+| loose-schema | `overly_permissive_tool_schema` | medium | A tool parameter is typed `z.any()`/`z.unknown()` — accepts anything |
+| secrets-exposure | `hardcoded_secret_in_tool_schema` | critical | A credential-shaped schema field's default value is a hardcoded literal |
+| secrets-exposure | `full_env_exposed_to_tool_caller` | critical | The entire `process.env` is spread/stringified/returned (not one named variable) |
+| network-exposure | `permissive_cors_on_server` | medium | Wildcard CORS (`Access-Control-Allow-Origin: *`) or `cors()` with no options |
 
-Bunlar **heuristic** bulgulardır — tam bir AST/tip analizi değil, statik metin kalıbı taraması yapar. Düşük yanlış-pozitif oranı için tasarlandı ama her bulgu yine de manuel gözden geçirilmelidir.
+These are **heuristic** findings — a static text-pattern scan, not a full AST/type analysis. Designed for a low false-positive rate, but every finding should still be reviewed manually.
 
 ---
 
-## Yapılandırma (`guardbee.yml`)
+## Configuration (`guardbee.yml`)
 
 ```yaml
 mcp-server-auditor:
@@ -94,15 +96,15 @@ mcp-server-auditor:
 
 ---
 
-## Geliştirme
+## Development
 
 ```bash
 npm run build
-npm test             # 32 unit test
+npm test             # 32 unit tests
 ```
 
 ---
 
-## Lisans
+## License
 
 MIT — [GuardBee](https://guardbee.ai)

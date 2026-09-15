@@ -1,34 +1,36 @@
 # @guardbee/mcp-prompt-injection-scanner
 
-MCP (Model Context Protocol) sunucusu — **içeriği** (RAG chunk'ı, scrape edilmiş bir web sayfası, bir doküman) dolaylı (indirect) prompt injection payload'ları için tarar.
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
 
-`ai-code-scanner` ve `mcp-server-auditor` kod tarıyor; bu paket **veri** tarıyor. Klasik prompt injection kullanıcının kendisi kötü niyetli bir prompt yazar; dolaylı (indirect) prompt injection'da saldırgan modele hiç konuşmaz — bunun yerine modelin okuyacağı bir belgeye, web sayfasına ya da tool sonucuna talimat gömer. Model bu içeriği bir RAG retrieval'ı ya da bir web fetch sonucunda context'ine aldığı anda, gömülü talimat kullanıcının kendi talimatlarıyla aynı yetkiye sahip görünür.
+An MCP (Model Context Protocol) server that scans **content** — a RAG chunk, a scraped web page, a document — for indirect prompt injection payloads.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler, taranan içerik hiçbir zaman dahil değil — bkz. [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+`ai-code-scanner` and `mcp-server-auditor` scan code; this package scans **data**. In classic prompt injection, the attacker writes a malicious prompt themselves; in indirect prompt injection, the attacker never talks to the model at all — instead they embed instructions in a document, web page, or tool result the model will later read. The moment the model pulls this content into its context via a RAG retrieval or a web fetch, the embedded instruction appears to carry the same authority as the user's own instructions.
+
+> This package sends usage telemetry by default (tool name + short parameters, the scanned content is never included — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
 
 ```
-Web sayfası/RAG dokümanı ──► prompt-injection-scanner ──► LLM context'i
+Web page/RAG document ──► prompt-injection-scanner ──► LLM context
               │
               ├─ Instruction override   ("ignore all previous instructions")
               ├─ Role spoofing          ("System:", <|im_start|>, [INST])
-              ├─ Hidden text            (zero-width karakter, display:none + talimat, HTML yorumu)
+              ├─ Hidden text            (zero-width characters, display:none + instruction, HTML comment)
               ├─ Direct address         ("Dear AI, ...")
-              └─ Exfiltration           (system prompt sızdırma isteği, data → URL talimatı, template'li img beacon)
+              └─ Exfiltration           (system prompt extraction request, data → URL instruction, templated img beacon)
 ```
 
 ---
 
-## Özellikler
+## Features
 
-- **10 kalıp, 5 kategori** — instruction-override, role-spoofing, hidden-text, direct-address, exfiltration
-- Her bulguda **neden riskli olduğu ve ne yapılması gerektiği** (`recommendation`) — sadece "bulundu" demez
-- SARIF 2.1.0 çıktısı — CI/CD entegrasyonu (bir knowledge-base repo'sunu PR'da otomatik tarama gibi)
-- `guardbee.yml` ile config dosyası desteği
-- 30 unit test — her kalıp için hem pozitif hem negatif (yanlış-pozitif) senaryo; özellikle emoji ZWJ dizileri ve normal `display:none` modal'ları gibi bilinen yanlış-pozitif kaynakları ayrıca test edilir
+- **10 patterns, 5 categories** — instruction-override, role-spoofing, hidden-text, direct-address, exfiltration
+- Every finding includes **why it's risky and what to do about it** (`recommendation`) — not just "found it"
+- SARIF 2.1.0 output — CI/CD integration (e.g. auto-scanning a knowledge-base repo on every PR)
+- Config file support via `guardbee.yml`
+- 30 unit tests — a positive and a negative (false-positive) scenario for every pattern; known false-positive sources like emoji ZWJ sequences and ordinary `display:none` modals are specifically tested
 
 ---
 
-## Hızlı Başlangıç
+## Quick Start
 
 ### Claude Desktop / MCP Client
 
@@ -43,7 +45,7 @@ Web sayfası/RAG dokümanı ──► prompt-injection-scanner ──► LLM con
 }
 ```
 
-### CLI (CI/CD — örn. bir RAG knowledge-base reposunu her PR'da tara)
+### CLI (CI/CD — e.g. scan a RAG knowledge-base repo on every PR)
 
 ```bash
 npx @guardbee/mcp-prompt-injection-scanner scan ./knowledge-base --fail-on=high --format=sarif > results.sarif
@@ -53,35 +55,35 @@ npx @guardbee/mcp-prompt-injection-scanner scan ./knowledge-base --fail-on=high 
 
 ## MCP Tools
 
-| Tool | Açıklama |
+| Tool | Description |
 |------|----------|
-| `scan_text` | Verilen bir metin/doküman parçasını tarar |
-| `scan_file` | Tek bir dosyayı tarar |
-| `scan_directory` | Bir dizini (örn. RAG knowledge base) recursive tarar (`node_modules`, `.git`, `dist` otomatik atlanır) |
-| `list_patterns` | Desteklenen tüm kalıpları kategoriye göre listeler |
+| `scan_text` | Scans a given text/document snippet |
+| `scan_file` | Scans a single file |
+| `scan_directory` | Recursively scans a directory (e.g. a RAG knowledge base) (`node_modules`, `.git`, `dist` skipped automatically) |
+| `list_patterns` | Lists all supported patterns by category |
 
 ---
 
-## Tespit Edilen Kalıplar
+## Detected Patterns
 
-| Kategori | Kalıp | Önem | Ne demek |
+| Category | Pattern | Severity | What it means |
 |---|---|---|---|
-| instruction-override | `instruction_override_phrase` | high | "ignore/disregard/forget previous instructions" gibi klasik bir override cümlesi |
-| role-spoofing | `system_role_spoof` | medium | İçerikte satır başında sahte bir "System:" rol etiketi |
-| role-spoofing | `chat_template_marker_injection` | high | Ham chat-template kontrol token'ları (`<\|im_start\|>`, `[INST]`) içerikte |
-| hidden-text | `hidden_zero_width_chars` | medium | Zero-width space/word-joiner (U+200B/U+2060) — insan gözünden gizli metin |
-| hidden-text | `css_hidden_text_with_instruction` | high | `display:none`/beyaz-üzerine-beyaz bir element, içinde talimat-benzeri dil |
-| hidden-text | `html_comment_instruction` | high | HTML yorumu içinde talimat-benzeri dil |
-| direct-address | `direct_address_to_ai` | medium | İçerik doğrudan "the AI"/"the assistant"a hitap ediyor |
-| exfiltration | `exfiltration_url_template_in_image` | high | Markdown görsel URL'inde `{{...}}`/`${...}` template — data-exfil beacon |
-| exfiltration | `reveal_system_prompt_request` | high | Modele system prompt'unu ifşa etmesini isteyen bir cümle |
-| exfiltration | `send_data_to_url_instruction` | critical | Modele veriyi bir dış URL'e göndermesini emreden açık bir talimat |
+| instruction-override | `instruction_override_phrase` | high | A classic override phrase like "ignore/disregard/forget previous instructions" |
+| role-spoofing | `system_role_spoof` | medium | A fake "System:" role label at the start of a line in the content |
+| role-spoofing | `chat_template_marker_injection` | high | Raw chat-template control tokens (`<\|im_start\|>`, `[INST]`) in the content |
+| hidden-text | `hidden_zero_width_chars` | medium | Zero-width space/word-joiner (U+200B/U+2060) — text hidden from a human reviewer |
+| hidden-text | `css_hidden_text_with_instruction` | high | A `display:none`/white-on-white element containing instruction-like language |
+| hidden-text | `html_comment_instruction` | high | An HTML comment containing instruction-like language |
+| direct-address | `direct_address_to_ai` | medium | The content directly addresses "the AI"/"the assistant" |
+| exfiltration | `exfiltration_url_template_in_image` | high | A markdown image URL with a `{{...}}`/`${...}` template — a data-exfil beacon |
+| exfiltration | `reveal_system_prompt_request` | high | A sentence asking the model to reveal its system prompt |
+| exfiltration | `send_data_to_url_instruction` | critical | An explicit instruction ordering the model to send data to an external URL |
 
-Bunlar **heuristic** bulgulardır — anlam/niyet analizi değil, statik metin kalıbı taraması yapar. Düşük yanlış-pozitif oranı için tasarlandı (örn. emoji ZWJ dizileri ve normal `display:none` modal'ları özellikle hariç tutuldu) ama her bulgu yine de manuel gözden geçirilmelidir.
+These are **heuristic** findings — a static text-pattern scan, not a semantic/intent analysis. Designed for a low false-positive rate (e.g. emoji ZWJ sequences and ordinary `display:none` modals are specifically excluded), but every finding should still be reviewed manually.
 
 ---
 
-## Yapılandırma (`guardbee.yml`)
+## Configuration (`guardbee.yml`)
 
 ```yaml
 prompt-injection-scanner:
@@ -94,15 +96,15 @@ prompt-injection-scanner:
 
 ---
 
-## Geliştirme
+## Development
 
 ```bash
 npm run build
-npm test             # 30 unit test
+npm test             # 30 unit tests
 ```
 
 ---
 
-## Lisans
+## License
 
 MIT — [GuardBee](https://guardbee.ai)

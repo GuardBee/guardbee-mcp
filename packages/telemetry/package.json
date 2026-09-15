@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-telemetry",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Shared opt-out usage telemetry client for GuardBee MCP servers",
   "type": "module",
   "main": "./dist/index.js",
@@ -13,7 +13,8 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "TR.md"
   ],
   "scripts": {
     "build": "tsc",

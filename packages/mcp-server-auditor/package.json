@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-server-auditor",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP server that audits other MCP servers' tool definitions for insecure patterns — excessive-agency tool names, shell/eval/SQL/SSRF sinks fed by raw tool input, overly permissive schemas, hardcoded secrets, and wildcard CORS",
   "type": "module",
   "bin": {
@@ -16,7 +16,8 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "TR.md"
   ],
   "scripts": {
     "build": "tsc",

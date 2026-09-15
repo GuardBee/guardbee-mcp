@@ -11,7 +11,7 @@ KVKK / GDPR uyumlu MCP (Model Context Protocol) sunucusu — LLM ile veritabanı
 
 Claude veya başka bir LLM, veritabanınızı doğrudan sorgulamak yerine bu gateway üzerinden geçer. Hassas alanlar otomatik olarak maskelenir, tablo erişimleri rol bazlı kontrol edilir, her sorgu audit log'a yazılır.
 
-> Bu paket varsayılan olarak GuardBee'ye kullanım telemetrisi gönderir (tool adı + kısa parametreler, örn. tablo adı — gerçek satır verisi/filtre değerleri hiçbir zaman dahil değil, bkz. [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Bu, gateway'in kendi local audit log'undan (`audit.filePath`) ayrı ve bağımsızdır. Kapatmak için `GUARDBEE_TELEMETRY=0`.
+> Bu paket varsayılan olarak GuardBee'ye kullanım telemetrisi gönderir (tool adı + kısa parametreler, örn. tablo adı — gerçek satır verisi/filtre değerleri hiçbir zaman dahil değil, bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). Bu, gateway'in kendi local audit log'undan (`audit.filePath`) ayrı ve bağımsızdır. Kapatmak için `GUARDBEE_TELEMETRY=0`.
 
 ```
 Claude ──► MCP Gateway ──► Veritabanı

@@ -1,34 +1,36 @@
 # @guardbee/mcp-dns-intelligence
 
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-dns-intelligence.svg)](https://www.npmjs.com/package/@guardbee/mcp-dns-intelligence)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-dns-intelligence.svg)](https://www.npmjs.com/package/@guardbee/mcp-dns-intelligence)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-DNS kayıtlarını sıralayan, SPF / DMARC / DKIM yapılandırma hatalarını tespit eden ve asılı (dangling) subdomain'leri bulan MCP sunucusu. Node.js yerleşik `dns/promises` kullanır — harici bağımlılık yoktur.
+An MCP server that enumerates DNS records, detects SPF / DMARC / DKIM misconfigurations, and finds dangling subdomains. Uses Node.js's built-in `dns/promises` — no external dependencies.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler — bkz. [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
-
----
-
-## Özellikler
-
-- **Tam DNS Sıralaması** — A, AAAA, MX, NS, TXT, CNAME, SOA kayıtları
-- **SPF Analizi** — `+all`, `?all`, fazla DNS sorgusu, yinelenen kayıt tespiti
-- **DMARC Analizi** — Politika (`none`/`quarantine`/`reject`), `pct`, `rua` adresi eksikliği
-- **DKIM Kontrolü** — 9 yaygın seçici probu (`default`, `google`, `selector1`, `mail`, vb.)
-- **Subdomain Sıralaması** — 60+ yaygın alt alan; asılı CNAME tespiti (14 bulut sağlayıcısı)
-- **E-posta Güvenliği Özeti** — SPF + DMARC + DKIM birleşik analizi ve kopyalanabilir düzeltme önerileri
-- **23 Unit Test** — Ağ bağlantısı gerektirmeyen saf mantık testleri
+> This package sends usage telemetry by default (tool name + short parameters — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
 
 ---
 
-## Hızlı Başlangıç
+## Features
+
+- **Full DNS Enumeration** — A, AAAA, MX, NS, TXT, CNAME, SOA records
+- **SPF Analysis** — `+all`, `?all`, excessive DNS lookups, duplicate record detection
+- **DMARC Analysis** — policy (`none`/`quarantine`/`reject`), `pct`, missing `rua` address
+- **DKIM Check** — probes 9 common selectors (`default`, `google`, `selector1`, `mail`, etc.)
+- **Subdomain Enumeration** — 60+ common subdomains; dangling CNAME detection (14 cloud providers)
+- **Email Security Summary** — combined SPF + DMARC + DKIM analysis with copy-pasteable fix recommendations
+- **23 Unit Tests** — pure logic tests, no network connection required
+
+---
+
+## Quick Start
 
 ```bash
 npm install -g @guardbee/mcp-dns-intelligence
 ```
 
-`claude_desktop_config.json` dosyasına ekleyin:
+Add to `claude_desktop_config.json`:
 
 ```json
 {
@@ -45,26 +47,26 @@ npm install -g @guardbee/mcp-dns-intelligence
 
 ## MCP Tools
 
-| Tool | Açıklama |
+| Tool | Description |
 |------|----------|
-| `enumerate_dns` | Domain için tüm DNS kayıtlarını sıralar ve SPF/DMARC/DKIM analizi yapar |
-| `enumerate_subdomains` | Yaygın subdomain'leri dener; asılı CNAME'leri işaretler |
-| `check_email_security` | SPF + DMARC + DKIM birleşik denetimi ve düzeltme önerileri |
-| `lookup_dns` | Belirli bir kayıt türü için hedefli DNS sorgusu (A/MX/TXT/vb.) |
+| `enumerate_dns` | Enumerates all DNS records for a domain and runs SPF/DMARC/DKIM analysis |
+| `enumerate_subdomains` | Probes common subdomains; flags dangling CNAMEs |
+| `check_email_security` | Combined SPF + DMARC + DKIM audit with fix recommendations |
+| `lookup_dns` | Targeted DNS lookup for a specific record type (A/MX/TXT/etc.) |
 
-### Örnek Kullanım
+### Example Usage
 
-Claude'a şunu sorabilirsiniz:
+You can ask Claude:
 
-> "example.com'un DNS yapılandırmasında sorun var mı?"
+> "Is there a problem with example.com's DNS configuration?"
 
-> "example.com'un e-posta güvenliğini denetle — SPF, DMARC ve DKIM"
+> "Audit example.com's email security — SPF, DMARC, and DKIM"
 
-> "example.com'un subdomain'lerini listele, asılı olanları işaretle"
+> "List example.com's subdomains, flag any dangling ones"
 
-> "example.com'un MX kayıtları neler?"
+> "What are example.com's MX records?"
 
-### Örnek Çıktı
+### Example Output
 
 ```
 Email Security Check: example.com
@@ -83,80 +85,80 @@ Email Security Check: example.com
 
 ---
 
-## SPF Bulguları
+## SPF Findings
 
-| Kod | Severity | Açıklama |
+| Code | Severity | Description |
 |-----|----------|----------|
-| `SPF_MISSING` | 🟡 Medium | SPF kaydı bulunamadı |
-| `SPF_PERMISSIVE_ALL` | 🔴 Critical | `+all` — her sunucuya izin veriyor |
-| `SPF_NEUTRAL_ALL` | 🟠 High | `?all` — yetkisiz gönderenleri reddetmiyor |
-| `SPF_NO_ALL` | 🟡 Medium | `all` mekanizması yok |
-| `SPF_TOO_MANY_LOOKUPS` | 🟠 High | > 10 DNS sorgusu — SPF hatasına yol açar |
-| `SPF_DUPLICATE` | 🟠 High | Birden fazla SPF kaydı |
+| `SPF_MISSING` | 🟡 Medium | No SPF record found |
+| `SPF_PERMISSIVE_ALL` | 🔴 Critical | `+all` — allows any server |
+| `SPF_NEUTRAL_ALL` | 🟠 High | `?all` — doesn't reject unauthorized senders |
+| `SPF_NO_ALL` | 🟡 Medium | No `all` mechanism |
+| `SPF_TOO_MANY_LOOKUPS` | 🟠 High | > 10 DNS lookups — causes SPF to fail |
+| `SPF_DUPLICATE` | 🟠 High | Multiple SPF records |
 
-## DMARC Bulguları
+## DMARC Findings
 
-| Kod | Severity | Açıklama |
+| Code | Severity | Description |
 |-----|----------|----------|
-| `DMARC_MISSING` | 🟠 High | DMARC kaydı yok |
-| `DMARC_NO_POLICY` | 🟠 High | `p=` politikası eksik |
-| `DMARC_POLICY_NONE` | 🟡 Medium | `p=none` — izleme modu, engelleme yok |
-| `DMARC_PCT_LOW` | 🔵 Low | `pct` < 100 — kısmi uygulama |
-| `DMARC_NO_RUA` | 🔵 Low | Toplu rapor adresi (`rua`) yok |
+| `DMARC_MISSING` | 🟠 High | No DMARC record |
+| `DMARC_NO_POLICY` | 🟠 High | Missing `p=` policy |
+| `DMARC_POLICY_NONE` | 🟡 Medium | `p=none` — monitoring mode, no enforcement |
+| `DMARC_PCT_LOW` | 🔵 Low | `pct` < 100 — partial enforcement |
+| `DMARC_NO_RUA` | 🔵 Low | No aggregate report address (`rua`) |
 
-## Asılı Subdomain Tespiti
+## Dangling Subdomain Detection
 
-CNAME'i aşağıdaki sağlayıcılardan birine işaret edip çözümlenemeyen subdomain'ler **asılı (dangling)** olarak işaretlenir ve subdomain ele geçirme riski taşır:
+Subdomains whose CNAME points to one of the following providers but doesn't resolve are flagged as **dangling** and carry a subdomain-takeover risk:
 
 AWS S3, Azure App Service, GitHub Pages, Heroku, Netlify, Vercel, Cloudflare Pages, Surge, Pantheon, WP Engine, Ghost, Shopify, Fastly, AWS CloudFront
 
 ---
 
-## CLI — CI/CD Entegrasyonu
+## CLI — CI/CD Integration
 
-MCP server moduna ek olarak doğrudan CLI olarak da kullanılabilir:
+In addition to MCP server mode, this can also be used directly as a CLI:
 
 ```bash
-# Tam DNS + e-posta güvenliği kontrolü
+# Full DNS + email security check
 npx @guardbee/mcp-dns-intelligence check example.com
 
-# Sadece high ve üstünde başarısız ol
+# Fail only on high and above
 npx @guardbee/mcp-dns-intelligence check example.com --fail-on=high
 
-# Subdomain taraması — dangling CNAME varsa exit 1
+# Subdomain scan — exits 1 if a dangling CNAME is found
 npx @guardbee/mcp-dns-intelligence subdomains example.com
 
-# Yüksek concurrency ile subdomain tarama
+# Subdomain scan with higher concurrency
 npx @guardbee/mcp-dns-intelligence subdomains example.com --concurrency=50
 
-# JSON çıktı
+# JSON output
 npx @guardbee/mcp-dns-intelligence check example.com --format=json
 ```
 
-**Exit kodları:** `0` = sorun yok · `1` = threshold üstü bulgu / dangling subdomain · `2` = hata
+**Exit codes:** `0` = no issues · `1` = findings above threshold / dangling subdomain · `2` = error
 
-### guardbee.yml ile Konfigürasyon
+### Configuration via guardbee.yml
 
-Proje kökünde `guardbee.yml` oluşturarak CLI flag'lerini kalıcı hale getirebilirsiniz. CLI flag'leri her zaman dosya ayarlarını geçersiz kılar.
+Create a `guardbee.yml` at your project root to persist CLI flags. CLI flags always override file settings.
 
 ```yaml
 dns-intelligence:
   fail-on: high          # critical | high | medium | low
-  concurrency: 20        # paralel subdomain probe sayısı
-  domains:               # CLI'da domain verilmezse bu liste kullanılır
+  concurrency: 20        # parallel subdomain probes
+  domains:               # used when no domain is given on the CLI
     - example.com
     - staging.example.com
 ```
 
-Örnek dosya için [`guardbee.example.yml`](guardbee.example.yml) dosyasına bakın.
+See [`guardbee.example.yml`](guardbee.example.yml) for a sample file.
 
-### GitHub Actions — DNS Güvenlik Denetimi
+### GitHub Actions — DNS Security Audit
 
 ```yaml
 name: DNS Security Check
 on:
   schedule:
-    - cron: "0 6 * * *"  # Her gün 06:00
+    - cron: "0 6 * * *"  # Every day at 06:00
   workflow_dispatch:
 
 jobs:
@@ -182,7 +184,7 @@ dns-security:
     - schedules
 ```
 
-### Deployment Öncesi E-posta Güvenliği Kontrolü
+### Pre-Deployment Email Security Check
 
 ```yaml
 - name: Verify email security records
@@ -200,16 +202,16 @@ dns-security:
 
 ---
 
-## Geliştirme
+## Development
 
 ```bash
 npm install
-npm test          # 23 unit test
-npm run build     # TypeScript derleme
+npm test          # 23 unit tests
+npm run build     # TypeScript compile
 ```
 
 ---
 
-## Lisans
+## License
 
 MIT — [GuardBee](https://guardbee.ai)
