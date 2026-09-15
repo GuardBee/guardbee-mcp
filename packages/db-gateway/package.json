@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-db-gateway",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "KVKK/GDPR-compliant MCP server gateway between LLMs and databases",
   "author": "GuardBee <hello@guardbee.ai>",
   "license": "MIT",
@@ -33,7 +33,7 @@
   "files": [
     "dist",
     "README.md",
-    "README.en.md"
+    "README.tr.md"
   ],
   "engines": {
     "node": ">=18"

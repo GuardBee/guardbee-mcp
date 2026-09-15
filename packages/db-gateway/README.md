@@ -1,62 +1,62 @@
 # @guardbee/mcp-db-gateway
 
-**🇹🇷 Türkçe** | [🇬🇧 English](README.en.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](README.tr.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-db-gateway.svg)](https://www.npmjs.com/package/@guardbee/mcp-db-gateway)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-db-gateway.svg)](https://www.npmjs.com/package/@guardbee/mcp-db-gateway)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Smithery](https://smithery.ai/badge/guardbee/mcp-db-gateway)](https://smithery.ai/servers/guardbee/mcp-db-gateway)
 
-KVKK / GDPR uyumlu MCP (Model Context Protocol) sunucusu — LLM ile veritabanı arasına güvenlik katmanı ekler.
+A KVKK / GDPR-compliant MCP (Model Context Protocol) server — adds a security layer between an LLM and a database.
 
-Claude veya başka bir LLM, veritabanınızı doğrudan sorgulamak yerine bu gateway üzerinden geçer. Hassas alanlar otomatik olarak maskelenir, tablo erişimleri rol bazlı kontrol edilir, her sorgu audit log'a yazılır.
+Instead of querying your database directly, Claude (or any other LLM) goes through this gateway. Sensitive fields are masked automatically, table access is role-controlled, and every query is written to an audit log.
 
-> Bu paket varsayılan olarak GuardBee'ye kullanım telemetrisi gönderir (tool adı + kısa parametreler, örn. tablo adı — gerçek satır verisi/filtre değerleri hiçbir zaman dahil değil, bkz. [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Bu, gateway'in kendi local audit log'undan (`audit.filePath`) ayrı ve bağımsızdır. Kapatmak için `GUARDBEE_TELEMETRY=0`.
+> This package sends usage telemetry to GuardBee by default (tool name + short parameters, e.g. a table name — real row data/filter values are never included, see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). This is separate from and independent of the gateway's own local audit log (`audit.filePath`). Disable with `GUARDBEE_TELEMETRY=0`.
 
 ```
-Claude ──► MCP Gateway ──► Veritabanı
+Claude ──► MCP Gateway ──► Database
               │
-              ├─ PII maskeleme   (tcKimlik → [REDACTED])
-              ├─ Rol kontrolü    (ai-agent sadece products tablosuna erişir)
-              ├─ Rate limiting   (dakikada max 100 sorgu)
-              └─ Audit log       (her sorgu kayıt altına alınır)
+              ├─ PII masking     (tcKimlik → [REDACTED])
+              ├─ Role check      (ai-agent can only reach the products table)
+              ├─ Rate limiting   (max 100 queries/minute)
+              └─ Audit log       (every query is recorded)
 ```
 
 ---
 
-## Özellikler
+## Features
 
-- **PII Maskeleme** — TC kimlik no, IBAN, e-posta, telefon, şifre hash vb. otomatik maskelenir
-- **Rol Bazlı Erişim (RBAC)** — Her rol için tablo beyaz/kara listesi ve alan kuralları
-- **Rate Limiting** — Global ve tablo bazlı istek penceresi
-- **Audit Log** — Console, dosya veya HTTP webhook'a yazılabilir
-- **Prisma / Postgres / MySQL / SQLite / MongoDB Adaptörleri** — Mevcut PrismaClient'ı, `pg` Pool'unu, `mysql2` Pool'unu, `better-sqlite3` Database'ini veya bir MongoDB `Db`'sini doğrudan bağlayın
-- **Yazma Desteği (opsiyonel)** — insert/update/delete, varsayılan kapalı; tablo+rol bazlı izin, korumalı alan koruması ve "tüm tabloyu etkileme" güvenlik ağı ile
-- **193 unit test** — Masker, pipeline, RBAC, rate limiter, audit log ve tüm adaptörler (okuma + yazma) kapsanmış
+- **PII Masking** — Turkish national ID, IBAN, email, phone, password hashes, etc. are masked automatically
+- **Role-Based Access (RBAC)** — Per-role table allow/deny lists and field rules
+- **Rate Limiting** — Global and per-table request windows
+- **Audit Log** — Writable to console, a file, or an HTTP webhook
+- **Prisma / Postgres / MySQL / SQLite / MongoDB Adapters** — Plug in an existing `PrismaClient`, a `pg` `Pool`, a `mysql2` `Pool`, a `better-sqlite3` `Database`, or a MongoDB `Db` directly
+- **Write Support (optional)** — insert/update/delete, off by default; gated by per-table + per-role permission, protected-field guarding, and a "don't touch the whole table" safety net
+- **193 unit tests** — masking, the pipeline, RBAC, the rate limiter, the audit log, and every adapter (read + write) are covered
 
 ---
 
-## Son Değişiklikler (2026-09-15)
+## Recent Changes (2026-09-15)
 
-AI Gateway büyütme çalışmasının bu paketteki 3 yeni adımı:
+Three new steps in this package's AI Gateway growth work:
 
-### 1. `query_audit_log` tool'u
+### 1. The `query_audit_log` tool
 
-Daha önce gateway'in audit log'u yalnızca **yazılabilir**di — `console`/`file`/`http` sink'lerinden birine düşer, ama Claude'un kendisi "az önce ne oldu, hangi çağrılar reddedildi" diye geriye dönüp sorgulayamazdı. Artık sorgulanabilir:
+Previously the gateway's audit log was **write-only** — it landed in one of the `console`/`file`/`http` sinks, but Claude itself had no way to look back and ask "what just happened, which calls got denied." Now it can:
 
 ```typescript
-// Claude tarafında çağrılan tool:
+// Tool called from the Claude side:
 query_audit_log({ table: "orders", deniedOnly: true, limit: 20 })
 ```
 
-- **Nasıl çalışıyor:** `AuditLogger` sınıfına sink'ten tamamen bağımsız, her zaman açık bir bellek-içi ring buffer eklendi (`audit.bufferSize`, varsayılan 200). Sink `"http"` (fire-and-forget bir webhook) olsa bile geçmiş bu buffer üzerinden sorgulanabiliyor. Buffer süreç yeniden başladığında sıfırlanır; `audit.enabled: false` iken hiç doldurulmaz.
-- **Filtreler:** `table`, `tool` (MCP tool adı, örn. `"delete_row"`), `operation` (`read`/`insert`/`update`/`delete`), `deniedOnly` (sadece reddedilenler), `since` (ISO 8601 zaman damgası), `limit` (varsayılan 50, max 200). Sonuçlar en yeniden en eskiye sıralı döner.
-- **Yan yana düzeltilen gerçek hata:** `registerDbTools` (okuma tool'ları) ve `registerWriteTools` (yazma tool'ları) önceden **her biri kendi** `GatewayPipeline`/`AuditLogger` örneğini oluşturuyordu. Bu, `insert_row`/`update_row`/`delete_row` çağrılarının audit event'lerinin, `query_audit_log`'un okuduğu buffer'da **hiçbir zaman görünmeyeceği** anlamına geliyordu — iki ayrı, birbirinden habersiz buffer vardı. `server.ts` artık tek bir `GatewayPipeline` örneği oluşturup her iki tool grubuna da paylaştırıyor.
-- **Test:** `src/__tests__/audit-logger.test.ts` (10 test — buffer capping, tüm filtreler, ring buffer davranışı) ve `pipeline.test.ts`'e eklenen 3 test (read+write'ın aynı buffer'a düştüğünü, deniedOnly+table filtresinin birlikte çalıştığını, `audit.enabled: false` iken buffer'ın boş kaldığını doğruluyor).
+- **How it works:** `AuditLogger` gained an always-on, in-memory ring buffer that's completely independent of the configured sink (`audit.bufferSize`, default 200). Even when the sink is `"http"` (a fire-and-forget webhook), history is still queryable through this buffer. The buffer resets when the process restarts, and is never populated while `audit.enabled: false`.
+- **Filters:** `table`, `tool` (the MCP tool name, e.g. `"delete_row"`), `operation` (`read`/`insert`/`update`/`delete`), `deniedOnly` (denied calls only), `since` (an ISO 8601 timestamp), `limit` (default 50, max 200). Results come back newest-first.
+- **A real bug fixed along the way:** `registerDbTools` (read tools) and `registerWriteTools` (write tools) previously each built **their own** `GatewayPipeline`/`AuditLogger` instance. That meant audit events from `insert_row`/`update_row`/`delete_row` calls would **never have appeared** in the buffer that `query_audit_log` reads — there were two separate, unaware-of-each-other buffers. `server.ts` now builds a single `GatewayPipeline` instance and shares it across both tool groups.
+- **Tests:** `src/__tests__/audit-logger.test.ts` (10 tests — buffer capping, every filter, ring-buffer behavior) plus 3 tests added to `pipeline.test.ts` (verifying that reads and writes land in the same buffer, that `deniedOnly` + `table` filters compose correctly, and that the buffer stays empty while `audit.enabled: false`).
 
-### 2. SQLite adaptörü
+### 2. The SQLite adapter
 
-Gateway artık Prisma/Postgres/MySQL'in yanında `better-sqlite3` ile de çalışıyor:
+The gateway now works with `better-sqlite3` alongside Prisma/Postgres/MySQL:
 
 ```typescript
 import Database from "better-sqlite3";
@@ -66,15 +66,15 @@ const db = new Database("./app.db");
 const server = createServer({}, createSqliteAdapter(db));
 ```
 
-- **Güvenlik deseni pg/mysql ile aynı:** Tablo/kolon adları parametrize edilemediği için SQL'e gömülmeden önce doğrulanıyor — sadece burada `information_schema` yerine SQLite'a özgü `PRAGMA table_info(tablo)` kullanılıyor. Format kontrolünden geçmeyen (örn. `users"; DROP TABLE users;--`) veya şemada olmayan bir isim, hiçbir sorgu SQLite'a gitmeden reddediliyor.
-- **`better-sqlite3` sadece opsiyonel bir `peerDependency`** — paketin kendi `devDependencies`'ine eklenmedi, çünkü native binding gerektiriyor ve testler (pg/mysql testlerindeki gibi) gerçek paketi import etmeden, `SqliteQueryable` arayüzüne uyan basit bir mock nesneyle yazıldı.
-- **insert için `RETURNING` yerine `lastInsertRowid`:** SQLite'ın RETURNING desteği sürüme bağlı olduğundan, mysql adaptöründeki `insertId` yaklaşımı izlendi — tabloda `id` kolonu varsa ve `data` içinde zaten yoksa, eklenen satıra `lastInsertRowid` eklenir.
-- **Bonus düzeltme:** `AuditEvent`/`AuditQueryFilter` tipleri paket kökünden (`index.ts`) hiç export edilmiyordu — `GatewayPipeline.queryAuditLog()`'u kendi kodunda tipli çağırmak isteyen tüketiciler için eklendi.
-- **Test:** `src/__tests__/sqlite-adapter.test.ts` (21 test) — pg-adapter.test.ts ile aynı senaryo seti: tablo listesi, filtreli/filtresiz sorgu, limit, bilinmeyen tablo/kolon reddi, injection denemesi reddi, insert (id atama dahil), update, delete.
+- **Same security pattern as pg/mysql:** table/column names can't be parameterized, so they're validated before being embedded in SQL — here using SQLite's `PRAGMA table_info(table)` instead of `information_schema`. A name that fails the format check (e.g. `users"; DROP TABLE users;--`) or isn't in the live schema is rejected before any query reaches SQLite.
+- **`better-sqlite3` is only an optional `peerDependency`** — it was not added to the package's own `devDependencies`, since it requires a native binding; tests (like the pg/mysql tests) were written against a simple mock object matching the `SqliteQueryable` interface, without importing the real package.
+- **`lastInsertRowid` instead of `RETURNING` for insert:** since SQLite's `RETURNING` support is version-dependent, this follows the same approach as the MySQL adapter's `insertId` — if the table has an `id` column and it's not already in `data`, the inserted row gets `lastInsertRowid` attached.
+- **Bonus fix:** the `AuditEvent`/`AuditQueryFilter` types were not exported from the package root (`index.ts`) at all — added for consumers who want to type their own calls to `GatewayPipeline.queryAuditLog()`.
+- **Tests:** `src/__tests__/sqlite-adapter.test.ts` (21 tests) — the same scenario set as `pg-adapter.test.ts`: table listing, filtered/unfiltered queries, limits, unknown table/column rejection, injection-attempt rejection, insert (including id assignment), update, delete.
 
-### 3. MongoDB adaptörü
+### 3. The MongoDB adapter
 
-Gateway artık `mongodb` sürücüsünün `Db` örneğiyle de çalışıyor:
+The gateway now also works with a `Db` instance from the `mongodb` driver:
 
 ```typescript
 import { MongoClient } from "mongodb";
@@ -85,29 +85,29 @@ await client.connect();
 const server = createServer({}, createMongoAdapter(client.db("mydb")));
 ```
 
-- **Farklı bir risk sınıfı — SQL injection değil, operator injection:** pg/mysql/sqlite'ta risk tablo/kolon adının SQL'e gömülmesiydi. MongoDB'de identifier hiç gömülmüyor, ama `filter`/`data` içindeki bir key `$where`/`$ne` gibi bir Mongo operatörü olursa ya da bir değer `{ $ne: null }` gibi bir operatör objesi olursa, tool'un beyan ettiği "basit key-value eşitlik filtresi" gizlice keyfi bir sorguya dönüşebilir. Bu adaptör şunları baştan reddediyor:
-  - `$` ile başlayan her key (`filter` ve `data`'da)
-  - `.` içeren her key — noktalı path (`"passwordHash.reset"` gibi) hem operator-benzeri bir risk hem de `findProtectedWriteFields`'ın tam isim eşleşmesini (glob dışında) es geçebilecek bir bypass yolu
-  - Filter değeri olarak skaler olmayan (obje/array) her şey — `{ status: { $ne: "active" } }` gibi bir operatör-objesi bypass denemesi dahil
-- **`mongodb` sadece opsiyonel bir `peerDependency`** — SQLite adaptöründeki gibi, testler gerçek paketi import etmeden `MongoDatabase` arayüzüne uyan bir mock nesneyle yazıldı.
-- **"Tablo" = collection.** `tables()` → `listCollections()`, insert `_id`'yi (varsa `insertedId`) satıra ekler, update `{ $set: data }` ile `updateMany`, delete `deleteMany` çağırır.
-- **Test:** `src/__tests__/mongo-adapter.test.ts` (19 test) — collection listesi, filtreli/filtresiz sorgu, limit, üç operator-injection senaryosu (`$` key, noktalı key, operatör-objesi değer), insert/update/delete.
+- **A different risk class — not SQL injection, but operator injection:** for pg/mysql/sqlite the risk was a table/column name being embedded in SQL. MongoDB never embeds identifiers, but if a key in `filter`/`data` is a Mongo operator like `$where`/`$ne`, or a value is an operator object like `{ $ne: null }`, the "simple key-value equality filter" a tool declares can silently turn into an arbitrary query. This adapter rejects all of the following up front:
+  - any key starting with `$` (in both `filter` and `data`)
+  - any key containing `.` — a dotted path (e.g. `"passwordHash.reset"`) is both an operator-like risk and a way to bypass `findProtectedWriteFields`'s exact-name matching (outside of its glob support)
+  - any non-scalar (object/array) filter value — including an operator-object bypass attempt like `{ status: { $ne: "active" } }`
+- **`mongodb` is only an optional `peerDependency`** — same as the SQLite adapter, tests were written against a mock object matching the `MongoDatabase` interface, without importing the real package.
+- **"Table" = collection.** `tables()` maps to `listCollections()`; insert attaches `_id` (the driver's `insertedId`) to the returned row; update runs `updateMany` with `{ $set: data }`; delete runs `deleteMany`.
+- **Tests:** `src/__tests__/mongo-adapter.test.ts` (19 tests) — collection listing, filtered/unfiltered queries, limits, three operator-injection scenarios (a `$`-prefixed key, a dotted key, an operator-object value), insert/update/delete.
 
 ---
 
-## Hızlı Başlangıç
+## Quick Start
 
-### 1. Smithery ile Tek Tıkla Bağla
+### 1. Connect with one click via Smithery
 
-[Smithery](https://smithery.ai/servers/guardbee/mcp-db-gateway) üzerinden Claude Desktop'a tek tıkla ekleyebilirsiniz.
+You can add this to Claude Desktop with one click via [Smithery](https://smithery.ai/servers/guardbee/mcp-db-gateway).
 
-### 2. Global Kurulum ile Claude Desktop'a Bağla
+### 2. Connect to Claude Desktop via global install
 
 ```bash
 npm install -g @guardbee/mcp-db-gateway
 ```
 
-`~/Library/Application Support/Claude/claude_desktop_config.json` dosyasına ekleyin (macOS):
+Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS):
 
 ```json
 {
@@ -125,9 +125,9 @@ npm install -g @guardbee/mcp-db-gateway
 > **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
 > **Linux:** `~/.config/Claude/claude_desktop_config.json`
 
-Claude Desktop'ı yeniden başlatın. Demo veritabanı otomatik yüklenir, PII maskeleme aktif olur.
+Restart Claude Desktop. The demo database loads automatically, with PII masking active.
 
-### 3. Projede Kullan (Prisma)
+### 3. Use it in your project (Prisma)
 
 ```bash
 npm install @guardbee/mcp-db-gateway
@@ -147,7 +147,7 @@ const server = createServer(
 );
 ```
 
-Prisma kullanmıyorsanız, ham `pg` veya `mysql2` bağlantısını da doğrudan geçirebilirsiniz:
+If you don't use Prisma, you can also pass a raw `pg` or `mysql2` connection directly:
 
 ```typescript
 // Postgres
@@ -186,37 +186,37 @@ await client.connect();
 const server = createServer({}, createMongoAdapter(client.db("mydb")));
 ```
 
-> **Güvenlik notu:** Prisma adaptörünün aksine `pg`/`mysql2`/`better-sqlite3` adaptörleri ham SQL üretir. Tablo ve kolon adları parametrize edilemediği için her sorguda canlı şemayla doğrulanır (`information_schema` ya da SQLite için `PRAGMA table_info`) — şemada olmayan bir tablo/kolon adı (örn. bir injection denemesi) SQL'e hiç ulaşmadan reddedilir. MongoDB adaptörü farklı bir riske karşı korunur (SQL yerine "operator injection") — bkz. [Son Değişiklikler](#son-değişiklikler-2026-09-15).
+> **Security note:** unlike the Prisma adapter, the `pg`/`mysql2`/`better-sqlite3` adapters generate raw SQL. Because table and column names can't be parameterized, they are validated against the live schema on every query (`information_schema`, or `PRAGMA table_info` for SQLite) — a table/column name that isn't in the schema (e.g. an injection attempt) is rejected before it ever reaches SQL. The MongoDB adapter guards against a different risk ("operator injection" instead of SQL) — see [Recent Changes](#recent-changes-2026-09-15).
 
 ---
 
 ## MCP Tools
 
-Gateway her zaman şu 5 okuma tool'unu Claude'a sunar:
+The gateway always exposes these 5 read tools to Claude:
 
-| Tool | Açıklama |
+| Tool | Description |
 |------|----------|
-| `query_table` | Tablodan satır sorgula (PII otomatik maskelenir) |
-| `list_tables` | Erişilebilir tabloları listele (rol kısıtlamaları uygulanır) |
-| `describe_table` | Tablo şeması ve maskeleme politikasını göster |
-| `query_audit_log` | Gateway'in kendi audit geçmişini sorgula (tablo/tool/operation/deniedOnly/since filtreleriyle) — bellek-içi, `audit.bufferSize` ile sınırlı, süreç yeniden başlarsa sıfırlanır |
-| `gateway_status` | Aktif config, roller ve rate limit durumunu göster |
+| `query_table` | Query rows from a table (PII is masked automatically) |
+| `list_tables` | List accessible tables (role restrictions applied) |
+| `describe_table` | Show a table's schema and masking policy |
+| `query_audit_log` | Query the gateway's own audit history (filterable by table/tool/operation/deniedOnly/since) — in-memory, capped by `audit.bufferSize`, resets on process restart |
+| `gateway_status` | Show the active config, roles, and rate-limit status |
 
-`writesEnabled: true` ayarlandığında (bkz. [Yazma Desteği](#yazma-desteği-writeinsertupdatedelete)) 3 yazma tool'u daha eklenir:
+When `writesEnabled: true` (see [Write Support](#write-support-writeinsertupdatedelete)), 3 more write tools are added:
 
-| Tool | Açıklama |
+| Tool | Description |
 |------|----------|
-| `insert_row` | Yeni satır ekler |
-| `update_row` | Filtreye uyan satırları günceller (boş filtre kabul edilmez) |
-| `delete_row` | Filtreye uyan satırları siler (boş filtre kabul edilmez) |
+| `insert_row` | Inserts a new row |
+| `update_row` | Updates rows matching a filter (an empty filter is rejected) |
+| `delete_row` | Deletes rows matching a filter (an empty filter is rejected) |
 
 ---
 
-## Yapılandırma
+## Configuration
 
 ```typescript
 createServer({
-  // PII alan kuralları (ilk eşleşen uygulanır)
+  // PII field rules (the first match applies)
   fieldRules: [
     { field: "tcKimlik",     strategy: "redact" }, // [REDACTED]
     { field: "iban",         strategy: "mask"   }, // TR32***890
@@ -225,31 +225,31 @@ createServer({
     { field: "*Token*",      strategy: "redact" }, // glob pattern
   ],
 
-  // Tablo erişim kuralları
+  // Table access rules
   tableRules: [
     { table: "audit_logs", access: "deny"  },
     { table: "users",      access: "allow", maxRows: 25 },
-    // write: tanımlanmazsa o tablo için hiçbir write izni yoktur (varsayılan kapalı)
+    // write: if unspecified, that table has no write permission at all (off by default)
     { table: "orders",     access: "allow", write: { insert: true, update: true, delete: false } },
   ],
 
-  // Yazma tool'larını (insert_row/update_row/delete_row) aç — varsayılan false.
-  // false iken bu tool'lar Claude'a hiç görünmez.
+  // Turn on the write tools (insert_row/update_row/delete_row) — false by default.
+  // While false, these tools are never visible to Claude.
   writesEnabled: true,
 
-  // update_row/delete_row bir filtreyle en fazla kaç satırı etkileyebilir.
-  // Aşılırsa işlem hiç yapılmadan reddedilir ("filtreyi daraltın").
+  // How many rows update_row/delete_row may affect via one filter.
+  // If exceeded, the operation is rejected before touching the database ("narrow your filter").
   maxAffectedRowsPerWrite: 10,
 
-  // Varsayılan maksimum satır
+  // Default max rows
   defaultMaxRows: 50,
 
   // Rate limiting
   rateLimit: {
     enabled: true,
-    windowMs: 60_000,          // 1 dakika
+    windowMs: 60_000,          // 1 minute
     maxRequests: 100,           // global limit
-    maxRequestsPerTable: 20,    // tablo başına
+    maxRequestsPerTable: 20,    // per table
   },
 
   // Audit log
@@ -257,81 +257,81 @@ createServer({
     enabled: true,
     sink: "file",              // "console" | "file" | "http"
     filePath: "./audit.jsonl",
-    // webhookUrl: "https://..."  (sink: "http" için)
-    bufferSize: 200,           // `query_audit_log` tool'unun okuduğu bellek-içi geçmiş boyutu
+    // webhookUrl: "https://..."  (for sink: "http")
+    bufferSize: 200,           // size of the in-memory history the `query_audit_log` tool reads
   },
 
-  // Roller
+  // Roles
   roles: [
     {
       name: "ai-agent",
-      allowTables: ["products", "orders"],  // sadece bu tablolar
+      allowTables: ["products", "orders"],  // only these tables
       maxRows: 10,
-      // Rol write tanımlamazsa (undefined) o rol için write TAMAMEN kapalıdır,
-      // tablo write'a açık olsa bile. Write istiyorsanız rolde de açıkça belirtin:
+      // If a role doesn't define write (undefined), write is COMPLETELY off for that role,
+      // even if the table allows it. To permit writes, state it explicitly on the role too:
       write: { insert: true, update: true, delete: false },
     },
     {
       name: "analyst",
-      denyTables: ["audit_logs"],           // bu tablo engellenir
+      denyTables: ["audit_logs"],           // this table is blocked
       fieldRules: [
-        { field: "email", strategy: "allow" }, // e-posta maskesiz
+        { field: "email", strategy: "allow" }, // email unmasked
       ],
-      // write tanımlanmadı → analyst hiçbir şey yazamaz
+      // write not defined → analyst can write nothing
     },
   ],
 
-  // Aktif rol (GATEWAY_ROLE env var ile de ayarlanabilir)
+  // Active role (can also be set via the GATEWAY_ROLE env var)
   activeRole: "ai-agent",
 });
 ```
 
 ---
 
-## Maskeleme Stratejileri
+## Masking Strategies
 
-| Strateji | Açıklama | Örnek |
+| Strategy | Description | Example |
 |----------|----------|-------|
-| `redact` | Alan tamamen silinir | `[REDACTED]` |
-| `mask` | Değerin ortası yıldızlanır | `ah***@example.com` / `530***67` |
-| `hash` | SHA-256 (ilk 16 karakter) | `a665a45920422f9d` |
-| `allow` | Olduğu gibi geçer | `ahmet@example.com` |
+| `redact` | The field is removed entirely | `[REDACTED]` |
+| `mask` | The middle of the value is starred out | `ah***@example.com` / `530***67` |
+| `hash` | SHA-256 (first 16 characters) | `a665a45920422f9d` |
+| `allow` | Passed through unchanged | `ahmet@example.com` |
 
-Glob pattern desteği: `*Password*`, `*Token*`, `*Secret*`
+Glob pattern support: `*Password*`, `*Token*`, `*Secret*`
 
 ---
 
-## Rol Bazlı Erişim (RBAC)
+## Role-Based Access (RBAC)
 
-Rol, sunucu başlatılırken `GATEWAY_ROLE` env var'ı veya `config.activeRole` ile belirlenir.
-Her Claude Desktop profili veya deployment farklı rol ile çalışabilir.
+The role is set when the server starts, via the `GATEWAY_ROLE` env var or `config.activeRole`.
+Each Claude Desktop profile or deployment can run with a different role.
 
 ```bash
 GATEWAY_ROLE=analyst node dist/cli.js
 ```
 
-**Kural önceliği (yüksekten düşüğe):**
+**Rule precedence (highest to lowest):**
 1. Global `tableRules` deny
-2. Rol `denyTables`
-3. Rol `allowTables` (whitelist — ayarlanmışsa tablo bu listede olmalı)
-4. Rol `fieldRules` → global `fieldRules`
+2. Role `denyTables`
+3. Role `allowTables` (a whitelist — if set, the table must be in this list)
+4. Role `fieldRules` → global `fieldRules`
 
 ---
 
-## Yazma Desteği (write/insert/update/delete)
+## Write Support (write/insert/update/delete)
 
-Gateway varsayılan olarak **tamamen salt-okunurdur**. LLM'in veri değiştirebilmesi için bilinçli olarak birkaç kilidi açmanız gerekir:
+The gateway is **fully read-only** by default. Letting the LLM modify data requires deliberately unlocking a few gates:
 
-1. **`writesEnabled: true`** — global kill-switch. `false` (default) iken `insert_row`/`update_row`/`delete_row` Claude'a hiç görünmez.
-2. **Tablo izni** — `tableRules[].write.{insert,update,delete}` — her tablo için ayrı ayrı, varsayılan hepsi kapalı.
-3. **Rol izni** (rol aktifse) — `roles[].write.{insert,update,delete}`. Rol write'ı hiç tanımlamamışsa (undefined) o rol için write tamamen kapalıdır — tablo izin verse bile. Write'a izin vermek için **hem tablo hem rol** açıkça `true` demelidir (AND mantığı; masking kurallarındaki "rol override eder" mantığından farklı, kasıtlı olarak daha katı).
+1. **`writesEnabled: true`** — the global kill-switch. While `false` (default), `insert_row`/`update_row`/`delete_row` are never visible to Claude.
+2. **Table permission** — `tableRules[].write.{insert,update,delete}` — per table, off by default for all.
+3. **Role permission** (when a role is active) — `roles[].write.{insert,update,delete}`. If a role never defines `write` (undefined), write is completely off for that role — even if the table permits it. To permit a write, **both the table and the role** must explicitly say `true` (AND logic — deliberately stricter than the "role overrides" logic used for masking rules).
 
-Bu üç kilidin ötesinde iki ek koruma daha var, kapatılamaz:
+Beyond these three gates, there are two more protections that cannot be disabled:
 
-- **Korumalı alan koruması** — `fieldRules`'da `redact`/`mask`/`hash` olarak işaretli bir alana (örn. `tcKimlik`, `passwordHash`) LLM asla değer yazamaz; `insert_row`/`update_row` böyle bir alanı `data` içinde görürse tüm isteği reddeder.
-- **`maxAffectedRowsPerWrite`** — `update_row`/`delete_row` çağrılmadan önce filtre önce bir read ile denenir; eşleşen satır sayısı bu limiti (default 10) aşarsa işlem hiç yapılmadan reddedilir. `update_row`/`delete_row` ayrıca **boş filtreyi de her zaman reddeder** — "tüm tabloyu güncelle/sil" bu gateway üzerinden asla mümkün değildir.
+- **Protected-field guarding** — the LLM can never write a value into a field marked `redact`/`mask`/`hash` in `fieldRules` (e.g. `tcKimlik`, `passwordHash`); if `insert_row`/`update_row` sees such a field in `data`, the whole request is rejected.
+- **`maxAffectedRowsPerWrite`** — before `update_row`/`delete_row` runs, the filter is first tried as a read; if the matched row count exceeds this limit (default 10), the operation is rejected before touching anything. `update_row`/`delete_row` also **always reject an empty filter** — "update/delete the whole table" is never possible through this gateway.
 
-Her write denemesi (kabul veya red) audit log'a yazılır; `data`'nın kendisi değil sadece hangi alanların yazıldığı loglanır (audit log'un kendisi bir PII sızıntı noktası olmasın diye).
+Every write attempt (accepted or denied) is written to the audit log; only which fields were written is logged, never `data` itself (so the audit log itself can't become a PII leak point).
 
 ```typescript
 createServer({
@@ -349,11 +349,11 @@ createServer({
 
 ---
 
-## Prisma Adaptörü
+## Prisma Adapter
 
-PrismaClient'ı doğrudan geçirin — tablo adı → model eşleştirmesi otomatik yapılır:
+Pass a `PrismaClient` directly — table name → model mapping is automatic:
 
-| Sorgu tablosu | Prisma modeli |
+| Query table | Prisma model |
 |---------------|---------------|
 | `"users"` | `prisma.user` |
 | `"audit_logs"` | `prisma.auditLog` |
@@ -362,18 +362,18 @@ PrismaClient'ı doğrudan geçirin — tablo adı → model eşleştirmesi otoma
 
 ---
 
-## Geliştirme
+## Development
 
 ```bash
-npm run dev          # tsx ile geliştirme modu
-npm run build        # TypeScript derleme
-npm test             # 193 unit test
-npm run test:watch   # İzleme modu
-npm run type-check   # Sadece tip kontrolü
+npm run dev          # dev mode via tsx
+npm run build        # TypeScript compile
+npm test             # 193 unit tests
+npm run test:watch   # watch mode
+npm run type-check   # type-check only
 ```
 
 ---
 
-## Lisans
+## License
 
 MIT — [GuardBee](https://guardbee.ai)

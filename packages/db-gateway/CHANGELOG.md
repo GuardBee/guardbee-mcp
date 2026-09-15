@@ -1,5 +1,11 @@
 # @guardbee/mcp-db-gateway
 
+## 0.3.1
+
+### Patch Changes
+
+- Make the English README the primary `README.md` (what npm and GitHub display by default) and move the Turkish version to `README.tr.md`, linked via a language switcher at the top of each. Docs-only change, no code/behavior changes.
+
 ## 0.3.0
 
 ### Minor Changes

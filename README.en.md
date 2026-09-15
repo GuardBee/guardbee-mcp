@@ -30,7 +30,7 @@ Continued growing the AI Gateway (`db-gateway`) work:
 - **SQLite adapter** — `createSqliteAdapter` accepts a `better-sqlite3` `Database` instance, following the same pattern as the `pg`/`mysql2` adapters (identifiers validated against the live schema via `PRAGMA table_info` before being embedded in SQL).
 - **MongoDB adapter** — `createMongoAdapter` accepts a MongoDB `Db` instance. Guards against a different risk class (not SQL injection, but "operator injection" — `$`-prefixed keys, dotted paths, operator-object filter values).
 
-Full write-up: [`packages/db-gateway/README.en.md#recent-changes-2026-09-15`](packages/db-gateway/README.en.md#recent-changes-2026-09-15).
+Full write-up: [`packages/db-gateway/README.md#recent-changes-2026-09-15`](packages/db-gateway/README.md#recent-changes-2026-09-15).
 
 Also added a new package: **[`@guardbee/mcp-server-auditor`](packages/mcp-server-auditor)** — follows `ai-code-scanner`'s architecture (a regex pattern list, scanText/scanFile/scanDirectory, SARIF, guardbee.yml) but points it at a different target: not general LLM integration code, but **an MCP server's own tool definitions**. Does a tool name registered via `server.tool(...)` imply shell/SQL execution, does its handler pass raw tool input straight into an `exec`/`eval`/`fetch`/SQL sink, is a parameter typed `z.any()`, does it leak the entire `process.env` — 10 patterns, 5 categories, 32 tests.
 

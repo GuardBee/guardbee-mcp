@@ -30,7 +30,7 @@ GuardBee'nin MCP (Model Context Protocol) server ailesi — tek monorepo, bağı
 - **SQLite adaptörü** — `createSqliteAdapter`, `better-sqlite3` Database instance'ı kabul eder; pg/mysql adaptörleriyle aynı desende (`PRAGMA table_info` ile canlı şema doğrulaması) çalışır.
 - **MongoDB adaptörü** — `createMongoAdapter`, bir MongoDB `Db` örneği kabul eder. Farklı bir risk sınıfına (SQL injection değil, "operator injection" — `$` ile başlayan key'ler, noktalı path'ler, operatör-objesi filter değerleri) karşı korunur.
 
-Detaylı anlatım: [`packages/db-gateway/README.md#son-değişiklikler-2026-09-15`](packages/db-gateway/README.md#son-değişiklikler-2026-09-15).
+Detaylı anlatım: [`packages/db-gateway/README.tr.md#son-değişiklikler-2026-09-15`](packages/db-gateway/README.tr.md#son-değişiklikler-2026-09-15).
 
 Ayrıca yeni bir paket eklendi: **[`@guardbee/mcp-server-auditor`](packages/mcp-server-auditor)** — `ai-code-scanner`'ın mimarisini izleyen (regex kalıp listesi, scanText/scanFile/scanDirectory, SARIF, guardbee.yml) ama farklı bir hedefe bakan bir statik tarayıcı: genel LLM entegrasyon koduna değil, **bir MCP server'ın kendi tool tanımlarına**. `server.tool(...)` ile tanımlanmış bir tool'un adı shell/SQL çalıştırma yetkisi mi ima ediyor, handler'ı tool girdisini doğrudan `exec`/`eval`/`fetch`/SQL sink'ine mi geçiriyor, şeması `z.any()` mi, `process.env`'in tamamını mı sızdırıyor — 10 kalıp, 5 kategori, 32 test.
 
