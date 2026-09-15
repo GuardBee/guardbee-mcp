@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-secret-scanner",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "description": "MCP server that scans files and directories for exposed secrets, API keys, and credentials",
   "type": "module",
   "bin": {
