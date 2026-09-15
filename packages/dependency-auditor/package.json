@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-dependency-auditor",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "description": "MCP server that audits npm, pip, and cargo dependencies for known CVEs using the OSV database",
   "type": "module",
   "bin": {
