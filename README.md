@@ -13,6 +13,7 @@ GuardBee'nin MCP (Model Context Protocol) server ailesi — tek monorepo, bağı
 | [`packages/dependency-auditor`](packages/dependency-auditor) | `@guardbee/mcp-dependency-auditor` | npm/pip/cargo bağımlılıklarında CVE taraması (OSV) |
 | [`packages/dns-intelligence`](packages/dns-intelligence) | `@guardbee/mcp-dns-intelligence` | DNS kayıtları, yanlış yapılandırma, dangling subdomain tespiti |
 | [`packages/db-gateway`](packages/db-gateway) | `@guardbee/mcp-db-gateway` | LLM↔DB arası KVKK/GDPR uyumlu gateway (PII masking, RBAC, rate limit, sorgulanabilir audit log; Prisma/Postgres/MySQL/SQLite/MongoDB adaptörleri; opsiyonel insert/update/delete desteği) |
+| [`packages/mcp-server-auditor`](packages/mcp-server-auditor) | `@guardbee/mcp-server-auditor` | Başka MCP server'ların tool tanımlarını güvensiz kalıplar için tarar (excessive agency, shell/eval/SQL/SSRF sink'leri, gevşek şema, sabit secret, wildcard CORS) |
 | [`packages/secret-scanner`](packages/secret-scanner) | `@guardbee/mcp-secret-scanner` | Dosyalarda sızmış secret/API key taraması |
 | [`packages/security-proxy`](packages/security-proxy) | `@guardbee/mcp-security-proxy` | MCP client↔server arası güvenlik proxy'si |
 | [`packages/security-suite`](packages/security-suite) | `@guardbee/security-suite` | secret-scanner + dependency-auditor + ssl-inspector + dns-intelligence bundle'ı |
@@ -29,6 +30,8 @@ GuardBee'nin MCP (Model Context Protocol) server ailesi — tek monorepo, bağı
 - **MongoDB adaptörü** — `createMongoAdapter`, bir MongoDB `Db` örneği kabul eder. Farklı bir risk sınıfına (SQL injection değil, "operator injection" — `$` ile başlayan key'ler, noktalı path'ler, operatör-objesi filter değerleri) karşı korunur.
 
 Detaylı anlatım: [`packages/db-gateway/README.md#son-değişiklikler-2026-09-15`](packages/db-gateway/README.md#son-değişiklikler-2026-09-15).
+
+Ayrıca yeni bir paket eklendi: **[`@guardbee/mcp-server-auditor`](packages/mcp-server-auditor)** — `ai-code-scanner`'ın mimarisini izleyen (regex kalıp listesi, scanText/scanFile/scanDirectory, SARIF, guardbee.yml) ama farklı bir hedefe bakan bir statik tarayıcı: genel LLM entegrasyon koduna değil, **bir MCP server'ın kendi tool tanımlarına**. `server.tool(...)` ile tanımlanmış bir tool'un adı shell/SQL çalıştırma yetkisi mi ima ediyor, handler'ı tool girdisini doğrudan `exec`/`eval`/`fetch`/SQL sink'ine mi geçiriyor, şeması `z.any()` mi, `process.env`'in tamamını mı sızdırıyor — 10 kalıp, 5 kategori, 32 test.
 
 ## Telemetri
 

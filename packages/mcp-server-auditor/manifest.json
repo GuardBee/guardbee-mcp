@@ -1,0 +1,43 @@
+{
+  "manifest_version": "0.3",
+  "name": "@guardbee/mcp-server-auditor",
+  "display_name": "GuardBee MCP Server Auditor",
+  "version": "0.1.0",
+  "description": "MCP server that audits other MCP servers' tool definitions for insecure patterns — excessive-agency tool names, shell/eval/SQL/SSRF sinks fed by raw tool input, overly permissive schemas, hardcoded secrets, and wildcard CORS",
+  "long_description": "Scans an MCP server's own source code for risky tool-definition patterns: tool names that grant shell/SQL execution, handlers that pass raw tool input straight into exec()/eval()/fetch()/SQL sinks (command injection, RCE, SSRF, SQL injection), tool schemas typed z.any()/z.unknown(), hardcoded secrets in schema defaults, and code that exposes the entire process.env or serves wildcard CORS. No API key required — runs entirely locally.",
+  "author": {
+    "name": "GuardBee",
+    "email": "hello@guardbee.ai",
+    "url": "https://guardbee.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git"
+  },
+  "homepage": "https://guardbee.ai",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "mcp-security",
+    "ai-security",
+    "excessive-agency",
+    "sast",
+    "security"
+  ],
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18"
+    }
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/cli.js"]
+    }
+  },
+  "user_config": {},
+  "tools_generated": true
+}

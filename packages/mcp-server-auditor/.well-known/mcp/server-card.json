@@ -1,0 +1,62 @@
+{
+  "serverInfo": {
+    "name": "@guardbee/mcp-server-auditor",
+    "version": "0.1.0",
+    "description": "MCP server that audits other MCP servers' tool definitions for insecure patterns — excessive-agency tool names, shell/eval/SQL/SSRF sinks fed by raw tool input, overly permissive schemas, hardcoded secrets, and wildcard CORS"
+  },
+  "tools": [
+    {
+      "name": "scan_text",
+      "description": "Scan a text string or code snippet for insecure MCP server/tool-definition patterns (excessive-agency tool names, shell/eval/SQL/SSRF sinks fed by raw tool input, overly permissive schemas, hardcoded secrets, wildcard CORS).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "content": { "type": "string", "description": "The code content to scan" },
+          "label": { "type": "string", "description": "Optional label shown in findings (e.g. filename)" }
+        },
+        "required": ["content"]
+      }
+    },
+    {
+      "name": "scan_file",
+      "description": "Scan a single file for insecure MCP server/tool-definition patterns",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Absolute or relative path to the file to scan" }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "scan_directory",
+      "description": "Recursively scan an MCP server's codebase for insecure tool-definition patterns. Automatically skips node_modules, .git, dist, and binary files.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Absolute or relative path to the directory to scan" },
+          "maxFiles": { "type": "number", "description": "Maximum number of files to scan (default: 5000)" },
+          "include": {
+            "type": "array",
+            "description": "Only scan files whose path contains one of these strings",
+            "items": { "type": "string" }
+          },
+          "exclude": {
+            "type": "array",
+            "description": "Skip files/dirs whose path contains one of these strings",
+            "items": { "type": "string" }
+          }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "list_patterns",
+      "description": "List all MCP server security patterns that the auditor can detect, grouped by category",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ]
+}

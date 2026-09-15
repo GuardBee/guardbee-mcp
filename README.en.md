@@ -13,6 +13,7 @@ GuardBee's family of MCP (Model Context Protocol) servers — a single monorepo,
 | [`packages/dependency-auditor`](packages/dependency-auditor) | `@guardbee/mcp-dependency-auditor` | CVE scanning for npm/pip/cargo dependencies (OSV) |
 | [`packages/dns-intelligence`](packages/dns-intelligence) | `@guardbee/mcp-dns-intelligence` | DNS record enumeration, misconfiguration and dangling-subdomain detection |
 | [`packages/db-gateway`](packages/db-gateway) | `@guardbee/mcp-db-gateway` | KVKK/GDPR-compliant gateway between an LLM and a database (PII masking, RBAC, rate limiting, queryable audit log; Prisma/Postgres/MySQL/SQLite/MongoDB adapters; optional insert/update/delete support) |
+| [`packages/mcp-server-auditor`](packages/mcp-server-auditor) | `@guardbee/mcp-server-auditor` | Scans other MCP servers' tool definitions for insecure patterns (excessive agency, shell/eval/SQL/SSRF sinks, loose schemas, hardcoded secrets, wildcard CORS) |
 | [`packages/secret-scanner`](packages/secret-scanner) | `@guardbee/mcp-secret-scanner` | Scans files for leaked secrets and API keys |
 | [`packages/security-proxy`](packages/security-proxy) | `@guardbee/mcp-security-proxy` | Security proxy between an MCP client and server |
 | [`packages/security-suite`](packages/security-suite) | `@guardbee/security-suite` | Bundle of secret-scanner + dependency-auditor + ssl-inspector + dns-intelligence |
@@ -29,6 +30,8 @@ Continued growing the AI Gateway (`db-gateway`) work:
 - **MongoDB adapter** — `createMongoAdapter` accepts a MongoDB `Db` instance. Guards against a different risk class (not SQL injection, but "operator injection" — `$`-prefixed keys, dotted paths, operator-object filter values).
 
 Full write-up: [`packages/db-gateway/README.en.md#recent-changes-2026-09-15`](packages/db-gateway/README.en.md#recent-changes-2026-09-15).
+
+Also added a new package: **[`@guardbee/mcp-server-auditor`](packages/mcp-server-auditor)** — follows `ai-code-scanner`'s architecture (a regex pattern list, scanText/scanFile/scanDirectory, SARIF, guardbee.yml) but points it at a different target: not general LLM integration code, but **an MCP server's own tool definitions**. Does a tool name registered via `server.tool(...)` imply shell/SQL execution, does its handler pass raw tool input straight into an `exec`/`eval`/`fetch`/SQL sink, is a parameter typed `z.any()`, does it leak the entire `process.env` — 10 patterns, 5 categories, 32 tests.
 
 ## Telemetry
 
