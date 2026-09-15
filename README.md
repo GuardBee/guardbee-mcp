@@ -14,6 +14,7 @@ GuardBee'nin MCP (Model Context Protocol) server ailesi — tek monorepo, bağı
 | [`packages/dns-intelligence`](packages/dns-intelligence) | `@guardbee/mcp-dns-intelligence` | DNS kayıtları, yanlış yapılandırma, dangling subdomain tespiti |
 | [`packages/db-gateway`](packages/db-gateway) | `@guardbee/mcp-db-gateway` | LLM↔DB arası KVKK/GDPR uyumlu gateway (PII masking, RBAC, rate limit, sorgulanabilir audit log; Prisma/Postgres/MySQL/SQLite/MongoDB adaptörleri; opsiyonel insert/update/delete desteği) |
 | [`packages/mcp-server-auditor`](packages/mcp-server-auditor) | `@guardbee/mcp-server-auditor` | Başka MCP server'ların tool tanımlarını güvensiz kalıplar için tarar (excessive agency, shell/eval/SQL/SSRF sink'leri, gevşek şema, sabit secret, wildcard CORS) |
+| [`packages/prompt-injection-scanner`](packages/prompt-injection-scanner) | `@guardbee/mcp-prompt-injection-scanner` | RAG içeriğini/scrape edilmiş sayfaları dolaylı (indirect) prompt injection için tarar (instruction override, sahte rol/chat-template token'ı, gizli metin, "Dear AI" hitabı, data-exfiltration talimatı) |
 | [`packages/secret-scanner`](packages/secret-scanner) | `@guardbee/mcp-secret-scanner` | Dosyalarda sızmış secret/API key taraması |
 | [`packages/security-proxy`](packages/security-proxy) | `@guardbee/mcp-security-proxy` | MCP client↔server arası güvenlik proxy'si |
 | [`packages/security-suite`](packages/security-suite) | `@guardbee/security-suite` | secret-scanner + dependency-auditor + ssl-inspector + dns-intelligence bundle'ı |
@@ -32,6 +33,8 @@ GuardBee'nin MCP (Model Context Protocol) server ailesi — tek monorepo, bağı
 Detaylı anlatım: [`packages/db-gateway/README.md#son-değişiklikler-2026-09-15`](packages/db-gateway/README.md#son-değişiklikler-2026-09-15).
 
 Ayrıca yeni bir paket eklendi: **[`@guardbee/mcp-server-auditor`](packages/mcp-server-auditor)** — `ai-code-scanner`'ın mimarisini izleyen (regex kalıp listesi, scanText/scanFile/scanDirectory, SARIF, guardbee.yml) ama farklı bir hedefe bakan bir statik tarayıcı: genel LLM entegrasyon koduna değil, **bir MCP server'ın kendi tool tanımlarına**. `server.tool(...)` ile tanımlanmış bir tool'un adı shell/SQL çalıştırma yetkisi mi ima ediyor, handler'ı tool girdisini doğrudan `exec`/`eval`/`fetch`/SQL sink'ine mi geçiriyor, şeması `z.any()` mi, `process.env`'in tamamını mı sızdırıyor — 10 kalıp, 5 kategori, 32 test.
+
+Ve bir üçüncüsü: **[`@guardbee/mcp-prompt-injection-scanner`](packages/prompt-injection-scanner)** — aynı motoru (scanText/scanFile/scanDirectory/SARIF) kullanır ama bu kez KOD değil **VERİ** tarar: bir RAG chunk'ı, scrape edilmiş bir web sayfası, bir doküman. Klasik prompt injection'ın aksine saldırgan modele değil, modelin okuyacağı içeriğe talimat gömer (dolaylı/indirect injection) — "ignore previous instructions" gibi override cümleleri, sahte `System:`/`<|im_start|>` rol token'ları, zero-width karakter ya da `display:none` ile insan gözünden gizlenmiş ama scraper'ın hâlâ çıkardığı metin, "Dear AI" gibi modele doğrudan hitap eden ifadeler, ve system prompt sızdırma/veriyi dış URL'e gönderme talimatları. 10 kalıp, 5 kategori, 30 test — emoji ZWJ dizileri ve zararsız `display:none` modal'ları gibi bilinen yanlış-pozitif kaynakları özellikle test edildi.
 
 ## Telemetri
 

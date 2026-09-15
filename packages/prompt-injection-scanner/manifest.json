@@ -1,0 +1,44 @@
+{
+  "manifest_version": "0.3",
+  "name": "@guardbee/mcp-prompt-injection-scanner",
+  "display_name": "GuardBee Prompt Injection Scanner",
+  "version": "0.1.0",
+  "description": "MCP server that scans documents, scraped pages, and RAG content for indirect prompt injection payloads — instruction-override phrases, spoofed chat-template roles, hidden/invisible text, content addressing the AI directly, and data-exfiltration attempts",
+  "long_description": "Scans text, a single file, or an entire directory (e.g. a RAG knowledge base or a corpus of scraped pages) for indirect prompt injection: content engineered to be read by a model rather than a human. Detects instruction-override phrases ('ignore previous instructions'), spoofed chat-template roles ('System:', <|im_start|>, [INST]), text hidden via zero-width characters or CSS (display:none, white-on-white) paired with injection-flavored language, HTML comments carrying instructions, content that addresses 'the AI' directly, markdown image URLs with template placeholders (data-exfil beacons), and explicit requests to leak the system prompt or send data to an external URL. No API key required — runs entirely locally.",
+  "author": {
+    "name": "GuardBee",
+    "email": "hello@guardbee.ai",
+    "url": "https://guardbee.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git"
+  },
+  "homepage": "https://guardbee.ai",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "ai-security",
+    "prompt-injection",
+    "rag-security",
+    "indirect-prompt-injection",
+    "sast",
+    "security"
+  ],
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18"
+    }
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/cli.js"]
+    }
+  },
+  "user_config": {},
+  "tools_generated": true
+}
