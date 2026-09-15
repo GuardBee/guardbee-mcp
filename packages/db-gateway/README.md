@@ -1,5 +1,7 @@
 # @guardbee/mcp-db-gateway
 
+**🇹🇷 Türkçe** | [🇬🇧 English](README.en.md)
+
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-db-gateway.svg)](https://www.npmjs.com/package/@guardbee/mcp-db-gateway)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-db-gateway.svg)](https://www.npmjs.com/package/@guardbee/mcp-db-gateway)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -30,7 +32,45 @@ Claude ──► MCP Gateway ──► Veritabanı
 - **Audit Log** — Console, dosya veya HTTP webhook'a yazılabilir
 - **Prisma / Postgres / MySQL / SQLite Adaptörleri** — Mevcut PrismaClient'ı, `pg` Pool'unu, `mysql2` Pool'unu veya `better-sqlite3` Database'ini doğrudan bağlayın
 - **Yazma Desteği (opsiyonel)** — insert/update/delete, varsayılan kapalı; tablo+rol bazlı izin, korumalı alan koruması ve "tüm tabloyu etkileme" güvenlik ağı ile
-- **140 unit test** — Masker, pipeline, RBAC, rate limiter ve tüm adaptörler (okuma + yazma) kapsanmış
+- **174 unit test** — Masker, pipeline, RBAC, rate limiter, audit log ve tüm adaptörler (okuma + yazma) kapsanmış
+
+---
+
+## Son Değişiklikler (2026-09-15)
+
+AI Gateway büyütme çalışmasının bu paketteki 2 yeni adımı:
+
+### 1. `query_audit_log` tool'u
+
+Daha önce gateway'in audit log'u yalnızca **yazılabilir**di — `console`/`file`/`http` sink'lerinden birine düşer, ama Claude'un kendisi "az önce ne oldu, hangi çağrılar reddedildi" diye geriye dönüp sorgulayamazdı. Artık sorgulanabilir:
+
+```typescript
+// Claude tarafında çağrılan tool:
+query_audit_log({ table: "orders", deniedOnly: true, limit: 20 })
+```
+
+- **Nasıl çalışıyor:** `AuditLogger` sınıfına sink'ten tamamen bağımsız, her zaman açık bir bellek-içi ring buffer eklendi (`audit.bufferSize`, varsayılan 200). Sink `"http"` (fire-and-forget bir webhook) olsa bile geçmiş bu buffer üzerinden sorgulanabiliyor. Buffer süreç yeniden başladığında sıfırlanır; `audit.enabled: false` iken hiç doldurulmaz.
+- **Filtreler:** `table`, `tool` (MCP tool adı, örn. `"delete_row"`), `operation` (`read`/`insert`/`update`/`delete`), `deniedOnly` (sadece reddedilenler), `since` (ISO 8601 zaman damgası), `limit` (varsayılan 50, max 200). Sonuçlar en yeniden en eskiye sıralı döner.
+- **Yan yana düzeltilen gerçek hata:** `registerDbTools` (okuma tool'ları) ve `registerWriteTools` (yazma tool'ları) önceden **her biri kendi** `GatewayPipeline`/`AuditLogger` örneğini oluşturuyordu. Bu, `insert_row`/`update_row`/`delete_row` çağrılarının audit event'lerinin, `query_audit_log`'un okuduğu buffer'da **hiçbir zaman görünmeyeceği** anlamına geliyordu — iki ayrı, birbirinden habersiz buffer vardı. `server.ts` artık tek bir `GatewayPipeline` örneği oluşturup her iki tool grubuna da paylaştırıyor.
+- **Test:** `src/__tests__/audit-logger.test.ts` (10 test — buffer capping, tüm filtreler, ring buffer davranışı) ve `pipeline.test.ts`'e eklenen 3 test (read+write'ın aynı buffer'a düştüğünü, deniedOnly+table filtresinin birlikte çalıştığını, `audit.enabled: false` iken buffer'ın boş kaldığını doğruluyor).
+
+### 2. SQLite adaptörü
+
+Gateway artık Prisma/Postgres/MySQL'in yanında `better-sqlite3` ile de çalışıyor:
+
+```typescript
+import Database from "better-sqlite3";
+import { createServer, createSqliteAdapter } from "@guardbee/mcp-db-gateway";
+
+const db = new Database("./app.db");
+const server = createServer({}, createSqliteAdapter(db));
+```
+
+- **Güvenlik deseni pg/mysql ile aynı:** Tablo/kolon adları parametrize edilemediği için SQL'e gömülmeden önce doğrulanıyor — sadece burada `information_schema` yerine SQLite'a özgü `PRAGMA table_info(tablo)` kullanılıyor. Format kontrolünden geçmeyen (örn. `users"; DROP TABLE users;--`) veya şemada olmayan bir isim, hiçbir sorgu SQLite'a gitmeden reddediliyor.
+- **`better-sqlite3` sadece opsiyonel bir `peerDependency`** — paketin kendi `devDependencies`'ine eklenmedi, çünkü native binding gerektiriyor ve testler (pg/mysql testlerindeki gibi) gerçek paketi import etmeden, `SqliteQueryable` arayüzüne uyan basit bir mock nesneyle yazıldı.
+- **insert için `RETURNING` yerine `lastInsertRowid`:** SQLite'ın RETURNING desteği sürüme bağlı olduğundan, mysql adaptöründeki `insertId` yaklaşımı izlendi — tabloda `id` kolonu varsa ve `data` içinde zaten yoksa, eklenen satıra `lastInsertRowid` eklenir.
+- **Bonus düzeltme:** `AuditEvent`/`AuditQueryFilter` tipleri paket kökünden (`index.ts`) hiç export edilmiyordu — `GatewayPipeline.queryAuditLog()`'u kendi kodunda tipli çağırmak isteyen tüketiciler için eklendi.
+- **Test:** `src/__tests__/sqlite-adapter.test.ts` (21 test) — pg-adapter.test.ts ile aynı senaryo seti: tablo listesi, filtreli/filtresiz sorgu, limit, bilinmeyen tablo/kolon reddi, injection denemesi reddi, insert (id atama dahil), update, delete.
 
 ---
 
@@ -121,7 +161,7 @@ const server = createServer({}, createSqliteAdapter(db));
 
 ## MCP Tools
 
-Gateway her zaman şu 4 okuma tool'unu Claude'a sunar:
+Gateway her zaman şu 5 okuma tool'unu Claude'a sunar:
 
 | Tool | Açıklama |
 |------|----------|
@@ -296,7 +336,7 @@ PrismaClient'ı doğrudan geçirin — tablo adı → model eşleştirmesi otoma
 ```bash
 npm run dev          # tsx ile geliştirme modu
 npm run build        # TypeScript derleme
-npm test             # 140 unit test
+npm test             # 174 unit test
 npm run test:watch   # İzleme modu
 npm run type-check   # Sadece tip kontrolü
 ```
