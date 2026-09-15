@@ -13,3 +13,6 @@ export { createPgAdapter } from "./adapters/pg";
 export type { PgQueryable, PgAdapterOptions } from "./adapters/pg";
 export { createMysqlAdapter } from "./adapters/mysql";
 export type { MysqlQueryable, MysqlAdapterOptions } from "./adapters/mysql";
+export { createSqliteAdapter } from "./adapters/sqlite";
+export type { SqliteQueryable, SqliteStatement } from "./adapters/sqlite";
+export type { AuditEvent, AuditQueryFilter } from "./audit/logger";

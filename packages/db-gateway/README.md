@@ -28,7 +28,7 @@ Claude ──► MCP Gateway ──► Veritabanı
 - **Rol Bazlı Erişim (RBAC)** — Her rol için tablo beyaz/kara listesi ve alan kuralları
 - **Rate Limiting** — Global ve tablo bazlı istek penceresi
 - **Audit Log** — Console, dosya veya HTTP webhook'a yazılabilir
-- **Prisma / Postgres / MySQL Adaptörleri** — Mevcut PrismaClient'ı, `pg` Pool'unu veya `mysql2` Pool'unu doğrudan bağlayın
+- **Prisma / Postgres / MySQL / SQLite Adaptörleri** — Mevcut PrismaClient'ı, `pg` Pool'unu, `mysql2` Pool'unu veya `better-sqlite3` Database'ini doğrudan bağlayın
 - **Yazma Desteği (opsiyonel)** — insert/update/delete, varsayılan kapalı; tablo+rol bazlı izin, korumalı alan koruması ve "tüm tabloyu etkileme" güvenlik ağı ile
 - **140 unit test** — Masker, pipeline, RBAC, rate limiter ve tüm adaptörler (okuma + yazma) kapsanmış
 
@@ -106,7 +106,16 @@ const pool = mysql.createPool(process.env.DATABASE_URL!);
 const server = createServer({}, createMysqlAdapter(pool /*, { database: "shop" } */));
 ```
 
-> **Güvenlik notu:** Prisma adaptörünün aksine `pg`/`mysql2` adaptörleri ham SQL üretir. Tablo ve kolon adları parametrize edilemediği için her sorguda `information_schema` üzerinden canlı şemayla doğrulanır — şemada olmayan bir tablo/kolon adı (örn. bir injection denemesi) SQL'e hiç ulaşmadan reddedilir.
+```typescript
+// SQLite
+import Database from "better-sqlite3";
+import { createServer, createSqliteAdapter } from "@guardbee/mcp-db-gateway";
+
+const db = new Database("./app.db");
+const server = createServer({}, createSqliteAdapter(db));
+```
+
+> **Güvenlik notu:** Prisma adaptörünün aksine `pg`/`mysql2`/`better-sqlite3` adaptörleri ham SQL üretir. Tablo ve kolon adları parametrize edilemediği için her sorguda canlı şemayla doğrulanır (`information_schema` ya da SQLite için `PRAGMA table_info`) — şemada olmayan bir tablo/kolon adı (örn. bir injection denemesi) SQL'e hiç ulaşmadan reddedilir.
 
 ---
 

@@ -54,7 +54,8 @@
   "peerDependencies": {
     "@prisma/client": ">=4.0.0",
     "pg": ">=8.0.0",
-    "mysql2": ">=3.0.0"
+    "mysql2": ">=3.0.0",
+    "better-sqlite3": ">=9.0.0"
   },
   "peerDependenciesMeta": {
     "@prisma/client": {
@@ -64,6 +65,9 @@
       "optional": true
     },
     "mysql2": {
+      "optional": true
+    },
+    "better-sqlite3": {
       "optional": true
     }
   },
