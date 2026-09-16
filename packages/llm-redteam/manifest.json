@@ -1,0 +1,44 @@
+{
+  "manifest_version": "0.3",
+  "name": "@guardbee/mcp-llm-redteam",
+  "display_name": "GuardBee LLM Red Team",
+  "version": "0.1.0",
+  "description": "MCP server that red-teams a live LLM endpoint or chatbot with canary-based jailbreak/extraction/obfuscation probes to test whether known bypass techniques defeat its guardrails",
+  "long_description": "Sends a battery of publicly documented jailbreak, system-prompt-extraction, obfuscation, refusal-suppression, and multilingual override techniques to a live LLM API (OpenAI-compatible, Anthropic) or your own chatbot webhook. Every probe is canary-based: it never asks the target to produce genuinely harmful content — success is measured by whether the target reproduces a random, single-use token, proving an out-of-character instruction was obeyed. Only point this at an endpoint you own or are explicitly authorized to test; every probe consumes API quota on the target.",
+  "author": {
+    "name": "GuardBee",
+    "email": "hello@guardbee.ai",
+    "url": "https://guardbee.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git",
+    "directory": "packages/llm-redteam"
+  },
+  "homepage": "https://guardbee.ai",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "ai-security",
+    "red-team",
+    "jailbreak",
+    "llm-security",
+    "security"
+  ],
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18"
+    }
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/cli.js"]
+    }
+  },
+  "user_config": {},
+  "tools_generated": true
+}

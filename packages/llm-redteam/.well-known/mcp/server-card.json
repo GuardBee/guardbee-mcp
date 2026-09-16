@@ -1,0 +1,73 @@
+{
+  "serverInfo": {
+    "name": "@guardbee/mcp-llm-redteam",
+    "version": "0.1.0",
+    "description": "MCP server that red-teams a live LLM endpoint or chatbot with canary-based jailbreak/extraction/obfuscation probes to test whether known bypass techniques defeat its guardrails"
+  },
+  "tools": [
+    {
+      "name": "list_probes",
+      "description": "List all red-team probes this tool can run against a target LLM/chatbot, grouped by category. Every probe is canary-based (safe) — none ask the target to produce genuinely harmful content.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "run_probe_suite",
+      "description": "Run canary-based red-team probes against a live LLM endpoint or chatbot you control, to test whether known jailbreak/extraction/obfuscation techniques bypass its guardrails. ONLY point this at an endpoint you own or are explicitly authorized to test — every probe consumes API quota on the target.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "description": "The endpoint to probe",
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "type": { "const": "openai" },
+                  "apiKeyEnv": { "type": "string", "description": "Name of the env var holding the API key" },
+                  "model": { "type": "string" },
+                  "baseUrl": { "type": "string" },
+                  "systemPrompt": { "type": "string" }
+                },
+                "required": ["type", "apiKeyEnv", "model"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": { "const": "anthropic" },
+                  "apiKeyEnv": { "type": "string", "description": "Name of the env var holding the API key" },
+                  "model": { "type": "string" },
+                  "systemPrompt": { "type": "string" }
+                },
+                "required": ["type", "apiKeyEnv", "model"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": { "const": "webhook" },
+                  "url": { "type": "string" },
+                  "apiKeyEnv": { "type": "string" },
+                  "promptField": { "type": "string" },
+                  "responseField": { "type": "string" }
+                },
+                "required": ["type", "url"]
+              }
+            ]
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["instruction-override", "extraction", "obfuscation", "refusal-suppression", "multilingual"]
+            }
+          },
+          "probeIds": { "type": "array", "items": { "type": "string" } },
+          "maxProbes": { "type": "number" }
+        },
+        "required": ["target"]
+      }
+    }
+  ]
+}
