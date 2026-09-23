@@ -1,0 +1,44 @@
+{
+  "manifest_version": "0.3",
+  "name": "@guardbee/mcp-model-scanner",
+  "display_name": "GuardBee Model Scanner",
+  "version": "0.1.0",
+  "description": "MCP server that scans ML model files (PyTorch, pickle, safetensors, Keras/H5, ONNX) for supply-chain risks — malicious pickle deserialization gadgets, disguised/malformed safetensors headers, Keras Lambda-layer RCE, and ONNX external-data path traversal",
+  "long_description": "Scans a single model file or an entire directory for supply-chain risks specific to ML model file formats. Disassembles pickle opcode streams (including inside PyTorch's zip checkpoint container) to flag dangerous global references — os, subprocess, eval, socket, and other modules that have no place in tensor deserialization but are the classic gadget for turning `torch.load()`/`pickle.load()` into arbitrary code execution. Validates .safetensors header structure and detects files disguised with a safe-looking extension. Flags Keras Lambda-layer RCE patterns in .h5/.keras files, and external_data path-traversal references in .onnx files. No API key required — runs entirely locally.",
+  "author": {
+    "name": "GuardBee",
+    "email": "hello@guardbee.ai",
+    "url": "https://guardbee.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git"
+  },
+  "homepage": "https://guardbee.ai",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "ai-security",
+    "model-security",
+    "supply-chain",
+    "pickle",
+    "safetensors",
+    "security"
+  ],
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18"
+    }
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/cli.js"]
+    }
+  },
+  "user_config": {},
+  "tools_generated": true
+}

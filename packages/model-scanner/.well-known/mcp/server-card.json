@@ -1,0 +1,50 @@
+{
+  "serverInfo": {
+    "name": "@guardbee/mcp-model-scanner",
+    "version": "0.1.0",
+    "description": "MCP server that scans ML model files (PyTorch, pickle, safetensors, Keras/H5, ONNX) for supply-chain risks — malicious pickle deserialization gadgets, disguised/malformed safetensors headers, Keras Lambda-layer RCE, and ONNX external-data path traversal"
+  },
+  "tools": [
+    {
+      "name": "scan_file",
+      "description": "Scan a single ML model file for supply-chain risks: dangerous Python globals reachable during pickle deserialization (os/subprocess/eval/socket/etc, including inside PyTorch's zip checkpoint container), a malformed or disguised .safetensors header, a Keras Lambda-layer RCE pattern in .h5/.keras files, or a path-traversal external_data reference in .onnx files.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Absolute or relative path to the model file (.pt, .pth, .ckpt, .pkl, .pickle, .bin, .safetensors, .h5, .hdf5, .keras, .onnx)" }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "scan_directory",
+      "description": "Recursively scan a directory for ML model files and report supply-chain risks in each. Automatically skips node_modules, .git, venv, and other non-model directories.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Absolute or relative path to the directory to scan" },
+          "maxFiles": { "type": "number", "description": "Maximum number of files to scan (default: 2000)" },
+          "include": {
+            "type": "array",
+            "description": "Only scan files whose path contains one of these strings",
+            "items": { "type": "string" }
+          },
+          "exclude": {
+            "type": "array",
+            "description": "Skip files/dirs whose path contains one of these strings",
+            "items": { "type": "string" }
+          }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "list_patterns",
+      "description": "List every dangerous Python global (module.function) this scanner treats as a red flag when found referenced inside a pickled model file, grouped by risk category",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ]
+}
