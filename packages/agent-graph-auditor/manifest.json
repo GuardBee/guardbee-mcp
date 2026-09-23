@@ -1,0 +1,45 @@
+{
+  "manifest_version": "0.3",
+  "name": "@guardbee/mcp-agent-graph-auditor",
+  "display_name": "GuardBee Agent Graph Auditor",
+  "version": "0.1.0",
+  "description": "MCP server that builds a reachability graph across multi-agent orchestration configs (LangGraph, CrewAI, AutoGen/ag2) to find transitive excessive agency — an agent with no dangerous tool of its own that can still reach one through delegation or group membership",
+  "long_description": "Scans Python source defining a multi-agent system (LangGraph's add_node/add_edge graph, CrewAI's Agent/Crew/allow_delegation, or AutoGen/ag2's GroupChat/code_execution_config/register_function) and builds a unified agent+tool reachability graph. Classifies tools by name into dangerous-capability categories (code execution, process execution, filesystem write, network, credentials access), then finds every path from an agent to a dangerous tool. A direct has_tool edge is a familiar single-agent excessive-agency finding; a path crossing at least one delegation or group-membership edge before reaching the tool is the novel finding this package exists for — an agent that was never directly given the dangerous capability, but can still reach it through another agent. No API key required — runs entirely locally, static analysis only.",
+  "author": {
+    "name": "GuardBee",
+    "email": "hello@guardbee.ai",
+    "url": "https://guardbee.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git"
+  },
+  "homepage": "https://guardbee.ai",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "ai-security",
+    "multi-agent",
+    "langgraph",
+    "crewai",
+    "autogen",
+    "excessive-agency",
+    "security"
+  ],
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18"
+    }
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/cli.js"]
+    }
+  },
+  "user_config": {},
+  "tools_generated": true
+}

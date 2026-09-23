@@ -1,0 +1,54 @@
+{
+  "serverInfo": {
+    "name": "@guardbee/mcp-agent-graph-auditor",
+    "version": "0.1.0",
+    "description": "MCP server that builds a reachability graph across multi-agent orchestration configs (LangGraph, CrewAI, AutoGen/ag2) to find transitive excessive agency — an agent with no dangerous tool of its own that can still reach one through delegation or group membership"
+  },
+  "tools": [
+    {
+      "name": "scan_text",
+      "description": "Scan a Python snippet defining a multi-agent orchestration (LangGraph, CrewAI, or AutoGen/ag2) for excessive agency reachable through delegation or group membership.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "content": { "type": "string", "description": "The Python source to scan" },
+          "label": { "type": "string", "description": "Optional label shown in findings (e.g. filename)" }
+        },
+        "required": ["content"]
+      }
+    },
+    {
+      "name": "scan_file",
+      "description": "Scan a single Python file for excessive-agency paths across LangGraph/CrewAI/AutoGen orchestration constructs",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Absolute or relative path to the .py file to scan" }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "scan_directory",
+      "description": "Recursively scan a directory of Python files, building one merged agent/tool graph across all of them, and report excessive-agency paths.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Absolute or relative path to the directory to scan" },
+          "maxFiles": { "type": "number", "description": "Maximum number of files to scan (default: 2000)" },
+          "include": { "type": "array", "items": { "type": "string" }, "description": "Only scan files whose path contains one of these strings" },
+          "exclude": { "type": "array", "items": { "type": "string" }, "description": "Skip files/dirs whose path contains one of these strings" }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "list_patterns",
+      "description": "List every dangerous-capability rule this auditor looks for at the end of a delegation path, grouped by category",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ]
+}
