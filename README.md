@@ -17,12 +17,17 @@ GuardBee's family of MCP (Model Context Protocol) servers — a single monorepo,
 | [`packages/prompt-injection-scanner`](packages/prompt-injection-scanner) | `@guardbee/mcp-prompt-injection-scanner` | Scans RAG content/scraped pages for indirect prompt injection (instruction override, spoofed role/chat-template tokens, hidden text, "Dear AI" direct address, data-exfiltration instructions) |
 | [`packages/llm-redteam`](packages/llm-redteam) | `@guardbee/mcp-llm-redteam` | Actively red-teams a live LLM endpoint/chatbot with canary-based jailbreak/extraction/obfuscation probes (OpenAI/Anthropic/webhook targets) |
 | [`packages/model-scanner`](packages/model-scanner) | `@guardbee/mcp-model-scanner` | Scans ML model files (PyTorch, pickle, safetensors, Keras/H5, ONNX) for supply-chain risks — dangerous pickle deserialization globals, disguised/malformed safetensors headers, Keras Lambda-layer RCE, ONNX external-data path traversal |
+| [`packages/vector-store-scanner`](packages/vector-store-scanner) | `@guardbee/mcp-vector-store-scanner` | Probes vector-database endpoints (Weaviate, Qdrant, Chroma, Elasticsearch/OpenSearch, Redis, Postgres/pgvector) for unauthenticated exposure of embeddings and RAG data |
 | [`packages/secret-scanner`](packages/secret-scanner) | `@guardbee/mcp-secret-scanner` | Scans files for leaked secrets and API keys |
 | [`packages/security-proxy`](packages/security-proxy) | `@guardbee/mcp-security-proxy` | Security proxy between an MCP client and server |
 | [`packages/security-suite`](packages/security-suite) | `@guardbee/security-suite` | Bundle of secret-scanner + dependency-auditor + ssl-inspector + dns-intelligence |
 | [`packages/ssl-inspector`](packages/ssl-inspector) | `@guardbee/mcp-ssl-inspector` | TLS certificate/cipher/protocol inspection |
 | [`packages/vulnerability-scanner`](packages/vulnerability-scanner) | `@guardbee/mcp-vulnerability-scanner` | Triggers GuardBee scans, queries findings, AI-assisted remediation guidance |
 | [`packages/telemetry`](packages/telemetry) | `@guardbee/mcp-telemetry` | (internal) Shared usage-telemetry client — not an MCP server on its own |
+
+## Recent Changes (2026-09-23, cont'd)
+
+Added a 15th package, second of the four planned AI-security additions: **[`@guardbee/mcp-vector-store-scanner`](packages/vector-store-scanner)** — probes a vector-database endpoint for unauthenticated exposure, the same misconfiguration class behind repeated open-Elasticsearch/MongoDB/Redis incidents, now aimed at the RAG-era stack. Fingerprints Weaviate/Qdrant/Chroma/Elasticsearch via HTTP and escalates through three levels (instance info → schema/collection listing → actual stored data), so a "critical" finding always means real data was actually read back without credentials, not just that a port responded. Redis and Postgres/pgvector get from-scratch raw-protocol implementations instead of HTTP: a RESP `PING` for Redis, and a wire-protocol `SSLRequest`+`StartupMessage` handshake for Postgres that reads whether `AuthenticationOk` comes back with no password challenge — no client library, no real credentials ever sent. 26 tests against local mock servers, plus end-to-end verification against two **real** local services: this machine's actual PostgreSQL dev DB (correctly reported SCRAM-SHA-256 required, zero false positives) and a real local Redis instance (correctly caught a genuine `requirepass`-less exposure). New package, so no changeset added.
 
 ## Recent Changes (2026-09-23)
 

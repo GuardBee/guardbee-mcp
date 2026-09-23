@@ -1,0 +1,43 @@
+{
+  "manifest_version": "0.3",
+  "name": "@guardbee/mcp-vector-store-scanner",
+  "display_name": "GuardBee Vector Store Scanner",
+  "version": "0.1.0",
+  "description": "MCP server that probes vector-database endpoints (Weaviate, Qdrant, Chroma, Elasticsearch/OpenSearch, Redis, Postgres/pgvector) for unauthenticated exposure of embeddings and RAG data",
+  "long_description": "Probes a vector-database or vector-index-capable endpoint for unauthenticated access. Fingerprints the endpoint (Weaviate, Qdrant, Chroma, Elasticsearch/OpenSearch via HTTP; Redis via the raw RESP protocol; Postgres/pgvector via the raw wire-protocol SSLRequest+StartupMessage handshake) and escalates through progressively more sensitive checks — instance info, then schema/collection listing, then actual stored data — stopping to report the most severe unauthenticated finding at each level. Every check is a read-only probe; no real credentials or write operations are ever sent. No API key required — runs entirely locally.",
+  "author": {
+    "name": "GuardBee",
+    "email": "hello@guardbee.ai",
+    "url": "https://guardbee.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git"
+  },
+  "homepage": "https://guardbee.ai",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "ai-security",
+    "vector-database",
+    "rag",
+    "exposure-scanner",
+    "security"
+  ],
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18"
+    }
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/cli.js"]
+    }
+  },
+  "user_config": {},
+  "tools_generated": true
+}

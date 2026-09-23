@@ -1,0 +1,32 @@
+{
+  "serverInfo": {
+    "name": "@guardbee/mcp-vector-store-scanner",
+    "version": "0.1.0",
+    "description": "MCP server that probes vector-database endpoints (Weaviate, Qdrant, Chroma, Elasticsearch/OpenSearch, Redis, Postgres/pgvector) for unauthenticated exposure of embeddings and RAG data"
+  },
+  "tools": [
+    {
+      "name": "scan_endpoint",
+      "description": "Probe a vector-database (or vector-index-capable) endpoint for unauthenticated exposure — Weaviate, Qdrant, Chroma, Elasticsearch/OpenSearch (HTTP fingerprinting, escalating from instance info to collection/schema listing to actual stored data), Redis (RESP PING without AUTH), and Postgres/pgvector (wire-protocol SSLRequest + StartupMessage handshake, no real credentials sent). Read-only.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "host": { "type": "string", "description": "Hostname or IP of the endpoint to probe" },
+          "port": { "type": "number", "description": "Port to probe (defaults to the store type's conventional port)" },
+          "type": { "type": "string", "enum": ["auto", "weaviate", "qdrant", "chroma", "elasticsearch", "redis", "postgres"], "description": "Store type to probe for. 'auto' fingerprints the endpoint." },
+          "tls": { "type": "boolean", "description": "Use https:// for HTTP-based probes" },
+          "timeoutMs": { "type": "number", "description": "Per-request timeout in milliseconds (default: 4000)" }
+        },
+        "required": ["host"]
+      }
+    },
+    {
+      "name": "list_patterns",
+      "description": "List the vector-store types this scanner can fingerprint, and what unauthenticated-access checks it runs for each",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ]
+}

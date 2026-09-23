@@ -223,6 +223,18 @@ importers:
         specifier: ^1.0.0
         version: 1.30.0(zod@4.6.2)
 
+  packages/vector-store-scanner:
+    dependencies:
+      '@guardbee/mcp-telemetry':
+        specifier: workspace:^
+        version: link:../telemetry
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.0.0
+        version: 1.30.0(zod@4.6.2)
+      zod:
+        specifier: ^4.5.4
+        version: 4.6.2
+
   packages/vulnerability-scanner:
     dependencies:
       '@guardbee/mcp-telemetry':
