@@ -1,0 +1,65 @@
+{
+  "serverInfo": {
+    "name": "@guardbee/mcp-prompt-leak-scanner",
+    "version": "0.1.0",
+    "description": "MCP server and reverse proxy that catches leaked credentials and PII (API keys, TC Kimlik No, credit cards, IBANs) in outbound LLM prompts before they leave your application"
+  },
+  "tools": [
+    {
+      "name": "scan_text",
+      "description": "Scan a raw text string for leaked credentials and PII, checksum-validated where applicable to keep false positives low.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "content": { "type": "string", "description": "The text to scan" },
+          "label": { "type": "string", "description": "Optional label shown in findings" }
+        },
+        "required": ["content"]
+      }
+    },
+    {
+      "name": "scan_messages",
+      "description": "Scan an OpenAI/Anthropic-style chat request body for leaked credentials and PII in every message's text content.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": { "type": "object", "description": "The chat request body object, e.g. { model, system, messages: [{ role, content }] }" }
+        },
+        "required": ["body"]
+      }
+    },
+    {
+      "name": "scan_file",
+      "description": "Scan a single file — plain text, or a JSON chat-request-body fixture (auto-detected) — for leaked credentials and PII",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Absolute or relative path to the file to scan" }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "scan_directory",
+      "description": "Recursively scan a directory of prompt logs or request-body fixtures for leaked credentials and PII",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Absolute or relative path to the directory to scan" },
+          "maxFiles": { "type": "number", "description": "Maximum number of files to scan (default: 5000)" },
+          "include": { "type": "array", "items": { "type": "string" }, "description": "Only scan files whose path contains one of these strings" },
+          "exclude": { "type": "array", "items": { "type": "string" }, "description": "Skip files/dirs whose path contains one of these strings" }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "list_patterns",
+      "description": "List every credential/PII pattern this scanner detects, grouped by category",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ]
+}
