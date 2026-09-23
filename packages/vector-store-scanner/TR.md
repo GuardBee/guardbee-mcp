@@ -39,7 +39,7 @@ Redis ve Postgres, HTTP yerine kendi native wire protokolleri üzerinden aynı m
 - Escalating kontroller (info → schema → data) sayesinde "critical" bir bulgu her zaman gerçek verinin gerçekten okunduğu anlamına gelir, sadece bir portun yanıt verdiği değil
 - SARIF 2.1.0 çıktısı — CI/CD entegrasyonu (GitHub Code Scanning vb.)
 - `guardbee.yml` ile config dosyası desteği
-- Lokal mock HTTP/TCP sunuculara karşı 26 unit test, ayrıca gerçek lokal bir PostgreSQL sunucusuna (SCRAM-SHA-256 gerekli olduğunu doğru raporladı, yanlış-pozitif yok) ve gerçek lokal bir Redis'e (gerçek bir `requirepass`'siz instance'ı doğru yakaladı) karşı uçtan uca doğrulama
+- Lokal mock HTTP/TCP sunuculara karşı 22 unit test — her prob'un eşleşen/eşleşmeyen fingerprint'i ve her escalation seviyesi kapsanıyor
 
 ---
 
@@ -118,7 +118,7 @@ vector-store-scanner:
 
 ```bash
 npm run build
-npm test             # 26 unit test
+npm test             # 22 unit test
 ```
 
 ---

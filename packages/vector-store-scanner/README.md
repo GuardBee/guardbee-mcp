@@ -39,7 +39,7 @@ Redis and Postgres get the same treatment via their native wire protocols instea
 - Escalating checks (info → schema → data) so a "critical" finding always means real data was actually read, not just that a port responded
 - SARIF 2.1.0 output — CI/CD integration (GitHub Code Scanning, etc.)
 - Config file support via `guardbee.yml`
-- 26 unit tests against local mock HTTP/TCP servers, plus end-to-end verification against a real local PostgreSQL server (correctly reported SCRAM-SHA-256 required, no false positive) and a real local Redis (correctly caught a real `requirepass`-less instance)
+- 22 unit tests against local mock HTTP/TCP servers, covering every probe's matched/unmatched fingerprint and each escalation level
 
 ---
 
@@ -118,7 +118,7 @@ vector-store-scanner:
 
 ```bash
 npm run build
-npm test             # 26 unit tests
+npm test             # 22 unit tests
 ```
 
 ---
