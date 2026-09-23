@@ -2,6 +2,8 @@
 
 [🇬🇧 English](README.md) | **🇹🇷 Türkçe**
 
+[guardbee.ai](https://guardbee.ai) — Web siteleri için AI Security Copilot.
+
 GuardBee'nin MCP (Model Context Protocol) server ailesi — tek monorepo, bağımsız npm paketleri.
 
 ## Paketler
