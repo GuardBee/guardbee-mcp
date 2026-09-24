@@ -1,0 +1,54 @@
+{
+  "serverInfo": {
+    "name": "@guardbee/mcp-tool-poisoning-scanner",
+    "version": "0.1.0",
+    "description": "MCP server that scans other MCP servers' tool definitions for tool poisoning (hidden instructions embedded in a tool's description) and confused-deputy mismatches (a tool's name/description promises read-only behavior while its handler has a dangerous sink)"
+  },
+  "tools": [
+    {
+      "name": "scan_text",
+      "description": "Scan MCP server source for tool poisoning (hidden instructions embedded in a tool's description string) and confused-deputy tools (read-only-sounding name/description with a shell/eval/file-write/env-dump handler).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "content": { "type": "string", "description": "The source code to scan" },
+          "label": { "type": "string", "description": "Optional label shown in findings (e.g. filename)" }
+        },
+        "required": ["content"]
+      }
+    },
+    {
+      "name": "scan_file",
+      "description": "Scan a single file for tool-poisoning and confused-deputy patterns in MCP tool registrations",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Absolute or relative path to the file to scan" }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "scan_directory",
+      "description": "Recursively scan a directory of MCP server source for tool-poisoning and confused-deputy patterns",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Absolute or relative path to the directory to scan" },
+          "maxFiles": { "type": "number", "description": "Maximum number of files to scan (default: 5000)" },
+          "include": { "type": "array", "items": { "type": "string" }, "description": "Only scan files whose path contains one of these strings" },
+          "exclude": { "type": "array", "items": { "type": "string" }, "description": "Skip files/dirs whose path contains one of these strings" }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "list_patterns",
+      "description": "List every description-injection phrase and confused-deputy sink rule this scanner detects",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ]
+}
