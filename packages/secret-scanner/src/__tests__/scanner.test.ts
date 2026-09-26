@@ -3,36 +3,44 @@ import { scanText } from "../scanner.js";
 
 describe("scanText", () => {
   it("detects AWS access key", () => {
-    const findings = scanText("export AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE");
+    const findings = scanText("export AWS_ACCESS_KEY_ID=AKIACWZ3CLGY2QN8Y13Y");
     expect(findings.some((f) => f.patternId === "aws_access_key")).toBe(true);
   });
 
   it("detects GitHub PAT", () => {
-    const findings = scanText("token: ghp_abcdefghijklmnopqrstuvwxyz0123456789");
+    const findings = scanText("token: ghp_NU7ehiHZlgqy6Zmj62PbR47GRUbn3k8mXjVG");
     expect(findings.some((f) => f.patternId === "github_pat")).toBe(true);
   });
 
-  it("detects Stripe secret key", () => {
+  it("detects Stripe secret key (live)", () => {
     // split to avoid GitHub push protection on test fixtures
     const key = ["sk", "_live_", "abc123xyz456def789ghi012"].join("");
     const findings = scanText(`const stripe = require("stripe")("${key}")`);
     expect(findings.some((f) => f.patternId === "stripe_secret")).toBe(true);
   });
 
+  it("reports a Stripe test-mode secret key at low severity, not critical", () => {
+    const key = ["sk", "_test_", "abc123xyz456def789ghi012"].join("");
+    const findings = scanText(`const stripe = require("stripe")("${key}")`);
+    const f = findings.find((f) => f.patternId === "stripe_secret_test");
+    expect(f).toBeDefined();
+    expect(f?.severity).toBe("low");
+  });
+
   it("detects OpenAI API key", () => {
-    const key = ["sk-abcdefghijklmnopqrst", "T3BlbkFJ", "abcdefghijklmnopqrst"].join("");
+    const key = ["sk-cS7QIi659ldIQZln2708", "T3BlbkFJ", "ME6yoxsAVGaNZqc94BcX"].join("");
     const findings = scanText(`OPENAI_API_KEY=${key}`);
     expect(findings.some((f) => f.patternId === "openai_key")).toBe(true);
   });
 
   it("detects Anthropic API key", () => {
-    const key = ["sk-ant-", "api03-abcdefghijklmnopqrstuvwxyz0123456789ABCD"].join("");
+    const key = ["sk-ant-", "api03-ENHZpNDHj9YpIaLQXkAGoDZ4eeGsZMvzUGta1WCy"].join("");
     const findings = scanText(`key = '${key}'`);
     expect(findings.some((f) => f.patternId === "anthropic_key")).toBe(true);
   });
 
   it("detects Slack token", () => {
-    const token = ["xoxb-", "123456789012-123456789012-abcdefghijklmnopqrstuvwx"].join("");
+    const token = ["xoxb-", "081025037527-261309205006-qp2pDMV92ANEpo1FizPPLMMWjb"].join("");
     const findings = scanText(`SLACK_TOKEN=${token}`);
     expect(findings.some((f) => f.patternId === "slack_token")).toBe(true);
   });
@@ -74,14 +82,14 @@ describe("scanText", () => {
   });
 
   it("redacts the match value", () => {
-    const findings = scanText("token: ghp_abcdefghijklmnopqrstuvwxyz0123456789");
+    const findings = scanText("token: ghp_NU7ehiHZlgqy6Zmj62PbR47GRUbn3k8mXjVG");
     const f = findings.find((f) => f.patternId === "github_pat");
-    expect(f?.match).not.toContain("abcdefghijklmnopqrstuvwxyz");
+    expect(f?.match).not.toContain("NU7ehiHZlgqy6Zmj62PbR47GRUbn3k8mXjVG");
     expect(f?.match).toContain("*");
   });
 
   it("returns correct line number", () => {
-    const text = "line1\nline2\ntoken: ghp_abcdefghijklmnopqrstuvwxyz0123456789\nline4";
+    const text = "line1\nline2\ntoken: ghp_NU7ehiHZlgqy6Zmj62PbR47GRUbn3k8mXjVG\nline4";
     const findings = scanText(text);
     const f = findings.find((f) => f.patternId === "github_pat");
     expect(f?.line).toBe(3);
@@ -95,27 +103,93 @@ describe("scanText", () => {
 describe("scanText — suppression annotations", () => {
   it("suppresses a finding annotated with pragma: allowlist secret", () => {
     const findings = scanText(
-      "token: ghp_abcdefghijklmnopqrstuvwxyz0123456789 # pragma: allowlist secret"
+      "token: ghp_NU7ehiHZlgqy6Zmj62PbR47GRUbn3k8mXjVG # pragma: allowlist secret"
     );
     expect(findings.some((f) => f.patternId === "github_pat")).toBe(false);
   });
 
   it("suppresses a finding annotated with gitleaks:allow", () => {
     const findings = scanText(
-      "token: ghp_abcdefghijklmnopqrstuvwxyz0123456789 // gitleaks:allow"
+      "token: ghp_NU7ehiHZlgqy6Zmj62PbR47GRUbn3k8mXjVG // gitleaks:allow"
     );
     expect(findings.some((f) => f.patternId === "github_pat")).toBe(false);
   });
 
   it("suppresses a finding annotated with nosec", () => {
-    const findings = scanText("token: ghp_abcdefghijklmnopqrstuvwxyz0123456789  # nosec");
+    const findings = scanText("token: ghp_NU7ehiHZlgqy6Zmj62PbR47GRUbn3k8mXjVG  # nosec");
     expect(findings.some((f) => f.patternId === "github_pat")).toBe(false);
   });
 
   it("still reports an unannotated secret on an unrelated nearby line", () => {
     const text =
-      "// pragma: allowlist secret\nconst other = 1;\ntoken: ghp_abcdefghijklmnopqrstuvwxyz0123456789";
+      "// pragma: allowlist secret\nconst other = 1;\ntoken: ghp_NU7ehiHZlgqy6Zmj62PbR47GRUbn3k8mXjVG";
     const findings = scanText(text);
     expect(findings.some((f) => f.patternId === "github_pat")).toBe(true);
+  });
+});
+
+describe("scanText — doc/placeholder value noise reduction", () => {
+  it("does not flag AWS's own published example access key", () => {
+    const findings = scanText("export AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE");
+    expect(findings.some((f) => f.patternId === "aws_access_key")).toBe(false);
+  });
+
+  it("does not flag a GitHub PAT built from a sequential filler value", () => {
+    const findings = scanText("token: ghp_abcdefghijklmnopqrstuvwxyz0123456789");
+    expect(findings.some((f) => f.patternId === "github_pat")).toBe(false);
+  });
+
+  it("does not flag a key made of a single repeated character", () => {
+    const findings = scanText(`token: ghp_${"x".repeat(36)}`);
+    expect(findings.some((f) => f.patternId === "github_pat")).toBe(false);
+  });
+
+  it("does not flag a value containing the word PLACEHOLDER", () => {
+    const findings = scanText("token: ghp_PLACEHOLDERtokenr1q0z9y8x7w6v5u4t3s2");
+    expect(findings.some((f) => f.patternId === "github_pat")).toBe(false);
+  });
+
+  it("does not flag a value containing the word CHANGEME", () => {
+    const findings = scanText("token: ghp_CHANGEMEbeforecommittingx7w6v5u4t3s2");
+    expect(findings.some((f) => f.patternId === "github_pat")).toBe(false);
+  });
+
+  it("still flags a realistic-looking, non-sequential secret", () => {
+    const findings = scanText("token: ghp_NU7ehiHZlgqy6Zmj62PbR47GRUbn3k8mXjVG");
+    expect(findings.some((f) => f.patternId === "github_pat")).toBe(true);
+  });
+
+  it("still flags a real-looking credential in a connection string whose hostname happens to say example.com", () => {
+    const findings = scanText(
+      "DATABASE_URL=postgresql://admin:s3cr3tpass@prod.db.example.com:5432/mydb"
+    );
+    expect(findings.some((f) => f.patternId === "db_url_postgres")).toBe(true);
+  });
+
+  it("does not flag a short test-fixture bearer value like 'Bearer alpha'", () => {
+    const findings = scanText('.header("authorization", "Bearer alpha")');
+    expect(findings.some((f) => f.patternId === "bearer_token")).toBe(false);
+  });
+
+  it("does not flag 'Bearer test-token'", () => {
+    const findings = scanText('.header("authorization", "Bearer test-token")');
+    expect(findings.some((f) => f.patternId === "bearer_token")).toBe(false);
+  });
+
+  it("still flags a realistic, long bearer token", () => {
+    const findings = scanText(
+      '.header("authorization", "Bearer ya29.a0AfH6SMBxK9pQ2rZ7wJmN4tL8vC1oR6uD3eG5")'
+    );
+    expect(findings.some((f) => f.patternId === "bearer_token")).toBe(true);
+  });
+
+  it("does not flag a hyphenated 'change-me' placeholder password", () => {
+    const findings = scanText('password: "change-me-redis"  # CHANGE ME in production!');
+    expect(findings.some((f) => f.patternId === "generic_secret_assignment")).toBe(false);
+  });
+
+  it("does not flag a lowercase descriptive bracket placeholder", () => {
+    const findings = scanText('BASIC_AUTH_PASSWORD: "<admin login password>"');
+    expect(findings.some((f) => f.patternId === "generic_secret_assignment")).toBe(false);
   });
 });

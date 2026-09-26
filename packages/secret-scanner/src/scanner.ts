@@ -57,6 +57,35 @@ function isSuppressed(contextLine: string): boolean {
   return SUPPRESSION_MARKERS.test(contextLine);
 }
 
+// Dokümantasyon/örnek koddaki tipik doldurucu değerler gerçek secret'larda
+// pratik olarak hiç görülmeyen üç şekilden birini alır: aynı karakterin
+// tekrarı, alfabe/rakamda ardışık bir dizi, ya da değerin içine gömülü bir
+// "example/placeholder" kelimesi (örn. AWS'in kendi resmi örnek anahtarı
+// AKIAIOSFODNN7EXAMPLE). Gerçek rastgele bir secret'ta bunlardan biri şans
+// eseri oluşma olasılığı ihmal edilebilir düzeyde düşük.
+const PLACEHOLDER_WORDS =
+  /example|placeholder|sample|dummy|fakekey|fake[_-]?key|change[-_]?me|testkey|yourkey|redacted/i;
+
+function hasLongSequentialRun(value: string, minLen = 8): boolean {
+  let run = 1;
+  for (let i = 1; i < value.length; i++) {
+    if (value.charCodeAt(i) === value.charCodeAt(i - 1) + 1) {
+      run++;
+      if (run >= minLen) return true;
+    } else {
+      run = 1;
+    }
+  }
+  return false;
+}
+
+function isPlaceholderValue(matchStr: string): boolean {
+  if (/(.)\1{7,}/.test(matchStr)) return true; // 8+ tekrar eden aynı karakter
+  if (hasLongSequentialRun(matchStr)) return true; // 8+ ardışık kod noktası
+  if (PLACEHOLDER_WORDS.test(matchStr)) return true;
+  return false;
+}
+
 export function scanText(text: string, filePath?: string): Finding[] {
   const findings: Finding[] = [];
   const lines = text.split("\n");
@@ -67,6 +96,7 @@ export function scanText(text: string, filePath?: string): Finding[] {
     while ((m = re.exec(text)) !== null) {
       const matchStr = m[0];
       if (isAllowlisted(matchStr, sp)) continue;
+      if (!sp.skipPlaceholderCheck && isPlaceholderValue(matchStr)) continue;
 
       // Find line/column
       const before = text.slice(0, m.index);

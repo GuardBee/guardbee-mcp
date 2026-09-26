@@ -4,6 +4,12 @@ export interface SecretPattern {
   pattern: RegExp;
   severity: "critical" | "high" | "medium" | "low";
   allowlist?: RegExp[]; // patterns that override (false positives)
+  // Connection-string patterns match a whole URL, where a legitimate non-secret
+  // component (e.g. an example.com/RFC-2606 hostname) can coincidentally contain
+  // a placeholder word even though the credential itself is real — so the global
+  // placeholder-value heuristic doesn't apply here; these already have their own
+  // domain-specific allowlist above.
+  skipPlaceholderCheck?: boolean;
 }
 
 export const SECRET_PATTERNS: SecretPattern[] = [
@@ -69,9 +75,18 @@ export const SECRET_PATTERNS: SecretPattern[] = [
   // ── Payment ────────────────────────────────────────────────────────────────
   {
     id: "stripe_secret",
-    name: "Stripe Secret Key",
-    pattern: /sk_(live|test)_[0-9A-Za-z]{24,}/g,
+    name: "Stripe Secret Key (live)",
+    pattern: /sk_live_[0-9A-Za-z]{24,}/g,
     severity: "critical",
+  },
+  {
+    id: "stripe_secret_test",
+    // Stripe'ın kendi dokümantasyonu test-mode key'lerini kod örneklerine
+    // gömmenin güvenli olduğunu belirtiyor — gerçek parasal etkisi yok,
+    // sadece sandbox hesabına erişim. Yine de görünürlük için raporlanıyor.
+    name: "Stripe Secret Key (test mode)",
+    pattern: /sk_test_[0-9A-Za-z]{24,}/g,
+    severity: "low",
   },
   {
     id: "stripe_publishable",
@@ -81,9 +96,15 @@ export const SECRET_PATTERNS: SecretPattern[] = [
   },
   {
     id: "stripe_restricted",
-    name: "Stripe Restricted Key",
-    pattern: /rk_(live|test)_[0-9A-Za-z]{24,}/g,
+    name: "Stripe Restricted Key (live)",
+    pattern: /rk_live_[0-9A-Za-z]{24,}/g,
     severity: "critical",
+  },
+  {
+    id: "stripe_restricted_test",
+    name: "Stripe Restricted Key (test mode)",
+    pattern: /rk_test_[0-9A-Za-z]{24,}/g,
+    severity: "low",
   },
 
   // ── AI / ML ────────────────────────────────────────────────────────────────
@@ -150,28 +171,32 @@ export const SECRET_PATTERNS: SecretPattern[] = [
     name: "PostgreSQL Connection String with credentials",
     pattern: /postgres(?:ql)?:\/\/[^:]+:[^@\s]+@[^\s"']+/gi,
     severity: "critical",
-    allowlist: [/localhost/, /127\.0\.0\.1/, /\$\{/, /<[A-Z_]+>/],
+    allowlist: [/localhost/, /127\.0\.0\.1/, /\$\{/, /<[^<>]{1,80}>/],
+    skipPlaceholderCheck: true,
   },
   {
     id: "db_url_mysql",
     name: "MySQL Connection String with credentials",
     pattern: /mysql:\/\/[^:]+:[^@\s]+@[^\s"']+/gi,
     severity: "critical",
-    allowlist: [/localhost/, /127\.0\.0\.1/, /\$\{/, /<[A-Z_]+>/],
+    allowlist: [/localhost/, /127\.0\.0\.1/, /\$\{/, /<[^<>]{1,80}>/],
+    skipPlaceholderCheck: true,
   },
   {
     id: "db_url_mongodb",
     name: "MongoDB Connection String with credentials",
     pattern: /mongodb(?:\+srv)?:\/\/[^:]+:[^@\s]+@[^\s"']+/gi,
     severity: "critical",
-    allowlist: [/localhost/, /127\.0\.0\.1/, /\$\{/, /<[A-Z_]+>/],
+    allowlist: [/localhost/, /127\.0\.0\.1/, /\$\{/, /<[^<>]{1,80}>/],
+    skipPlaceholderCheck: true,
   },
   {
     id: "db_url_redis",
     name: "Redis Connection String with credentials",
     pattern: /redis:\/\/[^:]+:[^@\s]+@[^\s"']+/gi,
     severity: "high",
-    allowlist: [/localhost/, /127\.0\.0\.1/, /\$\{/],
+    allowlist: [/localhost/, /127\.0\.0\.1/, /\$\{/, /<[^<>]{1,80}>/],
+    skipPlaceholderCheck: true,
   },
 
   // ── Private keys ───────────────────────────────────────────────────────────
@@ -216,7 +241,10 @@ export const SECRET_PATTERNS: SecretPattern[] = [
   {
     id: "bearer_token",
     name: "Bearer Token in code",
-    pattern: /['"](Bearer\s+[A-Za-z0-9\-._~+/]+=*)['"]/gi,
+    // Gerçek bearer token'lar (JWT, OAuth2 opak token) neredeyse hiç 20
+    // karakterin altına inmez — testlerdeki "Bearer alpha"/"Bearer test-token"
+    // gibi kısa sahte değerleri eleyip gürültüyü büyük ölçüde azaltıyor.
+    pattern: /['"](Bearer\s+[A-Za-z0-9\-._~+/]{20,}=*)['"]/gi,
     severity: "high",
   },
 
@@ -255,7 +283,7 @@ export const SECRET_PATTERNS: SecretPattern[] = [
       /placeholder/i,
       /example/i,
       /your[-_]?/i,
-      /<[A-Z_]+>/,
+      /<[^<>]{1,80}>/,
       /\*{3,}/,
     ],
   },
