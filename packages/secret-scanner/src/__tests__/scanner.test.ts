@@ -91,3 +91,31 @@ describe("scanText", () => {
     expect(scanText("const x = 1; console.log('hello world');")).toHaveLength(0);
   });
 });
+
+describe("scanText — suppression annotations", () => {
+  it("suppresses a finding annotated with pragma: allowlist secret", () => {
+    const findings = scanText(
+      "token: ghp_abcdefghijklmnopqrstuvwxyz0123456789 # pragma: allowlist secret"
+    );
+    expect(findings.some((f) => f.patternId === "github_pat")).toBe(false);
+  });
+
+  it("suppresses a finding annotated with gitleaks:allow", () => {
+    const findings = scanText(
+      "token: ghp_abcdefghijklmnopqrstuvwxyz0123456789 // gitleaks:allow"
+    );
+    expect(findings.some((f) => f.patternId === "github_pat")).toBe(false);
+  });
+
+  it("suppresses a finding annotated with nosec", () => {
+    const findings = scanText("token: ghp_abcdefghijklmnopqrstuvwxyz0123456789  # nosec");
+    expect(findings.some((f) => f.patternId === "github_pat")).toBe(false);
+  });
+
+  it("still reports an unannotated secret on an unrelated nearby line", () => {
+    const text =
+      "// pragma: allowlist secret\nconst other = 1;\ntoken: ghp_abcdefghijklmnopqrstuvwxyz0123456789";
+    const findings = scanText(text);
+    expect(findings.some((f) => f.patternId === "github_pat")).toBe(true);
+  });
+});

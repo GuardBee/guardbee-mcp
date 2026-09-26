@@ -48,6 +48,15 @@ function isAllowlisted(match: string, pattern: SecretPattern): boolean {
   return pattern.allowlist.some((allow) => allow.test(match));
 }
 
+// Yaygın suppression annotasyonları: detect-secrets, gitleaks, trufflehog ve
+// genel nosec/nosemgrep konvansiyonları. Aynı satırda bulunursa finding'i bastırır.
+const SUPPRESSION_MARKERS =
+  /(?:pragma:\s*allowlist[\s-]secret|gitleaks:\s*allow|trufflehog:\s*ignore|nosec\b|nosemgrep\b|guardbee:\s*allow|guardbee-ignore)/i;
+
+function isSuppressed(contextLine: string): boolean {
+  return SUPPRESSION_MARKERS.test(contextLine);
+}
+
 export function scanText(text: string, filePath?: string): Finding[] {
   const findings: Finding[] = [];
   const lines = text.split("\n");
@@ -66,6 +75,8 @@ export function scanText(text: string, filePath?: string): Finding[] {
       const column = m.index - (lastNl === -1 ? 0 : lastNl + 1) + 1;
 
       const contextLine = lines[line - 1] ?? "";
+      if (isSuppressed(contextLine)) continue;
+
       const redactedContext = contextLine.replace(matchStr, redact(matchStr));
 
       findings.push({

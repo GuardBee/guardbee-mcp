@@ -77,7 +77,8 @@ export const MCP_AUDITOR_PATTERNS: McpAuditPattern[] = [
     id: "sql_injection_via_tool_input",
     name: "SQL statement built by interpolating raw tool input",
     category: "unsafe-input",
-    pattern: /\b(?:SELECT|INSERT|UPDATE|DELETE)\b[\s\S]{0,200}?\$\{\s*(?:input|params|args)\s*\.\s*\w+/gi,
+    pattern:
+      /(?<!\.)\b(?:SELECT|INSERT|UPDATE|DELETE)\b[\s\S]{0,40}?\b(?:FROM|INTO|SET|WHERE|VALUES)\b[\s\S]{0,160}?\$\{\s*(?:input|params|args)\s*\.\s*\w+/gi,
     severity: "critical",
     recommendation:
       "A SQL statement is built with a template-literal interpolation of a raw tool parameter — classic SQL injection, now reachable by anything that can call this tool. Use parameterized queries; never interpolate tool input into SQL text.",

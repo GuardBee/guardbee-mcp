@@ -98,6 +98,11 @@ describe("scanText — sql_injection_via_tool_input", () => {
     const code = `const sql = "SELECT * FROM users WHERE id = $1"; db.query(sql, [input.id]);`;
     expect(idsOf(code)).not.toContain("sql_injection_via_tool_input");
   });
+
+  it("yakalamaz: URLSearchParams.delete()/.set() + ${params.toString()} (JS metod çağrısı, SQL değil)", () => {
+    const code = `params.delete(prefix + "tags"); params.set(prefix + "page", "1"); const newUrl = base + (params.toString() ? \`?\${params.toString()}\` : "");`;
+    expect(idsOf(code)).not.toContain("sql_injection_via_tool_input");
+  });
 });
 
 describe("scanText — overly_permissive_tool_schema", () => {
