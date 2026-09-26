@@ -1,0 +1,44 @@
+{
+  "manifest_version": "0.3",
+  "name": "@guardbee/mcp-oauth-auditor",
+  "display_name": "GuardBee OAuth Auditor",
+  "version": "0.1.0",
+  "description": "MCP server that scans an MCP server's own authorization code for OAuth 2.1 anti-patterns named in the MCP spec's Security Considerations: token passthrough, missing audience validation, OAuth/OIDC discovery SSRF, missing PKCE, loose redirect_uri validation, and hardcoded client secrets",
+  "long_description": "The MCP specification's Security Considerations section names token passthrough (forwarding a client's token to a downstream API unchanged instead of exchanging/re-scoping it) and missing audience validation (accepting a token whose aud claim was never issued for this server) as the central authorization risks for an MCP server acting as an OAuth resource server. This package scans a server's own authorization/token-handling code for those two patterns, plus three related anti-patterns: an OAuth/OIDC discovery document fetched from a client-supplied URL (the shape behind CVE-2026-45609, an SSRF via OAuth discovery), an authorization request missing PKCE (required by OAuth 2.1 for every client type), redirect_uri validated with a prefix/substring check instead of an exact match (open-redirect bypass), and a hardcoded OAuth client_secret. No API key required — runs entirely locally, static analysis only.",
+  "author": {
+    "name": "GuardBee",
+    "email": "hello@guardbee.ai",
+    "url": "https://guardbee.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git"
+  },
+  "homepage": "https://guardbee.ai",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "ai-security",
+    "mcp-security",
+    "oauth",
+    "oauth2.1",
+    "token-passthrough",
+    "security"
+  ],
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18"
+    }
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/cli.js"]
+    }
+  },
+  "user_config": {},
+  "tools_generated": true
+}

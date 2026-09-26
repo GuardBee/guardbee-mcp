@@ -1,0 +1,54 @@
+{
+  "serverInfo": {
+    "name": "@guardbee/mcp-oauth-auditor",
+    "version": "0.1.0",
+    "description": "MCP server that scans an MCP server's own authorization code for OAuth 2.1 anti-patterns named in the MCP spec's Security Considerations: token passthrough, missing audience validation, OAuth/OIDC discovery SSRF, missing PKCE, loose redirect_uri validation, and hardcoded client secrets"
+  },
+  "tools": [
+    {
+      "name": "scan_text",
+      "description": "Scan an MCP server's authorization code for OAuth 2.1 anti-patterns: token passthrough, missing audience validation, OAuth/OIDC discovery SSRF, missing PKCE, loose redirect_uri validation, and hardcoded client secrets.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "content": { "type": "string", "description": "The code content to scan" },
+          "label": { "type": "string", "description": "Optional label shown in findings (e.g. filename)" }
+        },
+        "required": ["content"]
+      }
+    },
+    {
+      "name": "scan_file",
+      "description": "Scan a single file for OAuth/token-handling anti-patterns",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Absolute or relative path to the file to scan" }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "scan_directory",
+      "description": "Recursively scan a directory of MCP server source for OAuth/token-handling anti-patterns",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Absolute or relative path to the directory to scan" },
+          "maxFiles": { "type": "number", "description": "Maximum number of files to scan (default: 5000)" },
+          "include": { "type": "array", "items": { "type": "string" }, "description": "Only scan files whose path contains one of these strings" },
+          "exclude": { "type": "array", "items": { "type": "string" }, "description": "Skip files/dirs whose path contains one of these strings" }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "list_patterns",
+      "description": "List every OAuth/token-handling pattern this auditor detects, grouped by category",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ]
+}
