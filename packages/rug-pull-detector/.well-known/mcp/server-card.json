@@ -1,0 +1,48 @@
+{
+  "serverInfo": {
+    "name": "@guardbee/mcp-rug-pull-detector",
+    "version": "0.1.0",
+    "description": "MCP server that connects to another MCP server (stdio or Streamable HTTP), baselines its tools/list response, and detects 'rug pulls' — a tool silently changing description, schema, or annotations after it was already approved"
+  },
+  "tools": [
+    {
+      "name": "baseline_server",
+      "description": "Connect to an MCP server (stdio command or Streamable HTTP URL), read its current tools/list response, and store it as the trusted baseline for future drift checks.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "command": { "type": "string", "description": "Command to spawn for a stdio MCP server" },
+          "args": { "type": "array", "items": { "type": "string" }, "description": "Arguments for the stdio command" },
+          "env": { "type": "object", "description": "Extra environment variables for the spawned process" },
+          "cwd": { "type": "string", "description": "Working directory for the spawned process" },
+          "url": { "type": "string", "description": "URL of a Streamable HTTP MCP server (alternative to command/args)" },
+          "label": { "type": "string", "description": "Stable identifier for this server, used to look up its baseline" }
+        }
+      }
+    },
+    {
+      "name": "check_server",
+      "description": "Connect to an MCP server and compare its current tools/list response against the stored baseline, flagging any tool whose definition changed.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "command": { "type": "string" },
+          "args": { "type": "array", "items": { "type": "string" } },
+          "env": { "type": "object" },
+          "cwd": { "type": "string" },
+          "url": { "type": "string" },
+          "label": { "type": "string" },
+          "autoBaseline": { "type": "boolean", "description": "Automatically capture a baseline if none exists yet (default: true)" }
+        }
+      }
+    },
+    {
+      "name": "list_baselines",
+      "description": "List every server this scanner has a stored baseline for",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ]
+}
