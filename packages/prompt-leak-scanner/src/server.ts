@@ -83,7 +83,7 @@ export async function startServer() {
     "Recursively scan a directory of prompt logs or request-body fixtures for leaked credentials and PII",
     {
       path: z.string().describe("Absolute or relative path to the directory to scan"),
-      maxFiles: z.number().optional().describe("Maximum number of files to scan (default: 5000)"),
+      maxFiles: z.number().int().positive().optional().describe("Maximum number of files to scan (default: 5000)"),
       include: z.array(z.string()).optional().describe("Only scan files whose path contains one of these strings"),
       exclude: z.array(z.string()).optional().describe("Skip files/dirs whose path contains one of these strings"),
     },

@@ -116,9 +116,10 @@ async function runCli(cmd: string, rawArgs: string[]): Promise<void> {
   // ── audit-pkg ──────────────────────────────────────────────────────────────
   if (cmd === "audit-pkg") {
     const [name, version, ecosystem] = positionals;
-    if (!name || !version || !ecosystem) {
+    const ecosystems: Ecosystem[] = ["npm", "PyPI", "crates.io", "Maven", "Go", "RubyGems"];
+    if (!name || !version || !ecosystem || !ecosystems.includes(ecosystem as Ecosystem)) {
       console.error("Usage: guardbee-dependency-auditor audit-pkg <name> <version> <ecosystem>");
-      console.error("  ecosystems: npm, PyPI, crates.io, Maven, Go, RubyGems");
+      console.error(`  ecosystems: ${ecosystems.join(", ")}`);
       process.exit(2);
     }
     const results = await queryOsvBatch([{ name, version, ecosystem: ecosystem as Ecosystem }]);

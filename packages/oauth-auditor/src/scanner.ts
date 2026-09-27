@@ -189,6 +189,9 @@ export function scanDirectory(
 ): ScanResult {
   const start = Date.now();
   const { maxFiles = 5000, include, exclude } = options;
+  if (!Number.isInteger(maxFiles) || maxFiles < 1) {
+    throw new Error(`maxFiles must be a positive integer (got ${String(maxFiles)})`);
+  }
   const allFindings: Finding[] = [];
   let scannedFiles = 0;
   let skippedFiles = 0;

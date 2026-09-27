@@ -32,7 +32,7 @@ Claude ──► MCP Gateway ──► Database
 - **Audit Log** — Writable to console, a file, or an HTTP webhook
 - **Prisma / Postgres / MySQL / SQLite / MongoDB Adapters** — Plug in an existing `PrismaClient`, a `pg` `Pool`, a `mysql2` `Pool`, a `better-sqlite3` `Database`, or a MongoDB `Db` directly
 - **Write Support (optional)** — insert/update/delete, off by default; gated by per-table + per-role permission, protected-field guarding, and a "don't touch the whole table" safety net
-- **193 unit tests** — masking, the pipeline, RBAC, the rate limiter, the audit log, and every adapter (read + write) are covered
+- **195 unit tests** — masking, the pipeline, RBAC, the rate limiter, the audit log, and every adapter (read + write) are covered
 
 ---
 
@@ -367,7 +367,7 @@ Pass a `PrismaClient` directly — table name → model mapping is automatic:
 ```bash
 npm run dev          # dev mode via tsx
 npm run build        # TypeScript compile
-npm test             # 193 unit tests
+npm test             # 195 unit tests
 npm run test:watch   # watch mode
 npm run type-check   # type-check only
 ```

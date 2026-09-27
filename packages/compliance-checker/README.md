@@ -55,7 +55,7 @@ Get your API key at [app.guardbee.ai/developers](https://app.guardbee.ai/develop
 
 | Tool | API Key | Description |
 |------|:------------:|----------|
-| `check_compliance` | Required | Starts a compliance scan (KVKK/GDPR/CCPA) for a URL or brand ID |
+| `check_compliance` | Required | Starts a compliance scan (KVKK/GDPR/CCPA) for a URL |
 | `get_compliance_findings` | Required | Fetches scan findings, filterable by framework and severity |
 | `analyze_privacy_policy` | No | Analyzes a privacy policy URL — score, grade, missing clauses |
 | `list_requirements` | No | Lists legal requirements for supported frameworks |

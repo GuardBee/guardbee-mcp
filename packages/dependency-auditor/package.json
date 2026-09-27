@@ -1,7 +1,7 @@
 {
   "name": "@guardbee/mcp-dependency-auditor",
   "version": "0.2.2",
-  "description": "MCP server that audits npm, pip, and cargo dependencies for known CVEs using the OSV database",
+  "description": "OSV CVE checks for npm and pip manifests. Single-package lookups also cover PyPI, crates.io, Maven, Go, and RubyGems.",
   "type": "module",
   "bin": {
     "guardbee-dependency-auditor": "./dist/cli.js"

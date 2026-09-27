@@ -63,7 +63,8 @@ export async function startProxy(config: ProxyConfig): Promise<void> {
 
     // 1. Prompt injection scan on input
     if (config.interceptors?.promptInjection?.enabled !== false) {
-      const scan = scanForPromptInjection(toolInput);
+      const mode = config.interceptors?.promptInjection?.action ?? "block";
+      const scan = scanForPromptInjection(toolInput, mode);
       if (scan.action === "block") {
         audit.log({
           ts: new Date().toISOString(),

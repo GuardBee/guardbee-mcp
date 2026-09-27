@@ -30,6 +30,9 @@ function resolveTarget(args: { command?: string; args?: string[]; env?: Record<s
 }
 
 function formatCheckResult(result: CheckResult): string {
+  if (result.missingBaseline) {
+    return `No baseline stored for this server. Call baseline_server first — autoBaseline is off, so nothing was captured.`;
+  }
   if (result.isNewBaseline) {
     return `📌 No prior baseline for this server — captured one now (${result.toolCount} tool(s)). Run check_server again after this server's next release/update to detect drift.`;
   }

@@ -7,7 +7,7 @@ import { resolve, join } from "path";
 //   fail-on: high          # any | critical | high | medium | low | none
 //   max-files: 2000
 //   exclude:
-//     - "**/*.test.py"
+//     - ".test.py"
 
 export interface AgentGraphAuditorConfig {
   failOn: string;

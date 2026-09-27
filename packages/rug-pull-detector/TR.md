@@ -41,7 +41,7 @@ Hiç baseline yoksa, `check_server` otomatik olarak birini yakalayıp temiz rapo
 - Canonical hashing isim, description, input schema, output schema **ve** annotation'ları (`readOnlyHint`, `destructiveHint`, ...) kapsıyor — bir server naif bir diff'in atlayacağı alanlara sadece dokunarak tespitten kaçamıyor.
 - Hedef belirtmenin 3 yolu: `--stdio="command arg1 arg2"`, `--url=<http-url>`, ya da `--config=<file> --server=<name>` (bir `mcpServers`-tarzı JSON config'i doğrudan okur — bir Claude Desktop config'iyle aynı şekil)
 - SARIF 2.1.0 çıktısı — CI/CD entegrasyonu
-- 27 test: hashing/diffing/storage için saf unit test'ler, ayrıca bir fixture MCP server'a karşı (mock değil) **gerçek stdio process-spawning entegrasyon testleri** — drift, ekleme, kaldırma ve label izolasyonunu kapsıyor. `ai-code-scanner`'ın kendi gerçek, zaten yayınlanmış MCP server'ına karşı uçtan uca doğrulandı — gerçek stdio JSON-RPC üzerinden bağlandı, 4 gerçek tool'unu baseline'ladı, ikinci bir check'in temiz raporladığını doğruladı.
+- 28 test: hashing/diffing/storage için saf unit test'ler, ayrıca bir fixture MCP server'a karşı (mock değil) **gerçek stdio process-spawning entegrasyon testleri** — drift, ekleme, kaldırma ve label izolasyonunu kapsıyor. `ai-code-scanner`'ın kendi gerçek, zaten yayınlanmış MCP server'ına karşı uçtan uca doğrulandı — gerçek stdio JSON-RPC üzerinden bağlandı, 4 gerçek tool'unu baseline'ladı, ikinci bir check'in temiz raporladığını doğruladı.
 
 ---
 
@@ -103,7 +103,7 @@ npx @guardbee/mcp-rug-pull-detector check --config=claude_desktop_config.json --
 
 ```bash
 npm run build
-npm test             # 27 test
+npm test             # 28 test
 ```
 
 ---

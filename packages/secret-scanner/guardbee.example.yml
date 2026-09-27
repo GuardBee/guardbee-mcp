@@ -6,7 +6,7 @@ secret-scanner:
   fail-on: high          # any | critical | high | medium | low | none
   max-files: 5000
   exclude:
-    - "**/*.test.ts"
+    - ".test.ts"
     - "fixtures/"
     - ".env.example"
   allowlist:             # strings that mark a match as intentionally fake

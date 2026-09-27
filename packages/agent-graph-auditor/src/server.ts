@@ -69,7 +69,7 @@ export async function startServer() {
     "Recursively scan a directory of Python files and report excessive-agency paths found in each. Each file's agent/tool graph is analyzed independently — variable references don't resolve across files, so a Crew/GroupChat whose members are defined in a different file than the assembling call won't be connected.",
     {
       path: z.string().describe("Absolute or relative path to the directory to scan"),
-      maxFiles: z.number().optional().describe("Maximum number of files to scan (default: 2000)"),
+      maxFiles: z.number().int().positive().optional().describe("Maximum number of files to scan (default: 2000)"),
       include: z.array(z.string()).optional().describe("Only scan files whose path contains one of these strings"),
       exclude: z.array(z.string()).optional().describe("Skip files/dirs whose path contains one of these strings"),
     },

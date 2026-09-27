@@ -94,6 +94,9 @@ export function scanDirectory(
 ): ScanResult {
   const start = Date.now();
   const { maxFiles = 2000, include, exclude } = options;
+  if (!Number.isInteger(maxFiles) || maxFiles < 1) {
+    throw new Error(`maxFiles must be a positive integer (got ${String(maxFiles)})`);
+  }
 
   // Each file's graph is extracted independently (variable references don't
   // resolve across files — a real limitation of a regex-based extractor, not

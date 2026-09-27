@@ -57,7 +57,14 @@
           },
           "include": {
             "type": "array",
-            "description": "Glob patterns to include",
+            "description": "Only scan files whose path contains one of these strings (e.g. [\".env\", \".ts\"])",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude": {
+            "type": "array",
+            "description": "Skip files/dirs whose path contains one of these strings",
             "items": {
               "type": "string"
             }

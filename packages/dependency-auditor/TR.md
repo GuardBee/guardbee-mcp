@@ -6,7 +6,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-dependency-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-dependency-auditor)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-npm, pip ve diğer paket yöneticilerinin bağımlılıklarını bilinen CVE'ler için [OSV](https://osv.dev) veritabanına karşı tarayan MCP sunucusu. Claude'a doğrudan projenizin güvenlik durumunu sorabilirsiniz.
+npm ve pip manifestlerini bilinen CVE'ler için [OSV](https://osv.dev) veritabanına karşı tarayan MCP sunucusu. Tek paket sorgusu ayrıca PyPI, crates.io, Maven, Go ve RubyGems kapsar.
 
 > Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler — bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
 
@@ -20,7 +20,7 @@ npm, pip ve diğer paket yöneticilerinin bağımlılıklarını bilinen CVE'ler
 - **Severity Skorlaması** — CVSS puanına veya metin buluşsal yöntemine göre Critical / High / Medium / Low
 - **Düzeltme Sürümü** — Mevcut olduğunda `upgrade to X@Y.Z.Z` önerisi
 - **CVE Bağlantıları** — NVD veya osv.dev'e doğrudan link
-- **20 Unit Test** — %100 geçen test paketi
+- **24 Unit Test** — %100 geçen test paketi
 
 ---
 

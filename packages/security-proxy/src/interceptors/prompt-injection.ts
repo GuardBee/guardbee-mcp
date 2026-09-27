@@ -28,13 +28,16 @@ function flattenValue(value: unknown): string {
   return String(value ?? "");
 }
 
-export function scanForPromptInjection(input: unknown): InterceptResult {
+export function scanForPromptInjection(
+  input: unknown,
+  mode: "block" | "warn" = "block",
+): InterceptResult {
   const text = flattenValue(input);
 
   for (const pattern of INJECTION_PATTERNS) {
     if (pattern.test(text)) {
       return {
-        action: "block",
+        action: mode,
         reason: `Prompt injection pattern detected: ${pattern.toString()}`,
       };
     }

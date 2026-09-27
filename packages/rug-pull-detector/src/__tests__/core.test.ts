@@ -75,6 +75,17 @@ describe("baselineServer + checkServer — gerçek stdio MCP server round trip",
     expect(removed?.toolName).toBe("extra_tool");
   }, 15000);
 
+  it("autoBaseline false iken baseline yazmaz ve missingBaseline döner", async () => {
+    const baseDir = tempBaseDir();
+    const result = await checkServer(targetFor("v1"), "fixture-server", baseDir, { autoBaseline: false });
+    expect(result.missingBaseline).toBe(true);
+    expect(result.isNewBaseline).toBe(false);
+    expect(result.findings).toHaveLength(0);
+
+    const again = await checkServer(targetFor("v1"), "fixture-server", baseDir, { autoBaseline: false });
+    expect(again.missingBaseline).toBe(true);
+  }, 15000);
+
   it("farklı label'lar farklı baseline dosyalarına ayrılır", async () => {
     const baseDir = tempBaseDir();
     await baselineServer(targetFor("v1"), "server-a", baseDir);

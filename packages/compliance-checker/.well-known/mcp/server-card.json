@@ -43,7 +43,7 @@
         "properties": {
           "scanId": {
             "type": "string",
-            "description": "Scan ID from check_compliance or start_scan"
+            "description": "Scan ID returned by check_compliance"
           },
           "framework": {
             "type": "string",
