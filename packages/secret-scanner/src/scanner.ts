@@ -86,6 +86,16 @@ function isPlaceholderValue(matchStr: string): boolean {
   return false;
 }
 
+// JS/TS (__tests__, .test., .spec.) ve Python (tests/, test_*.py, *_test.py)
+// konvansiyonlarını kapsar — bu dogfooding turunda karşılaşılan gerçek repo
+// yapısına göre kalibre edildi.
+const TEST_PATH_RE =
+  /(?:^|[\\/])(?:__tests__|tests?)(?:[\\/]|$)|\.(?:test|spec)\.[jt]sx?$|(?:^|[\\/])test_[^\\/]+\.py$|_test\.py$/i;
+
+function isTestFilePath(filePath: string | undefined): boolean {
+  return !!filePath && TEST_PATH_RE.test(filePath);
+}
+
 export function scanText(text: string, filePath?: string): Finding[] {
   const findings: Finding[] = [];
   const lines = text.split("\n");
@@ -109,10 +119,13 @@ export function scanText(text: string, filePath?: string): Finding[] {
 
       const redactedContext = contextLine.replace(matchStr, redact(matchStr));
 
+      const severity =
+        sp.lowerSeverityInTestFiles && isTestFilePath(filePath) ? "low" : sp.severity;
+
       findings.push({
         patternId: sp.id,
         patternName: sp.name,
-        severity: sp.severity,
+        severity,
         file: filePath,
         line,
         column,

@@ -193,3 +193,56 @@ describe("scanText — doc/placeholder value noise reduction", () => {
     expect(findings.some((f) => f.patternId === "generic_secret_assignment")).toBe(false);
   });
 });
+
+describe("scanText — severity downgrade for test-file paths", () => {
+  it("downgrades a generic_secret_assignment match found in a Python test file", () => {
+    const findings = scanText(
+      'access_token="test_access_token_abc123"',
+      "tests/integration/test_vault_integration.py"
+    );
+    const f = findings.find((f) => f.patternId === "generic_secret_assignment");
+    expect(f?.severity).toBe("low");
+  });
+
+  it("downgrades a generic_secret_assignment match found in a JS test file", () => {
+    const findings = scanText(
+      'const password = "MyS3cr3tP@ssword!"',
+      "src/__tests__/auth.test.ts"
+    );
+    const f = findings.find((f) => f.patternId === "generic_secret_assignment");
+    expect(f?.severity).toBe("low");
+  });
+
+  it("does not downgrade the same match found in a production file", () => {
+    const findings = scanText(
+      'const password = "MyS3cr3tP@ssword!"',
+      "src/auth.ts"
+    );
+    const f = findings.find((f) => f.patternId === "generic_secret_assignment");
+    expect(f?.severity).toBe("medium");
+  });
+
+  it("downgrades a bearer_token match found in a test file", () => {
+    const findings = scanText(
+      '.header("authorization", "Bearer ya29.a0AfH6SMBxK9pQ2rZ7wJmN4tL8vC1oR6uD3eG5")',
+      "tests/unit/test_gateway_service.py"
+    );
+    const f = findings.find((f) => f.patternId === "bearer_token");
+    expect(f?.severity).toBe("low");
+  });
+
+  it("does not downgrade a fixed-format secret (github_pat) found in a test file — still real if real", () => {
+    const findings = scanText(
+      "token: ghp_NU7ehiHZlgqy6Zmj62PbR47GRUbn3k8mXjVG",
+      "tests/fixtures/config.py"
+    );
+    const f = findings.find((f) => f.patternId === "github_pat");
+    expect(f?.severity).toBe("critical");
+  });
+
+  it("keeps default severity when no file path is given (can't tell if it's a test)", () => {
+    const findings = scanText('const password = "MyS3cr3tP@ssword!"');
+    const f = findings.find((f) => f.patternId === "generic_secret_assignment");
+    expect(f?.severity).toBe("medium");
+  });
+});

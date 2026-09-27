@@ -10,6 +10,11 @@ export interface SecretPattern {
   // placeholder-value heuristic doesn't apply here; these already have their own
   // domain-specific allowlist above.
   skipPlaceholderCheck?: boolean;
+  // Only for low-confidence, format-agnostic patterns (a keyword + any quoted
+  // string, or "Bearer " + any token-ish string) — a fixed-format secret
+  // (AKIA..., ghp_..., sk-...) found in a test file is exactly as real as one
+  // found anywhere else, so this never applies to those.
+  lowerSeverityInTestFiles?: boolean;
 }
 
 export const SECRET_PATTERNS: SecretPattern[] = [
@@ -246,6 +251,7 @@ export const SECRET_PATTERNS: SecretPattern[] = [
     // gibi kısa sahte değerleri eleyip gürültüyü büyük ölçüde azaltıyor.
     pattern: /['"](Bearer\s+[A-Za-z0-9\-._~+/]{20,}=*)['"]/gi,
     severity: "high",
+    lowerSeverityInTestFiles: true,
   },
 
   // ── DevOps & infra ─────────────────────────────────────────────────────────
@@ -286,5 +292,6 @@ export const SECRET_PATTERNS: SecretPattern[] = [
       /<[^<>]{1,80}>/,
       /\*{3,}/,
     ],
+    lowerSeverityInTestFiles: true,
   },
 ];
