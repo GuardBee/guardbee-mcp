@@ -30,28 +30,36 @@ function resolveTarget(args: { command?: string; args?: string[]; env?: Record<s
 }
 
 function formatCheckResult(result: CheckResult): string {
+  const lines: string[] = [];
   if (result.missingBaseline) {
-    return `No baseline stored for this server. Call baseline_server first — autoBaseline is off, so nothing was captured.`;
-  }
-  if (result.isNewBaseline) {
-    return `📌 No prior baseline for this server — captured one now (${result.toolCount} tool(s)). Run check_server again after this server's next release/update to detect drift.`;
-  }
-  if (result.findings.length === 0) {
-    return `✅ No drift. ${result.toolCount} tool(s) match the stored baseline exactly.`;
-  }
-
-  const bySeverity = { critical: 0, medium: 0, low: 0 };
-  for (const f of result.findings) bySeverity[f.severity]++;
-
-  const lines = [
-    `⚠️  ${result.findings.length} finding(s) — Critical: ${bySeverity.critical}  Medium: ${bySeverity.medium}  Low: ${bySeverity.low}`,
-    "",
-  ];
-  for (const f of result.findings) {
-    lines.push(`[${f.severity.toUpperCase()}] ${f.patternName}`);
-    lines.push(`  Recommendation : ${f.recommendation}`);
-    lines.push(`  Detail         :\n    ${f.detail.split("\n").join("\n    ")}`);
+    lines.push(`No baseline stored for this server. Call baseline_server first — autoBaseline is off, so nothing was captured.`);
+  } else if (result.isNewBaseline) {
+    lines.push(`📌 No prior baseline for this server — captured one now (${result.toolCount} tool(s)). Run check_server again after this server's next release/update to detect drift.`);
+  } else if (result.findings.length === 0) {
+    lines.push(`✅ No drift. ${result.toolCount} tool(s) match the stored baseline exactly.`);
+  } else {
+    const bySeverity = { critical: 0, medium: 0, low: 0 };
+    for (const f of result.findings) bySeverity[f.severity]++;
+    lines.push(`⚠️  ${result.findings.length} drift finding(s) — Critical: ${bySeverity.critical}  Medium: ${bySeverity.medium}  Low: ${bySeverity.low}`);
     lines.push("");
+    for (const f of result.findings) {
+      lines.push(`[${f.severity.toUpperCase()}] ${f.patternName}`);
+      lines.push(`  Recommendation : ${f.recommendation}`);
+      lines.push(`  Detail         :\n    ${f.detail.split("\n").join("\n    ")}`);
+      lines.push("");
+    }
+  }
+
+  if (result.catalogFindings.length > 0) {
+    lines.push("");
+    lines.push(`⚠️  ${result.catalogFindings.length} live catalog finding(s) on the current tools/list:`);
+    for (const f of result.catalogFindings) {
+      lines.push(`[${f.severity.toUpperCase()}] ${f.patternName} (${f.owasp})`);
+      lines.push(`  Tool           : ${f.toolName} ${f.field}`);
+      lines.push(`  Match          : ${f.match}`);
+      lines.push(`  Recommendation : ${f.recommendation}`);
+      lines.push("");
+    }
   }
   return lines.join("\n");
 }

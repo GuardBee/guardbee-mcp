@@ -16,6 +16,14 @@ export type ProxyConfig = {
       enabled: boolean;
       action: "block" | "warn";
     };
+    toolResultInjection?: {
+      enabled: boolean;
+      action: "block" | "warn";
+    };
+    definitionDrift?: {
+      enabled: boolean;
+      action: "block" | "warn";
+    };
     piiMasking?: {
       enabled: boolean;
       patterns?: string[];

@@ -24,6 +24,8 @@ Claude ──► MCP Security Proxy ──► Any MCP Server
 ## Features
 
 - **Prompt Injection Protection** — 16 attack patterns block requests attempting to override system prompts
+- **Tool-result injection** — the same patterns applied to tool results, tagged MCP06:2025. Block mode replaces the result; warn mode prepends a warning
+- **Session tool pin** — the first `tools/list` is pinned. A later description or schema change is a rug pull (MCP03:2025). Block mode keeps serving the pinned definition and refuses the drifted call
 - **PII Masking** — national ID numbers, IBAN, email, phone, JWT tokens, API keys are automatically masked in responses
 - **Block / Warn Mode** — each interceptor can independently run in blocking or warning mode
 - **Audit Log** — configurable log written to console or a file

@@ -27,7 +27,10 @@ The second check, confused-deputy, is a different failure mode: a tool named and
 
 ## Features
 
-- **7 description-injection patterns**: instruction override, "always call first" priming, covert "don't tell the user" instructions, system-prompt-style authority markers (`<IMPORTANT>`, `SYSTEM:`), sensitive-file exfiltration instructions, zero-width hidden characters, and cross-tool manipulation directives
+- **7 description-injection patterns**: instruction override, "always call first" priming, covert "don't tell the user" instructions, system-prompt-style authority markers (`<IMPORTANT>`, `SYSTEM:`), sensitive-file exfiltration instructions, zero-width hidden characters, bidirectional overrides, ANSI escapes, and cross-tool manipulation directives
+- **Obfuscation on the same text**: mixed Latin/Cyrillic/Greek scripts and long encoded blobs, including parameter `.describe()` strings and JSON Schema `description` / `enum` values
+- **Annotation lie**: `readOnlyHint: true` next to a description that deletes, drops, or executes
+- **Live catalog**: `scanToolCatalog` runs the description checks against a `tools/list` payload, which `rug-pull-detector` calls on every check
 - **4 confused-deputy sink categories**: process-execution, code-execution, filesystem-write, credentials-exposure — checked only against tools whose name/description implies read-only behavior
 - Bounded, next-tool-aware extraction — a sink in tool B's handler is never misattributed to tool A
 - SARIF 2.1.0 output — CI/CD integration (GitHub Code Scanning, etc.)

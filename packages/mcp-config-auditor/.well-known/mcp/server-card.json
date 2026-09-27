@@ -1,0 +1,61 @@
+{
+  "serverInfo": {
+    "name": "@guardbee/mcp-config-auditor",
+    "version": "0.1.0",
+    "description": "Audits installed MCP client configs for unpinned packages, secrets, wildcard auto-approve, unauthenticated remote endpoints, typosquats, and cross-server tool shadowing."
+  },
+  "tools": [
+    {
+      "name": "scan_config_text",
+      "description": "Scan an MCP client config JSON string for unpinned packages, secrets, wildcard auto-approve, unauthenticated remote endpoints, and typosquats.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "content": { "type": "string", "description": "Raw JSON config" },
+          "label": { "type": "string", "description": "Optional filename shown in findings" }
+        },
+        "required": ["content"]
+      }
+    },
+    {
+      "name": "scan_file",
+      "description": "Scan one MCP client config file.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Path to the config file" }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "scan_directory",
+      "description": "Find mcp.json, mcp_config.json, and claude_desktop_config.json under a directory and audit each one.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Directory to search" },
+          "maxFiles": { "type": "number", "description": "Maximum files to consider (default: 5000)" },
+          "exclude": { "type": "array", "items": { "type": "string" }, "description": "Skip paths containing one of these strings" }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "scan_inventory",
+      "description": "Detect cross-server tool shadowing from an inventory of tool catalogs.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "inventory": { "type": "string", "description": "JSON inventory of servers and their tools" }
+        },
+        "required": ["inventory"]
+      }
+    },
+    {
+      "name": "list_patterns",
+      "description": "List the MCP config and cross-server shadowing checks, with their OWASP MCP Top 10 tags.",
+      "inputSchema": { "type": "object", "properties": {} }
+    }
+  ]
+}

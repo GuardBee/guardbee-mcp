@@ -1,0 +1,34 @@
+{
+  "manifest_version": "0.3",
+  "name": "@guardbee/mcp-config-auditor",
+  "display_name": "GuardBee MCP Config Auditor",
+  "version": "0.1.0",
+  "description": "Audits installed MCP client configs for unpinned packages, secrets, wildcard auto-approve, unauthenticated remote endpoints, typosquats, and cross-server tool shadowing.",
+  "long_description": "Reads Cursor, Claude Desktop, Windsurf, and VS Code MCP config files locally. It does not start the configured servers and does not send config contents off the machine. Cross-server shadowing runs on a tool inventory you pass in.",
+  "author": {
+    "name": "GuardBee",
+    "email": "hello@guardbee.ai",
+    "url": "https://guardbee.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git"
+  },
+  "homepage": "https://guardbee.ai",
+  "license": "MIT",
+  "keywords": ["mcp", "mcp-security", "ai-security", "supply-chain", "security"],
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": { "node": ">=18" }
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/cli.js"]
+    }
+  },
+  "user_config": {},
+  "tools_generated": true
+}

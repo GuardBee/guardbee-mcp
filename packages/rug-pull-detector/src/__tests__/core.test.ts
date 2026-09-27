@@ -63,6 +63,7 @@ describe("baselineServer + checkServer — gerçek stdio MCP server round trip",
     expect(driftFinding?.severity).toBe("critical");
     expect(driftFinding?.toolName).toBe("get_weather");
     expect(driftFinding?.detail).toContain("id_rsa");
+    expect(result.catalogFindings.map((finding) => finding.patternId)).toContain("sensitive_file_exfil_instruction");
   }, 15000);
 
   it("baseline'daki bir tool artık sunulmuyorsa tool_removed bulgusu üretir", async () => {

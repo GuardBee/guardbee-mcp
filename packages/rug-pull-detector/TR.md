@@ -25,6 +25,8 @@ Claude ──► rug-pull-detector ──► (spawn eder / bağlanır) ──►
 
 `baseline_server` bir kez bağlanıp her tool'un `{name, description, inputSchema, outputSchema, annotations}`'ını çekiyor, canonicalize ediyor (deep key-sıralı JSON) ve bir SHA-256 hash'i artı tam snapshot'ı saklıyor — server başına `.guardbee/tool-baselines/` altında bir JSON dosyası.
 
+Her `check_server` canlı `tools/list` üzerinde tool-poisoning katalog taramasını da çalıştırır. Bu, sunucu ilk kez görülürken ve henüz baseline yokken de geçerlidir. Zehirli bir açıklama ikinci ziyareti beklemez.
+
 `check_server` daha sonra tekrar bağlanıyor — bir version bump'tan sonra, her session'dan önce, bir schedule'da, seçtiğiniz herhangi bir sıklıkta — ve aynı bilgiyi yeniden çekiyor. Hash'i artık eşleşmeyen herhangi bir tool raporlanıyor:
 
 - **critical** — *var olan* bir tool'un tanımı değişti (`tool_definition_drift`). Rug pull'un kendisi bu. Bulgu tam olarak hangi alanın değiştiğini (description / input schema / output schema / annotations) önce/sonra description metniyle birlikte söylüyor, çünkü `destructiveHint: true → false` de yeniden yazılmış bir description kadar bir yalan — ikisi de çağıranın neyi onayladığına inandığı şeyi değiştiriyor.

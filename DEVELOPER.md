@@ -10,6 +10,14 @@ GuardBee's MCP servers live in a single monorepo and are published as independen
 
 `@guardbee/mcp-dependency-auditor` scans npm and pip manifests against OSV: `package.json` / lockfile, and `requirements.txt` / `pyproject.toml`. It does not parse `Cargo.toml` or `Cargo.lock`. Single-package queries (`audit_package` / `audit-pkg`) also accept the ecosystems `npm`, `PyPI`, `crates.io`, `Maven`, `Go`, and `RubyGems`. `crates.io` is that single-package query, not a Cargo project scan.
 
+## Client config and runtime guards
+
+`@guardbee/mcp-config-auditor` reads Cursor, Claude Desktop, Windsurf, and VS Code MCP configs locally. It flags unpinned launcher packages, typosquats of known server packages, secrets in `env`/`args`, `autoApprove: "*"`, and non-loopback endpoints without auth. Cross-server tool shadowing is a separate inventory check because a config file does not list tools.
+
+`@guardbee/mcp-tool-poisoning-scanner` also scans parameter descriptions, enum values, bidirectional overrides, ANSI escapes, mixed-script text, encoded blobs, and `readOnlyHint` that contradicts a destructive description. `scanToolCatalog` applies those checks to a live `tools/list`. `@guardbee/mcp-rug-pull-detector` runs that scan on every check, including the first time a server is seen.
+
+`@guardbee/mcp-security-proxy` scans tool results for indirect prompt injection and pins the first `tools/list` in the session. In block mode a changed tool keeps its pinned definition on `tools/list` and the drifted call is refused. `PROXY_RESULT_CHECK`, `PROXY_DRIFT_CHECK`, and `PROXY_MODE` control the new checks. Findings are tagged with OWASP MCP Top 10 identifiers (`MCP01:2025` through `MCP07:2025` for the checks these packages cover).
+
 ## Recent Changes (2026-09-26, cont'd 4)
 
 Follow-up to the dogfooding pass below: went further on `secret-scanner`'s doc/placeholder noise, since the first suppression-comment fix alone only cut findings 28% (1,623 → 1,162) against `IBM/mcp-context-forge` — the fork's own report had flagged this as still noisy, and sampling the actual remaining findings turned up three more concrete, fixable patterns rather than vague "noise":

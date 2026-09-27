@@ -10,6 +10,14 @@ GuardBee MCP server'ları tek bir monorepo'da yaşar ve bağımsız npm paketler
 
 `@guardbee/mcp-dependency-auditor` OSV'ye karşı npm ve pip manifestlerini tarar: `package.json` / lockfile, ve `requirements.txt` / `pyproject.toml`. `Cargo.toml` veya `Cargo.lock` ayrıştırmaz. Tek paket sorguları (`audit_package` / `audit-pkg`) ayrıca `npm`, `PyPI`, `crates.io`, `Maven`, `Go` ve `RubyGems` ekosistemlerini kabul eder. `crates.io` bu tek paket sorgusudur; bir Cargo proje taraması değildir.
 
+## İstemci config'i ve çalışma anı korumaları
+
+`@guardbee/mcp-config-auditor` Cursor, Claude Desktop, Windsurf ve VS Code MCP config'lerini yerelde okur. Sabitlenmemiş paket, bilinen paketlere typosquat, `env`/`args` içindeki secret, `autoApprove: "*"` ve kimlik doğrulamasız uzak uçları işaretler. Sunucular arası tool gölgelemesi ayrı bir envanter kontrolüdür; config dosyası tool listesi içermez.
+
+`@guardbee/mcp-tool-poisoning-scanner` parametre açıklamalarını, enum değerlerini, bidi override, ANSI, karışık alfabe, kodlanmış blok ve yıkıcı açıklamayla çelişen `readOnlyHint` değerini de tarar. `scanToolCatalog` bunları canlı `tools/list` üzerinde çalıştırır. `@guardbee/mcp-rug-pull-detector` her kontrolde, sunucu ilk kez görülürken de, bu taramayı yapar.
+
+`@guardbee/mcp-security-proxy` tool sonuçlarında dolaylı prompt injection arar ve oturumun ilk `tools/list` yanıtını sabitler. Block modunda değişen tool'un eski tanımı sunulur ve kaymış çağrı reddedilir. `PROXY_RESULT_CHECK`, `PROXY_DRIFT_CHECK` ve `PROXY_MODE` yeni kontrolleri yönetir. Bu kontrollerin bulguları OWASP MCP Top 10 etiketleri taşır.
+
 ## Son Değişiklikler (2026-09-26, devamı 4)
 
 Aşağıdaki dogfooding turunun devamı: `secret-scanner`'ın doc/placeholder gürültüsü üzerinde daha ileri gidildi, çünkü ilk suppression-comment düzeltmesi tek başına bulguları sadece %28 (1.623'ten 1.162'ye) düşürmüştü — fork'un kendi raporu bunu hâlâ gürültülü olarak işaretlemişti, ve kalan bulguları örnekleyerek belirsiz bir "gürültü" değil üç somut, düzeltilebilir kalıp bulundu:
