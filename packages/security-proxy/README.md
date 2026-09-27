@@ -60,11 +60,7 @@ Add to `claude_desktop_config.json`:
 
 ## MCP Tools
 
-The proxy transparently forwards tools from the target server, applying the interceptor chain on every pass-through. It also exposes one management tool:
-
-| Tool | Description |
-|------|----------|
-| `proxy_status` | Shows active interceptors and stats on the most recently blocked requests |
+The proxy does not register tools of its own. It forwards the target server's tools and applies the interceptor chain on every call.
 
 ---
 

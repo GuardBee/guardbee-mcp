@@ -13,6 +13,22 @@ function cleanVersion(v: string): string {
   return v.replace(/^[\^~>=<]+/, "").split(" ")[0] ?? v;
 }
 
+type LockPackage = {
+  version?: string;
+  dev?: boolean;
+  name?: string;
+  dependencies?: Record<string, LockPackage>;
+};
+
+/** Package name is the path after the last `node_modules/` segment (scoped names included). */
+function nameFromLockPath(pkgPath: string): string | null {
+  const marker = "node_modules/";
+  const idx = pkgPath.lastIndexOf(marker);
+  if (idx === -1) return null;
+  const name = pkgPath.slice(idx + marker.length);
+  return name || null;
+}
+
 export function parseNpmManifest(dir: string): Dependency[] {
   const manifestPath = join(dir, "package.json");
   if (!existsSync(manifestPath)) return [];
@@ -31,29 +47,25 @@ export function parseNpmManifest(dir: string): Dependency[] {
   if (existsSync(lockPath)) {
     try {
       const lock = JSON.parse(readFileSync(lockPath, "utf8")) as {
-        packages?: Record<string, { version: string; dev?: boolean }>;
-        dependencies?: Record<string, { version: string; dev?: boolean }>;
+        packages?: Record<string, LockPackage>;
+        dependencies?: Record<string, LockPackage>;
       };
 
       // v2/v3 lock format
       if (lock.packages) {
         for (const [pkgPath, info] of Object.entries(lock.packages)) {
-          if (!pkgPath || pkgPath === "") continue; // root
-          const name = pkgPath.replace(/^node_modules\//, "").replace(/\/node_modules\//g, "/");
-          if (info.version) {
+          if (!pkgPath) continue; // root
+          const name = info.name || nameFromLockPath(pkgPath);
+          if (name && info.version) {
             deps.push({ name, version: info.version, isDev: !!info.dev, source: "lockfile" });
           }
         }
         return deps;
       }
 
-      // v1 lock format
+      // v1 lock format (nested `dependencies` objects are transitive packages)
       if (lock.dependencies) {
-        for (const [name, info] of Object.entries(lock.dependencies)) {
-          if (info.version) {
-            deps.push({ name, version: info.version, isDev: !!info.dev, source: "lockfile" });
-          }
-        }
+        collectV1Dependencies(lock.dependencies, deps);
         return deps;
       }
     } catch {
@@ -81,4 +93,13 @@ export function parseNpmManifest(dir: string): Dependency[] {
   }
 
   return deps;
+}
+
+function collectV1Dependencies(tree: Record<string, LockPackage>, deps: Dependency[]): void {
+  for (const [name, info] of Object.entries(tree)) {
+    if (info.version) {
+      deps.push({ name, version: info.version, isDev: !!info.dev, source: "lockfile" });
+    }
+    if (info.dependencies) collectV1Dependencies(info.dependencies, deps);
+  }
 }

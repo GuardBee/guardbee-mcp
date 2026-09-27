@@ -26,7 +26,31 @@ function parseConfigFile(filePath: string): ProxyConfig | null {
   }
 }
 
-export function loadProxyConfig(): ProxyConfig {
+function envEnabled(name: string, defaultEnabled: boolean): boolean {
+  const value = process.env[name];
+  if (value === undefined) return defaultEnabled;
+  return !["0", "false", "off", "no"].includes(value.toLowerCase());
+}
+
+function runtimeFromEnv(): Pick<ProxyConfig, "audit" | "interceptors"> {
+  const sink = process.env["PROXY_LOG"] === "file" ? "file" : "console";
+  return {
+    audit: {
+      enabled: true,
+      sink,
+      filePath: process.env["PROXY_LOG_PATH"] ?? "./proxy-audit.jsonl",
+    },
+    interceptors: {
+      promptInjection: {
+        enabled: envEnabled("PROXY_INJECTION_CHECK", true),
+        action: process.env["PROXY_MODE"] === "warn" ? "warn" : "block",
+      },
+      piiMasking: { enabled: envEnabled("PROXY_PII_MASK", true) },
+    },
+  };
+}
+
+export function loadProxyConfig(argv: string[] = process.argv): ProxyConfig {
   // 1. Config file: GUARDBEE_PROXY_CONFIG env or ./guardbee-proxy.json
   const configPath =
     process.env["GUARDBEE_PROXY_CONFIG"] ??
@@ -35,30 +59,18 @@ export function loadProxyConfig(): ProxyConfig {
   const fileConfig = parseConfigFile(configPath);
   if (fileConfig) return fileConfig;
 
+  const runtime = runtimeFromEnv();
+
   // 2. CLI args: guardbee-proxy -- <command> [args]
-  const fromArgs = parseServerFromArgs(process.argv);
+  const fromArgs = parseServerFromArgs(argv);
   if (fromArgs) {
-    return {
-      server: fromArgs,
-      audit: { enabled: true, sink: "console" },
-      interceptors: {
-        promptInjection: { enabled: true, action: "block" },
-        piiMasking: { enabled: true },
-      },
-    };
+    return { server: fromArgs, ...runtime };
   }
 
   // 3. Env vars
   const fromEnv = parseServerFromEnv();
   if (fromEnv) {
-    return {
-      server: fromEnv,
-      audit: { enabled: true, sink: "console" },
-      interceptors: {
-        promptInjection: { enabled: true, action: "block" },
-        piiMasking: { enabled: true },
-      },
-    };
+    return { server: fromEnv, ...runtime };
   }
 
   throw new Error(

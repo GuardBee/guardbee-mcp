@@ -6,7 +6,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-dependency-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-dependency-auditor)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-An MCP server that audits npm, pip, and other package managers' dependencies against the [OSV](https://osv.dev) database for known CVEs. Ask Claude directly about your project's security posture.
+An MCP server that audits npm and pip manifests against the [OSV](https://osv.dev) database for known CVEs. A single-package lookup also covers PyPI, crates.io, Maven, Go, and RubyGems.
 
 > This package sends usage telemetry by default (tool name + short parameters — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
 
@@ -20,7 +20,7 @@ An MCP server that audits npm, pip, and other package managers' dependencies aga
 - **Severity Scoring** — Critical / High / Medium / Low based on CVSS score or a text heuristic
 - **Fix Version** — an `upgrade to X@Y.Z.Z` recommendation when available
 - **CVE Links** — direct links to NVD or osv.dev
-- **20 Unit Tests** — 100% passing test suite
+- **24 Unit Tests** — 100% passing test suite
 
 ---
 

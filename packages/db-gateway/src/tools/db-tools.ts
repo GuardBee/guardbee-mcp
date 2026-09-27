@@ -38,6 +38,18 @@ function formatResult(result: Awaited<ReturnType<GatewayPipeline["process"]>>): 
   );
 }
 
+/** Global deny and role allow/deny, matching list_tables. Null when the table may be described. */
+export function describeTableAccessError(
+  config: GatewayConfig,
+  pipeline: GatewayPipeline,
+  table: string,
+): string | null {
+  const tableRule = config.tableRules.find((r) => r.table === table);
+  if (tableRule?.access === "deny") return `Table '${table}' is not accessible.`;
+  if (!pipeline.filterTables([table]).includes(table)) return `Table '${table}' is not accessible.`;
+  return null;
+}
+
 export function registerDbTools(
   server: McpServer,
   config: GatewayConfig,
@@ -104,12 +116,13 @@ export function registerDbTools(
     "Get the column names and gateway masking policy for a table — helps the LLM understand what data it can access.",
     { table: z.string().describe("Table name") },
     async ({ table }) => {
-      const tableRule = config.tableRules.find((r) => r.table === table);
-      if (tableRule?.access === "deny") {
+      const denied = describeTableAccessError(config, pipeline, table);
+      if (denied) {
         return {
-          content: [{ type: "text", text: JSON.stringify({ error: `Table '${table}' is not accessible.` }) }],
+          content: [{ type: "text", text: JSON.stringify({ error: denied }) }],
         };
       }
+      const tableRule = config.tableRules.find((r) => r.table === table);
 
       // Sample 1 row to infer schema + show masking policy
       const sampleRows = await db.query(table, {}, 1);

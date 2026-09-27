@@ -37,6 +37,8 @@ export interface CheckResult {
   target: string;
   toolCount: number;
   isNewBaseline: boolean;
+  /** True when autoBaseline is off and no baseline exists. Nothing was saved. */
+  missingBaseline: boolean;
   findings: DriftFinding[];
 }
 
@@ -51,20 +53,35 @@ export async function checkServer(
   const { tools, serverInfo } = await connectAndListTools(target);
 
   if (!existing) {
-    if (options.autoBaseline !== false) {
-      const now = new Date().toISOString();
-      saveBaseline(baseDir, {
+    if (options.autoBaseline === false) {
+      return {
         serverId,
         target: label,
-        serverInfo,
-        capturedAt: now,
-        tools: Object.fromEntries(tools.map((t) => [t.name, { hash: hashTool(t), firstSeen: now, snapshot: t }])),
-      });
+        toolCount: tools.length,
+        isNewBaseline: false,
+        missingBaseline: true,
+        findings: [],
+      };
     }
-    return { serverId, target: label, toolCount: tools.length, isNewBaseline: true, findings: [] };
+    const now = new Date().toISOString();
+    saveBaseline(baseDir, {
+      serverId,
+      target: label,
+      serverInfo,
+      capturedAt: now,
+      tools: Object.fromEntries(tools.map((t) => [t.name, { hash: hashTool(t), firstSeen: now, snapshot: t }])),
+    });
+    return { serverId, target: label, toolCount: tools.length, isNewBaseline: true, missingBaseline: false, findings: [] };
   }
 
-  return { serverId, target: label, toolCount: tools.length, isNewBaseline: false, findings: diffTools(existing, tools) };
+  return {
+    serverId,
+    target: label,
+    toolCount: tools.length,
+    isNewBaseline: false,
+    missingBaseline: false,
+    findings: diffTools(existing, tools),
+  };
 }
 
 export { listBaselines };

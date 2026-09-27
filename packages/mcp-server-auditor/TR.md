@@ -90,7 +90,7 @@ mcp-server-auditor:
   fail-on: high       # any | critical | high | medium | low | none
   max-files: 5000
   exclude:
-    - "**/*.test.ts"
+    - ".test.ts"
     - "fixtures/"
 ```
 

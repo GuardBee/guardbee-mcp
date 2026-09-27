@@ -104,7 +104,7 @@ agent-graph-auditor:
   fail-on: high       # any | critical | high | medium | none
   max-files: 2000
   exclude:
-    - "**/*.test.py"
+    - ".test.py"
 ```
 
 ---

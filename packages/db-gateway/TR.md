@@ -32,7 +32,7 @@ Claude ──► MCP Gateway ──► Veritabanı
 - **Audit Log** — Console, dosya veya HTTP webhook'a yazılabilir
 - **Prisma / Postgres / MySQL / SQLite / MongoDB Adaptörleri** — Mevcut PrismaClient'ı, `pg` Pool'unu, `mysql2` Pool'unu, `better-sqlite3` Database'ini veya bir MongoDB `Db`'sini doğrudan bağlayın
 - **Yazma Desteği (opsiyonel)** — insert/update/delete, varsayılan kapalı; tablo+rol bazlı izin, korumalı alan koruması ve "tüm tabloyu etkileme" güvenlik ağı ile
-- **193 unit test** — Masker, pipeline, RBAC, rate limiter, audit log ve tüm adaptörler (okuma + yazma) kapsanmış
+- **195 unit test** — Masker, pipeline, RBAC, rate limiter, audit log ve tüm adaptörler (okuma + yazma) kapsanmış
 
 ---
 
@@ -367,7 +367,7 @@ PrismaClient'ı doğrudan geçirin — tablo adı → model eşleştirmesi otoma
 ```bash
 npm run dev          # tsx ile geliştirme modu
 npm run build        # TypeScript derleme
-npm test             # 193 unit test
+npm test             # 195 unit test
 npm run test:watch   # İzleme modu
 npm run type-check   # Sadece tip kontrolü
 ```

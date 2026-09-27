@@ -83,6 +83,10 @@ function resolveTarget(parsed: ParsedArgs): { target: ConnectionTarget; label: s
 }
 
 function printCheckResult(result: CheckResult): void {
+  if (result.missingBaseline) {
+    console.error(`No baseline stored for "${result.target}". Capture one with the baseline command first, or omit --no-auto-baseline.`);
+    return;
+  }
   if (result.isNewBaseline) {
     console.log(`📌 No prior baseline for "${result.target}" — captured one now (${result.toolCount} tool(s)).`);
     console.log(`   Run 'check' again after this server's next release/update to detect drift.`);
@@ -127,6 +131,17 @@ async function runCheck(args: string[]): Promise<void> {
   const parsed = parseArgs(args);
   const { target, label } = resolveTarget(parsed);
   const result = await checkServer(target, label, parsed.baselineDir, { autoBaseline: parsed.autoBaseline });
+
+  if (result.missingBaseline) {
+    if (parsed.format === "json") {
+      console.log(JSON.stringify(result, null, 2));
+    } else if (parsed.format === "sarif") {
+      console.log(JSON.stringify(buildSarif(getVersion(), result.target, result.findings), null, 2));
+    } else {
+      printCheckResult(result);
+    }
+    process.exit(2);
+  }
 
   if (parsed.format === "json") {
     console.log(JSON.stringify(result, null, 2));
@@ -178,7 +193,7 @@ Options:
 Exit codes (check):
   0  No drift (or none above --fail-on threshold), or a new baseline was just captured
   1  Drift found at or above threshold
-  2  Error / bad arguments
+  2  Error / bad arguments, or --no-auto-baseline when no baseline is stored
 `);
 }
 

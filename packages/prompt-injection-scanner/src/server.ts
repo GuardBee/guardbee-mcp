@@ -76,7 +76,7 @@ export async function startServer() {
     "Recursively scan a directory — e.g. a RAG knowledge base or a corpus of scraped pages — for indirect prompt injection payloads. Automatically skips node_modules, .git, dist, and binary files.",
     {
       path: z.string().describe("Absolute or relative path to the directory to scan"),
-      maxFiles: z.number().optional().describe("Maximum number of files to scan (default: 5000)"),
+      maxFiles: z.number().int().positive().optional().describe("Maximum number of files to scan (default: 5000)"),
       include: z
         .array(z.string())
         .optional()

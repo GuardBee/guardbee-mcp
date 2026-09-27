@@ -55,7 +55,7 @@ API anahtarınızı [app.guardbee.ai/developers](https://app.guardbee.ai/develop
 
 | Tool | API Anahtarı | Açıklama |
 |------|:------------:|----------|
-| `check_compliance` | Gerekli | URL veya brand ID için uyum taraması başlatır (KVKK/GDPR/CCPA) |
+| `check_compliance` | Gerekli | Bir URL için uyum taraması başlatır (KVKK/GDPR/CCPA) |
 | `get_compliance_findings` | Gerekli | Tarama bulgularını çerçeve ve severity filtresiyle getirir |
 | `analyze_privacy_policy` | Hayır | Gizlilik politikası URL'sini analiz eder; puan, not ve eksik maddeler |
 | `list_requirements` | Hayır | Desteklenen çerçeveler için yasal gereksinimleri listeler |

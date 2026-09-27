@@ -51,8 +51,7 @@ export async function startServer() {
                 `   Scan ID : ${scan.id}`,
                 `   URL     : ${url}`,
                 ``,
-                `Use get_compliance_status with scanId="${scan.id}" to check progress.`,
-                `Use get_compliance_findings with scanId="${scan.id}" once complete.`,
+                `Call get_compliance_findings with scanId="${scan.id}" once the scan has finished.`,
               ].join("\n"),
             }],
           };
@@ -83,7 +82,7 @@ export async function startServer() {
     "get_compliance_findings",
     "Get compliance findings from a completed GuardBee scan, optionally filtered by severity",
     {
-      scanId: z.string().describe("Scan ID from check_compliance or start_scan"),
+      scanId: z.string().describe("Scan ID returned by check_compliance"),
       framework: z.enum(FRAMEWORK_ENUM).optional().describe("Framework label for the report header"),
       severity: z.enum(["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]).optional().describe("Filter by severity"),
     },

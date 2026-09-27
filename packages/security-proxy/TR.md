@@ -60,11 +60,7 @@ npm install -g @guardbee/mcp-security-proxy
 
 ## MCP Tools
 
-Proxy, tool'ları hedef sunucudan şeffaf olarak aktarır ve her geçişte interceptor zincirini uygular. Ek olarak aşağıdaki yönetim tool'unu sunar:
-
-| Tool | Açıklama |
-|------|----------|
-| `proxy_status` | Aktif interceptor'ları ve son engellenen istek istatistiklerini gösterir |
+Proxy kendi tool'unu kaydetmez. Hedef sunucunun tool'larını iletir ve her çağrıda interceptor zincirini uygular.
 
 ---
 

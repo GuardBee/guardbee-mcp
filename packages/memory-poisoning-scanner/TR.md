@@ -92,7 +92,7 @@ memory-poisoning-scanner:
   fail-on: high       # any | critical | high | medium | none
   max-files: 5000
   exclude:
-    - "**/*.test.ts"
+    - ".test.ts"
 ```
 
 ---

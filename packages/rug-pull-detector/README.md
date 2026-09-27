@@ -41,7 +41,7 @@ If no baseline exists yet, `check_server` captures one automatically and reports
 - Canonical hashing covers name, description, input schema, output schema, **and** annotations (`readOnlyHint`, `destructiveHint`, ...) — a server can't dodge detection by only touching the fields a naive diff would skip.
 - Three ways to specify a target: `--stdio="command arg1 arg2"`, `--url=<http-url>`, or `--config=<file> --server=<name>` (reads an `mcpServers`-style JSON config directly — the same shape as a Claude Desktop config)
 - SARIF 2.1.0 output — CI/CD integration
-- 27 tests: pure unit tests for hashing/diffing/storage, plus **real stdio process-spawning integration tests** against a fixture MCP server (not mocked) covering drift, addition, removal, and label isolation. End-to-end verified against `ai-code-scanner`'s own real, already-published MCP server — connected over genuine stdio JSON-RPC, baselined its 4 real tools, and confirmed a second check reports clean.
+- 28 tests: pure unit tests for hashing/diffing/storage, plus **real stdio process-spawning integration tests** against a fixture MCP server (not mocked) covering drift, addition, removal, and label isolation. End-to-end verified against `ai-code-scanner`'s own real, already-published MCP server — connected over genuine stdio JSON-RPC, baselined its 4 real tools, and confirmed a second check reports clean.
 
 ---
 
@@ -103,7 +103,7 @@ No `guardbee.yml` section — the only persistent state is the baseline director
 
 ```bash
 npm run build
-npm test             # 27 tests
+npm test             # 28 tests
 ```
 
 ---

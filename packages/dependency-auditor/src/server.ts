@@ -134,7 +134,7 @@ export async function startServer() {
 
   server.tool(
     "audit_directory",
-    "Auto-detect and audit all supported manifests (package.json, requirements.txt) in a directory",
+    "Auto-detect and audit npm and pip manifests (package.json, requirements.txt, pyproject.toml) in a directory",
     {
       directory: z.string().describe("Path to the project root directory"),
       includeDevDeps: z.boolean().optional().describe("Include dev dependencies for npm (default: false)"),
