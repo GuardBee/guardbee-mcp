@@ -45,6 +45,14 @@ function runtimeFromEnv(): Pick<ProxyConfig, "audit" | "interceptors"> {
         enabled: envEnabled("PROXY_INJECTION_CHECK", true),
         action: process.env["PROXY_MODE"] === "warn" ? "warn" : "block",
       },
+      toolResultInjection: {
+        enabled: envEnabled("PROXY_RESULT_CHECK", true),
+        action: process.env["PROXY_MODE"] === "warn" ? "warn" : "block",
+      },
+      definitionDrift: {
+        enabled: envEnabled("PROXY_DRIFT_CHECK", true),
+        action: process.env["PROXY_MODE"] === "warn" ? "warn" : "block",
+      },
       piiMasking: { enabled: envEnabled("PROXY_PII_MASK", true) },
     },
   };

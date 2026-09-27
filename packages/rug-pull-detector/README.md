@@ -25,6 +25,8 @@ Claude ──► rug-pull-detector ──► (spawns / connects to) ──► Ta
 
 `baseline_server` connects once, fetches every tool's `{name, description, inputSchema, outputSchema, annotations}`, canonicalizes it (deep key-sorted JSON) and stores a SHA-256 hash plus the full snapshot — one JSON file per server under `.guardbee/tool-baselines/`.
 
+Every `check_server` also runs the tool-poisoning catalog scan on the live `tools/list`, including the first time a server is seen and when no baseline is stored yet. A poisoned description does not wait for a second visit.
+
 `check_server` connects again later — after a version bump, before every session, on a schedule, whatever cadence you choose — and re-fetches the same information. Any tool whose hash no longer matches is reported:
 
 - **critical** — an *existing* tool's definition changed (`tool_definition_drift`). This is the rug pull itself. The finding says exactly which field changed (description / input schema / output schema / annotations) with the before/after description text, because `destructiveHint: true → false` is just as much a lie as a rewritten description — both change what a caller believes they're authorizing.

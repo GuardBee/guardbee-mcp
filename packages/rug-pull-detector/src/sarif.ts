@@ -1,5 +1,3 @@
-import type { DriftFinding } from "./diff.js";
-
 interface SarifRule {
   id: string;
   shortDescription: { text: string };
@@ -15,13 +13,22 @@ interface SarifResult {
   locations: Array<{ physicalLocation: { artifactLocation: { uri: string } } }>;
 }
 
-function severityToLevel(sev: DriftFinding["severity"]): "error" | "warning" | "note" {
-  if (sev === "critical") return "error";
+function severityToLevel(sev: string): "error" | "warning" | "note" {
+  if (sev === "critical" || sev === "high") return "error";
   if (sev === "medium") return "warning";
   return "note";
 }
 
-export function buildSarif(toolVersion: string, target: string, findings: DriftFinding[]): object {
+export interface SarifFinding {
+  patternId: string;
+  patternName: string;
+  severity: string;
+  recommendation: string;
+  detail: string;
+  tags?: string[];
+}
+
+export function buildSarif(toolVersion: string, target: string, findings: SarifFinding[]): object {
   const rulesMap = new Map<string, SarifRule>();
   const results: SarifResult[] = [];
 
@@ -32,7 +39,7 @@ export function buildSarif(toolVersion: string, target: string, findings: DriftF
         shortDescription: { text: f.patternName },
         fullDescription: { text: f.recommendation },
         helpUri: "https://guardbee.ai/docs/rug-pull-detector",
-        properties: { "problem.severity": f.severity, tags: ["security", "mcp-security", "ai-security", "rug-pull"] },
+        properties: { "problem.severity": f.severity, tags: ["security", "mcp-security", "ai-security", ...(f.tags ?? ["rug-pull"])] },
       });
     }
     results.push({

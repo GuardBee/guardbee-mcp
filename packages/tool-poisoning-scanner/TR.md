@@ -27,7 +27,10 @@ Bir tool'un `description`'ı, bir insanın server'ı kurmadan önce okuduğu dok
 
 ## Özellikler
 
-- **7 description-injection kalıbı**: instruction override, "always call first" priming, gizli "don't tell the user" talimatları, system-prompt tarzı otorite işaretleri (`<IMPORTANT>`, `SYSTEM:`), hassas dosya exfiltration talimatları, zero-width gizli karakterler, çapraz-tool manipülasyon talimatları
+- **7 description-injection kalıbı**: instruction override, "always call first" priming, gizli "don't tell the user" talimatları, system-prompt tarzı otorite işaretleri (`<IMPORTANT>`, `SYSTEM:`), hassas dosya exfiltration talimatları, zero-width gizli karakterler, bidi override, ANSI kaçışı ve çapraz-tool manipülasyon talimatları
+- **Aynı metinde obfuscation**: karışık Latin/Kiril/Yunan alfabesi ve uzun kodlanmış bloklar; parametre `.describe()` string'leri ile JSON Schema `description` / `enum` değerleri dahil
+- **Annotation yalanı**: yıkıcı bir açıklamanın yanında `readOnlyHint: true`
+- **Canlı katalog**: `scanToolCatalog` bir `tools/list` yüküne bakar; `rug-pull-detector` her kontrolde bunu çağırır
 - **4 confused-deputy sink kategorisi**: process-execution, code-execution, filesystem-write, credentials-exposure — sadece isim/description'ı read-only ima eden tool'lara karşı kontrol ediliyor
 - Sınırlı, bir-sonraki-tool'dan-haberdar extraction — tool B'nin handler'ındaki bir sink asla tool A'ya yanlış atfedilmiyor
 - SARIF 2.1.0 çıktısı — CI/CD entegrasyonu (GitHub Code Scanning vb.)

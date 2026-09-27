@@ -1,6 +1,7 @@
 import { readFileSync, statSync, readdirSync } from "fs";
 import { join, relative, extname } from "path";
-import { DESCRIPTION_INJECTION_PATTERNS, MISMATCH_SINK_RULES, READ_ONLY_HINT } from "./patterns.js";
+import { annotationContradicts, matchSurface } from "./catalog.js";
+import { MISMATCH_SINK_RULES, READ_ONLY_HINT } from "./patterns.js";
 
 export interface Finding {
   patternId: string;
@@ -8,6 +9,8 @@ export interface Finding {
   category: string;
   severity: "critical" | "high" | "medium";
   recommendation: string;
+  /** OWASP MCP Top 10 tag. Present on findings produced by the current rules. */
+  owasp?: string;
   file?: string;
   line: number;
   column: number;
@@ -85,6 +88,20 @@ export function extractToolBlocks(text: string): ToolBlock[] {
   });
 }
 
+function extractSchemaStrings(body: string): Array<{ text: string; index: number }> {
+  const out: Array<{ text: string; index: number }> = [];
+  const re = /(?:\.describe\(\s*|description\s*:\s*)(["'`])((?:\\.|(?!\1)[^\\])*)\1/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(body)) !== null) {
+    const content = match[2] ?? "";
+    const contentAt = match[0].lastIndexOf(content);
+    if (contentAt < 0) continue;
+    out.push({ text: content, index: match.index + contentAt });
+    if (match.index === re.lastIndex) re.lastIndex++;
+  }
+  return out;
+}
+
 function locationOf(text: string, absoluteIndex: number): { line: number; column: number } {
   const before = text.slice(0, absoluteIndex);
   const line = before.split("\n").length;
@@ -98,29 +115,47 @@ export function scanText(text: string, filePath?: string): Finding[] {
   const blocks = extractToolBlocks(text);
 
   for (const block of blocks) {
-    // ── Check 1: description-embedded injection ──────────────────────────────
-    if (block.description) {
-      for (const p of DESCRIPTION_INJECTION_PATTERNS) {
-        const re = new RegExp(p.pattern.source, p.pattern.flags.includes("g") ? p.pattern.flags : p.pattern.flags + "g");
-        let dm: RegExpExecArray | null;
-        while ((dm = re.exec(block.description)) !== null) {
-          const absoluteIndex = block.descriptionOffset + dm.index;
-          const { line, column } = locationOf(text, absoluteIndex);
-          findings.push({
-            patternId: p.id,
-            patternName: p.name,
-            category: "description-injection",
-            severity: p.severity,
-            recommendation: p.recommendation,
-            file: filePath,
-            line,
-            column,
-            match: `tool "${block.name}": ${dm[0].trim().slice(0, MAX_CONTEXT_LENGTH)}`,
-            context: block.description.trim().slice(0, MAX_CONTEXT_LENGTH),
-          });
-          if (dm.index === re.lastIndex) re.lastIndex++;
-        }
+    // ── Check 1: description, parameter descriptions, and enum values ────────
+    const surfaces: Array<{ text: string; index: number; field: string }> = [];
+    if (block.description) surfaces.push({ text: block.description, index: block.descriptionOffset, field: "description" });
+    for (const schema of extractSchemaStrings(block.body)) {
+      surfaces.push({ text: schema.text, index: block.offset + schema.index, field: "parameter" });
+    }
+    for (const surface of surfaces) {
+      for (const hit of matchSurface(surface.text)) {
+        const { line, column } = locationOf(text, surface.index + hit.index);
+        findings.push({
+          patternId: hit.patternId,
+          patternName: hit.patternName,
+          category: hit.category,
+          severity: hit.severity,
+          recommendation: hit.recommendation,
+          owasp: hit.owasp,
+          file: filePath,
+          line,
+          column,
+          match: `tool "${block.name}" ${surface.field}: ${hit.match.trim().slice(0, MAX_CONTEXT_LENGTH)}`,
+          context: surface.text.trim().slice(0, MAX_CONTEXT_LENGTH),
+        });
       }
+    }
+
+    if (block.description && /readOnlyHint\s*:\s*true/.test(block.body) && annotationContradicts(block.description)) {
+      const { line, column } = locationOf(text, block.descriptionOffset);
+      findings.push({
+        patternId: "annotation_readonly_lie",
+        patternName: `Confused deputy: "${block.name}" sets readOnlyHint but the description mutates or executes`,
+        category: "confused-deputy",
+        severity: "high",
+        recommendation:
+          "readOnlyHint: true tells a client this tool will not change state. A description that deletes, drops, or executes contradicts that annotation.",
+        owasp: "MCP03:2025",
+        file: filePath,
+        line,
+        column,
+        match: `tool "${block.name}": ${block.description.trim().slice(0, MAX_CONTEXT_LENGTH)}`,
+        context: block.description.trim().slice(0, MAX_CONTEXT_LENGTH),
+      });
     }
 
     // ── Check 2: confused deputy (promised read-only vs. actual sink) ────────
@@ -142,6 +177,7 @@ export function scanText(text: string, filePath?: string): Finding[] {
         category: "confused-deputy",
         severity: rule.severity,
         recommendation: rule.recommendation,
+        owasp: "MCP03:2025",
         file: filePath,
         line,
         column,

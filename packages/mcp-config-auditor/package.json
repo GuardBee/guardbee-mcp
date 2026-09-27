@@ -1,10 +1,10 @@
 {
-  "name": "@guardbee/mcp-rug-pull-detector",
+  "name": "@guardbee/mcp-config-auditor",
   "version": "0.1.0",
-  "description": "MCP server that connects to another MCP server (stdio or Streamable HTTP), baselines its tools/list response, and detects 'rug pulls' — a tool silently changing description, schema, or annotations after it was already approved",
+  "description": "MCP server that audits installed MCP client configs (Cursor, Claude Desktop, Windsurf, VS Code) for unpinned packages, secrets in env/args, wildcard auto-approve, unauthenticated remote endpoints, typosquats, and cross-server tool shadowing",
   "type": "module",
   "bin": {
-    "guardbee-rug-pull-detector": "./dist/cli.js"
+    "guardbee-mcp-config-auditor": "./dist/cli.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -28,17 +28,15 @@
   },
   "dependencies": {
     "@guardbee/mcp-telemetry": "workspace:^",
-    "@guardbee/mcp-tool-poisoning-scanner": "workspace:^",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "zod": "^4.5.4"
   },
   "keywords": [
     "mcp",
     "security",
-    "ai-security",
     "mcp-security",
-    "rug-pull",
-    "tool-drift",
+    "ai-security",
+    "supply-chain",
     "guardbee",
     "devtools"
   ],
@@ -46,6 +44,6 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/GuardBee/guardbee-mcp.git",
-    "directory": "packages/rug-pull-detector"
+    "directory": "packages/mcp-config-auditor"
   }
 }

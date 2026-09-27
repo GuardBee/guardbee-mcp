@@ -10,6 +10,8 @@ const ENV_KEYS = [
   "PROXY_LOG_PATH",
   "PROXY_PII_MASK",
   "PROXY_INJECTION_CHECK",
+  "PROXY_RESULT_CHECK",
+  "PROXY_DRIFT_CHECK",
 ] as const;
 
 const saved: Record<string, string | undefined> = {};
@@ -39,6 +41,8 @@ describe("loadProxyConfig", () => {
     expect(cfg.server).toEqual({ command: "npx", args: ["some-server", "--flag"] });
     expect(cfg.audit).toEqual({ enabled: true, sink: "file", filePath: "/tmp/audit.jsonl" });
     expect(cfg.interceptors?.promptInjection).toEqual({ enabled: false, action: "warn" });
+    expect(cfg.interceptors?.toolResultInjection).toEqual({ enabled: true, action: "warn" });
+    expect(cfg.interceptors?.definitionDrift).toEqual({ enabled: true, action: "warn" });
     expect(cfg.interceptors?.piiMasking).toEqual({ enabled: false });
   });
 });

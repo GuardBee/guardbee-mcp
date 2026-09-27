@@ -57,9 +57,23 @@ export const DESCRIPTION_INJECTION_PATTERNS: DescriptionInjectionPattern[] = [
   {
     id: "hidden_zero_width_in_description",
     name: "Description contains zero-width characters invisible to a human reviewer",
-    pattern: /[\u200B\u2060]/,
+    pattern: /[\u200B-\u200D\u2060\uFEFF]/,
     severity: "high",
     recommendation: "Zero-width characters in a tool description are invisible when a human reviews the server's tool list in a UI, but are still read by the model. Their only realistic purpose here is hiding text from review.",
+  },
+  {
+    id: "hidden_bidi_in_description",
+    name: "Description contains bidirectional override characters",
+    pattern: /[\u202A-\u202E\u2066-\u2069]/,
+    severity: "high",
+    recommendation: "Bidirectional overrides reorder how a description is displayed without changing the characters the model reads. A reviewer can see a different sentence than the one that reaches the model.",
+  },
+  {
+    id: "ansi_escape_in_description",
+    name: "Description contains an ANSI escape sequence",
+    pattern: /\u001b\[[0-9;]*[A-Za-z]/,
+    severity: "high",
+    recommendation: "ANSI escapes can hide or recolor text in a terminal review of a tool list. Tool descriptions are data for the model, not a terminal UI.",
   },
   {
     id: "other_tools_manipulation_directive",

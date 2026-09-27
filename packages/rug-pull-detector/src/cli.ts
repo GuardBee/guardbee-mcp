@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { startServer } from "./server.js";
 import { baselineServer, checkServer, listBaselines } from "./core.js";
-import { buildSarif } from "./sarif.js";
+import { buildSarif, type SarifFinding } from "./sarif.js";
 import type { ConnectionTarget } from "./types.js";
 import type { CheckResult } from "./core.js";
 import { readFileSync } from "fs";
@@ -82,18 +82,55 @@ function resolveTarget(parsed: ParsedArgs): { target: ConnectionTarget; label: s
   throw new Error("Provide a target: --stdio=\"command arg1 arg2\", --url=<http-url>, or --config=<file> --server=<name>");
 }
 
+function sarifFindings(result: CheckResult): SarifFinding[] {
+  return [
+    ...result.findings.map((finding) => ({
+      patternId: finding.patternId,
+      patternName: finding.patternName,
+      severity: finding.severity,
+      recommendation: finding.recommendation,
+      detail: finding.detail,
+      tags: ["rug-pull"],
+    })),
+    ...result.catalogFindings.map((finding) => ({
+      patternId: finding.patternId,
+      patternName: finding.patternName,
+      severity: finding.severity,
+      recommendation: finding.recommendation,
+      detail: finding.match,
+      tags: ["tool-poisoning", finding.owasp],
+    })),
+  ];
+}
+
+function printCatalog(result: CheckResult): void {
+  if (result.catalogFindings.length === 0) return;
+  console.log("");
+  console.log(`⚠️  ${result.catalogFindings.length} live catalog finding(s) on the current tools/list:`);
+  for (const finding of result.catalogFindings) {
+    console.log(`🔴 [${finding.severity.toUpperCase()}] ${finding.patternName} (${finding.owasp})`);
+    console.log(`   Tool           : ${finding.toolName} ${finding.field}`);
+    console.log(`   Match          : ${finding.match}`);
+    console.log(`   Recommendation : ${finding.recommendation}`);
+    console.log("");
+  }
+}
+
 function printCheckResult(result: CheckResult): void {
   if (result.missingBaseline) {
     console.error(`No baseline stored for "${result.target}". Capture one with the baseline command first, or omit --no-auto-baseline.`);
+    printCatalog(result);
     return;
   }
   if (result.isNewBaseline) {
     console.log(`📌 No prior baseline for "${result.target}" — captured one now (${result.toolCount} tool(s)).`);
     console.log(`   Run 'check' again after this server's next release/update to detect drift.`);
+    printCatalog(result);
     return;
   }
   if (result.findings.length === 0) {
     console.log(`✅ No drift for "${result.target}" — ${result.toolCount} tool(s) match the stored baseline exactly.`);
+    printCatalog(result);
     return;
   }
 
@@ -101,7 +138,7 @@ function printCheckResult(result: CheckResult): void {
   for (const f of result.findings) counts[f.severity]++;
   const SEV_ICON: Record<string, string> = { critical: "🔴", medium: "🟡", low: "🔵" };
 
-  console.log(`⚠️  ${result.findings.length} finding(s) for "${result.target}" — Critical: ${counts.critical}  Medium: ${counts.medium}  Low: ${counts.low}`);
+  console.log(`⚠️  ${result.findings.length} drift finding(s) for "${result.target}" — Critical: ${counts.critical}  Medium: ${counts.medium}  Low: ${counts.low}`);
   console.log("");
   for (const f of result.findings) {
     console.log(`${SEV_ICON[f.severity]} [${f.severity.toUpperCase()}] ${f.patternName}`);
@@ -110,14 +147,19 @@ function printCheckResult(result: CheckResult): void {
     for (const line of f.detail.split("\n")) console.log(`     ${line}`);
     console.log("");
   }
+  printCatalog(result);
 }
 
 function shouldFail(result: CheckResult, failOn: string): boolean {
-  if (result.isNewBaseline || failOn === "none") return false;
-  if (failOn === "any") return result.findings.length > 0;
-  const RANK: Record<string, number> = { critical: 0, medium: 1, low: 2 };
-  const threshold = RANK[failOn] ?? 0;
-  return result.findings.some((f) => (RANK[f.severity] ?? 2) <= threshold);
+  if (failOn === "none") return false;
+  const rank: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+  const threshold = failOn === "any" ? 3 : (rank[failOn] ?? 0);
+  const driftFails = result.isNewBaseline || result.missingBaseline
+    ? false
+    : result.findings.some((finding) => (rank[finding.severity] ?? 3) <= threshold);
+  const catalogFails = result.catalogFindings.some((finding) => (rank[finding.severity] ?? 3) <= threshold);
+  if (failOn === "any") return (!result.isNewBaseline && !result.missingBaseline && result.findings.length > 0) || result.catalogFindings.length > 0;
+  return driftFails || catalogFails;
 }
 
 async function runBaseline(args: string[]): Promise<void> {
@@ -136,17 +178,17 @@ async function runCheck(args: string[]): Promise<void> {
     if (parsed.format === "json") {
       console.log(JSON.stringify(result, null, 2));
     } else if (parsed.format === "sarif") {
-      console.log(JSON.stringify(buildSarif(getVersion(), result.target, result.findings), null, 2));
+      console.log(JSON.stringify(buildSarif(getVersion(), result.target, sarifFindings(result)), null, 2));
     } else {
       printCheckResult(result);
     }
-    process.exit(2);
+    process.exit(shouldFail(result, parsed.failOn) ? 1 : 2);
   }
 
   if (parsed.format === "json") {
     console.log(JSON.stringify(result, null, 2));
   } else if (parsed.format === "sarif") {
-    console.log(JSON.stringify(buildSarif(getVersion(), result.target, result.findings), null, 2));
+    console.log(JSON.stringify(buildSarif(getVersion(), result.target, sarifFindings(result)), null, 2));
   } else {
     printCheckResult(result);
   }
