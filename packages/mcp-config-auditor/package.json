@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-config-auditor",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server that audits installed MCP client configs (Cursor, Claude Desktop, Windsurf, VS Code) for unpinned packages, secrets in env/args, wildcard auto-approve, unauthenticated remote endpoints, typosquats, and cross-server tool shadowing",
   "type": "module",
   "bin": {

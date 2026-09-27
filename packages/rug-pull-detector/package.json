@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-rug-pull-detector",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server that connects to another MCP server (stdio or Streamable HTTP), baselines its tools/list response, and detects 'rug pulls' — a tool silently changing description, schema, or annotations after it was already approved",
   "type": "module",
   "bin": {
