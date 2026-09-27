@@ -3,7 +3,9 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
 import { scanText, scanFile, scanDirectory } from "./scanner.js";
-import { AI_CODE_PATTERNS } from "./patterns.js";
+import { AI_CODE_PATTERNS, type AiCodePattern } from "./patterns.js";
+import { loadCustomPatterns } from "./custom-patterns.js";
+import { loadConfig } from "./config.js";
 import type { Finding } from "./scanner.js";
 
 function formatFindings(findings: Finding[], scannedFiles: number, durationMs: number): string {
@@ -32,12 +34,36 @@ function formatFindings(findings: Finding[], scannedFiles: number, durationMs: n
   return lines.join("\n");
 }
 
+/**
+ * Loads built-in + custom patterns once at server startup, from a rules dir
+ * resolved against the process's cwd (the MCP client launches this server
+ * with the project root as cwd). Scan tools take arbitrary target paths, so
+ * this can't be redone per-call the way the CLI resolves it per scan target.
+ */
+function loadServerPatterns(): { patterns: AiCodePattern[]; customCount: number; rulesDir?: string } {
+  const cfg = loadConfig(process.cwd());
+  if (!cfg.rulesDir) return { patterns: AI_CODE_PATTERNS, customCount: 0 };
+
+  const { patterns: custom, errors } = loadCustomPatterns(cfg.rulesDir);
+  for (const e of errors) process.stderr.write(`[guardbee-ai-code-scanner] ${e}\n`);
+  return {
+    patterns: [...AI_CODE_PATTERNS, ...custom],
+    customCount: custom.length,
+    rulesDir: cfg.rulesDir,
+  };
+}
+
 export async function startServer() {
   const server = new McpServer({
     name: "guardbee-ai-code-scanner",
     version: "0.1.0",
   });
   instrumentServer(server, "ai-code-scanner");
+
+  const { patterns, customCount, rulesDir } = loadServerPatterns();
+  if (customCount > 0) {
+    process.stderr.write(`[guardbee-ai-code-scanner] Loaded ${customCount} custom rule(s) from ${rulesDir}\n`);
+  }
 
   server.tool(
     "scan_text",
@@ -47,7 +73,7 @@ export async function startServer() {
       label: z.string().optional().describe("Optional label shown in findings (e.g. filename)"),
     },
     async ({ content, label }) => {
-      const findings = scanText(content, label);
+      const findings = scanText(content, label, patterns);
       return { content: [{ type: "text", text: formatFindings(findings, 1, 0) }] };
     }
   );
@@ -59,7 +85,7 @@ export async function startServer() {
       path: z.string().describe("Absolute or relative path to the file to scan"),
     },
     async ({ path: filePath }) => {
-      const { findings, skipped } = scanFile(filePath);
+      const { findings, skipped } = scanFile(filePath, patterns);
 
       if (skipped) {
         return {
@@ -87,26 +113,30 @@ export async function startServer() {
         .describe("Skip files/dirs whose path contains one of these strings"),
     },
     async ({ path: dirPath, maxFiles, include, exclude }) => {
-      const result = scanDirectory(dirPath, { maxFiles, include, exclude });
+      const result = scanDirectory(dirPath, { maxFiles, include, exclude, patterns });
       return { content: [{ type: "text", text: formatFindings(result.findings, result.scannedFiles, result.durationMs) }] };
     }
   );
 
   server.tool(
     "list_patterns",
-    "List all AI/LLM security patterns that the scanner can detect, grouped by category",
+    "List all AI/LLM security patterns that the scanner can detect, grouped by category (including any custom rules loaded from .guardbee/rules)",
     {},
     async () => {
+      const builtinIds = new Set(AI_CODE_PATTERNS.map((p) => p.id));
       const lines = ["Supported AI/LLM security patterns:\n"];
-      const byCategory = new Map<string, typeof AI_CODE_PATTERNS>();
-      for (const p of AI_CODE_PATTERNS) {
+      const byCategory = new Map<string, AiCodePattern[]>();
+      for (const p of patterns) {
         const list = byCategory.get(p.category) ?? [];
         list.push(p);
         byCategory.set(p.category, list);
       }
-      for (const [category, patterns] of byCategory) {
+      for (const [category, list] of byCategory) {
         lines.push(`[${category}]`);
-        for (const p of patterns) lines.push(`  • ${p.name} (${p.id}, ${p.severity})`);
+        for (const p of list) {
+          const origin = builtinIds.has(p.id) ? "" : " (custom)";
+          lines.push(`  • ${p.name} (${p.id}, ${p.severity})${origin}`);
+        }
         lines.push("");
       }
       return { content: [{ type: "text", text: lines.join("\n") }] };

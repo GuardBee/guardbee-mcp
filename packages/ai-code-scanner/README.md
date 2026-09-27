@@ -26,7 +26,8 @@ Claude ──► ai-code-scanner ──► Your codebase
 - Every finding includes **why it's risky and what to do about it** (`recommendation`) — not just "found it"
 - SARIF 2.1.0 output — CI/CD integration (GitHub Code Scanning, etc.)
 - Config file support via `guardbee.yml`
-- 28 unit tests — a positive and a negative (false-positive) scenario for every pattern
+- **Custom rule packs** — extend detection with org-specific patterns (KVKK/GDPR field names, internal tool names) via JSON files, no fork required
+- 36 unit tests — a positive and a negative (false-positive) scenario for every built-in pattern, plus custom-rule loading/validation
 
 ---
 
@@ -89,6 +90,7 @@ These are **heuristic** findings — a static text-pattern scan, not a full AST 
 ai-code-scanner:
   fail-on: high       # any | critical | high | medium | low | none
   max-files: 5000
+  rules-dir: .guardbee/rules   # custom rule packs, see below
   exclude:
     - ".test.ts"
     - "fixtures/"
@@ -96,11 +98,42 @@ ai-code-scanner:
 
 ---
 
+## Custom rules
+
+Built-in patterns cover common AI/LLM integration mistakes, but field names and
+internal conventions (e.g. which prop names carry KVKK-regulated data) are
+project-specific. Drop one or more JSON files into `.guardbee/rules/`
+(configurable via `rules-dir`) and they're merged with the built-ins at scan
+time — for both the CLI and the MCP server (`list_patterns` marks them `(custom)`).
+
+A file holds a single rule object or an array of them:
+
+```json
+{
+  "id": "kvkk_musteri_tc_no",
+  "name": "musteriTcNo interpolated into a prompt",
+  "category": "data-privacy",
+  "pattern": "musteriTcNo",
+  "flags": "gi",
+  "severity": "high",
+  "recommendation": "Mask the national ID before it enters the prompt."
+}
+```
+
+`category` is one of `client-exposure | output-handling | excessive-agency |
+data-privacy | prompt-injection | cost-control`; `severity` is one of
+`critical | high | medium | low`. `pattern` is a JS regex source string
+(`flags` defaults to `"g"`). A rule id that collides with a built-in or
+another custom rule is rejected — the scanner keeps running but reports the
+problem on stderr and skips that entry.
+
+---
+
 ## Development
 
 ```bash
 npm run build
-npm test             # 28 unit tests
+npm test             # 36 unit tests
 ```
 
 ---

@@ -4,6 +4,8 @@ import { scanFile, scanDirectory } from "./scanner.js";
 import type { Finding } from "./scanner.js";
 import { buildSarif } from "./sarif.js";
 import { loadConfig, configFilePath } from "./config.js";
+import { AI_CODE_PATTERNS, type AiCodePattern } from "./patterns.js";
+import { loadCustomPatterns } from "./custom-patterns.js";
 import { statSync, readFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -93,6 +95,18 @@ async function runCli(rawArgs: string[]): Promise<void> {
 
   const { failOn, maxFiles } = cfg;
 
+  let patterns: AiCodePattern[] = AI_CODE_PATTERNS;
+  if (cfg.rulesDir) {
+    const { patterns: custom, errors } = loadCustomPatterns(cfg.rulesDir);
+    for (const e of errors) process.stderr.write(`[guardbee] ${e}\n`);
+    if (custom.length > 0) {
+      patterns = [...AI_CODE_PATTERNS, ...custom];
+      if (format === "text") {
+        process.stderr.write(`[guardbee] Loaded ${custom.length} custom rule(s) from ${cfg.rulesDir}\n`);
+      }
+    }
+  }
+
   let stat;
   try {
     stat = statSync(target);
@@ -106,13 +120,13 @@ async function runCli(rawArgs: string[]): Promise<void> {
   let durationMs: number;
 
   if (stat.isDirectory()) {
-    const result = scanDirectory(target, { maxFiles, exclude: cfg.exclude });
+    const result = scanDirectory(target, { maxFiles, exclude: cfg.exclude, patterns });
     findings = result.findings;
     scannedFiles = result.scannedFiles;
     durationMs = result.durationMs;
   } else {
     const start = Date.now();
-    const result = scanFile(target);
+    const result = scanFile(target, patterns);
     findings = result.findings;
     scannedFiles = result.skipped ? 0 : 1;
     durationMs = Date.now() - start;
@@ -143,6 +157,10 @@ Options:
                       Levels: any (default) | critical | high | medium | low | none
   --format=<fmt>      Output format: text (default) | json | sarif
   --max-files=<n>     Max files to scan (default: 5000)
+
+Custom rules:
+  Drop JSON rule files into .guardbee/rules/ (or set rules-dir in guardbee.yml)
+  to extend the built-in patterns with org-specific checks (e.g. KVKK field names).
 
 Exit codes:
   0  No issues found (or none above --fail-on threshold)

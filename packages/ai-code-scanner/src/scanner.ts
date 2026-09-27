@@ -42,11 +42,15 @@ const SKIP_DIRS = new Set([
 const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1 MB
 const MAX_CONTEXT_LENGTH = 240;
 
-export function scanText(text: string, filePath?: string): Finding[] {
+export function scanText(
+  text: string,
+  filePath?: string,
+  patterns: AiCodePattern[] = AI_CODE_PATTERNS
+): Finding[] {
   const findings: Finding[] = [];
   const lines = text.split("\n");
 
-  for (const p of AI_CODE_PATTERNS) {
+  for (const p of patterns) {
     const re = new RegExp(p.pattern.source, p.pattern.flags);
     let m: RegExpExecArray | null;
     while ((m = re.exec(text)) !== null) {
@@ -80,7 +84,10 @@ export function scanText(text: string, filePath?: string): Finding[] {
   return findings;
 }
 
-export function scanFile(filePath: string): { findings: Finding[]; skipped: boolean } {
+export function scanFile(
+  filePath: string,
+  patterns: AiCodePattern[] = AI_CODE_PATTERNS
+): { findings: Finding[]; skipped: boolean } {
   const ext = extname(filePath).toLowerCase();
   if (SKIP_EXTENSIONS.has(ext)) return { findings: [], skipped: true };
 
@@ -100,15 +107,15 @@ export function scanFile(filePath: string): { findings: Finding[]; skipped: bool
     return { findings: [], skipped: true };
   }
 
-  return { findings: scanText(content, filePath), skipped: false };
+  return { findings: scanText(content, filePath, patterns), skipped: false };
 }
 
 export function scanDirectory(
   dirPath: string,
-  options: { maxFiles?: number; include?: string[]; exclude?: string[] } = {}
+  options: { maxFiles?: number; include?: string[]; exclude?: string[]; patterns?: AiCodePattern[] } = {}
 ): ScanResult {
   const start = Date.now();
-  const { maxFiles = 5000, include, exclude } = options;
+  const { maxFiles = 5000, include, exclude, patterns = AI_CODE_PATTERNS } = options;
   if (!Number.isInteger(maxFiles) || maxFiles < 1) {
     throw new Error(`maxFiles must be a positive integer (got ${String(maxFiles)})`);
   }
@@ -144,7 +151,7 @@ export function scanDirectory(
           continue;
         }
 
-        const { findings, skipped } = scanFile(fullPath);
+        const { findings, skipped } = scanFile(fullPath, patterns);
         if (skipped) {
           skippedFiles++;
         } else {

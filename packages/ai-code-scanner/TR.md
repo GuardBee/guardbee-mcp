@@ -26,7 +26,8 @@ Claude ──► ai-code-scanner ──► Kod tabanınız
 - Her bulguda **neden riskli olduğu ve ne yapılması gerektiği** (`recommendation`) — sadece "bulundu" demez
 - SARIF 2.1.0 çıktısı — CI/CD entegrasyonu (GitHub Code Scanning vb.)
 - `guardbee.yml` ile config dosyası desteği
-- 28 unit test — her kalıp için hem pozitif hem negatif (yanlış-pozitif) senaryo
+- **Özel kural paketleri** — JSON dosyalarıyla org-özel kalıplar (KVKK/GDPR alan adları, dahili tool adları) ekleyin, fork gerekmez
+- 36 unit test — her yerleşik kalıp için hem pozitif hem negatif (yanlış-pozitif) senaryo, artı özel kural yükleme/doğrulama
 
 ---
 
@@ -89,6 +90,7 @@ Bunlar **heuristic** bulgulardır — tam bir AST analizi değil, statik metin k
 ai-code-scanner:
   fail-on: high       # any | critical | high | medium | low | none
   max-files: 5000
+  rules-dir: .guardbee/rules   # özel kural paketleri, aşağıya bakın
   exclude:
     - ".test.ts"
     - "fixtures/"
@@ -96,11 +98,43 @@ ai-code-scanner:
 
 ---
 
+## Özel kurallar
+
+Yerleşik kalıplar AI/LLM entegrasyonlarındaki yaygın hataları kapsar, ama alan
+adları ve dahili konvansiyonlar (örneğin hangi prop adlarının KVKK kapsamındaki
+veriyi taşıdığı) projeye özeldir. `.guardbee/rules/` dizinine (yapılandırılabilir:
+`rules-dir`) bir veya birden fazla JSON dosyası bırakın; tarama sırasında
+yerleşik kalıplarla birleştirilir — hem CLI hem MCP sunucusu için
+(`list_patterns` özel olanları `(custom)` ile işaretler).
+
+Bir dosya tek bir kural nesnesi ya da bunların bir dizisini tutar:
+
+```json
+{
+  "id": "kvkk_musteri_tc_no",
+  "name": "musteriTcNo interpolated into a prompt",
+  "category": "data-privacy",
+  "pattern": "musteriTcNo",
+  "flags": "gi",
+  "severity": "high",
+  "recommendation": "Mask the national ID before it enters the prompt."
+}
+```
+
+`category`, `client-exposure | output-handling | excessive-agency |
+data-privacy | prompt-injection | cost-control` değerlerinden biridir;
+`severity` ise `critical | high | medium | low` değerlerinden biri. `pattern`
+bir JS regex kaynak string'idir (`flags` varsayılan olarak `"g"`). Yerleşik
+bir kuralla veya başka bir özel kuralla çakışan bir kural id'si reddedilir —
+tarayıcı çalışmaya devam eder, sorunu stderr'e yazar ve o girdiyi atlar.
+
+---
+
 ## Geliştirme
 
 ```bash
 npm run build
-npm test             # 28 unit test
+npm test             # 36 unit test
 ```
 
 ---
