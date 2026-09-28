@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.4hmetuyar/vector-store-scanner",
+  "description": "Probes vector-database endpoints for unauthenticated exposure of embeddings/RAG data",
+  "repository": {
+    "url": "https://github.com/GuardBee/guardbee-mcp",
+    "source": "github",
+    "subfolder": "packages/vector-store-scanner"
+  },
+  "version": "0.1.1",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@guardbee/mcp-vector-store-scanner",
+      "version": "0.1.1",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

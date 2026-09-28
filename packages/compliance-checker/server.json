@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.4hmetuyar/compliance-checker",
+  "description": "KVKK/GDPR/CCPA compliance checks for codebases",
+  "repository": {
+    "url": "https://github.com/GuardBee/guardbee-mcp",
+    "source": "github",
+    "subfolder": "packages/compliance-checker"
+  },
+  "version": "0.2.4",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@guardbee/mcp-compliance-checker",
+      "version": "0.2.4",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

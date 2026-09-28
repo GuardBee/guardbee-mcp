@@ -1,6 +1,7 @@
 {
   "name": "@guardbee/mcp-agent-graph-auditor",
-  "version": "0.1.1",
+  "version": "0.1.2",
+  "mcpName": "io.github.4hmetuyar/agent-graph-auditor",
   "description": "MCP server that builds a reachability graph across multi-agent orchestration configs (LangGraph, CrewAI, AutoGen/ag2) to find transitive excessive agency — an agent with no dangerous tool of its own that can still reach one through delegation or group membership",
   "type": "module",
   "bin": {

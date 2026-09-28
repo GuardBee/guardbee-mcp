@@ -1,6 +1,7 @@
 {
   "name": "@guardbee/mcp-vector-store-scanner",
-  "version": "0.1.0",
+  "version": "0.1.1",
+  "mcpName": "io.github.4hmetuyar/vector-store-scanner",
   "description": "MCP server that probes vector-database endpoints (Weaviate, Qdrant, Chroma, Elasticsearch/OpenSearch, Redis, Postgres/pgvector) for unauthenticated exposure of embeddings and RAG data",
   "type": "module",
   "bin": {

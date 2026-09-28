@@ -1,6 +1,7 @@
 {
   "name": "@guardbee/mcp-security-proxy",
-  "version": "0.3.0",
+  "version": "0.3.1",
+  "mcpName": "io.github.4hmetuyar/security-proxy",
   "description": "Security proxy for MCP servers — intercepts tool calls, detects prompt injection, masks PII, and writes audit logs",
   "author": "GuardBee <hello@guardbee.ai>",
   "license": "MIT",

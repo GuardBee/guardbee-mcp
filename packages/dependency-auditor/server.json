@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.4hmetuyar/dependency-auditor",
+  "description": "CVE scanning for npm/pip/cargo dependencies via OSV",
+  "repository": {
+    "url": "https://github.com/GuardBee/guardbee-mcp",
+    "source": "github",
+    "subfolder": "packages/dependency-auditor"
+  },
+  "version": "0.2.4",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@guardbee/mcp-dependency-auditor",
+      "version": "0.2.4",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

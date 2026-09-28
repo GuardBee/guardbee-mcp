@@ -1,6 +1,7 @@
 {
   "name": "@guardbee/mcp-slopsquat-scanner",
-  "version": "0.1.0",
+  "version": "0.1.1",
+  "mcpName": "io.github.4hmetuyar/slopsquat-scanner",
   "description": "MCP server that checks every dependency declared in package.json/requirements.txt/pyproject.toml against the real npm/PyPI registry -- flags names that don't exist at all (likely LLM-hallucinated dependencies an attacker may have pre-registered, i.e. slopsquatting) and names that exist but were only very recently published",
   "type": "module",
   "bin": {
