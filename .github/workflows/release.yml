@@ -26,6 +26,13 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
+      # Node 22's bundled npm predates OIDC Trusted Publishing support (needs >=11.5.0).
+      # Without this, npm falls back to NODE_AUTH_TOKEN below, which this account's
+      # 2FA "Authorization and Publishing" policy restricts to a staging-only publish
+      # (E_STAGE_REQUIRED) -- the actual recurring cause of this workflow failing.
+      - run: npm install -g npm@latest
+      - run: npm --version
+
       - run: pnpm install --frozen-lockfile
       - run: pnpm turbo run build
 
@@ -34,4 +41,10 @@ jobs:
           publish: pnpm release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Fallback for any package that doesn't have a Trusted Publisher configured
+          # yet on npmjs.com (Package Settings -> Publishing Access -> Trusted
+          # Publisher -> GitHub Actions -> this repo + this workflow file). Once a
+          # package has that configured, npm's OIDC flow is used automatically and
+          # this token is not needed for it -- npm prefers OIDC over a present token
+          # when the CI context matches a configured trusted publisher.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
