@@ -27,7 +27,7 @@ function printText(findings: ConfigFinding[], scannedFiles: number, durationMs: 
   }
   const counts: Record<string, number> = {};
   for (const finding of findings) counts[finding.severity] = (counts[finding.severity] ?? 0) + 1;
-  console.log(`⚠️  Found ${findings.length} MCP config issue(s) in ${scannedFiles} file(s) (${durationMs}ms)`);
+  console.log(`⚠️  Found ${findings.length} issue(s) in ${scannedFiles} file(s) (${durationMs}ms)`);
   console.log(
     `   Critical: ${counts.critical ?? 0}  High: ${counts.high ?? 0}  Medium: ${counts.medium ?? 0}  Low: ${counts.low ?? 0}`
   );
@@ -135,11 +135,12 @@ Usage (MCP server):
   guardbee-mcp-config-auditor [serve]
 
 Usage (CLI):
-  guardbee-mcp-config-auditor scan <file-or-dir>   Audit MCP client config files
+  guardbee-mcp-config-auditor scan <file-or-dir>   Audit MCP client configs and SKILL.md files
   guardbee-mcp-config-auditor inventory <file.json>  Cross-server tool shadowing
 
-A directory scan reads only mcp.json, mcp_config.json, and claude_desktop_config.json.
-An explicit file path is scanned even when the name differs.
+A directory scan reads mcp.json, mcp_config.json, claude_desktop_config.json, and SKILL.md.
+An explicit file path is scanned even when the name differs. A file named SKILL.md is audited as an agent skill.
+Skill name collisions are reported on a directory scan.
 
 Options:
   --fail-on=<level>   any (default) | critical | high | medium | low | none

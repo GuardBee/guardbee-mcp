@@ -24,6 +24,19 @@ export function looksLikeSecret(value: string): boolean {
   return TOKEN_PREFIXES.some((re) => re.test(trimmed));
 }
 
+const TOKEN_PATTERN = new RegExp(TOKEN_PREFIXES.map((pattern) => pattern.source).join("|"), "g");
+
+export function findSecretTokens(text: string): Array<{ index: number; redacted: string }> {
+  const re = new RegExp(TOKEN_PATTERN.source, "g");
+  const found: Array<{ index: number; redacted: string }> = [];
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(text)) !== null) {
+    if (looksLikeSecret(match[0])) found.push({ index: match.index, redacted: redactSecret(match[0]) });
+    if (match.index === re.lastIndex) re.lastIndex++;
+  }
+  return found;
+}
+
 export function sensitiveEnvValue(key: string, value: string): boolean {
   const trimmed = value.trim();
   if (!trimmed || PLACEHOLDER.test(trimmed)) return false;

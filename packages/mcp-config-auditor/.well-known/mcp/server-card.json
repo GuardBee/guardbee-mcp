@@ -2,7 +2,7 @@
   "serverInfo": {
     "name": "@guardbee/mcp-config-auditor",
     "version": "0.1.0",
-    "description": "Audits installed MCP client configs for unpinned packages, secrets, wildcard auto-approve, unauthenticated remote endpoints, typosquats, and cross-server tool shadowing."
+    "description": "Audits installed MCP client configs and agent SKILL.md files for unpinned packages, secrets, wildcard auto-approve, unauthenticated remote endpoints, typosquats, unrestricted skill tools, and cross-server or cross-skill shadowing."
   },
   "tools": [
     {
@@ -18,8 +18,20 @@
       }
     },
     {
+      "name": "scan_skill_text",
+      "description": "Scan one agent SKILL.md for unrestricted allowed-tools, instruction override, credential file reads, and literal secrets.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "content": { "type": "string", "description": "Raw SKILL.md text" },
+          "label": { "type": "string", "description": "Optional filename shown in findings" }
+        },
+        "required": ["content"]
+      }
+    },
+    {
       "name": "scan_file",
-      "description": "Scan one MCP client config file.",
+      "description": "Scan one MCP client config file, or a SKILL.md agent skill when the file has that name.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -30,7 +42,7 @@
     },
     {
       "name": "scan_directory",
-      "description": "Find mcp.json, mcp_config.json, and claude_desktop_config.json under a directory and audit each one.",
+      "description": "Find mcp.json, mcp_config.json, claude_desktop_config.json, and SKILL.md under a directory and audit each one.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -54,7 +66,7 @@
     },
     {
       "name": "list_patterns",
-      "description": "List the MCP config and cross-server shadowing checks, with their OWASP MCP Top 10 tags.",
+      "description": "List the MCP config, agent skill, and cross-server shadowing checks, with their OWASP MCP Top 10 tags.",
       "inputSchema": { "type": "object", "properties": {} }
     }
   ]

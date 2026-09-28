@@ -20,8 +20,17 @@ Bir ajanın hangi MCP sunucularını çalıştıracağına karar veren istemci c
 | `cross_server_tool_shadow` | high | MCP03:2025 | Aynı tool adı iki sunucuda |
 | `confusable_tool_name` | critical | MCP03:2025 | Sunucular arasında homoglyph veya tek karakterlik tool adı |
 | `cross_server_tool_redirect` | high | MCP03:2025 | Bir açıklama modeli başka sunucunun tool'una yönlendiriyor |
+| `skill_unrestricted_shell` | critical | MCP02:2025 | `allowed-tools` çıplak `Bash`, `shell` veya `*` içeriyor |
+| `skill_unrestricted_write` | high | MCP02:2025 | `allowed-tools` yol sınırı olmayan `Write` veya `Edit` içeriyor |
+| `skill_instruction_override` | critical | MCP06:2025 | Skill, modele önceki talimatları yok saymasını söylüyor |
+| `skill_covert_instruction` | critical | MCP06:2025 | Skill, modeli davranışını kullanıcıdan gizlemeye yönlendiriyor |
+| `skill_secret_file_read` | critical | MCP01:2025 | Skill, modele `.ssh` veya `.env` gibi bir dosyayı okutuyor |
+| `skill_at_secret_ref` | critical | MCP01:2025 | `@` referansı bir credential yolunu skill metnine yapıştırıyor |
+| `secret_in_skill` | critical | MCP01:2025 | Skill dosyasında düz metin token var |
+| `skill_name_shadow` | high | MCP03:2025 | İki `SKILL.md` aynı adı kullanıyor |
+| `skill_confusable_name` | critical | MCP03:2025 | İki skill adı yalnızca benzeyen bir karakterle ayrılıyor |
 
-`localhost`, `127.0.0.1` ve `::1` uzak bulgu değildir. `${API_KEY}` ve `changeme` secret değildir. Secret eşleşmeleri maskelenir.
+`localhost`, `127.0.0.1` ve `::1` uzak bulgu değildir. `${API_KEY}` ve `changeme` secret değildir. Secret eşleşmeleri maskelenir. `Bash(git diff:*)` bir komut izin listesidir; kısıtsız kabuk sayılmaz. Tek başına `Read` işaretlenmez.
 
 ## Hızlı başlangıç
 
@@ -30,4 +39,4 @@ npx @guardbee/mcp-config-auditor scan .cursor/mcp.json --fail-on=high --format=s
 npx @guardbee/mcp-config-auditor inventory ./tool-inventory.json
 ```
 
-Dizin taraması yalnızca `mcp.json`, `mcp_config.json` ve `claude_desktop_config.json` açar. Gölgeleme kontrolü tool envanteri ister, çünkü istemci config'i tool listesi içermez.
+Dizin taraması `mcp.json`, `mcp_config.json`, `claude_desktop_config.json` ve `SKILL.md` açar. Adı `SKILL.md` olan bir dosya agent skill'i olarak denetlenir. Aynı ad ve benzeyen ad bulguları dizin taramasında çıkar; tek dosya diğer skill'leri göremez. Sunucular arası gölgeleme ayrıca tool envanteri ister, çünkü istemci config'i tool listesi içermez.

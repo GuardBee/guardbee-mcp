@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
-import { scanConfigFile, scanConfigText, scanDirectory, scanInventory } from "./scanner.js";
+import { scanConfigFile, scanConfigText, scanDirectory, scanInventory, scanSkillText } from "./scanner.js";
 import type { ConfigFinding, InventoryServer } from "./types.js";
 
 function formatFindings(findings: ConfigFinding[], scannedFiles: number, durationMs: number): string {
@@ -12,7 +12,7 @@ function formatFindings(findings: ConfigFinding[], scannedFiles: number, duratio
   const bySeverity = { critical: 0, high: 0, medium: 0, low: 0 };
   for (const finding of findings) bySeverity[finding.severity]++;
   const lines = [
-    `⚠️  Found ${findings.length} MCP config issue(s) in ${scannedFiles} file(s) (${durationMs}ms)`,
+    `⚠️  Found ${findings.length} issue(s) in ${scannedFiles} file(s) (${durationMs}ms)`,
     `   Critical: ${bySeverity.critical}  High: ${bySeverity.high}  Medium: ${bySeverity.medium}  Low: ${bySeverity.low}`,
     "",
   ];
@@ -55,7 +55,7 @@ export async function startServer() {
 
   server.tool(
     "scan_file",
-    "Scan one MCP client config file.",
+    "Scan one MCP client config file, or a SKILL.md agent skill when the file has that name.",
     { path: z.string().describe("Path to the config file") },
     async ({ path: filePath }) => {
       const { findings, skipped } = scanConfigFile(filePath);
@@ -65,8 +65,21 @@ export async function startServer() {
   );
 
   server.tool(
+    "scan_skill_text",
+    "Scan one agent SKILL.md (YAML frontmatter plus body) for unrestricted allowed-tools, instruction override, credential file reads, and literal secrets. Name collisions across skills require a directory scan.",
+    {
+      content: z.string().describe("Raw SKILL.md text"),
+      label: z.string().optional().describe("Optional filename shown in findings"),
+    },
+    async ({ content, label }) => {
+      const findings = scanSkillText(content, label);
+      return { content: [{ type: "text", text: formatFindings(findings, 1, 0) }] };
+    }
+  );
+
+  server.tool(
     "scan_directory",
-    "Find mcp.json, mcp_config.json, and claude_desktop_config.json under a directory and audit each one. Does not start any MCP server.",
+    "Find mcp.json, mcp_config.json, claude_desktop_config.json, and SKILL.md under a directory and audit each one. A directory scan also compares skill names. Does not start any MCP server.",
     {
       path: z.string().describe("Directory to search"),
       maxFiles: z.number().int().positive().optional().describe("Maximum files to consider (default: 5000)"),
@@ -102,7 +115,7 @@ export async function startServer() {
 
   server.tool(
     "list_patterns",
-    "List the MCP config and cross-server shadowing checks, with their OWASP MCP Top 10 tags.",
+    "List the MCP config, agent skill, and cross-server shadowing checks, with their OWASP MCP Top 10 tags.",
     {},
     async () => {
       const lines = [
@@ -114,6 +127,17 @@ export async function startServer() {
         "  • auto_approve_wildcard (MCP02:2025, critical)",
         "  • cleartext_remote (MCP07:2025, high)",
         "  • unauthenticated_remote (MCP07:2025, high/medium)",
+        "",
+        "Agent skill checks (SKILL.md):",
+        "  • skill_unrestricted_shell (MCP02:2025, critical)",
+        "  • skill_unrestricted_write (MCP02:2025, high)",
+        "  • skill_instruction_override (MCP06:2025, critical)",
+        "  • skill_covert_instruction (MCP06:2025, critical)",
+        "  • skill_secret_file_read (MCP01:2025, critical)",
+        "  • skill_at_secret_ref (MCP01:2025, critical)",
+        "  • secret_in_skill (MCP01:2025, critical)",
+        "  • skill_name_shadow (MCP03:2025, high) — directory scan",
+        "  • skill_confusable_name (MCP03:2025, critical) — directory scan",
         "",
         "Inventory checks:",
         "  • cross_server_tool_shadow (MCP03:2025, high)",
