@@ -12,7 +12,7 @@ GuardBee MCP server'ları tek bir monorepo'da yaşar ve bağımsız npm paketler
 
 ## İstemci config'i ve çalışma anı korumaları
 
-`@guardbee/mcp-config-auditor` Cursor, Claude Desktop, Windsurf ve VS Code MCP config'lerini yerelde okur. Sabitlenmemiş paket, bilinen paketlere typosquat, `env`/`args` içindeki secret, `autoApprove: "*"` ve kimlik doğrulamasız uzak uçları işaretler. Sunucular arası tool gölgelemesi ayrı bir envanter kontrolüdür; config dosyası tool listesi içermez.
+`@guardbee/mcp-config-auditor` Cursor, Claude Desktop, Windsurf ve VS Code MCP config'lerini yerelde okur. Sabitlenmemiş paket, bilinen paketlere typosquat, `env`/`args` içindeki secret, `autoApprove: "*"` ve kimlik doğrulamasız uzak uçları işaretler. Sunucular arası tool gölgelemesi ayrı bir envanter kontrolüdür; config dosyası tool listesi içermez. Dizin taraması `SKILL.md` dosyalarını da okur: kısıtsız `allowed-tools` (`Bash`, `*`, `Write`), talimat ezme, credential dosyası okuma, düz metin secret ve aynı ya da benzeyen skill adları. `Bash(git:*)` bir izin listesidir ve işaretlenmez.
 
 `@guardbee/mcp-tool-poisoning-scanner` parametre açıklamalarını, enum değerlerini, bidi override, ANSI, karışık alfabe, kodlanmış blok ve yıkıcı açıklamayla çelişen `readOnlyHint` değerini de tarar. `scanToolCatalog` bunları canlı `tools/list` üzerinde çalıştırır. `@guardbee/mcp-rug-pull-detector` her kontrolde, sunucu ilk kez görülürken de, bu taramayı yapar.
 

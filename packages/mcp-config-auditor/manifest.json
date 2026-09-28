@@ -3,8 +3,8 @@
   "name": "@guardbee/mcp-config-auditor",
   "display_name": "GuardBee MCP Config Auditor",
   "version": "0.1.0",
-  "description": "Audits installed MCP client configs for unpinned packages, secrets, wildcard auto-approve, unauthenticated remote endpoints, typosquats, and cross-server tool shadowing.",
-  "long_description": "Reads Cursor, Claude Desktop, Windsurf, and VS Code MCP config files locally. It does not start the configured servers and does not send config contents off the machine. Cross-server shadowing runs on a tool inventory you pass in.",
+  "description": "Audits installed MCP client configs and agent SKILL.md files for unpinned packages, secrets, wildcard auto-approve, unauthenticated remote endpoints, typosquats, unrestricted skill tools, and cross-server or cross-skill shadowing.",
+  "long_description": "Reads Cursor, Claude Desktop, Windsurf, and VS Code MCP config files locally, and SKILL.md agent skills in the same directory scan. It does not start the configured servers and does not send file contents off the machine. Cross-server shadowing runs on a tool inventory you pass in. Skill name collisions are reported when several SKILL.md files are scanned together.",
   "author": {
     "name": "GuardBee",
     "email": "hello@guardbee.ai",

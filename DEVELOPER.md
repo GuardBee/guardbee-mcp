@@ -12,7 +12,7 @@ GuardBee's MCP servers live in a single monorepo and are published as independen
 
 ## Client config and runtime guards
 
-`@guardbee/mcp-config-auditor` reads Cursor, Claude Desktop, Windsurf, and VS Code MCP configs locally. It flags unpinned launcher packages, typosquats of known server packages, secrets in `env`/`args`, `autoApprove: "*"`, and non-loopback endpoints without auth. Cross-server tool shadowing is a separate inventory check because a config file does not list tools.
+`@guardbee/mcp-config-auditor` reads Cursor, Claude Desktop, Windsurf, and VS Code MCP configs locally. It flags unpinned launcher packages, typosquats of known server packages, secrets in `env`/`args`, `autoApprove: "*"`, and non-loopback endpoints without auth. Cross-server tool shadowing is a separate inventory check because a config file does not list tools. A directory scan also reads `SKILL.md`: unrestricted `allowed-tools` (`Bash`, `*`, `Write`), instruction override, credential-file reads, literal secrets, and same or lookalike skill names. `Bash(git:*)` is an allowlist and is not flagged.
 
 `@guardbee/mcp-tool-poisoning-scanner` also scans parameter descriptions, enum values, bidirectional overrides, ANSI escapes, mixed-script text, encoded blobs, and `readOnlyHint` that contradicts a destructive description. `scanToolCatalog` applies those checks to a live `tools/list`. `@guardbee/mcp-rug-pull-detector` runs that scan on every check, including the first time a server is seen.
 
