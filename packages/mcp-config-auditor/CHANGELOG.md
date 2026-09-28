@@ -1,5 +1,11 @@
 # @guardbee/mcp-config-auditor
 
+## 0.3.0
+
+### Minor Changes
+
+- [#8](https://github.com/GuardBee/guardbee-mcp/pull/8) [`e9cd29c`](https://github.com/GuardBee/guardbee-mcp/commit/e9cd29c9e92f9ce02e7f26d7c8a37ccdb782afe9) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Audit agent SKILL.md files for unrestricted shell and write tools, instruction override, credential reads, literal secrets, and lookalike skill names.
+
 ## 0.2.0
 
 ### Minor Changes
