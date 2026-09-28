@@ -1,0 +1,51 @@
+{
+  "name": "@guardbee/mcp-slopsquat-scanner",
+  "version": "0.1.0",
+  "description": "MCP server that checks every dependency declared in package.json/requirements.txt/pyproject.toml against the real npm/PyPI registry -- flags names that don't exist at all (likely LLM-hallucinated dependencies an attacker may have pre-registered, i.e. slopsquatting) and names that exist but were only very recently published",
+  "type": "module",
+  "bin": {
+    "guardbee-slopsquat-scanner": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "TR.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@guardbee/mcp-telemetry": "workspace:^",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^4.5.4"
+  },
+  "keywords": [
+    "mcp",
+    "security",
+    "ai-security",
+    "supply-chain",
+    "slopsquatting",
+    "typosquatting",
+    "dependency-confusion",
+    "guardbee",
+    "devtools"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git",
+    "directory": "packages/slopsquat-scanner"
+  }
+}

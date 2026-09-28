@@ -1,0 +1,43 @@
+{
+  "manifest_version": "0.3",
+  "name": "@guardbee/mcp-slopsquat-scanner",
+  "display_name": "GuardBee Slopsquat Scanner",
+  "version": "0.1.0",
+  "description": "MCP server that checks every dependency declared in package.json/requirements.txt/pyproject.toml against the real npm/PyPI registry -- flags names that don't exist at all (likely LLM-hallucinated dependencies an attacker may have pre-registered, i.e. slopsquatting) and names that exist but were only very recently published",
+  "long_description": "LLM coding assistants hallucinate plausible-sounding package names at a measurable rate (research puts open-source models around 21.7%), and attackers pre-register those exact names on npm/PyPI so the next developer who copies the same suggestion installs their code instead of getting an install error -- this is 'slopsquatting'. This package parses a project's own manifest files (package.json, requirements.txt, pyproject.toml -- direct dependencies only, not the full resolved lockfile tree) and checks each declared name against the real registry over the network: a name that doesn't exist at all is flagged critical, and a name that exists but was only published in the last 30 days is flagged low (informational -- could be a legitimate new package or a name registered just ahead of an expected hallucination). No API key required; queries the public, unauthenticated npm and PyPI registry APIs directly.",
+  "author": {
+    "name": "GuardBee",
+    "email": "hello@guardbee.ai",
+    "url": "https://guardbee.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git"
+  },
+  "homepage": "https://guardbee.ai",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "ai-security",
+    "supply-chain",
+    "slopsquatting",
+    "typosquatting",
+    "security"
+  ],
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18"
+    }
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/cli.js"]
+    }
+  },
+  "user_config": {},
+  "tools_generated": true
+}

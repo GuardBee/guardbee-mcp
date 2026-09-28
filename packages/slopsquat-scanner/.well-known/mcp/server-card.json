@@ -1,0 +1,54 @@
+{
+  "serverInfo": {
+    "name": "@guardbee/mcp-slopsquat-scanner",
+    "version": "0.1.0",
+    "description": "MCP server that checks every dependency declared in package.json/requirements.txt/pyproject.toml against the real npm/PyPI registry -- flags names that don't exist at all (likely LLM-hallucinated dependencies an attacker may have pre-registered) and names that exist but were only very recently published"
+  },
+  "tools": [
+    {
+      "name": "scan_npm",
+      "description": "Check every dependency declared in a package.json against the real npm registry -- flags hallucinated/nonexistent package names and suspiciously new ones.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "directory": { "type": "string", "description": "Path to the directory containing package.json" }
+        },
+        "required": ["directory"]
+      }
+    },
+    {
+      "name": "scan_pip",
+      "description": "Check every dependency declared in requirements.txt or pyproject.toml against the real PyPI registry -- flags hallucinated/nonexistent package names and suspiciously new ones.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "directory": { "type": "string", "description": "Path to the directory containing requirements.txt or pyproject.toml" }
+        },
+        "required": ["directory"]
+      }
+    },
+    {
+      "name": "check_package",
+      "description": "Check a single package name against the real npm or PyPI registry",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "description": "Package name" },
+          "ecosystem": { "type": "string", "enum": ["npm", "PyPI"], "description": "Which registry to check" }
+        },
+        "required": ["name", "ecosystem"]
+      }
+    },
+    {
+      "name": "scan_directory",
+      "description": "Auto-detect and check both npm and pip manifests in a directory against their real registries",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "directory": { "type": "string", "description": "Path to the project root directory" }
+        },
+        "required": ["directory"]
+      }
+    }
+  ]
+}
