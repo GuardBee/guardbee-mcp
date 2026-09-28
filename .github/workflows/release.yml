@@ -26,51 +26,12 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
-      # Node 22's bundled npm predates OIDC Trusted Publishing support (needs >=11.5.0).
-      # Without this, npm falls back to NODE_AUTH_TOKEN below, which this account's
-      # 2FA "Authorization and Publishing" policy restricts to a staging-only publish
-      # (E_STAGE_REQUIRED) -- the actual recurring cause of this workflow failing.
-      - run: npm install -g npm@latest
-      - run: npm --version
-
       - run: pnpm install --frozen-lockfile
       - run: pnpm turbo run build
-
-      # TEMPORARY DEBUG STEP -- diagnosing a "Cannot read properties of undefined
-      # (reading 'includes')" crash inside @changesets/cli's getUnpublishedPackages,
-      # which doesn't reproduce locally. Prints each package's `pnpm info --json`
-      # shape as this CI runner/token actually sees it. Remove once root-caused.
-      - name: debug pnpm info shapes
-        run: |
-          for dir in packages/*/; do
-            [ -f "$dir/package.json" ] || continue
-            isprivate=$(node -e "console.log(!!require('./$dir/package.json').private)")
-            [ "$isprivate" = "true" ] && continue
-            name=$(node -e "console.log(require('./$dir/package.json').name)")
-            echo "=== $name ==="
-            pnpm info "$name" --json 2>&1 | node -e "
-              let d='';
-              process.stdin.on('data', c => d += c);
-              process.stdin.on('end', () => {
-                try {
-                  const j = JSON.parse(d);
-                  console.log('published:true versions:' + (Array.isArray(j.versions) ? j.versions.length : 'MISSING') + ' keys:' + Object.keys(j).join(','));
-                } catch(e) { console.log('PARSE FAIL: ' + e.message + ' raw(300): ' + d.slice(0,300)); }
-              });
-            "
-          done
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - uses: changesets/action@v1
         with:
           publish: pnpm release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Fallback for any package that doesn't have a Trusted Publisher configured
-          # yet on npmjs.com (Package Settings -> Publishing Access -> Trusted
-          # Publisher -> GitHub Actions -> this repo + this workflow file). Once a
-          # package has that configured, npm's OIDC flow is used automatically and
-          # this token is not needed for it -- npm prefers OIDC over a present token
-          # when the CI context matches a configured trusted publisher.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
