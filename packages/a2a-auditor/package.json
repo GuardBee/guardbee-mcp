@@ -1,0 +1,52 @@
+{
+  "name": "@guardbee/mcp-a2a-auditor",
+  "version": "0.1.0",
+  "description": "MCP server that scans Agent2Agent (A2A) protocol implementation code for anti-patterns found in the reference SDKs and sample agents: unauthenticated push-notification webhook fetches (SSRF), Agent Cards with no authentication requirement, and credentials embedded in publicly-served Agent Card metadata",
+  "type": "module",
+  "bin": {
+    "guardbee-a2a-auditor": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "TR.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@guardbee/mcp-telemetry": "workspace:^",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^4.5.4"
+  },
+  "keywords": [
+    "mcp",
+    "security",
+    "ai-security",
+    "mcp-security",
+    "a2a",
+    "agent2agent",
+    "agent-security",
+    "ssrf",
+    "guardbee",
+    "devtools"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git",
+    "directory": "packages/a2a-auditor"
+  }
+}
