@@ -32,7 +32,7 @@
     "@modelcontextprotocol/sdk": ">=1.0.0"
   },
   "devDependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0"
+    "@modelcontextprotocol/sdk": "catalog:"
   },
   "keywords": [
     "mcp",

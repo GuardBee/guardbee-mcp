@@ -4,6 +4,15 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+catalogs:
+  default:
+    '@modelcontextprotocol/sdk':
+      specifier: ^1.0.0
+      version: 1.30.0
+    zod:
+      specifier: ^4.5.4
+      version: 4.6.2
+
 importers:
 
   .:
@@ -48,10 +57,10 @@ importers:
         specifier: workspace:^
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
+        specifier: 'catalog:'
         version: 1.30.0(zod@4.6.2)
       zod:
-        specifier: ^4.5.4
+        specifier: 'catalog:'
         version: 4.6.2
 
   packages/agent-graph-auditor:
@@ -60,10 +69,10 @@ importers:
         specifier: workspace:^
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
+        specifier: 'catalog:'
         version: 1.30.0(zod@4.6.2)
       zod:
-        specifier: ^4.5.4
+        specifier: 'catalog:'
         version: 4.6.2
 
   packages/ai-code-scanner:
@@ -72,10 +81,10 @@ importers:
         specifier: workspace:^
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
+        specifier: 'catalog:'
         version: 1.30.0(zod@4.6.2)
       zod:
-        specifier: ^4.5.4
+        specifier: 'catalog:'
         version: 4.6.2
 
   packages/compliance-checker:
@@ -84,10 +93,10 @@ importers:
         specifier: workspace:^
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
+        specifier: 'catalog:'
         version: 1.30.0(zod@4.6.2)
       zod:
-        specifier: ^4.5.4
+        specifier: 'catalog:'
         version: 4.6.2
 
   packages/db-gateway:
@@ -108,7 +117,7 @@ importers:
         specifier: '>=5.0.0'
         version: 7.6.0
       zod:
-        specifier: ^4.5.4
+        specifier: 'catalog:'
         version: 4.6.2
     devDependencies:
       '@types/pg':
@@ -127,10 +136,10 @@ importers:
         specifier: workspace:^
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
+        specifier: 'catalog:'
         version: 1.30.0(zod@4.6.2)
       zod:
-        specifier: ^4.5.4
+        specifier: 'catalog:'
         version: 4.6.2
 
   packages/dns-intelligence:
@@ -139,10 +148,10 @@ importers:
         specifier: workspace:^
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
+        specifier: 'catalog:'
         version: 1.30.0(zod@4.6.2)
       zod:
-        specifier: ^4.5.4
+        specifier: 'catalog:'
         version: 4.6.2
 
   packages/llm-redteam:
@@ -151,10 +160,10 @@ importers:
         specifier: workspace:^
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
+        specifier: 'catalog:'
         version: 1.30.0(zod@4.6.2)
       zod:
-        specifier: ^4.5.4
+        specifier: 'catalog:'
         version: 4.6.2
 
   packages/mcp-config-auditor:
@@ -163,10 +172,10 @@ importers:
         specifier: workspace:^
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
+        specifier: 'catalog:'
         version: 1.30.0(zod@4.6.2)
       zod:
-        specifier: ^4.5.4
+        specifier: 'catalog:'
         version: 4.6.2
 
   packages/mcp-server-auditor:
@@ -175,10 +184,10 @@ importers:
         specifier: workspace:^
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
+        specifier: 'catalog:'
         version: 1.30.0(zod@4.6.2)
       zod:
-        specifier: ^4.5.4
+        specifier: 'catalog:'
         version: 4.6.2
 
   packages/memory-poisoning-scanner:
@@ -187,10 +196,10 @@ importers:
         specifier: workspace:^
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
+        specifier: 'catalog:'
         version: 1.30.0(zod@4.6.2)
       zod:
-        specifier: ^4.5.4
+        specifier: 'catalog:'
         version: 4.6.2
 
   packages/model-scanner:
@@ -199,10 +208,10 @@ importers:
         specifier: workspace:^
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
+        specifier: 'catalog:'
         version: 1.30.0(zod@4.6.2)
       zod:
-        specifier: ^4.5.4
+        specifier: 'catalog:'
         version: 4.6.2
 
   packages/oauth-auditor:
@@ -211,10 +220,10 @@ importers:
         specifier: workspace:^
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
+        specifier: 'catalog:'
         version: 1.30.0(zod@4.6.2)
       zod:
-        specifier: ^4.5.4
+        specifier: 'catalog:'
         version: 4.6.2
 
   packages/prompt-injection-scanner:
@@ -223,10 +232,10 @@ importers:
         specifier: workspace:^
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
+        specifier: 'catalog:'
         version: 1.30.0(zod@4.6.2)
       zod:
-        specifier: ^4.5.4
+        specifier: 'catalog:'
         version: 4.6.2
 
   packages/prompt-leak-scanner:
@@ -235,10 +244,10 @@ importers:
         specifier: workspace:^
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
+        specifier: 'catalog:'
         version: 1.30.0(zod@4.6.2)
       zod:
-        specifier: ^4.5.4
+        specifier: 'catalog:'
         version: 4.6.2
 
   packages/rug-pull-detector:
@@ -250,10 +259,10 @@ importers:
         specifier: workspace:^
         version: link:../tool-poisoning-scanner
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
+        specifier: 'catalog:'
         version: 1.30.0(zod@4.6.2)
       zod:
-        specifier: ^4.5.4
+        specifier: 'catalog:'
         version: 4.6.2
 
   packages/secret-scanner:
@@ -262,10 +271,10 @@ importers:
         specifier: workspace:^
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
+        specifier: 'catalog:'
         version: 1.30.0(zod@4.6.2)
       zod:
-        specifier: ^4.5.4
+        specifier: 'catalog:'
         version: 4.6.2
 
   packages/security-proxy:
@@ -277,7 +286,7 @@ importers:
         specifier: ^1.30.0
         version: 1.30.0(zod@4.6.2)
       zod:
-        specifier: ^4.5.4
+        specifier: 'catalog:'
         version: 4.6.2
 
   packages/security-suite:
@@ -298,10 +307,10 @@ importers:
         specifier: workspace:^
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
+        specifier: 'catalog:'
         version: 1.30.0(zod@4.6.2)
       zod:
-        specifier: ^4.5.4
+        specifier: 'catalog:'
         version: 4.6.2
 
   packages/slopsquat-scanner:
@@ -310,10 +319,10 @@ importers:
         specifier: workspace:^
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
+        specifier: 'catalog:'
         version: 1.30.0(zod@4.6.2)
       zod:
-        specifier: ^4.5.4
+        specifier: 'catalog:'
         version: 4.6.2
 
   packages/ssl-inspector:
@@ -322,16 +331,16 @@ importers:
         specifier: workspace:^
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
+        specifier: 'catalog:'
         version: 1.30.0(zod@4.6.2)
       zod:
-        specifier: ^4.5.4
+        specifier: 'catalog:'
         version: 4.6.2
 
   packages/telemetry:
     devDependencies:
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
+        specifier: 'catalog:'
         version: 1.30.0(zod@4.6.2)
 
   packages/tool-poisoning-scanner:
@@ -340,10 +349,10 @@ importers:
         specifier: workspace:^
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
+        specifier: 'catalog:'
         version: 1.30.0(zod@4.6.2)
       zod:
-        specifier: ^4.5.4
+        specifier: 'catalog:'
         version: 4.6.2
 
   packages/unbounded-consumption-auditor:
@@ -352,10 +361,10 @@ importers:
         specifier: workspace:^
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
+        specifier: 'catalog:'
         version: 1.30.0(zod@4.6.2)
       zod:
-        specifier: ^4.5.4
+        specifier: 'catalog:'
         version: 4.6.2
 
   packages/vector-store-scanner:
@@ -364,10 +373,10 @@ importers:
         specifier: workspace:^
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
+        specifier: 'catalog:'
         version: 1.30.0(zod@4.6.2)
       zod:
-        specifier: ^4.5.4
+        specifier: 'catalog:'
         version: 4.6.2
 
   packages/vulnerability-scanner:
@@ -376,10 +385,10 @@ importers:
         specifier: workspace:^
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
+        specifier: 'catalog:'
         version: 1.30.0(zod@4.6.2)
       zod:
-        specifier: ^4.5.4
+        specifier: 'catalog:'
         version: 4.6.2
 
 packages:

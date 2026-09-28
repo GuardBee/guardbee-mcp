@@ -1,2 +1,6 @@
 packages:
   - "packages/*"
+
+catalog:
+  zod: ^4.5.4
+  "@modelcontextprotocol/sdk": ^1.0.0
