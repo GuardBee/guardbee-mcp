@@ -1,0 +1,43 @@
+{
+  "manifest_version": "0.3",
+  "name": "@guardbee/mcp-unbounded-consumption-auditor",
+  "display_name": "GuardBee Unbounded Consumption Auditor",
+  "version": "0.1.0",
+  "description": "MCP server that scans LLM/agent application code for Unbounded Consumption (\"denial of wallet\") anti-patterns from OWASP LLM Top 10 2026's #6 category",
+  "long_description": "Unbounded Consumption is OWASP's LLM Top 10 2026 #6 risk category: nothing stops an LLM/agent application from making unlimited billable calls. This package scans source code for five concrete shapes of that risk. Missing output limits: an OpenAI chat completion call with neither max_tokens nor max_completion_tokens set (Anthropic's SDK already makes max_tokens a required argument, so it isn't checked there). Missing timeouts: a hand-rolled requests/axios/fetch call to a known LLM endpoint with no timeout/AbortSignal -- the official SDKs already ship a bounded default, so only custom HTTP calls are flagged. Unbounded loops: a hand-rolled while(true)/while True: agent loop that dispatches tool calls with no iteration cap, or a retry loop that catches an exception and continues with no attempt counter. Disabled safety limits: LangChain's AgentExecutor max_iterations or openai-agents-python's Runner max_turns explicitly set to None, removing a framework's own built-in loop cap (both verified against real SDK source before being shipped). Missing rate limiting: an MCP tool handler that makes a billable downstream call with nothing suggesting per-caller throttling -- no MCP SDK provides this out of the box, so it's a heuristic, medium-severity signal rather than a hard rule.",
+  "author": {
+    "name": "GuardBee",
+    "email": "hello@guardbee.ai",
+    "url": "https://guardbee.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git"
+  },
+  "homepage": "https://guardbee.ai",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "ai-security",
+    "unbounded-consumption",
+    "denial-of-wallet",
+    "llm-security",
+    "security"
+  ],
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18"
+    }
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/cli.js"]
+    }
+  },
+  "user_config": {},
+  "tools_generated": true
+}
