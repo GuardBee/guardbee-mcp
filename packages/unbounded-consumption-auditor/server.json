@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.4hmetuyar/unbounded-consumption-auditor",
+  "description": "Scans LLM/agent code for Unbounded Consumption / denial-of-wallet risks (OWASP LLM Top 10 2026 #6)",
+  "repository": {
+    "url": "https://github.com/GuardBee/guardbee-mcp",
+    "source": "github",
+    "subfolder": "packages/unbounded-consumption-auditor"
+  },
+  "version": "0.1.2",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@guardbee/mcp-unbounded-consumption-auditor",
+      "version": "0.1.2",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
