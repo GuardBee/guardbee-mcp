@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-config-auditor",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "MCP server that audits installed MCP client configs (Cursor, Claude Desktop, Windsurf, VS Code) and agent SKILL.md files for unpinned packages, secrets, wildcard auto-approve, unauthenticated remote endpoints, typosquats, unrestricted skill tools, and cross-server or cross-skill shadowing",
   "type": "module",
   "bin": {
