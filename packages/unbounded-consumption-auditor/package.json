@@ -1,6 +1,7 @@
 {
   "name": "@guardbee/mcp-unbounded-consumption-auditor",
-  "version": "0.1.0",
+  "version": "0.1.1",
+  "mcpName": "io.github.GuardBee/unbounded-consumption-auditor",
   "description": "MCP server that scans LLM/agent application code for Unbounded Consumption (\"denial of wallet\") anti-patterns from OWASP LLM Top 10 2026's #6 category: missing output token limits, missing timeouts on hand-rolled LLM HTTP calls, unbounded agent tool-calling/retry loops, explicitly disabled framework safety limits, and MCP tool handlers with no visible rate limiting",
   "type": "module",
   "bin": {
