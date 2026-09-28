@@ -36,6 +36,32 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm turbo run build
 
+      # TEMPORARY DEBUG STEP -- diagnosing a "Cannot read properties of undefined
+      # (reading 'includes')" crash inside @changesets/cli's getUnpublishedPackages,
+      # which doesn't reproduce locally. Prints each package's `pnpm info --json`
+      # shape as this CI runner/token actually sees it. Remove once root-caused.
+      - name: debug pnpm info shapes
+        run: |
+          for dir in packages/*/; do
+            [ -f "$dir/package.json" ] || continue
+            isprivate=$(node -e "console.log(!!require('./$dir/package.json').private)")
+            [ "$isprivate" = "true" ] && continue
+            name=$(node -e "console.log(require('./$dir/package.json').name)")
+            echo "=== $name ==="
+            pnpm info "$name" --json 2>&1 | node -e "
+              let d='';
+              process.stdin.on('data', c => d += c);
+              process.stdin.on('end', () => {
+                try {
+                  const j = JSON.parse(d);
+                  console.log('published:true versions:' + (Array.isArray(j.versions) ? j.versions.length : 'MISSING') + ' keys:' + Object.keys(j).join(','));
+                } catch(e) { console.log('PARSE FAIL: ' + e.message + ' raw(300): ' + d.slice(0,300)); }
+              });
+            "
+          done
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - uses: changesets/action@v1
         with:
           publish: pnpm release
