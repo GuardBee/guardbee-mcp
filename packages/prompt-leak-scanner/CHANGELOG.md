@@ -1,5 +1,13 @@
 # @guardbee/mcp-prompt-leak-scanner
 
+## 0.1.5
+
+### Patch Changes
+
+- Docs: add a Simplified Chinese README (`ZH.md`) and link it from the English and Turkish ones. Correct stale counts (secret-scanner: 38 patterns and 39 tests; prompt-injection-scanner: 45 tests) and add a Turkish README for guard-core. No code changes.
+- Updated dependencies [`243991e`]:
+  - @guardbee/guard-core@0.2.1
+
 ## 0.1.4
 
 ### Patch Changes

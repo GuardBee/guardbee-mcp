@@ -1,5 +1,11 @@
 # @guardbee/guard-core
 
+## 0.2.1
+
+### Patch Changes
+
+- Docs: add a Simplified Chinese README (`ZH.md`) and link it from the English and Turkish ones. Correct stale counts (secret-scanner: 38 patterns and 39 tests; prompt-injection-scanner: 45 tests) and add a Turkish README for guard-core. No code changes.
+
 ## 0.2.0
 
 ### Minor Changes
