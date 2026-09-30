@@ -49,6 +49,7 @@
     "prepublishOnly": "npm test && npm run build"
   },
   "dependencies": {
+    "@guardbee/guard-core": "workspace:^",
     "@guardbee/mcp-telemetry": "workspace:^",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "zod": "catalog:"

@@ -3,9 +3,14 @@ import { maskPiiInText, maskPiiInValue } from "../interceptors/pii-masker.js";
 
 describe("maskPiiInText", () => {
   it("TC kimlik maskeler", () => {
-    const result = maskPiiInText("Kullanıcı TC: 12345678901 kayıtlı");
+    const result = maskPiiInText("Kullanıcı TC: 10000000146 kayıtlı");
     expect(result).toContain("[TC-KİMLİK]");
-    expect(result).not.toContain("12345678901");
+    expect(result).not.toContain("10000000146");
+  });
+
+  it("checksum'ı tutmayan 11 haneli sayıyı TC diye maskelemez", () => {
+    const text = "Sipariş no: 12345678901";
+    expect(maskPiiInText(text)).toBe(text);
   });
 
   it("IBAN maskeler", () => {

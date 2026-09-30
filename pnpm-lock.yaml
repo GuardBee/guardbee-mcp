@@ -166,6 +166,8 @@ importers:
         specifier: 'catalog:'
         version: 4.6.2
 
+  packages/guard-core: {}
+
   packages/llm-redteam:
     dependencies:
       '@guardbee/mcp-telemetry':
@@ -252,6 +254,9 @@ importers:
 
   packages/prompt-leak-scanner:
     dependencies:
+      '@guardbee/guard-core':
+        specifier: workspace:^
+        version: link:../guard-core
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
@@ -291,6 +296,9 @@ importers:
 
   packages/security-proxy:
     dependencies:
+      '@guardbee/guard-core':
+        specifier: workspace:^
+        version: link:../guard-core
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
@@ -369,6 +377,9 @@ importers:
 
   packages/toxic-flow-auditor:
     dependencies:
+      '@guardbee/guard-core':
+        specifier: workspace:^
+        version: link:../guard-core
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
