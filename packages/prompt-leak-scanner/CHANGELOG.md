@@ -1,5 +1,12 @@
 # @guardbee/mcp-prompt-leak-scanner
 
+## 0.1.4
+
+### Patch Changes
+
+- Updated dependencies [`15fb399`]:
+  - @guardbee/guard-core@0.2.0
+
 ## 0.1.3
 
 ### Patch Changes
