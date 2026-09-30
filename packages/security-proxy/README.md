@@ -13,8 +13,8 @@ A transparent security layer that sits in front of any MCP server. Blocks prompt
 ```
 Claude ──► MCP Security Proxy ──► Any MCP Server
                 │
-                ├─ Prompt injection detection  (16 attack patterns)
-                ├─ PII masking                 (national ID, IBAN, email, JWT, API key)
+                ├─ Prompt injection detection  (27 rules, EN + TR)
+                ├─ PII + secret masking        (TC, VKN, IBAN, card, phone, 22 key formats)
                 ├─ Block or warn mode
                 ├─ Toxic-flow (lethal trifecta) blocking
                 └─ Hash-chained audit log
@@ -24,10 +24,10 @@ Claude ──► MCP Security Proxy ──► Any MCP Server
 
 ## Features
 
-- **Prompt Injection Protection** — 16 attack patterns block requests attempting to override system prompts
+- **Prompt Injection Protection** — 27 rules in English and Turkish; precise ones block, generic phrases only warn
 - **Tool-result injection** — the same patterns applied to tool results, tagged MCP06:2025. Block mode replaces the result; warn mode prepends a warning
 - **Session tool pin** — the first `tools/list` is pinned. A later description or schema change is a rug pull (MCP03:2025). Block mode keeps serving the pinned definition and refuses the drifted call
-- **PII Masking** — national ID numbers, IBAN, email, phone, JWT tokens, API keys are automatically masked in responses
+- **PII Masking** — TC Kimlik No, VKN, IBAN, card and phone numbers (checksum-validated), email, 22 provider key formats, private keys and connection strings are masked in responses
 - **Block / Warn Mode** — each interceptor can independently run in blocking or warning mode
 - **Audit Log** — configurable log written to console or a file
 - **Gateway mode** — several MCP servers behind one proxy, one YAML policy (allow / deny / mask / warn)
@@ -142,15 +142,13 @@ The proxy does not register tools of its own. It forwards the target server's to
 
 ### Prompt Injection Detector
 
-Looks for the following attack patterns in incoming messages:
+27 rules from [`@guardbee/guard-core`](../guard-core/README.md), applied to tool arguments, tool results, resources and prompts:
 
-- `ignore previous instructions`
-- `disregard your system prompt`
-- `you are now [DAN/jailbreak]`
-- `act as` / `pretend to be` role overrides
-- `DAN mode`, `developer mode`, `jailbreak`
-- fake `[SYSTEM]` / `<system>` tags
-- and 6 more patterns
+- **Block** (13 precise, high/critical): instruction overrides in English and Turkish ("ignore all previous instructions", "önceki talimatları yok say"), `DAN mode`, "bypass your safety guardrails", chat-template tokens (`<|im_start|>`, `[INST]`), `<system>` tags, text hidden in Unicode tag characters, instructions in CSS-hidden elements or HTML comments, markdown image exfiltration beacons, requests to reveal the system prompt (English and Turkish), "send the user's data to https://…".
+- **Warn only** (14): generic phrases that also appear in ordinary text — "act as", "you are now", "developer mode", "jailbreak", "override policy", "sen artık" — and medium-severity signals such as zero-width or bidi control characters and a line-start `System:` label.
+- **Base64:** runs that decode to readable text are decoded and checked against the block rules, so an instruction cannot hide in an encoded blob.
+
+Since 1.1, a broad phrase alone no longer blocks: in 1.0 "use jailbreak mode" or "act as a reverse proxy" in a tool result was blocked; now it is logged and the result carries a warning.
 
 ### PII Masker
 
@@ -160,9 +158,13 @@ Looks for the following attack patterns in incoming messages:
 | IBAN (TR) | mod-97 | `TR330006100519786457841326` | `TR**[IBAN]` |
 | Card number | Luhn | `4111 1111 1111 1111` | `****-****-****-[KART]` |
 | Email | — | `ahmet@example.com` | `***@[EMAIL]` |
-| Phone (TR) | — | `0532 123 45 67` | `+90-***-***-**[TELEFON]` |
+| Phone (TR) | mobile / landline / 850 prefix | `0532 123 45 67` | `+90-***-***-**[TELEFON]` |
+| Tax number (VKN) | check digit, needs a `VKN` / `Vergi No` label | `VKN: 1234567890` | `VKN: [VKN]` |
+| Provider keys | 22 key and token formats from secret-scanner (AWS, GitHub, Stripe, OpenAI, Anthropic, Slack, …) | `ghp_…`, `AKIA…` | `[API-KEY]` |
+| Other API keys | `sk_`/`api_`/`token_`… prefix, letters and digits | `api_k3y9x8…` | `[API-KEY]` |
+| Private key | whole BEGIN…END block | `-----BEGIN … PRIVATE KEY-----` | `[PRIVATE-KEY]` |
+| Connection string | user:password in the URL (localhost excluded) | `postgres://app:pw@db/prod` | `[CONNECTION-STRING]` |
 | JWT | — | `eyJhbGc...` | `[JWT-TOKEN]` |
-| API Key | — | `sk_abc123...` | `[API-KEY]` |
 
 A number that fails its checksum (an order number, a tracking code) is left as is.
 

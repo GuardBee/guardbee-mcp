@@ -21,9 +21,9 @@ describe("scanForPromptInjection", () => {
     expect(result.action).toBe("block");
   });
 
-  it("'jailbreak' engeller", () => {
+  it("'jailbreak' tek başına uyarır ama engellemez (güvenlik makalelerinde de geçer)", () => {
     const result = scanForPromptInjection("use jailbreak mode");
-    expect(result.action).toBe("block");
+    expect(result.action).toBe("warn");
   });
 
   it("'DAN mode' engeller", () => {

@@ -22,11 +22,12 @@ Web sayfası/RAG dokümanı ──► prompt-injection-scanner ──► LLM con
 
 ## Özellikler
 
-- **10 kalıp, 5 kategori** — instruction-override, role-spoofing, hidden-text, direct-address, exfiltration
+- **17 kalıp, 5 kategori** — instruction-override, role-spoofing, hidden-text, direct-address, exfiltration. İngilizce ve Türkçe ifadeler
+- Kurallar [`@guardbee/guard-core`](../guard-core/README.md) içinde duruyor ve `@guardbee/mcp-security-proxy` ile paylaşılıyor; bu tarayıcının raporladığı ifade, proxy'nin çalışma anında engellediği ifadenin aynısı
 - Her bulguda **neden riskli olduğu ve ne yapılması gerektiği** (`recommendation`) — sadece "bulundu" demez
 - SARIF 2.1.0 çıktısı — CI/CD entegrasyonu (bir knowledge-base repo'sunu PR'da otomatik tarama gibi)
 - `guardbee.yml` ile config dosyası desteği
-- 30 unit test — her kalıp için hem pozitif hem negatif (yanlış-pozitif) senaryo; özellikle emoji ZWJ dizileri ve normal `display:none` modal'ları gibi bilinen yanlış-pozitif kaynakları ayrıca test edilir
+- 45 unit test — her kalıp için hem pozitif hem negatif (yanlış-pozitif) senaryo; özellikle emoji ZWJ dizileri ve normal `display:none` modal'ları gibi bilinen yanlış-pozitif kaynakları ayrıca test edilir
 
 ---
 
@@ -69,14 +70,21 @@ npx @guardbee/mcp-prompt-injection-scanner scan ./knowledge-base --fail-on=high 
 | Kategori | Kalıp | Önem | Ne demek |
 |---|---|---|---|
 | instruction-override | `instruction_override_phrase` | high | "ignore/disregard/forget previous instructions" gibi klasik bir override cümlesi |
+| instruction-override | `instruction_override_tr` | high | Türkçesi: "önceki talimatları yok say / unut / görmezden gel" |
+| instruction-override | `dan_mode` | high | "DAN mode" jailbreak personasını ister |
+| instruction-override | `bypass_safety` | high | Modelden güvenlik önlemlerini / guardrail'lerini atlatmasını veya kapatmasını ister |
 | role-spoofing | `system_role_spoof` | medium | İçerikte satır başında sahte bir "System:" rol etiketi |
 | role-spoofing | `chat_template_marker_injection` | high | Ham chat-template kontrol token'ları (`<\|im_start\|>`, `[INST]`) içerikte |
+| role-spoofing | `system_tag` | high | Veriyi sistem mesajı gibi göstermeye çalışan bir `<system>` etiketi |
 | hidden-text | `hidden_zero_width_chars` | medium | Zero-width space/word-joiner (U+200B/U+2060) — insan gözünden gizli metin |
+| hidden-text | `unicode_tag_smuggling` | critical | Gizli metin taşıyan görünmez Unicode tag karakterleri (U+E0000–E007F); 🏴󠁧󠁢󠁥󠁮󠁧󠁿 gibi bayrak emojileri hariç |
+| hidden-text | `bidi_control_chars` | medium | Metni okunduğundan farklı sırada gösteren bidi override/isolate karakterleri |
 | hidden-text | `css_hidden_text_with_instruction` | high | `display:none`/beyaz-üzerine-beyaz bir element, içinde talimat-benzeri dil |
 | hidden-text | `html_comment_instruction` | high | HTML yorumu içinde talimat-benzeri dil |
 | direct-address | `direct_address_to_ai` | medium | İçerik doğrudan "the AI"/"the assistant"a hitap ediyor |
 | exfiltration | `exfiltration_url_template_in_image` | high | Markdown görsel URL'inde `{{...}}`/`${...}` template — data-exfil beacon |
 | exfiltration | `reveal_system_prompt_request` | high | Modele system prompt'unu ifşa etmesini isteyen bir cümle |
+| exfiltration | `reveal_system_prompt_tr` | high | Türkçesi: "sistem istemini göster" |
 | exfiltration | `send_data_to_url_instruction` | critical | Modele veriyi bir dış URL'e göndermesini emreden açık bir talimat |
 
 Bunlar **heuristic** bulgulardır — anlam/niyet analizi değil, statik metin kalıbı taraması yapar. Düşük yanlış-pozitif oranı için tasarlandı (örn. emoji ZWJ dizileri ve normal `display:none` modal'ları özellikle hariç tutuldu) ama her bulgu yine de manuel gözden geçirilmelidir.
