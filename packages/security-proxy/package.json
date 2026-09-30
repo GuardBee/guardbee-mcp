@@ -34,7 +34,8 @@
   "files": [
     "dist",
     "README.md",
-    "TR.md"
+    "TR.md",
+    "ZH.md"
   ],
   "engines": {
     "node": ">=18"

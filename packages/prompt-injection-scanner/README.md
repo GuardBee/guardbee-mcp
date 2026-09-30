@@ -1,6 +1,6 @@
 # @guardbee/mcp-prompt-injection-scanner
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
 
 An MCP (Model Context Protocol) server that scans **content** — a RAG chunk, a scraped web page, a document — for indirect prompt injection payloads.
 
@@ -11,9 +11,9 @@ An MCP (Model Context Protocol) server that scans **content** — a RAG chunk, a
 ```
 Web page/RAG document ──► prompt-injection-scanner ──► LLM context
               │
-              ├─ Instruction override   ("ignore all previous instructions")
-              ├─ Role spoofing          ("System:", <|im_start|>, [INST])
-              ├─ Hidden text            (zero-width characters, display:none + instruction, HTML comment)
+              ├─ Instruction override   ("ignore all previous instructions", "önceki talimatları yok say")
+              ├─ Role spoofing          ("System:", <|im_start|>, [INST], <system>)
+              ├─ Hidden text            (zero-width, Unicode tag and bidi characters, display:none + instruction, HTML comment)
               ├─ Direct address         ("Dear AI, ...")
               └─ Exfiltration           (system prompt extraction request, data → URL instruction, templated img beacon)
 ```
@@ -108,7 +108,7 @@ prompt-injection-scanner:
 
 ```bash
 npm run build
-npm test             # 30 unit tests
+npm test             # 45 unit tests
 ```
 
 ---

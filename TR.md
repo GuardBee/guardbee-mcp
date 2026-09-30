@@ -1,6 +1,6 @@
 # guardbee-mcp
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe**
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
 
 [guardbee.ai](https://guardbee.ai) — Web siteleri için AI Security Copilot.
 
@@ -32,10 +32,11 @@ GuardBee'nin MCP (Model Context Protocol) server ailesi — tek monorepo, bağı
 | [`packages/slopsquat-scanner`](packages/slopsquat-scanner) | `@guardbee/mcp-slopsquat-scanner` | Bir projenin kendi manifest dosyalarında (package.json, requirements.txt, pyproject.toml) beyan edilen her bağımlılığı gerçek npm/PyPI registry'sine karşı kontrol eder — hiç var olmayan (muhtemelen LLM halüsinasyonu, yani slopsquatting) isimleri ve var olan ama çok yakın zamanda yayınlanmış isimleri işaretler |
 | [`packages/unbounded-consumption-auditor`](packages/unbounded-consumption-auditor) | `@guardbee/mcp-unbounded-consumption-auditor` | LLM/agent uygulama kodunu Unbounded Consumption ("denial of wallet", OWASP LLM Top 10 2026 #6) için tarar — eksik output token limitleri, elle yazılmış LLM HTTP çağrılarında eksik timeout'lar, sınırsız agent tool-calling/retry döngüleri, bilinçli olarak devre dışı bırakılmış framework güvenlik limitleri (LangChain max_iterations, openai-agents max_turns), ve görünür rate limiting'i olmayan MCP tool handler'ları |
 | [`packages/secret-scanner`](packages/secret-scanner) | `@guardbee/mcp-secret-scanner` | Dosyalarda sızmış secret/API key taraması |
-| [`packages/security-proxy`](packages/security-proxy) | `@guardbee/mcp-security-proxy` | MCP client↔server arası güvenlik proxy'si |
+| [`packages/security-proxy`](packages/security-proxy) | `@guardbee/mcp-security-proxy` | MCP güvenlik gateway'i: birden fazla MCP server'ı tek politikanın arkasına koyar; toxic-flow (lethal trifecta) engelleme, onay, PII maskeleme ve hash zincirli audit log |
 | [`packages/security-suite`](packages/security-suite) | `@guardbee/security-suite` | secret-scanner + dependency-auditor + ssl-inspector + dns-intelligence bundle'ı |
 | [`packages/ssl-inspector`](packages/ssl-inspector) | `@guardbee/mcp-ssl-inspector` | TLS sertifika/cipher/protokol denetimi |
 | [`packages/vulnerability-scanner`](packages/vulnerability-scanner) | `@guardbee/mcp-vulnerability-scanner` | GuardBee tarama tetikleme, bulgu sorgulama, AI destekli düzeltme önerisi |
+| [`packages/guard-core`](packages/guard-core) | `@guardbee/guard-core` | (internal) Paylaşılan dedektör kütüphanesi — PII/secret maskeleme, prompt injection kuralları, tool sınıflandırma; kendi başına bir MCP server değil |
 | [`packages/telemetry`](packages/telemetry) | `@guardbee/mcp-telemetry` | (internal) Paylaşılan kullanım telemetrisi client'ı — kendi başına bir MCP server değil |
 
 ## Son Değişiklikler (2026-09-30)

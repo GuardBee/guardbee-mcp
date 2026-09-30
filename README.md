@@ -1,6 +1,6 @@
 # guardbee-mcp
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
 
 [guardbee.ai](https://guardbee.ai) — AI Security Copilot for websites.
 
@@ -32,10 +32,11 @@ GuardBee's family of MCP (Model Context Protocol) servers — a single monorepo,
 | [`packages/slopsquat-scanner`](packages/slopsquat-scanner) | `@guardbee/mcp-slopsquat-scanner` | Checks every dependency declared in a project's own manifest (package.json, requirements.txt, pyproject.toml) against the real npm/PyPI registry — flags names that don't exist at all (likely LLM-hallucinated, i.e. slopsquatting) and names that exist but were only very recently published |
 | [`packages/unbounded-consumption-auditor`](packages/unbounded-consumption-auditor) | `@guardbee/mcp-unbounded-consumption-auditor` | Scans LLM/agent application code for Unbounded Consumption ("denial of wallet", OWASP LLM Top 10 2026 #6) — missing output token limits, missing timeouts on hand-rolled LLM HTTP calls, unbounded agent tool-calling/retry loops, explicitly disabled framework safety limits (LangChain max_iterations, openai-agents max_turns), and MCP tool handlers with no visible rate limiting |
 | [`packages/secret-scanner`](packages/secret-scanner) | `@guardbee/mcp-secret-scanner` | Scans files for leaked secrets and API keys |
-| [`packages/security-proxy`](packages/security-proxy) | `@guardbee/mcp-security-proxy` | Security proxy between an MCP client and server |
+| [`packages/security-proxy`](packages/security-proxy) | `@guardbee/mcp-security-proxy` | MCP security gateway: several MCP servers behind one policy, with toxic-flow (lethal trifecta) blocking, approvals, PII masking and a hash-chained audit log |
 | [`packages/security-suite`](packages/security-suite) | `@guardbee/security-suite` | Bundle of secret-scanner + dependency-auditor + ssl-inspector + dns-intelligence |
 | [`packages/ssl-inspector`](packages/ssl-inspector) | `@guardbee/mcp-ssl-inspector` | TLS certificate/cipher/protocol inspection |
 | [`packages/vulnerability-scanner`](packages/vulnerability-scanner) | `@guardbee/mcp-vulnerability-scanner` | Triggers GuardBee scans, queries findings, AI-assisted remediation guidance |
+| [`packages/guard-core`](packages/guard-core) | `@guardbee/guard-core` | (internal) Shared detector library — PII/secret masking, prompt injection rules, tool classification; not an MCP server on its own |
 | [`packages/telemetry`](packages/telemetry) | `@guardbee/mcp-telemetry` | (internal) Shared usage-telemetry client — not an MCP server on its own |
 
 ## Recent Changes (2026-09-30)

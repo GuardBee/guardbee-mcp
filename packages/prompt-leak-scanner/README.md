@@ -1,6 +1,6 @@
 # @guardbee/mcp-prompt-leak-scanner
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
 
 An MCP (Model Context Protocol) server — and a standalone reverse proxy — that catches leaked credentials and PII in **outbound** LLM prompts, before they leave your application.
 
@@ -39,7 +39,7 @@ A bare regex for "11 digits" or "16 digits" would flag order numbers, phone exte
 - **Credit card numbers** — Luhn checksum
 - **IBAN** — ISO 7064 MOD97-10 checksum
 
-A random 11-digit number has roughly a 1-in-10 chance of passing the TC Kimlik checksum by coincidence — regex alone would be far noisier. Credential patterns (API keys, JWTs, private keys) are matched against real provider-specific prefixes/structure (`sk-`, `AKIA`, `ghp_`, `-----BEGIN...PRIVATE KEY-----`, JWT's three-segment base64url shape), the same low-false-positive approach `secret-scanner` uses.
+A random 11-digit number has roughly a 1-in-10 chance of passing the TC Kimlik checksum by coincidence — regex alone would be far noisier. Credential patterns (API keys, JWTs, private keys) are matched against real provider-specific prefixes/structure (`sk-`, `AKIA`, `ghp_`, `-----BEGIN...PRIVATE KEY-----`, JWT's three-segment base64url shape), the same low-false-positive approach `secret-scanner` uses. The checksum validators come from [`@guardbee/guard-core`](../guard-core/README.md), shared with `@guardbee/mcp-security-proxy`.
 
 **Findings never echo the real value.** A finding's `maskedMatch` shows only the first 3 and last 2 characters (`sk-…wx`) — logging or displaying the very thing you just caught would defeat the point. The proxy's audit events go further: they record which pattern fired and where, never the matched text itself.
 

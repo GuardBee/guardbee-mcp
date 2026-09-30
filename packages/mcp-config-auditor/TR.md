@@ -1,6 +1,6 @@
 # @guardbee/mcp-config-auditor
 
-**🇬🇧 English** | [🇹🇷 Türkçe](README.md)
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe**
 
 Bir ajanın hangi MCP sunucularını çalıştıracağına karar veren istemci config'ini tarar: Cursor `mcp.json`, Claude Desktop `claude_desktop_config.json`, Windsurf `mcp_config.json` ve VS Code `mcp.json`.
 

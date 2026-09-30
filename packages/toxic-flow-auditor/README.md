@@ -1,6 +1,6 @@
 # @guardbee/mcp-toxic-flow-auditor
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
 
 An MCP server that audits an MCP **tool catalog** for **toxic flows** — Simon Willison's *lethal trifecta*:
 
@@ -28,8 +28,11 @@ Claude ──► toxic-flow-auditor ──► tools/list JSON or MCP server sour
 - **Single-tool trifecta.** One registration whose name/description itself spans all three capabilities.
 - **Dangerous pairs.** Sensitive+exfil, untrusted+exfil, or sensitive+destructive even when the full trifecta is not present.
 - **KVKK-aware heuristics.** Turkish PII signals (`tc_kimlik`, `müşteri`, `KVKK`) count as sensitive data.
+- **snake_case names read word by word.** `read_vault_secret` and `drop_table` are classified by each word; opening a pull request counts as exfiltration.
 
 Grades **A–F**. No API key. Static / catalog analysis only — does not call live tools.
+
+The classification rules come from [`@guardbee/guard-core`](../guard-core/README.md); `@guardbee/mcp-security-proxy` uses the same rules to block toxic flows at runtime.
 
 ## Tools
 

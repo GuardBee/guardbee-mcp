@@ -1,5 +1,7 @@
 # @guardbee/guard-core
 
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
+
 Shared detectors used by other GuardBee MCP packages. Not an MCP server on its own, just a library — you don't need to install this package directly.
 
 It exists so the same rule runs everywhere: a static scanner flagging a pattern and the runtime proxy blocking it use one implementation.
@@ -25,7 +27,7 @@ A regex alone masks any 11-digit number as a TC Kimlik No and any 16-digit numbe
 | VKN (tax number) | Gelir İdaresi check digit, and a `VKN` / `Vergi No` label before the number |
 | IBAN | ISO 7064 MOD97-10 |
 | Card number | Luhn |
-| Phone (TR) | Mobile (5xx), landline (2xx–4xx) or 850 code after the +90 / 0 prefix |
+| Phone (TR) | Mobile (5xx), landline (2xx–4xx) or 850 code; written with a +90 / 0 prefix or grouped with spaces/dashes, and not part of a URL or id |
 
 A match that fails its check (an order number, a tracking code) is left unchanged.
 
