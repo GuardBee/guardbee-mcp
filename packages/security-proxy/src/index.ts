@@ -1,4 +1,8 @@
-export { startProxy, startGateway, createProxyServer } from "./proxy.js";
+export { startProxy, startGateway, createProxyServer, createGatewayServer } from "./proxy.js";
+export { elicitationApprover } from "./gateway/approval.js";
+export type { Approver, ApprovalRequest, ApprovalOutcome } from "./gateway/approval.js";
+export { PiiVault } from "./gateway/tokens.js";
+export { maskFields } from "./gateway/fields.js";
 export { loadProxyConfig } from "./config.js";
 export { loadGatewayConfig, parseGatewayYaml, fromLegacyConfig } from "./gateway/config.js";
 export type { GatewayConfig } from "./gateway/config.js";
@@ -18,3 +22,5 @@ export { maskPiiInValue, maskPiiInText } from "./interceptors/pii-masker.js";
 export { AuditLogger, verifyAuditChain } from "./audit/logger.js";
 export type { ChainVerification } from "./audit/logger.js";
 export type { ProxyConfig, McpServerConfig, InterceptResult, AuditEvent, AuditConfig } from "./types.js";
+export { planInit, runInit, clientConfigPath } from "./init.js";
+export type { ClientName, InitPlan, InitOptions, InitResult } from "./init.js";

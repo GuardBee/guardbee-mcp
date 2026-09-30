@@ -1,5 +1,6 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { ToolListChangedNotificationSchema } from "@modelcontextprotocol/sdk/types.js";
 import type {
   CallToolResult,
   GetPromptResult,
@@ -19,6 +20,8 @@ export interface Upstream {
   readResource(uri: string): Promise<ReadResourceResult>;
   listPrompts(): Promise<Prompt[]>;
   getPrompt(name: string, args?: Record<string, string>): Promise<GetPromptResult>;
+  /** Register for the server's tools/list_changed notification. */
+  onToolsChanged?(listener: () => void): void;
   close(): Promise<void>;
 }
 
@@ -44,6 +47,9 @@ export function clientUpstream(name: string, client: Client): Upstream {
     },
     getPrompt(prompt, args) {
       return client.getPrompt({ name: prompt, arguments: args });
+    },
+    onToolsChanged(listener) {
+      client.setNotificationHandler(ToolListChangedNotificationSchema, () => listener());
     },
     close() {
       return client.close();

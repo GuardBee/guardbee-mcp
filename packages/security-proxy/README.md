@@ -65,14 +65,20 @@ Add to `claude_desktop_config.json`:
 
 ## Gateway Mode: Several Servers, One Policy
 
-Put every MCP server behind one proxy with a `guardbee-proxy.yaml`:
+Put every MCP server behind one proxy with a `guardbee-proxy.yaml`. `init` does the move for you:
+
+```bash
+npx -y @guardbee/mcp-security-proxy@^1 init --client claude-desktop   # or cursor, claude-code, --file ./mcp.json
+```
+
+It moves each stdio server into `~/.guardbee/guardbee-proxy.yaml` (mode 0600), backs up the client config and points it at the proxy. HTTP servers stay as they are and are reported, because they would bypass the policy. `--dry-run` prints both files without writing. Or by hand:
 
 ```json
 {
   "mcpServers": {
     "guardbee": {
       "command": "npx",
-      "args": ["-y", "@guardbee/mcp-security-proxy", "--config", "/path/to/guardbee-proxy.yaml"]
+      "args": ["-y", "@guardbee/mcp-security-proxy@^1", "--config", "/path/to/guardbee-proxy.yaml"]
     }
   }
 }
@@ -96,10 +102,15 @@ labels:                       # override the heuristic labels
 rules:                        # first match wins
   - id: no-deletes
     match: { tool: "postgres__delete_*" }
-    action: deny              # allow | deny | mask | warn
+    action: deny              # allow | deny | mask | warn | approve
+  - match: { tool: "postgres__query", args: { table: "salaries" } }   # dotted path → value, strings are globs
+    action: mask
+    mask: { fields: [salary, iban] }   # blank these JSON keys
+  - match: { label: destructive }
+    action: approve           # ask the person first
 
 taint:
-  mode: strict                # strict | warn | off
+  mode: strict                # strict | approve | warn | off
 
 audit:
   sink: file
@@ -108,7 +119,11 @@ audit:
 
 - Tools and prompts appear as `<upstream>__<tool>`.
 - **Toxic flow (lethal trifecta):** each tool is labeled `untrusted`, `sensitive`, `egress` or `destructive` (name/description heuristics, overridable under `labels`). Once a session has read untrusted content (an `untrusted` tool or any resource) and sensitive data (a `sensitive` tool or any PII in a result), an `egress` call is blocked in `strict` mode and only logged in `warn` mode. The check spans servers: an issue read from GitHub plus a customer record from a CRM blocks a webhook on a third server.
-- **Rules** match on `tool` (glob), `upstream`, `label` and `session` (`clean` | `tainted`). `mask` forces PII masking for that tool even when masking is off. A rule's `allow` does not skip the toxic-flow check; relabel the tool instead.
+- **Rules** match on `tool` (glob), `upstream`, `label`, `session` (`clean` | `tainted`) and `args`. `mask` forces PII masking for that tool even when masking is off, and `mask.fields` also blanks the named JSON keys in text and `structuredContent`. A rule's `allow` does not skip the toxic-flow check; relabel the tool instead.
+- **Approval:** `approve` (a rule action, or `taint.mode: approve` for toxic flows) shows the person a yes/no form through MCP elicitation, with the tool, the reason and the arguments. Anything but an explicit yes — decline, cancel, no answer within `approval.timeoutSeconds` (default 120) — blocks the call. A client without elicitation support cannot approve, so the call is blocked with a message saying so.
+- **Tokenize:** with `interceptors.piiMasking.mode: tokenize` the model sees `<pii:tc_kimlik:7f3a9b21>` instead of the value and can still pass it to another tool: the proxy puts the real value back on the way to that server. Tokens live in memory for the session only, and are not turned back into values for an `egress` tool unless `piiMasking.detokenizeForEgress: true`.
+- **Prompts** (`prompts/get`) get the same injection scan and PII masking as tool results.
+- `interceptors.definitionDrift.recheck: on-change` skips the per-call `tools/list` and re-checks only after a server sends `tools/list_changed`, which the proxy also passes on to the agent.
 - **Audit log** is hash-chained. By default it stores a SHA-256 of the arguments instead of the arguments, and no results; set `audit.includePayloads: true` to log them. Check a log with `guardbee-proxy verify-audit ./guardbee-audit.jsonl`.
 - `guardbee-proxy validate --config guardbee-proxy.yaml` checks a config without starting any server.
 - Without `--config`, the proxy also picks up `./guardbee-proxy.yaml` or `GUARDBEE_PROXY_CONFIG=<file>.yaml`.

@@ -50,27 +50,30 @@ export const PII_PATTERNS: PiiPattern[] = [
   },
 ];
 
-export function maskPiiInText(text: string): string {
+/** Returns what a validated match is replaced with; defaults to the pattern's fixed placeholder. */
+export type PiiReplacer = (patternName: string, match: string) => string;
+
+export function maskPiiInText(text: string, replace?: PiiReplacer): string {
   let result = text;
-  for (const { pattern, replacement, validate } of PII_PATTERNS) {
+  for (const { name, pattern, replacement, validate } of PII_PATTERNS) {
     result = result.replace(pattern, (match) =>
-      validate && !validate(match) ? match : replacement,
+      validate && !validate(match) ? match : replace ? replace(name, match) : replacement,
     );
   }
   return result;
 }
 
-export function maskPiiInValue(value: unknown): unknown {
+export function maskPiiInValue(value: unknown, replace?: PiiReplacer): unknown {
   if (typeof value === "string") {
-    return maskPiiInText(value);
+    return maskPiiInText(value, replace);
   }
   if (Array.isArray(value)) {
-    return value.map(maskPiiInValue);
+    return value.map((item) => maskPiiInValue(item, replace));
   }
   if (typeof value === "object" && value !== null) {
     const result: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value)) {
-      result[k] = maskPiiInValue(v);
+      result[k] = maskPiiInValue(v, replace);
     }
     return result;
   }

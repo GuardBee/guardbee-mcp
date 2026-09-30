@@ -16,14 +16,16 @@ export interface GatewayConfig {
   labels: Record<string, Label[]>;
   rules: PolicyRule[];
   taint: { mode: TaintMode };
+  /** How long an `approve` decision waits for the person before it becomes a deny. */
+  approval: { timeoutSeconds: number };
   defaults: { action: PolicyAction };
   audit: AuditConfig;
   interceptors: NonNullable<ProxyConfig["interceptors"]>;
 }
 
 const labelSchema = z.enum(LABELS);
-const actionSchema = z.enum(["allow", "deny", "mask", "warn"]);
-const interceptorSchema = z.object({ enabled: z.boolean(), action: z.enum(["block", "warn"]) });
+const actionSchema = z.enum(["allow", "deny", "mask", "warn", "approve"]);
+const interceptorSchema = z.object({ enabled: z.boolean(), action: z.enum(["block", "warn"]) }).strict();
 
 const upstreamSchema = z
   .object({
@@ -70,14 +72,24 @@ const yamlSchema = z
                 upstream: z.string().optional(),
                 label: labelSchema.optional(),
                 session: z.enum(["clean", "tainted"]).optional(),
+                args: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
               })
               .strict(),
             action: actionSchema,
+            mask: z.object({ fields: z.array(z.string()).min(1) }).strict().optional(),
           })
-          .strict(),
+          .strict()
+          .refine((rule) => rule.mask === undefined || rule.action === "mask", {
+            message: "mask.fields only applies to action: mask",
+            path: ["mask"],
+          }),
       )
       .default([]),
-    taint: z.object({ mode: z.enum(["strict", "warn", "off"]).default("strict") }).strict().default({ mode: "strict" }),
+    taint: z.object({ mode: z.enum(["strict", "approve", "warn", "off"]).default("strict") }).strict().default({ mode: "strict" }),
+    approval: z
+      .object({ timeoutSeconds: z.number().int().positive().default(120) })
+      .strict()
+      .default({ timeoutSeconds: 120 }),
     defaults: z.object({ action: actionSchema.default("allow") }).strict().default({ action: "allow" }),
     audit: z
       .object({
@@ -92,8 +104,18 @@ const yamlSchema = z
       .object({
         promptInjection: interceptorSchema.optional(),
         toolResultInjection: interceptorSchema.optional(),
-        definitionDrift: interceptorSchema.optional(),
-        piiMasking: z.object({ enabled: z.boolean(), patterns: z.array(z.string()).optional() }).optional(),
+        definitionDrift: interceptorSchema
+          .extend({ recheck: z.enum(["every-call", "on-change"]).optional() })
+          .optional(),
+        piiMasking: z
+          .object({
+            enabled: z.boolean(),
+            patterns: z.array(z.string()).optional(),
+            mode: z.enum(["redact", "tokenize"]).optional(),
+            detokenizeForEgress: z.boolean().optional(),
+          })
+          .strict()
+          .optional(),
       })
       .strict()
       .default({}),
@@ -138,6 +160,7 @@ export function parseGatewayYaml(source: string, fileLabel = "guardbee-proxy.yam
     labels: cfg.labels,
     rules: cfg.rules,
     taint: cfg.taint,
+    approval: cfg.approval,
     defaults: cfg.defaults,
     audit: cfg.audit,
     interceptors: cfg.interceptors,
@@ -155,6 +178,7 @@ export function fromLegacyConfig(config: ProxyConfig): GatewayConfig {
     labels: {},
     rules: [],
     taint: { mode: "warn" },
+    approval: { timeoutSeconds: 120 },
     defaults: { action: "allow" },
     audit: { includePayloads: true, ...(config.audit ?? { enabled: true, sink: "console" }) },
     interceptors: config.interceptors ?? {},

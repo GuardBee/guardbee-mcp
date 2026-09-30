@@ -56,7 +56,7 @@ taint: { mode: warn }
   });
 
   it.each([
-    ["an unknown action", "rules: [{ match: {}, action: approve }]", "rules.0.action"],
+    ["an unknown action", "rules: [{ match: {}, action: quarantine }]", "rules.0.action"],
     ["an unknown label", "labels: { db__q: [secret] }", "labels.db__q.0"],
     ["a typo'd key", "taint: { mod: strict }", "taint"],
     ["an HTTP upstream", "", "not supported yet"],

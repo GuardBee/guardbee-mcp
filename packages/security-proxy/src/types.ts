@@ -32,10 +32,19 @@ export type ProxyConfig = {
     definitionDrift?: {
       enabled: boolean;
       action: "block" | "warn";
+      /**
+       * `every-call` re-lists the upstream's tools before each call (default).
+       * `on-change` re-lists only after the upstream sent tools/list_changed.
+       */
+      recheck?: "every-call" | "on-change";
     };
     piiMasking?: {
       enabled: boolean;
       patterns?: string[];
+      /** `redact` (default) replaces PII with a fixed placeholder; `tokenize` with a reversible session token. */
+      mode?: "redact" | "tokenize";
+      /** Put real values back even when the tool can send data out. Off by default. */
+      detokenizeForEgress?: boolean;
     };
   };
 };
@@ -47,7 +56,7 @@ export type InterceptResult =
 
 export type AuditEvent = {
   ts: string;
-  type: "tool_call" | "tool_response" | "blocked" | "warn" | "toxic_flow" | "resource_read";
+  type: "tool_call" | "tool_response" | "blocked" | "warn" | "toxic_flow" | "resource_read" | "approval";
   tool?: string;
   server?: string;
   upstream?: string;

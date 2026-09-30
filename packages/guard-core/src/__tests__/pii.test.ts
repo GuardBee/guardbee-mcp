@@ -38,3 +38,15 @@ describe("maskPiiInValue", () => {
     });
   });
 });
+
+describe("maskPiiInText — custom replacer", () => {
+  it("passes the pattern name and the validated match, skipping invalid ones", () => {
+    const seen: string[] = [];
+    const result = maskPiiInText("10000000146 12345678901 a@b.co", (name, match) => {
+      seen.push(`${name}:${match}`);
+      return `<${name}>`;
+    });
+    expect(result).toBe("<tc_kimlik> 12345678901 <email>");
+    expect(seen).toEqual(["tc_kimlik:10000000146", "email:a@b.co"]);
+  });
+});

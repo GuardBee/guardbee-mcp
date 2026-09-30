@@ -7,12 +7,17 @@ export interface FakeTool {
   description?: string;
   /** Text the tool returns. */
   returns?: string;
+  structured?: Record<string, unknown>;
 }
 
 export interface FakeUpstream extends Upstream {
   calls: { tool: string; args: Record<string, unknown> }[];
   /** Replace a tool's description to simulate a rug pull. */
   redefine(tool: string, description: string): void;
+  /** How many times tools/list was called. */
+  listCount(): number;
+  /** Fire the tools/list_changed notification. */
+  emitToolsChanged(): void;
 }
 
 export function fakeUpstream(
@@ -22,20 +27,33 @@ export function fakeUpstream(
 ): FakeUpstream {
   const defs = tools.map((tool) => ({ ...tool }));
   const calls: FakeUpstream["calls"] = [];
+  const listeners: (() => void)[] = [];
+  let lists = 0;
   return {
     name,
     calls,
+    listCount: () => lists,
+    emitToolsChanged() {
+      for (const listener of listeners) listener();
+    },
+    onToolsChanged(listener) {
+      listeners.push(listener);
+    },
     redefine(tool, description) {
       const def = defs.find((d) => d.name === tool);
       if (def) def.description = description;
     },
     async listTools() {
+      lists++;
       return defs.map((d) => ({ name: d.name, description: d.description, inputSchema: { type: "object" as const } }));
     },
     async callTool(tool, args): Promise<CallToolResult> {
       calls.push({ tool, args });
       const def = defs.find((d) => d.name === tool);
-      return { content: [{ type: "text", text: def?.returns ?? "ok" }] };
+      return {
+        content: [{ type: "text", text: def?.returns ?? "ok" }],
+        ...(def?.structured ? { structuredContent: def.structured } : {}),
+      };
     },
     async listResources() {
       return resources.map(({ text: _text, ...resource }) => resource);
@@ -62,6 +80,7 @@ export function gatewayConfig(overrides: Partial<GatewayConfig> = {}): GatewayCo
     labels: {},
     rules: [],
     taint: { mode: "strict" },
+    approval: { timeoutSeconds: 120 },
     defaults: { action: "allow" },
     audit: { enabled: false, sink: "console" },
     interceptors: {},

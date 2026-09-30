@@ -65,14 +65,20 @@ npm install -g @guardbee/mcp-security-proxy
 
 ## Gateway Modu: Birden Fazla Sunucu, Tek Politika
 
-Tüm MCP sunucularını bir `guardbee-proxy.yaml` ile tek proxy'nin arkasına koyun:
+Tüm MCP sunucularını bir `guardbee-proxy.yaml` ile tek proxy'nin arkasına koyun. `init` taşımayı sizin için yapar:
+
+```bash
+npx -y @guardbee/mcp-security-proxy@^1 init --client claude-desktop   # veya cursor, claude-code, --file ./mcp.json
+```
+
+Her stdio sunucusunu `~/.guardbee/guardbee-proxy.yaml` dosyasına (izin 0600) taşır, istemci config'inin yedeğini alır ve config'i proxy'ye yönlendirir. HTTP sunucuları olduğu gibi kalır ve raporlanır, çünkü politikayı atlarlar. `--dry-run` iki dosyayı da yazmadan gösterir. Elle yapmak için:
 
 ```json
 {
   "mcpServers": {
     "guardbee": {
       "command": "npx",
-      "args": ["-y", "@guardbee/mcp-security-proxy", "--config", "/path/to/guardbee-proxy.yaml"]
+      "args": ["-y", "@guardbee/mcp-security-proxy@^1", "--config", "/path/to/guardbee-proxy.yaml"]
     }
   }
 }
@@ -96,10 +102,15 @@ labels:                       # sezgisel etiketleri ezer
 rules:                        # ilk eşleşen kural kazanır
   - id: no-deletes
     match: { tool: "postgres__delete_*" }
-    action: deny              # allow | deny | mask | warn
+    action: deny              # allow | deny | mask | warn | approve
+  - match: { tool: "postgres__query", args: { table: "salaries" } }   # noktalı yol → değer, string'ler glob
+    action: mask
+    mask: { fields: [salary, iban] }   # bu JSON anahtarlarını boşalt
+  - match: { label: destructive }
+    action: approve           # önce kişiye sor
 
 taint:
-  mode: strict                # strict | warn | off
+  mode: strict                # strict | approve | warn | off
 
 audit:
   sink: file
@@ -108,7 +119,11 @@ audit:
 
 - Tool'lar ve prompt'lar `<upstream>__<tool>` adıyla görünür.
 - **Toxic flow (lethal trifecta):** her tool `untrusted`, `sensitive`, `egress` veya `destructive` olarak etiketlenir (ad/açıklama sezgileriyle; `labels` altında ezilebilir). Oturum güvenilmeyen içerik (`untrusted` bir tool veya herhangi bir resource) ve hassas veri (`sensitive` bir tool veya bir sonuçtaki herhangi bir PII) gördükten sonra, `egress` çağrısı `strict` modda engellenir, `warn` modda sadece loglanır. Kontrol sunucular arasında çalışır: GitHub'dan okunan bir issue ile CRM'den gelen bir müşteri kaydı, üçüncü bir sunucudaki webhook çağrısını engeller.
-- **Kurallar** `tool` (glob), `upstream`, `label` ve `session` (`clean` | `tainted`) alanlarıyla eşleşir. `mask`, maskeleme kapalı olsa bile o tool için PII maskelemeyi zorunlu kılar. Bir kuraldaki `allow` toxic-flow kontrolünü atlatmaz; bunun yerine tool'un etiketini değiştirin.
+- **Kurallar** `tool` (glob), `upstream`, `label`, `session` (`clean` | `tainted`) ve `args` alanlarıyla eşleşir. `mask`, maskeleme kapalı olsa bile o tool için PII maskelemeyi zorunlu kılar; `mask.fields` ayrıca adı verilen JSON anahtarlarını metinde ve `structuredContent`'te boşaltır. Bir kuraldaki `allow` toxic-flow kontrolünü atlatmaz; bunun yerine tool'un etiketini değiştirin.
+- **Onay:** `approve` (kural aksiyonu olarak ya da toxic flow için `taint.mode: approve`) kişiye MCP elicitation üzerinden tool'u, gerekçeyi ve argümanları gösteren bir evet/hayır formu açar. Açık bir "evet" dışındaki her cevap (red, iptal, `approval.timeoutSeconds` içinde cevap gelmemesi; varsayılan 120) çağrıyı engeller. Elicitation desteklemeyen istemci onay veremez; çağrı bunu söyleyen bir mesajla engellenir.
+- **Tokenize:** `interceptors.piiMasking.mode: tokenize` ile model değerin yerine `<pii:tc_kimlik:7f3a9b21>` görür ve bu token'ı başka bir tool'a yine verebilir; proxy gerçek değeri o sunucuya giderken geri koyar. Token'lar sadece oturum boyunca bellekte tutulur ve `piiMasking.detokenizeForEgress: true` olmadıkça `egress` tool'lar için geri çevrilmez.
+- **Prompt'lar** (`prompts/get`) tool sonuçlarıyla aynı injection taramasından ve PII maskelemeden geçer.
+- `interceptors.definitionDrift.recheck: on-change` her çağrıdaki `tools/list`'i atlar ve sadece sunucu `tools/list_changed` gönderdiğinde yeniden kontrol eder; proxy bu bildirimi ajana da iletir.
 - **Audit log** hash zincirlidir. Varsayılan olarak argümanların kendisi yerine SHA-256'sını tutar, sonuçları hiç yazmaz; yazmak için `audit.includePayloads: true`. Bir log'u `guardbee-proxy verify-audit ./guardbee-audit.jsonl` ile doğrulayın.
 - `guardbee-proxy validate --config guardbee-proxy.yaml` sunucu başlatmadan config'i kontrol eder.
 - `--config` verilmezse proxy `./guardbee-proxy.yaml` dosyasını veya `GUARDBEE_PROXY_CONFIG=<dosya>.yaml` değişkenini de okur.

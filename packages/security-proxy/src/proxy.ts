@@ -10,6 +10,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import type { ProxyConfig } from "./types.js";
 import { AuditLogger } from "./audit/logger.js";
+import { elicitationApprover, type Approver } from "./gateway/approval.js";
 import { fromLegacyConfig, type GatewayConfig } from "./gateway/config.js";
 import { Gateway } from "./gateway/gateway.js";
 import { connectStdioUpstream, type Upstream } from "./gateway/upstream.js";
@@ -20,7 +21,7 @@ export function createProxyServer(gateway: Gateway): Server {
     { name: "guardbee-security-proxy", version: "1.0.0" },
     {
       capabilities: {
-        tools: {},
+        tools: { listChanged: true },
         resources: {},
         prompts: {},
       },
@@ -37,8 +38,29 @@ export function createProxyServer(gateway: Gateway): Server {
   server.setRequestHandler(GetPromptRequestSchema, async (req) =>
     gateway.getPrompt(req.params.name, req.params.arguments)
   );
+  gateway.onToolsChanged(() => {
+    void server.sendToolListChanged().catch(() => {});
+  });
 
   return server;
+}
+
+/**
+ * Gateway + the MCP server in front of it, with approvals asked through that
+ * server (MCP elicitation). The approver needs the server and the server needs
+ * the gateway, hence the late binding.
+ */
+export function createGatewayServer(
+  upstreams: Upstream[],
+  config: GatewayConfig,
+  audit: AuditLogger
+): { gateway: Gateway; server: Server } {
+  let server: Server | undefined;
+  const approver: Approver = (request) =>
+    server ? elicitationApprover(server, config.approval.timeoutSeconds)(request) : Promise.resolve("unavailable");
+  const gateway = new Gateway(upstreams, config, audit, approver);
+  server = createProxyServer(gateway);
+  return { gateway, server };
 }
 
 export async function startGateway(config: GatewayConfig): Promise<void> {
@@ -48,8 +70,7 @@ export async function startGateway(config: GatewayConfig): Promise<void> {
     upstreams.push(await connectStdioUpstream(name, server));
   }
 
-  const gateway = new Gateway(upstreams, config, audit);
-  const server = createProxyServer(gateway);
+  const { gateway, server } = createGatewayServer(upstreams, config, audit);
   await server.connect(new StdioServerTransport());
 
   process.on("SIGINT", async () => {

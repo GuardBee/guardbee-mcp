@@ -1,6 +1,6 @@
 import type { Label } from "./labels.js";
 
-export type TaintMode = "strict" | "warn" | "off";
+export type TaintMode = "strict" | "approve" | "warn" | "off";
 
 export interface TaintSnapshot {
   sawUntrusted: boolean;
