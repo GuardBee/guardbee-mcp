@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isValidIban, isValidLuhn, isValidTcKimlik } from "../validators.js";
+import { isValidIban, isValidLuhn, isValidTcKimlik, isValidTrPhone, isValidVkn } from "../validators.js";
 
 describe("isValidTcKimlik", () => {
   it("geçerli TC kimlik numarasını kabul eder", () => {
@@ -36,5 +36,27 @@ describe("isValidIban", () => {
 
   it("kontrol hanesi yanlış IBAN'ı reddeder", () => {
     expect(isValidIban("TR340006100519786457841326")).toBe(false);
+  });
+});
+
+describe("isValidVkn", () => {
+  it("accepts a valid tax number and rejects a wrong check digit", () => {
+    expect(isValidVkn("1234567890")).toBe(true);
+    expect(isValidVkn("1234567891")).toBe(false);
+    expect(isValidVkn("123456789")).toBe(false);
+  });
+});
+
+describe("isValidTrPhone", () => {
+  it("accepts mobile, landline and 850 numbers with any prefix", () => {
+    for (const phone of ["0532 123 45 67", "+90 532 123 45 67", "00905321234567", "5321234567", "0212 555 12 34", "0850 222 00 00"]) {
+      expect(isValidTrPhone(phone), phone).toBe(true);
+    }
+  });
+
+  it("rejects 10-digit runs that cannot be a Turkish number", () => {
+    for (const other of ["1234567890", "0123456789", "9012345678", "2012345678"]) {
+      expect(isValidTrPhone(other), other).toBe(false);
+    }
   });
 });

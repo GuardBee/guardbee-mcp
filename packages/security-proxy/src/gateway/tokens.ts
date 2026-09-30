@@ -1,7 +1,7 @@
 import { randomBytes } from "crypto";
 import { maskPiiInValue } from "@guardbee/guard-core";
 
-const TOKEN = /<pii:[a-z_]+:[0-9a-f]{8}>/g;
+const TOKEN = /<pii:[a-z0-9_]+:[0-9a-f]{8}>/g;
 
 /**
  * Session-scoped reversible PII tokens. The model sees `<pii:tc_kimlik:7f3a9b21>`

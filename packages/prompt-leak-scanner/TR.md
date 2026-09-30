@@ -1,6 +1,6 @@
 # @guardbee/mcp-prompt-leak-scanner
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe**
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
 
 MCP (Model Context Protocol) sunucusu — ve bağımsız bir reverse proxy — **outbound** LLM prompt'larındaki sızmış credential ve PII'yi, uygulamanızdan çıkmadan önce yakalar.
 
@@ -39,7 +39,7 @@ guardbee-prompt-leak-scanner proxy --upstream=https://api.openai.com --port=8788
 - **Kredi kartı numaraları** — Luhn checksum
 - **IBAN** — ISO 7064 MOD97-10 checksum
 
-Rastgele 11 haneli bir sayının TC Kimlik checksum'ını tesadüfen geçme ihtimali kabaca 10'da 1 — tek başına regex çok daha gürültülü olurdu. Credential kalıpları (API key, JWT, private key) gerçek sağlayıcıya-özgü prefix/yapılara karşı eşleştiriliyor (`sk-`, `AKIA`, `ghp_`, `-----BEGIN...PRIVATE KEY-----`, JWT'nin üç-segmentli base64url şekli) — `secret-scanner`'ın kullandığı aynı düşük-yanlış-pozitif yaklaşım.
+Rastgele 11 haneli bir sayının TC Kimlik checksum'ını tesadüfen geçme ihtimali kabaca 10'da 1 — tek başına regex çok daha gürültülü olurdu. Credential kalıpları (API key, JWT, private key) gerçek sağlayıcıya-özgü prefix/yapılara karşı eşleştiriliyor (`sk-`, `AKIA`, `ghp_`, `-----BEGIN...PRIVATE KEY-----`, JWT'nin üç-segmentli base64url şekli) — `secret-scanner`'ın kullandığı aynı düşük-yanlış-pozitif yaklaşım. Checksum doğrulayıcıları [`@guardbee/guard-core`](../guard-core/TR.md)'dan gelir ve `@guardbee/mcp-security-proxy` ile paylaşılır.
 
 **Bulgular gerçek değeri asla tam göstermez.** Bir bulgunun `maskedMatch`'i sadece ilk 3 ve son 2 karakteri gösterir (`sk-…wx`) — az önce yakaladığınız şeyi loglamak ya da göstermek amacı boşa çıkarırdı. Proxy'nin audit event'leri daha da ileri gider: hangi kalıbın tetiklendiğini ve nerede olduğunu kaydeder, eşleşen metni asla değil.
 

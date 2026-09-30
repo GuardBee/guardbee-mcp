@@ -1,6 +1,6 @@
 # @guardbee/mcp-secret-scanner
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe**
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-secret-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-secret-scanner)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-secret-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-secret-scanner)
@@ -14,12 +14,12 @@ Kaynak dosyalarınızı, dizinleri ve ortam konfigürasyonlarını açık API ke
 
 ## Özellikler
 
-- **40+ Secret Deseni** — AWS, GitHub, GitLab, Stripe, OpenAI, Anthropic, HuggingFace, Slack, Twilio, SendGrid ve daha fazlası
+- **38 Secret Deseni** — AWS, GitHub, GitLab, Stripe, OpenAI, Anthropic, HuggingFace, Slack, Twilio, SendGrid ve daha fazlası. Kurallar [`@guardbee/guard-core`](../guard-core/TR.md) içinde durduğu için `@guardbee/mcp-security-proxy` aynı formatları çalışma anında tool sonuçlarında maskeler
 - **Dosya & Dizin Tarama** — Tek dosya veya tüm proje ağacı
 - **Akıllı Atlama** — `node_modules`, `.git`, `dist`, `build`, `.next` gibi dizinler otomatik atlanır
 - **Güvenli Redaksyon** — Eşleşmeler ilk 4 + yıldız + son 4 karakter olarak gösterilir
 - **Allowlist Desteği** — Bilinen test/sahte değerleri beyaz listeye alın
-- **16 Unit Test** — %100 geçen test paketi
+- **39 Unit Test** — %100 geçen test paketi
 
 ---
 
@@ -148,7 +148,7 @@ npx @guardbee/mcp-secret-scanner scan . --fail-on=critical || exit 1
 
 ```bash
 npm install
-npm test          # 16 unit test
+npm test          # 39 unit test
 npm run build     # TypeScript derleme
 ```
 

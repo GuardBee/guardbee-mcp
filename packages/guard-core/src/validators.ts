@@ -43,3 +43,29 @@ export function isValidIban(raw: string): boolean {
   }
   return Number(remainder) === 1;
 }
+
+/** Turkish tax number (Vergi Kimlik No, 10 digits) — the Gelir İdaresi check-digit algorithm. */
+export function isValidVkn(raw: string): boolean {
+  const d = raw.replace(/\D/g, "");
+  if (d.length !== 10) return false;
+  const digits = d.split("").map(Number);
+  let sum = 0;
+  for (let i = 0; i < 9; i++) {
+    const tmp = (digits[i] + 10 - (i + 1)) % 10;
+    sum += tmp === 9 ? 9 : (tmp * 2 ** (10 - (i + 1))) % 9;
+  }
+  return (10 - (sum % 10)) % 10 === digits[9];
+}
+
+/**
+ * Turkish phone number: after an optional +90 / 0090 / 0 prefix, 10 digits
+ * starting with a mobile (5xx), landline (2xx–4xx) or 850 code. Any other
+ * 10-digit run (an order number) is not a phone number.
+ */
+export function isValidTrPhone(raw: string): boolean {
+  let d = raw.replace(/\D/g, "");
+  if (d.startsWith("0090")) d = d.slice(4);
+  else if (d.startsWith("90") && d.length === 12) d = d.slice(2);
+  else if (d.startsWith("0") && d.length === 11) d = d.slice(1);
+  return d.length === 10 && /^(?:5\d|[234][1-9]|850)/.test(d);
+}

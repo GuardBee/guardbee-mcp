@@ -242,6 +242,9 @@ importers:
 
   packages/prompt-injection-scanner:
     dependencies:
+      '@guardbee/guard-core':
+        specifier: workspace:^
+        version: link:../guard-core
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
@@ -284,6 +287,9 @@ importers:
 
   packages/secret-scanner:
     dependencies:
+      '@guardbee/guard-core':
+        specifier: workspace:^
+        version: link:../guard-core
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry

@@ -1,6 +1,6 @@
 # @guardbee/mcp-toxic-flow-auditor
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe**
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
 
 Bir MCP **tool kataloğunu** **toksik akışlar** (Simon Willison'ın *lethal trifecta*'sı) için denetleyen bir MCP server:
 
@@ -28,8 +28,11 @@ Claude ──► toxic-flow-auditor ──► tools/list JSON veya MCP server ka
 - **Tek-tool trifecta.** İsim/açıklaması üç yeteneği birden kapsayan tek kayıt.
 - **Tehlikeli çiftler.** Tam trifecta yokken bile sensitive+exfil, untrusted+exfil veya sensitive+destructive.
 - **KVKK bilinci.** `tc_kimlik`, `müşteri`, `KVKK` gibi Türkçe PII sinyalleri hassas veri sayılır.
+- **snake_case isimler kelime kelime okunur.** `read_vault_secret` ve `drop_table` her kelimesine göre sınıflandırılır; pull request açmak exfiltration sayılır.
 
 Not: **A–F**. API anahtarı yok. Sadece statik / katalog analizi — canlı tool çağrısı yok.
+
+Sınıflandırma kuralları [`@guardbee/guard-core`](../guard-core/TR.md)'dan gelir; `@guardbee/mcp-security-proxy` toxic flow'ları çalışma anında aynı kurallarla engeller.
 
 ## Tool'lar
 

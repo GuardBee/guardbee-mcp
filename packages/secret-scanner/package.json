@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-secret-scanner",
-  "version": "0.2.7",
+  "version": "0.2.9",
   "mcpName": "io.github.4hmetuyar/secret-scanner",
   "description": "MCP server that scans files and directories for exposed secrets, API keys, and credentials",
   "type": "module",
@@ -18,7 +18,8 @@
   "files": [
     "dist",
     "README.md",
-    "TR.md"
+    "TR.md",
+    "ZH.md"
   ],
   "scripts": {
     "build": "tsc",
@@ -28,6 +29,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
+    "@guardbee/guard-core": "workspace:^",
     "@guardbee/mcp-telemetry": "workspace:^",
     "@modelcontextprotocol/sdk": "catalog:",
     "zod": "catalog:"

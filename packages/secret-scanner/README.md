@@ -1,6 +1,6 @@
 # @guardbee/mcp-secret-scanner
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-secret-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-secret-scanner)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-secret-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-secret-scanner)
@@ -14,12 +14,12 @@ An MCP server that scans your source files, directories, and environment configs
 
 ## Features
 
-- **40+ Secret Patterns** — AWS, GitHub, GitLab, Stripe, OpenAI, Anthropic, HuggingFace, Slack, Twilio, SendGrid, and more
+- **38 Secret Patterns** — AWS, GitHub, GitLab, Stripe, OpenAI, Anthropic, HuggingFace, Slack, Twilio, SendGrid, and more. The rules live in [`@guardbee/guard-core`](../guard-core/README.md), so `@guardbee/mcp-security-proxy` masks the same formats in tool results at runtime
 - **File & Directory Scanning** — a single file or an entire project tree
 - **Smart Skipping** — directories like `node_modules`, `.git`, `dist`, `build`, `.next` are skipped automatically
 - **Safe Redaction** — matches are shown as first 4 + stars + last 4 characters
 - **Allowlist Support** — allowlist known test/fake values
-- **16 Unit Tests** — 100% passing test suite
+- **39 Unit Tests** — 100% passing test suite
 
 ---
 
@@ -148,7 +148,7 @@ npx @guardbee/mcp-secret-scanner scan . --fail-on=critical || exit 1
 
 ```bash
 npm install
-npm test          # 16 unit tests
+npm test          # 39 unit tests
 npm run build     # TypeScript compile
 ```
 

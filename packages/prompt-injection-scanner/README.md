@@ -1,6 +1,6 @@
 # @guardbee/mcp-prompt-injection-scanner
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
 
 An MCP (Model Context Protocol) server that scans **content** — a RAG chunk, a scraped web page, a document — for indirect prompt injection payloads.
 
@@ -11,9 +11,9 @@ An MCP (Model Context Protocol) server that scans **content** — a RAG chunk, a
 ```
 Web page/RAG document ──► prompt-injection-scanner ──► LLM context
               │
-              ├─ Instruction override   ("ignore all previous instructions")
-              ├─ Role spoofing          ("System:", <|im_start|>, [INST])
-              ├─ Hidden text            (zero-width characters, display:none + instruction, HTML comment)
+              ├─ Instruction override   ("ignore all previous instructions", "önceki talimatları yok say")
+              ├─ Role spoofing          ("System:", <|im_start|>, [INST], <system>)
+              ├─ Hidden text            (zero-width, Unicode tag and bidi characters, display:none + instruction, HTML comment)
               ├─ Direct address         ("Dear AI, ...")
               └─ Exfiltration           (system prompt extraction request, data → URL instruction, templated img beacon)
 ```
@@ -22,11 +22,12 @@ Web page/RAG document ──► prompt-injection-scanner ──► LLM context
 
 ## Features
 
-- **10 patterns, 5 categories** — instruction-override, role-spoofing, hidden-text, direct-address, exfiltration
+- **17 patterns, 5 categories** — instruction-override, role-spoofing, hidden-text, direct-address, exfiltration. English and Turkish phrasing
+- The rules live in [`@guardbee/guard-core`](../guard-core/README.md), shared with `@guardbee/mcp-security-proxy`, so a phrase this scanner reports is the same phrase the proxy blocks at runtime
 - Every finding includes **why it's risky and what to do about it** (`recommendation`) — not just "found it"
 - SARIF 2.1.0 output — CI/CD integration (e.g. auto-scanning a knowledge-base repo on every PR)
 - Config file support via `guardbee.yml`
-- 30 unit tests — a positive and a negative (false-positive) scenario for every pattern; known false-positive sources like emoji ZWJ sequences and ordinary `display:none` modals are specifically tested
+- 45 unit tests — a positive and a negative (false-positive) scenario for every pattern; known false-positive sources like emoji ZWJ sequences and ordinary `display:none` modals are specifically tested
 
 ---
 
@@ -69,14 +70,21 @@ npx @guardbee/mcp-prompt-injection-scanner scan ./knowledge-base --fail-on=high 
 | Category | Pattern | Severity | What it means |
 |---|---|---|---|
 | instruction-override | `instruction_override_phrase` | high | A classic override phrase like "ignore/disregard/forget previous instructions" |
+| instruction-override | `instruction_override_tr` | high | The Turkish form: "önceki talimatları yok say / unut / görmezden gel" |
+| instruction-override | `dan_mode` | high | Asks for the "DAN mode" jailbreak persona |
+| instruction-override | `bypass_safety` | high | Tells the model to bypass or disable its safety measures / guardrails |
 | role-spoofing | `system_role_spoof` | medium | A fake "System:" role label at the start of a line in the content |
 | role-spoofing | `chat_template_marker_injection` | high | Raw chat-template control tokens (`<\|im_start\|>`, `[INST]`) in the content |
+| role-spoofing | `system_tag` | high | A `<system>` tag that tries to pass data off as a system message |
 | hidden-text | `hidden_zero_width_chars` | medium | Zero-width space/word-joiner (U+200B/U+2060) — text hidden from a human reviewer |
+| hidden-text | `unicode_tag_smuggling` | critical | Invisible Unicode tag characters (U+E0000–E007F) carrying hidden text; flag emoji such as 🏴󠁧󠁢󠁥󠁮󠁧󠁿 are excluded |
+| hidden-text | `bidi_control_chars` | medium | Bidi override/isolate characters that make text display in a different order than it is read |
 | hidden-text | `css_hidden_text_with_instruction` | high | A `display:none`/white-on-white element containing instruction-like language |
 | hidden-text | `html_comment_instruction` | high | An HTML comment containing instruction-like language |
 | direct-address | `direct_address_to_ai` | medium | The content directly addresses "the AI"/"the assistant" |
 | exfiltration | `exfiltration_url_template_in_image` | high | A markdown image URL with a `{{...}}`/`${...}` template — a data-exfil beacon |
 | exfiltration | `reveal_system_prompt_request` | high | A sentence asking the model to reveal its system prompt |
+| exfiltration | `reveal_system_prompt_tr` | high | The Turkish form: "sistem istemini göster" |
 | exfiltration | `send_data_to_url_instruction` | critical | An explicit instruction ordering the model to send data to an external URL |
 
 These are **heuristic** findings — a static text-pattern scan, not a semantic/intent analysis. Designed for a low false-positive rate (e.g. emoji ZWJ sequences and ordinary `display:none` modals are specifically excluded), but every finding should still be reviewed manually.
@@ -100,7 +108,7 @@ prompt-injection-scanner:
 
 ```bash
 npm run build
-npm test             # 30 unit tests
+npm test             # 45 unit tests
 ```
 
 ---

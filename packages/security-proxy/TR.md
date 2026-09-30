@@ -1,6 +1,6 @@
 # @guardbee/mcp-security-proxy
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe**
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-security-proxy.svg)](https://www.npmjs.com/package/@guardbee/mcp-security-proxy)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-security-proxy.svg)](https://www.npmjs.com/package/@guardbee/mcp-security-proxy)
@@ -13,8 +13,8 @@ Herhangi bir MCP sunucusunun önüne oturan şeffaf güvenlik katmanı. Prompt i
 ```
 Claude ──► MCP Security Proxy ──► Herhangi bir MCP Sunucu
                 │
-                ├─ Prompt injection tespiti  (16 saldırı deseni)
-                ├─ PII maskeleme             (TC kimlik, IBAN, e-posta, JWT, API key)
+                ├─ Prompt injection tespiti  (27 kural, EN + TR)
+                ├─ PII + secret maskeleme    (TC, VKN, IBAN, kart, telefon, 22 anahtar formatı)
                 ├─ Block veya warn modu
                 ├─ Toxic-flow (lethal trifecta) engelleme
                 └─ Hash zincirli audit log
@@ -24,10 +24,10 @@ Claude ──► MCP Security Proxy ──► Herhangi bir MCP Sunucu
 
 ## Özellikler
 
-- **Prompt Injection Koruması** — 16 saldırı deseni ile sistem prompt'larını geçersiz kılmaya çalışan istekler engellenir
+- **Prompt Injection Koruması** — İngilizce ve Türkçe 27 kural; kesin kurallar engeller, genel ifadeler sadece uyarır
 - **Tool sonucu enjeksiyonu** — aynı kalıplar tool sonucuna uygulanır (MCP06:2025). Block modu sonucu değiştirir; warn modu uyarı ekler
 - **Oturum tool sabitlemesi** — ilk `tools/list` sabitlenir. Sonraki description veya şema değişikliği rug pull'dur (MCP03:2025). Block modu sabit tanımı sunmaya devam eder ve kaymış çağrıyı reddeder
-- **PII Maskeleme** — TC kimlik no, IBAN, e-posta, telefon, JWT token, API key yanıtlarda otomatik maskelenir
+- **PII Maskeleme** — TC kimlik no, VKN, IBAN, kart ve telefon numaraları (checksum doğrulamalı), e-posta, 22 sağlayıcı anahtar formatı, özel anahtarlar ve bağlantı dizeleri yanıtlarda maskelenir
 - **Block / Warn Modu** — Her interceptor bağımsız olarak engelleyici veya uyarı modunda çalışabilir
 - **Audit Log** — Console veya dosyaya yazılan yapılandırılabilir log
 - **Gateway modu** — birden fazla MCP sunucusu tek proxy'nin arkasında, tek YAML politikası (allow / deny / mask / warn)
@@ -142,15 +142,13 @@ Proxy kendi tool'unu kaydetmez. Hedef sunucunun tool'larını iletir ve her ça�
 
 ### Prompt Injection Detector
 
-Gelen mesajlarda aşağıdaki saldırı desenlerini arar:
+[`@guardbee/guard-core`](../guard-core/README.md) içindeki 27 kural; tool argümanlarına, tool sonuçlarına, resource'lara ve prompt'lara uygulanır:
 
-- `ignore previous instructions`
-- `disregard your system prompt`
-- `you are now [DAN/jailbreak]`
-- `act as` / `pretend to be` rol değiştirme
-- `DAN mode`, `developer mode`, `jailbreak`
-- sahte `[SYSTEM]` / `<system>` etiketleri
-- ve 6 desen daha
+- **Engeller** (13 kesin kural, high/critical): İngilizce ve Türkçe talimat geçersiz kılma ("ignore all previous instructions", "önceki talimatları yok say"), `DAN mode`, "bypass your safety guardrails", chat-template token'ları (`<|im_start|>`, `[INST]`), `<system>` etiketleri, Unicode tag karakterlerine gizlenmiş metin, CSS ile gizlenmiş öğelerde veya HTML yorumlarında talimat, markdown görsel exfiltration işaretçileri, sistem istemini isteme (İngilizce ve Türkçe), "send the user's data to https://…".
+- **Sadece uyarır** (14): sıradan metinde de geçen genel ifadeler — "act as", "you are now", "developer mode", "jailbreak", "override policy", "sen artık" — ve zero-width veya bidi kontrol karakterleri, satır başındaki `System:` etiketi gibi orta önemdeki işaretler.
+- **Base64:** okunabilir metne çözülen dizileri çözer ve engelleme kurallarıyla kontrol eder; talimat kodlanmış bir blob'a saklanamaz.
+
+1.1'den itibaren genel bir ifade tek başına engellemez: 1.0'da bir tool sonucundaki "use jailbreak mode" veya "act as a reverse proxy" engelleniyordu; artık loglanır ve sonuca bir uyarı eklenir.
 
 ### PII Masker
 
@@ -160,9 +158,13 @@ Gelen mesajlarda aşağıdaki saldırı desenlerini arar:
 | IBAN (TR) | mod-97 | `TR330006100519786457841326` | `TR**[IBAN]` |
 | Kart numarası | Luhn | `4111 1111 1111 1111` | `****-****-****-[KART]` |
 | E-posta | — | `ahmet@example.com` | `***@[EMAIL]` |
-| Telefon (TR) | — | `0532 123 45 67` | `+90-***-***-**[TELEFON]` |
+| Telefon (TR) | cep / sabit hat / 850 öneki | `0532 123 45 67` | `+90-***-***-**[TELEFON]` |
+| Vergi no (VKN) | kontrol hanesi, `VKN` / `Vergi No` etiketi gerekir | `VKN: 1234567890` | `VKN: [VKN]` |
+| Sağlayıcı anahtarları | secret-scanner'dan 22 anahtar ve token formatı (AWS, GitHub, Stripe, OpenAI, Anthropic, Slack, …) | `ghp_…`, `AKIA…` | `[API-KEY]` |
+| Diğer API key'ler | `sk_`/`api_`/`token_`… öneki, harf ve rakam | `api_k3y9x8…` | `[API-KEY]` |
+| Özel anahtar | BEGIN…END bloğunun tamamı | `-----BEGIN … PRIVATE KEY-----` | `[PRIVATE-KEY]` |
+| Bağlantı dizesi | URL'de kullanıcı:şifre (localhost hariç) | `postgres://app:pw@db/prod` | `[CONNECTION-STRING]` |
 | JWT | — | `eyJhbGc...` | `[JWT-TOKEN]` |
-| API Key | — | `sk_abc123...` | `[API-KEY]` |
 
 Checksum'ı tutmayan sayılar (sipariş no, takip kodu) olduğu gibi bırakılır.
 
