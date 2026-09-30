@@ -8,7 +8,7 @@ export interface PinFinding {
 
 export type ToolRecord = Record<string, unknown> & { name?: unknown };
 
-function stable(value: unknown): string {
+export function stable(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map((item) => stable(item)).join(",")}]`;
   if (value && typeof value === "object") {
     const rec = value as Record<string, unknown>;
