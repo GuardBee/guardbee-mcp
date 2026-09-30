@@ -39,9 +39,16 @@ jobs:
       - run: pnpm turbo run build
 
       # Install/build stay on workspace pnpm 10; publish needs pnpm >= 11.0.7 for OIDC.
+      - name: Switch to pnpm 11 for OIDC publish
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.1.3 --activate
+          echo "package-manager-strict=false" >> .npmrc
+          pnpm --version
+
       - uses: changesets/action@v1
         with:
-          publish: bash -lc 'corepack enable && corepack prepare pnpm@11.1.3 --activate && pnpm release'
+          publish: pnpm release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Do not set NODE_AUTH_TOKEN / NPM_TOKEN — that forces the staging-only
