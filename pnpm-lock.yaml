@@ -367,6 +367,18 @@ importers:
         specifier: 'catalog:'
         version: 4.6.2
 
+  packages/toxic-flow-auditor:
+    dependencies:
+      '@guardbee/mcp-telemetry':
+        specifier: workspace:^
+        version: link:../telemetry
+      '@modelcontextprotocol/sdk':
+        specifier: 'catalog:'
+        version: 1.30.0(zod@4.6.2)
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.2
+
   packages/unbounded-consumption-auditor:
     dependencies:
       '@guardbee/mcp-telemetry':

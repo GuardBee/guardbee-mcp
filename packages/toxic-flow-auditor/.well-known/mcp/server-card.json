@@ -1,0 +1,65 @@
+{
+  "serverInfo": {
+    "name": "@guardbee/mcp-toxic-flow-auditor",
+    "version": "0.1.0",
+    "description": "MCP server that detects toxic flows (lethal trifecta) across an MCP tool catalog — untrusted content + private/sensitive data + exfiltration or destruction on the same server"
+  },
+  "tools": [
+    {
+      "name": "audit_catalog",
+      "description": "Audit a tools/list-shaped JSON catalog for the lethal trifecta (toxic flow): untrusted content + sensitive/private data + exfiltration or destruction on the same MCP server. Returns an A–F grade.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "catalog": { "type": "string", "description": "JSON array of tools, or { tools: [...] } from tools/list" },
+          "label": { "type": "string", "description": "Optional label for the server/catalog" }
+        },
+        "required": ["catalog"]
+      }
+    },
+    {
+      "name": "scan_source",
+      "description": "Scan TypeScript/JavaScript MCP server source for .tool(...) registrations and audit them for toxic flows",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "content": { "type": "string", "description": "Source code to scan" },
+          "label": { "type": "string", "description": "Optional label" }
+        },
+        "required": ["content"]
+      }
+    },
+    {
+      "name": "scan_file",
+      "description": "Scan a single source file for toxic flows",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Absolute or relative path to the file to scan" }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "scan_directory",
+      "description": "Recursively scan a directory of MCP server source for toxic flows across all registered tools",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Absolute or relative path to the directory to scan" },
+          "maxFiles": { "type": "number", "description": "Maximum number of files to scan (default: 5000)" },
+          "exclude": { "type": "array", "items": { "type": "string" }, "description": "Skip files/dirs whose path contains one of these strings" }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "explain_trifecta",
+      "description": "Explain the lethal trifecta / toxic-flow model this auditor uses",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ]
+}
