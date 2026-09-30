@@ -1,5 +1,44 @@
 # @guardbee/mcp-security-proxy
 
+## 1.0.0
+
+### Major Changes
+
+- security-proxy 1.0: gateway mode.
+  
+  - `guardbee-proxy.yaml` puts several MCP servers behind one proxy. Tools and prompts are exposed as `<upstream>__<tool>`; one failing server no longer hides the others' tools.
+  - Policy rules (`allow` / `deny` / `mask` / `warn`) match on tool glob, upstream, label and session taint; the first match wins.
+  - Toxic-flow (lethal trifecta) tracking across servers: once a session has read untrusted content and sensitive data, an egress call is blocked (`taint.mode: strict`, the YAML default) or logged (`warn`).
+  - `resources/read` is now scanned for injection, PII-masked, and counted as untrusted content.
+  - The audit log is hash-chained (`guardbee-proxy verify-audit <file>`). With the YAML config it stores a SHA-256 of the arguments instead of the arguments, and no results, unless `audit.includePayloads: true`.
+  - New `guardbee-proxy validate` command.
+  
+  The single-server `guardbee-proxy -- <command>` form and `guardbee-proxy.json` keep their 0.x behavior: unprefixed tool names, payloads logged, toxic flows only warned.
+  
+  toxic-flow-auditor: tool names in snake_case are now classified word by word (`read_vault_secret` is sensitive, `drop_table` destructive), and pull requests count as exfiltration. Catalogs may report more findings than before.
+
+### Minor Changes
+
+- Move shared detectors into the new `@guardbee/guard-core` library.
+  
+  security-proxy now validates PII matches before masking them: a TC Kimlik No must pass the official checksum, an IBAN must pass mod-97, and a card number must pass Luhn. Order numbers and other 11- or 16-digit values are no longer masked by mistake.
+  
+  toxic-flow-auditor and prompt-leak-scanner now import tool classification and checksum validators from guard-core. prompt-leak-scanner behaves as before; for toxic-flow-auditor see the snake_case classification fix.
+
+- Gateway: approvals, tokenized PII, `init`.
+  
+  - `approve` action and `taint.mode: approve`: the person answers a yes/no form through MCP elicitation; decline, cancel, a timeout (`approval.timeoutSeconds`, default 120) or a client without elicitation all block the call.
+  - `interceptors.piiMasking.mode: tokenize`: the model sees session tokens such as `<pii:tc_kimlik:7f3a9b21>`, and the proxy puts the real value back when the token is passed to another tool — never to an `egress` tool unless `detokenizeForEgress: true`.
+  - Rules can match on `args` (dotted path → value, strings are globs), and `mask.fields` blanks named JSON keys in text and `structuredContent`.
+  - PII in `structuredContent` is now masked; before, only text content was.
+  - `prompts/get` results get the injection scan and PII masking.
+  - `definitionDrift.recheck: on-change` re-lists a server's tools only after it sends `tools/list_changed`; the proxy relays that notification to the agent.
+  - `guardbee-proxy init --client claude-desktop|cursor|claude-code` (or `--file`) moves stdio servers into `guardbee-proxy.yaml`, backs up the client config and points it at the proxy.
+
+### Patch Changes
+
+- `guardbee-proxy` now starts with a `#!/usr/bin/env node` line. Without it, `npx @guardbee/mcp-security-proxy` (and the installed bin) ran the file as a shell script and failed to start (seen on 0.3.1).
+
 ## 0.3.0
 
 ### Minor Changes

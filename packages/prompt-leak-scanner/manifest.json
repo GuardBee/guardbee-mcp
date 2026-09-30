@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "@guardbee/mcp-prompt-leak-scanner",
   "display_name": "GuardBee Prompt Leak Scanner",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "description": "MCP server and reverse proxy that catches leaked credentials and PII (API keys, TC Kimlik No, credit cards, IBANs) in outbound LLM prompts before they leave your application",
   "long_description": "Scans text, chat-request bodies (OpenAI/Anthropic-style messages), files, or directories for leaked credentials (API keys, private keys, JWTs) and PII (Turkish national ID, credit card numbers, IBANs, email, phone) using checksum-validated detectors (Luhn, IBAN mod-97, TC Kimlik No) to keep false positives low. Also ships a standalone reverse-proxy mode (`proxy` CLI command) that sits between your application and a real LLM API, inspecting the outbound prompt body before forwarding it — with monitor, redact, or block policies. No API key required to run the scanner itself; the proxy simply forwards to whichever upstream API you configure.",
   "author": {
