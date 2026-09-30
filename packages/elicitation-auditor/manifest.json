@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "@guardbee/mcp-elicitation-auditor",
   "display_name": "GuardBee Elicitation Auditor",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP server that scans MCP server code for elicitation anti-patterns in the 2026-07-28 spec: form mode asking for secrets, URL mode pointed straight at a third-party authorize endpoint, and credentials or PII embedded in the elicitation URL",
   "long_description": "The 2026-07-28 MCP specification deprecated sampling and roots, leaving elicitation as the way a server asks a client for something. Form mode MUST NOT collect passwords, API keys, access tokens, or payment credentials, because that data passes through the client. URL mode MUST NOT embed credentials or personal data in the URL, and MUST NOT send the user straight to a third-party authorization endpoint — the spec's phishing mitigation is an own /connect route that checks the browser session subject against the MCP user before redirecting. This package scans TypeScript and Python server source for those shapes. No API key required — runs entirely locally, static analysis only.",
   "author": {

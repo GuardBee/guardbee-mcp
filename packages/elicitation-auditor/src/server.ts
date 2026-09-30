@@ -35,7 +35,7 @@ function formatFindings(findings: Finding[], scannedFiles: number, durationMs: n
 export async function startServer() {
   const server = new McpServer({
     name: "guardbee-elicitation-auditor",
-    version: "0.1.0",
+    version: "0.1.1",
   });
   instrumentServer(server, "elicitation-auditor");
 
