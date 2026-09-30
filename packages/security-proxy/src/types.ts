@@ -4,6 +4,18 @@ export type McpServerConfig = {
   env?: Record<string, string>;
 };
 
+/** A Streamable HTTP MCP server the proxy connects to as a client. */
+export type HttpUpstreamConfig = {
+  url: string;
+  headers?: Record<string, string>;
+};
+
+export type UpstreamConfig = McpServerConfig | HttpUpstreamConfig;
+
+export function isHttpUpstream(config: UpstreamConfig): config is HttpUpstreamConfig {
+  return "url" in config;
+}
+
 export type AuditConfig = {
   enabled: boolean;
   sink: "console" | "file";
@@ -15,6 +27,19 @@ export type AuditConfig = {
    * legacy JSON config, false for guardbee-proxy.yaml.
    */
   includePayloads?: boolean;
+  /** Also send every event, batched, to the GuardBee dashboard. */
+  dashboard?: DashboardSinkConfig;
+};
+
+export type DashboardSinkConfig = {
+  /** Ingest endpoint, e.g. https://app.guardbee.ai/api/v1/gateway/events */
+  url: string;
+  /** Workspace API key with the gateway.write scope (resolved from apiKeyEnv). */
+  apiKey: string;
+  /** Names this proxy in the dashboard; defaults to the host name. */
+  source?: string;
+  batchSize?: number;
+  flushIntervalMs?: number;
 };
 
 export type ProxyConfig = {
@@ -57,6 +82,8 @@ export type InterceptResult =
 export type AuditEvent = {
   ts: string;
   type: "tool_call" | "tool_response" | "blocked" | "warn" | "toxic_flow" | "resource_read" | "approval";
+  /** MCP session (HTTP mode); absent over stdio, where the process is the session. */
+  sessionId?: string;
   tool?: string;
   server?: string;
   upstream?: string;

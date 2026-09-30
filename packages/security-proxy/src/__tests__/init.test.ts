@@ -11,7 +11,8 @@ const desktop = {
   mcpServers: {
     github: { command: "npx", args: ["-y", "@modelcontextprotocol/server-github"], env: { GITHUB_TOKEN: "ghp_x" } },
     "my db!": { command: "node", args: ["db.js"] },
-    remote: { url: "https://mcp.example.com/mcp" },
+    remote: { url: "https://mcp.example.com/mcp", headers: { Authorization: "Bearer r" } },
+    legacy: { type: "sse", url: "https://sse.example.com/sse" },
     old: { command: "node", args: ["old.js"], disabled: true },
   },
 };
@@ -19,37 +20,38 @@ const desktop = {
 describe("planInit", () => {
   const plan = planInit(JSON.stringify(desktop), "/home/u/.guardbee/p.yaml", "/home/u/.guardbee/audit.jsonl");
 
-  it("moves stdio servers into a YAML the proxy accepts", () => {
-    expect(plan.migrated).toEqual({ github: "github", "my db!": "my-db" });
+  it("moves stdio and Streamable HTTP servers into a YAML the proxy accepts", () => {
+    expect(plan.migrated).toEqual({ github: "github", "my db!": "my-db", remote: "remote" });
     const cfg = parseGatewayYaml(plan.yaml);
     expect(cfg.upstreams["github"]).toEqual({
       command: "npx",
       args: ["-y", "@modelcontextprotocol/server-github"],
       env: { GITHUB_TOKEN: "ghp_x" },
     });
+    expect(cfg.upstreams["remote"]).toEqual({ url: "https://mcp.example.com/mcp", headers: { Authorization: "Bearer r" } });
     expect(cfg.taint.mode).toBe("strict");
     expect(cfg.audit).toMatchObject({ sink: "file", filePath: "/home/u/.guardbee/audit.jsonl" });
   });
 
-  it("keeps HTTP and disabled servers, other settings, and adds the proxy entry", () => {
+  it("keeps SSE and disabled servers, other settings, and adds the proxy entry", () => {
     const client = JSON.parse(plan.clientConfig);
     expect(client.globalShortcut).toBe("Ctrl+Space");
-    expect(Object.keys(client.mcpServers)).toEqual(["remote", "old", "guardbee"]);
+    expect(Object.keys(client.mcpServers)).toEqual(["legacy", "old", "guardbee"]);
     expect(client.mcpServers.guardbee).toEqual({
       command: "npx",
       args: ["-y", "@guardbee/mcp-security-proxy@^1", "--config", "/home/u/.guardbee/p.yaml"],
     });
-    expect(plan.kept.map((k) => k.name)).toEqual(["remote", "old"]);
+    expect(plan.kept.map((k) => k.name)).toEqual(["legacy", "old"]);
     expect(plan.kept[0]?.reason).toContain("bypasses the policy");
   });
 
   it("leaves an existing proxy entry alone and refuses when nothing is left to move", () => {
     const proxied = { mcpServers: { guardbee: { command: "npx", args: ["-y", "@guardbee/mcp-security-proxy", "--config", "x"] } } };
-    expect(() => planInit(JSON.stringify(proxied), "/p.yaml", "/a.jsonl")).toThrow("No stdio MCP servers");
+    expect(() => planInit(JSON.stringify(proxied), "/p.yaml", "/a.jsonl")).toThrow("No MCP servers");
   });
 
   it("does not collide with a server already called guardbee", () => {
-    const cfg = { mcpServers: { guardbee: { url: "https://x" }, a: { command: "node" } } };
+    const cfg = { mcpServers: { guardbee: { type: "sse", url: "https://x" }, a: { command: "node" } } };
     const client = JSON.parse(planInit(JSON.stringify(cfg), "/p.yaml", "/a.jsonl").clientConfig);
     expect(Object.keys(client.mcpServers)).toEqual(["guardbee", "guardbee-gateway"]);
   });

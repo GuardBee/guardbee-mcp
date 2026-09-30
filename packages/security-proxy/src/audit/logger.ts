@@ -2,6 +2,7 @@ import fs from "fs";
 import { createHash } from "crypto";
 import type { AuditConfig, AuditEvent } from "../types.js";
 import { stable } from "../interceptors/definition-drift.js";
+import { DashboardSink } from "./dashboard-sink.js";
 
 const GENESIS = "";
 
@@ -37,13 +38,15 @@ export class AuditLogger {
   private config: AuditConfig;
   private stream: fs.WriteStream | null = null;
   private lastHash = GENESIS;
+  private readonly dashboard: DashboardSink | null = null;
 
-  constructor(config: AuditConfig) {
+  constructor(config: AuditConfig, fetchImpl?: typeof fetch) {
     this.config = config;
     if (config.sink === "file" && config.filePath) {
       this.lastHash = lastHashIn(config.filePath);
       this.stream = fs.createWriteStream(config.filePath, { flags: "a" });
     }
+    if (config.enabled && config.dashboard) this.dashboard = new DashboardSink(config.dashboard, fetchImpl);
   }
 
   log(event: AuditEvent): void {
@@ -51,7 +54,9 @@ export class AuditLogger {
     const unhashed: Omit<AuditEvent, "hash"> = { ...this.redact(event), prevHash: this.lastHash };
     const hash = chainHash(unhashed);
     this.lastHash = hash;
-    const line = JSON.stringify({ ...unhashed, hash });
+    const hashed = { ...unhashed, hash };
+    this.dashboard?.push(hashed);
+    const line = JSON.stringify(hashed);
     if (this.config.sink === "file" && this.stream) {
       this.stream.write(line + "\n");
     } else {
@@ -59,8 +64,10 @@ export class AuditLogger {
     }
   }
 
-  close(): void {
-    this.stream?.end();
+  /** Flush the dashboard queue and close the file. */
+  async close(): Promise<void> {
+    await this.dashboard?.close();
+    await new Promise<void>((resolve) => (this.stream ? this.stream.end(resolve) : resolve()));
   }
 
   private redact(event: AuditEvent): AuditEvent {

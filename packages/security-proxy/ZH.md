@@ -132,6 +132,50 @@ audit:
 
 ---
 
+## 远程模式（HTTP）
+
+代理也可以作为共享的网络服务运行，而不只是某个客户端的子进程。智能体通过 Streamable HTTP 连接；上游也可以是远程的 Streamable HTTP 服务器。
+
+```yaml
+version: 1
+listen:
+  transport: http              # stdio (default) | http
+  host: 0.0.0.0                # 容器中用 0.0.0.0；笔记本上用 127.0.0.1
+  port: 8787
+  path: /mcp
+  apiKeys: ["${GUARDBEE_PROXY_KEY}"]   # 智能体发送 Authorization: Bearer <key>
+  maxSessions: 100
+upstreams:
+  github:
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-github"]
+  linear:
+    url: https://mcp.linear.app/mcp     # 一个 Streamable HTTP 上游
+    headers: { Authorization: "Bearer ${LINEAR_TOKEN}" }
+audit:
+  sink: file
+  filePath: /var/log/guardbee/audit.jsonl
+  dashboard:
+    url: https://app.guardbee.ai/api/v1/gateway/events
+    apiKeyEnv: GUARDBEE_API_KEY        # 带 gateway.write 权限的工作区 API 密钥
+```
+
+- **会话相互隔离。** 每个 MCP 会话都有自己的污点状态、PII 令牌和工具固定；一个智能体的有毒数据流绝不会拦截另一个智能体。所有会话共享上游连接。审计事件带有 `sessionId`。
+- **没有密钥就不能监听网络。** 未配置 `listen.apiKeys` 就在回环地址以外监听属于配置错误。密钥以恒定时间比较；错误或缺失的密钥返回 `401`。
+- `GET /healthz` 返回 `{"ok": true, "sessions": N}`。超过 `maxSessions` 的会话返回 `503`。
+- **仪表盘：** `audit.dashboard` 会用从 `apiKeyEnv` 读取的工作区 API 密钥，把每个审计事件批量发送到 GuardBee 仪表盘；密钥不写在文件中。仪表盘不可达时，事件会在内存中等待（最多 10,000 条）并稍后发送。被拒绝的密钥只会在 stderr 报告一次。工具调用从不等待仪表盘。
+- `init` 现在也会把 Streamable HTTP 服务器（`url` + `headers`）移到代理之后。旧的 SSE 服务器保留在客户端配置中并会被报告。
+
+Docker：
+
+```bash
+docker build -t guardbee/mcp-security-proxy packages/security-proxy
+docker run -p 8787:8787 -e GUARDBEE_PROXY_KEY=... -e GUARDBEE_API_KEY=... \
+  -v "$PWD/guardbee-proxy.yaml:/etc/guardbee/guardbee-proxy.yaml:ro" guardbee/mcp-security-proxy
+```
+
+---
+
 ## MCP 工具
 
 代理本身不注册任何工具。它转发目标服务器的工具，并在每次调用时应用拦截器链。

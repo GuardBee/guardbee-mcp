@@ -13,7 +13,7 @@ import { AuditLogger } from "./audit/logger.js";
 import { elicitationApprover, type Approver } from "./gateway/approval.js";
 import { fromLegacyConfig, type GatewayConfig } from "./gateway/config.js";
 import { Gateway } from "./gateway/gateway.js";
-import { connectStdioUpstream, type Upstream } from "./gateway/upstream.js";
+import { connectUpstream, type Upstream } from "./gateway/upstream.js";
 
 /** The MCP server the agent talks to; every request goes through the gateway. */
 export function createProxyServer(gateway: Gateway): Server {
@@ -53,12 +53,13 @@ export function createProxyServer(gateway: Gateway): Server {
 export function createGatewayServer(
   upstreams: Upstream[],
   config: GatewayConfig,
-  audit: AuditLogger
+  audit: AuditLogger,
+  options: { sessionId?: string } = {}
 ): { gateway: Gateway; server: Server } {
   let server: Server | undefined;
   const approver: Approver = (request) =>
     server ? elicitationApprover(server, config.approval.timeoutSeconds)(request) : Promise.resolve("unavailable");
-  const gateway = new Gateway(upstreams, config, audit, approver);
+  const gateway = new Gateway(upstreams, config, audit, approver, options);
   server = createProxyServer(gateway);
   return { gateway, server };
 }
@@ -67,7 +68,23 @@ export async function startGateway(config: GatewayConfig): Promise<void> {
   const audit = new AuditLogger(config.audit);
   const upstreams: Upstream[] = [];
   for (const [name, server] of Object.entries(config.upstreams)) {
-    upstreams.push(await connectStdioUpstream(name, server));
+    upstreams.push(await connectUpstream(name, server));
+  }
+
+  if (config.listen.transport === "http") {
+    // Imported here: http-server.ts imports this module for createGatewayServer.
+    const { startHttpGateway } = await import("./http-server.js");
+    const http = await startHttpGateway(upstreams, config, audit, config.listen);
+    process.stderr.write(`[guardbee-proxy] listening on ${http.url}\n`);
+    const shutdown = async () => {
+      await http.close();
+      await audit.close();
+      await Promise.allSettled(upstreams.map((upstream) => upstream.close()));
+      process.exit(0);
+    };
+    process.on("SIGINT", shutdown);
+    process.on("SIGTERM", shutdown);
+    return;
   }
 
   const { gateway, server } = createGatewayServer(upstreams, config, audit);

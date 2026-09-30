@@ -239,3 +239,19 @@ rules: [{ match: {}, action: deny, mask: { fields: [x] } }]`),
     ).toThrow("mask.fields only applies to action: mask");
   });
 });
+
+describe("shared upstreams across sessions", () => {
+  it("every session hears tools/list_changed; a disposed session stops listening", async () => {
+    const up = fakeUpstream("a", [{ name: "x" }]);
+    const one = gateway([up]);
+    const two = gateway([up]);
+    const heard: string[] = [];
+    one.onToolsChanged(() => heard.push("one"));
+    two.onToolsChanged(() => heard.push("two"));
+    up.emitToolsChanged();
+    expect(heard).toEqual(["one", "two"]);
+    one.dispose();
+    up.emitToolsChanged();
+    expect(heard).toEqual(["one", "two", "two"]);
+  });
+});

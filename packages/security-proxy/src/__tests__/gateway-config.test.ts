@@ -59,9 +59,9 @@ taint: { mode: warn }
     ["an unknown action", "rules: [{ match: {}, action: quarantine }]", "rules.0.action"],
     ["an unknown label", "labels: { db__q: [secret] }", "labels.db__q.0"],
     ["a typo'd key", "taint: { mod: strict }", "taint"],
-    ["an HTTP upstream", "", "not supported yet"],
+    ["an upstream that is both stdio and HTTP", "", "not both"],
   ])("rejects %s", (_, extra, expected) => {
-    const upstreams = expected === "not supported yet" ? "upstreams: { web: { url: https://x } }" : "upstreams: { db: { command: node } }";
+    const upstreams = expected === "not both" ? "upstreams: { web: { url: https://x, command: node } }" : "upstreams: { db: { command: node } }";
     expect(() => parseGatewayYaml(`version: 1\n${upstreams}\n${extra}`)).toThrow(expected);
   });
 

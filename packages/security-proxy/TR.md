@@ -132,6 +132,50 @@ Yukarıdaki tek sunuculu `--` kullanımı 0.x davranışını korur: tool adlar�
 
 ---
 
+## Remote Mod (HTTP)
+
+Proxy, tek bir istemcinin alt süreci olmak yerine paylaşılan bir ağ servisi olarak da çalışabilir. Ajanlar Streamable HTTP ile bağlanır; upstream'ler de uzak Streamable HTTP server'lar olabilir.
+
+```yaml
+version: 1
+listen:
+  transport: http              # stdio (default) | http
+  host: 0.0.0.0                # konteynerde 0.0.0.0; dizüstünde 127.0.0.1
+  port: 8787
+  path: /mcp
+  apiKeys: ["${GUARDBEE_PROXY_KEY}"]   # ajanlar Authorization: Bearer <key> gönderir
+  maxSessions: 100
+upstreams:
+  github:
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-github"]
+  linear:
+    url: https://mcp.linear.app/mcp     # bir Streamable HTTP upstream
+    headers: { Authorization: "Bearer ${LINEAR_TOKEN}" }
+audit:
+  sink: file
+  filePath: /var/log/guardbee/audit.jsonl
+  dashboard:
+    url: https://app.guardbee.ai/api/v1/gateway/events
+    apiKeyEnv: GUARDBEE_API_KEY        # gateway.write scope'lu workspace API key'i
+```
+
+- **Oturumlar birbirinden ayrık.** Her MCP oturumunun kendi taint durumu, PII token'ları ve tool pin'leri vardır; bir ajanın toxic flow'u başka bir ajanı asla engellemez. Tüm oturumlar upstream bağlantılarını paylaşır. Audit olayları `sessionId` taşır.
+- **Key yoksa ağ da yok.** `listen.apiKeys` olmadan loopback dışında dinlemek config hatasıdır. Key'ler sabit zamanda karşılaştırılır; yanlış veya eksik key `401` alır.
+- `GET /healthz` `{"ok": true, "sessions": N}` döner. `maxSessions` üstündeki oturumlar `503` alır.
+- **Dashboard:** `audit.dashboard` her audit olayını toplu halde, `apiKeyEnv`'den alınan workspace API key'iyle GuardBee dashboard'una gönderir; key dosyada durmaz. Dashboard'a ulaşılamazsa olaylar bellekte bekler (en fazla 10.000) ve sonra gönderilir. Reddedilen key stderr'e bir kez raporlanır. Tool çağrıları dashboard'u asla beklemez.
+- `init` artık Streamable HTTP server'ları (`url` + `headers`) da proxy'nin arkasına taşır. Eski SSE server'lar istemci config'inde kalır ve raporlanır.
+
+Docker:
+
+```bash
+docker build -t guardbee/mcp-security-proxy packages/security-proxy
+docker run -p 8787:8787 -e GUARDBEE_PROXY_KEY=... -e GUARDBEE_API_KEY=... \
+  -v "$PWD/guardbee-proxy.yaml:/etc/guardbee/guardbee-proxy.yaml:ro" guardbee/mcp-security-proxy
+```
+
+---
+
 ## MCP Tools
 
 Proxy kendi tool'unu kaydetmez. Hedef sunucunun tool'larını iletir ve her çağrıda interceptor zincirini uygular.
