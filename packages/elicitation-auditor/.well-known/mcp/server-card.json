@@ -1,0 +1,54 @@
+{
+  "serverInfo": {
+    "name": "@guardbee/mcp-elicitation-auditor",
+    "version": "0.1.0",
+    "description": "MCP server that scans MCP server code for elicitation anti-patterns in the 2026-07-28 spec: form mode asking for secrets, URL mode pointed straight at a third-party authorize endpoint, and credentials or PII embedded in the elicitation URL"
+  },
+  "tools": [
+    {
+      "name": "scan_text",
+      "description": "Scan MCP server source for elicitation anti-patterns: form mode requesting secrets, URL mode opened directly on a third-party authorize endpoint, and credentials or personal data embedded in the elicitation URL.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "content": { "type": "string", "description": "The code content to scan" },
+          "label": { "type": "string", "description": "Optional label shown in findings (e.g. filename)" }
+        },
+        "required": ["content"]
+      }
+    },
+    {
+      "name": "scan_file",
+      "description": "Scan a single file for elicitation anti-patterns",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Absolute or relative path to the file to scan" }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "scan_directory",
+      "description": "Recursively scan a directory of MCP server source for elicitation anti-patterns",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Absolute or relative path to the directory to scan" },
+          "maxFiles": { "type": "number", "description": "Maximum number of files to scan (default: 5000)" },
+          "include": { "type": "array", "items": { "type": "string" }, "description": "Only scan files whose path contains one of these strings" },
+          "exclude": { "type": "array", "items": { "type": "string" }, "description": "Skip files/dirs whose path contains one of these strings" }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "list_patterns",
+      "description": "List every elicitation check this auditor runs",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ]
+}
