@@ -18,13 +18,28 @@ jobs:
         with:
           fetch-depth: 0
 
+      # OIDC trusted publishing needs pnpm >= 11.0.7 (workspace packageManager stays
+      # on 10 for local contributors; Release only upgrades the runner).
       - uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.3
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
           registry-url: https://registry.npmjs.org
+
+      # setup-node writes //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}.
+      # A classic NPM_TOKEN with "Authorization and Publishing" 2FA only reaches
+      # staging (E_STAGE_REQUIRED). Clear it so pnpm uses GitHub OIDC instead.
+      - name: Prefer npm trusted publishing (OIDC)
+        run: |
+          if [ -n "${NPM_CONFIG_USERCONFIG:-}" ] && [ -f "$NPM_CONFIG_USERCONFIG" ]; then
+            sed -i '/_authToken/d' "$NPM_CONFIG_USERCONFIG"
+          fi
+          unset NODE_AUTH_TOKEN
+          echo "NODE_AUTH_TOKEN cleared for OIDC publish"
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm turbo run build
@@ -34,4 +49,5 @@ jobs:
           publish: pnpm release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # Do not set NODE_AUTH_TOKEN / NPM_TOKEN — that forces the staging-only
+          # classic token path and blocks trusted publishing.
