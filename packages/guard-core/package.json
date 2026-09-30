@@ -1,0 +1,53 @@
+{
+  "name": "@guardbee/guard-core",
+  "version": "0.1.0",
+  "description": "Shared detectors for GuardBee MCP packages — checksum-validated PII masking, prompt injection patterns, and lethal-trifecta tool classification",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/index.d.ts",
+        "default": "./dist/cjs/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc && tsc -p tsconfig.cjs.json && node -e \"require('fs').mkdirSync('dist/cjs',{recursive:true});require('fs').writeFileSync('dist/cjs/package.json','{\\\"type\\\":\\\"commonjs\\\"}\\n')\"",
+    "dev": "tsc --watch",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "guardbee",
+    "pii",
+    "kvkk",
+    "prompt-injection",
+    "lethal-trifecta"
+  ],
+  "author": "GuardBee <hello@guardbee.ai>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git",
+    "directory": "packages/guard-core"
+  },
+  "homepage": "https://github.com/GuardBee/guardbee-mcp/tree/main/packages/guard-core#readme",
+  "bugs": {
+    "url": "https://github.com/GuardBee/guardbee-mcp/issues"
+  }
+}

@@ -1,18 +1,18 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.4hmetuyar/toxic-flow-auditor",
-  "description": "Detects toxic flows (lethal trifecta) across an MCP tool catalog: untrusted content + sensitive data + exfiltration or destruction",
+  "description": "Finds lethal-trifecta toxic flows in MCP tool catalogs: untrusted input, sensitive data, egress",
   "repository": {
     "url": "https://github.com/GuardBee/guardbee-mcp",
     "source": "github",
     "subfolder": "packages/toxic-flow-auditor"
   },
-  "version": "0.1.0",
+  "version": "0.1.1",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@guardbee/mcp-toxic-flow-auditor",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "transport": {
         "type": "stdio"
       }

@@ -4,13 +4,22 @@ export type McpServerConfig = {
   env?: Record<string, string>;
 };
 
+export type AuditConfig = {
+  enabled: boolean;
+  sink: "console" | "file";
+  filePath?: string;
+  /**
+   * Write raw tool arguments and results into the log. Off → arguments are
+   * stored only as a SHA-256 hash and results are left out, so the audit log
+   * does not become another store of personal data. Defaults to true for the
+   * legacy JSON config, false for guardbee-proxy.yaml.
+   */
+  includePayloads?: boolean;
+};
+
 export type ProxyConfig = {
   server: McpServerConfig;
-  audit?: {
-    enabled: boolean;
-    sink: "console" | "file";
-    filePath?: string;
-  };
+  audit?: AuditConfig;
   interceptors?: {
     promptInjection?: {
       enabled: boolean;
@@ -23,10 +32,19 @@ export type ProxyConfig = {
     definitionDrift?: {
       enabled: boolean;
       action: "block" | "warn";
+      /**
+       * `every-call` re-lists the upstream's tools before each call (default).
+       * `on-change` re-lists only after the upstream sent tools/list_changed.
+       */
+      recheck?: "every-call" | "on-change";
     };
     piiMasking?: {
       enabled: boolean;
       patterns?: string[];
+      /** `redact` (default) replaces PII with a fixed placeholder; `tokenize` with a reversible session token. */
+      mode?: "redact" | "tokenize";
+      /** Put real values back even when the tool can send data out. Off by default. */
+      detokenizeForEgress?: boolean;
     };
   };
 };
@@ -38,10 +56,20 @@ export type InterceptResult =
 
 export type AuditEvent = {
   ts: string;
-  type: "tool_call" | "tool_response" | "blocked" | "warn";
+  type: "tool_call" | "tool_response" | "blocked" | "warn" | "toxic_flow" | "resource_read" | "approval";
   tool?: string;
   server?: string;
+  upstream?: string;
+  labels?: string[];
+  /** Matching policy rule (`id` or `rules[<index>]`). */
+  ruleId?: string;
+  taint?: { sawUntrusted: boolean; sawSensitive: boolean };
   input?: unknown;
+  /** SHA-256 of the arguments, written instead of `input` when payloads are off. */
+  inputHash?: string;
   output?: unknown;
   reason?: string;
+  /** Hash chain: each event carries the previous event's hash. Set by AuditLogger. */
+  prevHash?: string;
+  hash?: string;
 };
