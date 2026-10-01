@@ -38,6 +38,7 @@ export function fakeUpstream(
     },
     onToolsChanged(listener) {
       listeners.push(listener);
+      return () => listeners.splice(listeners.indexOf(listener), 1);
     },
     redefine(tool, description) {
       const def = defs.find((d) => d.name === tool);

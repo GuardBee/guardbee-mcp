@@ -132,6 +132,50 @@ The single-server `--` form above keeps its 0.x behavior: tool names are not pre
 
 ---
 
+## Remote Mode (HTTP)
+
+The proxy can run as a shared network service instead of a subprocess of one client. Agents connect over Streamable HTTP, and upstreams can be remote Streamable HTTP servers too.
+
+```yaml
+version: 1
+listen:
+  transport: http              # stdio (default) | http
+  host: 0.0.0.0                # 0.0.0.0 in a container; 127.0.0.1 on a laptop
+  port: 8787
+  path: /mcp
+  apiKeys: ["${GUARDBEE_PROXY_KEY}"]   # agents send Authorization: Bearer <key>
+  maxSessions: 100
+upstreams:
+  github:
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-github"]
+  linear:
+    url: https://mcp.linear.app/mcp     # a Streamable HTTP upstream
+    headers: { Authorization: "Bearer ${LINEAR_TOKEN}" }
+audit:
+  sink: file
+  filePath: /var/log/guardbee/audit.jsonl
+  dashboard:
+    url: https://app.guardbee.ai/api/v1/gateway/events
+    apiKeyEnv: GUARDBEE_API_KEY        # workspace API key with the gateway.write scope
+```
+
+- **Sessions are isolated.** Each MCP session gets its own taint state, PII tokens and tool pins, so one agent's toxic flow never blocks another. All sessions share the upstream connections. Audit events carry the `sessionId`.
+- **No key, no network.** Listening on anything other than loopback without `listen.apiKeys` is a config error. Keys are compared in constant time, and a wrong or missing key gets `401`.
+- `GET /healthz` returns `{"ok": true, "sessions": N}`. Sessions above `maxSessions` get `503`.
+- **Dashboard:** `audit.dashboard` sends every audit event, batched, to the GuardBee dashboard with a workspace API key taken from `apiKeyEnv`. The key never sits in the file. If the dashboard is unreachable, events wait in memory (up to 10,000) and go out later. A rejected key is reported once on stderr. Tool calls never wait for the dashboard.
+- `init` now also moves Streamable HTTP servers (`url` + `headers`) behind the proxy. Legacy SSE servers stay in the client config and are reported.
+
+Docker:
+
+```bash
+docker build -t guardbee/mcp-security-proxy packages/security-proxy
+docker run -p 8787:8787 -e GUARDBEE_PROXY_KEY=... -e GUARDBEE_API_KEY=... \
+  -v "$PWD/guardbee-proxy.yaml:/etc/guardbee/guardbee-proxy.yaml:ro" guardbee/mcp-security-proxy
+```
+
+---
+
 ## MCP Tools
 
 The proxy does not register tools of its own. It forwards the target server's tools and applies the interceptor chain on every call.

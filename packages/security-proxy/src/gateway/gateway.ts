@@ -52,18 +52,27 @@ export class Gateway {
   /** Upstreams that announced tools/list_changed since the agent last listed tools. */
   private readonly stale = new Set<string>();
   private readonly toolListeners: (() => void)[] = [];
+  private readonly unsubscribers: (() => void)[] = [];
+  private readonly sessionId?: string;
 
+  /**
+   * One Gateway per agent session: taint, PII tokens and pins are per session.
+   * Over HTTP several sessions share the same upstream connections.
+   */
   constructor(
     private readonly upstreams: readonly Upstream[],
     private readonly config: GatewayConfig,
     private readonly audit: AuditLogger,
     private readonly approver?: Approver,
+    options: { sessionId?: string } = {},
   ) {
+    this.sessionId = options.sessionId;
     for (const upstream of upstreams) {
-      upstream.onToolsChanged?.(() => {
+      const unsubscribe = upstream.onToolsChanged?.(() => {
         this.stale.add(upstream.name);
         for (const listener of this.toolListeners) listener();
       });
+      if (unsubscribe) this.unsubscribers.push(unsubscribe);
     }
   }
 
@@ -87,7 +96,12 @@ export class Gateway {
   }
 
   private log(event: Omit<AuditEvent, "ts" | "taint">): void {
-    this.audit.log({ ts: new Date().toISOString(), ...event, taint: this.taint.snapshot() });
+    this.audit.log({
+      ts: new Date().toISOString(),
+      ...(this.sessionId ? { sessionId: this.sessionId } : {}),
+      ...event,
+      taint: this.taint.snapshot(),
+    });
   }
 
   private get driftEnabled(): boolean {
@@ -401,8 +415,16 @@ export class Gateway {
     return { ...result, messages: this.protect(result.messages).value };
   }
 
+  /** End this session: stop listening to the shared upstreams. They stay open for other sessions. */
+  dispose(): void {
+    for (const unsubscribe of this.unsubscribers.splice(0)) unsubscribe();
+    this.toolListeners.length = 0;
+  }
+
+  /** Single-session mode (stdio): also close the audit log and the upstreams. */
   async close(): Promise<void> {
-    this.audit.close();
+    this.dispose();
+    await this.audit.close();
     await Promise.allSettled(this.upstreams.map((upstream) => upstream.close()));
   }
 }
