@@ -10,7 +10,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import type { ProxyConfig } from "./types.js";
 import { AuditLogger } from "./audit/logger.js";
-import { elicitationApprover, type Approver } from "./gateway/approval.js";
+import { chainApprovers, dashboardApprover, elicitationApprover, type Approver } from "./gateway/approval.js";
 import { fromLegacyConfig, type GatewayConfig } from "./gateway/config.js";
 import { Gateway } from "./gateway/gateway.js";
 import { connectUpstream, type Upstream } from "./gateway/upstream.js";
@@ -57,8 +57,14 @@ export function createGatewayServer(
   options: { sessionId?: string } = {}
 ): { gateway: Gateway; server: Server } {
   let server: Server | undefined;
-  const approver: Approver = (request) =>
-    server ? elicitationApprover(server, config.approval.timeoutSeconds)(request) : Promise.resolve("unavailable");
+  const { timeoutSeconds, channels } = config.approval;
+  const approver = chainApprovers(
+    channels.map((channel): Approver =>
+      channel === "dashboard" && config.audit.dashboard
+        ? dashboardApprover(config.audit.dashboard, timeoutSeconds)
+        : (request) => (server ? elicitationApprover(server, timeoutSeconds)(request) : Promise.resolve("unavailable"))
+    )
+  );
   const gateway = new Gateway(upstreams, config, audit, approver, options);
   server = createProxyServer(gateway);
   return { gateway, server };
