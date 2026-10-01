@@ -90,11 +90,20 @@ export async function startGateway(config: GatewayConfig): Promise<void> {
   const { gateway, server } = createGatewayServer(upstreams, config, audit);
   await server.connect(new StdioServerTransport());
 
-  process.on("SIGINT", async () => {
-    await server.close();
+  // The client usually just closes stdin; without this the process ended with
+  // audit events still queued for the dashboard.
+  let closing = false;
+  const shutdown = async () => {
+    if (closing) return;
+    closing = true;
+    await server.close().catch(() => {});
     await gateway.close();
     process.exit(0);
-  });
+  };
+  server.onclose = () => void shutdown();
+  process.stdin.on("end", () => void shutdown());
+  process.on("SIGINT", () => void shutdown());
+  process.on("SIGTERM", () => void shutdown());
 }
 
 /** 0.x entry point: one server, unprefixed tool names, toxic flows only warn. */

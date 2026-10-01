@@ -64,3 +64,17 @@ describe("DashboardSink", () => {
     expect(calls[1]?.body.dropped).toBe(1);
   });
 });
+
+describe("AuditLogger with a dashboard", () => {
+  it("close() waits until queued events reach the dashboard", async () => {
+    const { AuditLogger } = await import("../audit/logger.js");
+    const { impl, calls } = fakeFetch([]);
+    const logger = new AuditLogger({ enabled: true, sink: "file", filePath: "/dev/null", dashboard: { ...config, batchSize: 100 } }, impl);
+    logger.log(event(1));
+    logger.log(event(2));
+    expect(calls).toHaveLength(0);
+    await logger.close();
+    expect(calls.map((c) => c.body.events.map((e) => e.tool))).toEqual([["t1", "t2"]]);
+    expect(calls[0]?.body.events[1]?.prevHash).toBe(calls[0]?.body.events[0]?.hash);
+  });
+});
