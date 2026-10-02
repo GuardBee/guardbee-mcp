@@ -1,5 +1,11 @@
 # @guardbee/mcp-security-proxy
 
+## 1.5.0
+
+### Minor Changes
+
+- [#21](https://github.com/GuardBee/guardbee-mcp/pull/21) [`9015a52`](https://github.com/GuardBee/guardbee-mcp/commit/9015a52368228a357519a977d3ef7809b082633a) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Audit events for tool responses and resource reads that contained personal data now carry `piiHits`: a count per category (`tc_kimlik`, `vkn`, `iban`, `credit_card`, `email`, `phone_tr`, and `secret` for credentials). Counts only, never values; counted even with masking off. The GuardBee dashboard's KVKK report is built from them.
+
 ## 1.4.0
 
 ### Minor Changes
