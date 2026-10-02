@@ -15,6 +15,7 @@
 | `isValidTcKimlik`、`isValidVkn`、`isValidIban`、`isValidLuhn`、`isValidTrPhone` | security-proxy、prompt-leak-scanner | 正则匹配之后的校验 |
 | `INJECTION_RULES`、`findInjections` | prompt-injection-scanner、security-proxy | 27 条英文和土耳其语注入规则，包含 base64 解码；扫描器使用其中 17 条精确规则 |
 | `scanForPromptInjection`、`scanToolResult` | security-proxy | 命中精确的 high/critical 规则时拦截，其余情况只警告 |
+| `gatewayPolicySchema`、`validatePolicy`、`policyShape` | security-proxy、app.guardbee.ai | 网关策略文档（标签、规则、污点、审批、默认值、拦截器）。仪表盘在保存编辑前用它校验，因此能保存的策略就是代理会接受的策略 |
 | `classifyTool`、`CAPABILITY_RULES` | toxic-flow-auditor、security-proxy | 把工具标记为 untrusted-content / sensitive-data / exfiltration / destructive（lethal trifecta） |
 
 ## 经校验和验证的脱敏

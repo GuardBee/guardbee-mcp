@@ -2,10 +2,11 @@ import fs from "fs";
 import path from "path";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
+import { policyShape } from "@guardbee/guard-core";
 import { loadProxyConfig } from "../config.js";
 import os from "os";
 import type { AuditConfig, McpServerConfig, ProxyConfig, UpstreamConfig } from "../types.js";
-import { LABELS, type Label } from "./labels.js";
+import type { Label } from "./labels.js";
 import type { PolicyAction, PolicyRule } from "./policy.js";
 import type { TaintMode } from "./taint.js";
 import type { ApprovalChannel } from "./approval.js";
@@ -23,8 +24,12 @@ export type ListenConfig =
       maxSessions: number;
     };
 
+/** Where the policy (labels, rules, taint, approval, defaults, interceptors) comes from. */
+export type PolicySourceConfig = { source: "local" } | { source: "dashboard"; refreshSeconds: number };
+
 export interface GatewayConfig {
   upstreams: Record<string, UpstreamConfig>;
+  policy: PolicySourceConfig;
   listen: ListenConfig;
   /** Prefix tool and prompt names with `<upstream>__`. Off only for the legacy single-server config. */
   namespaced: boolean;
@@ -43,9 +48,6 @@ export interface GatewayConfig {
   interceptors: NonNullable<ProxyConfig["interceptors"]>;
 }
 
-const labelSchema = z.enum(LABELS);
-const actionSchema = z.enum(["allow", "deny", "mask", "warn", "approve"]);
-const interceptorSchema = z.object({ enabled: z.boolean(), action: z.enum(["block", "warn"]) }).strict();
 
 const upstreamSchema = z
   .object({
@@ -106,40 +108,7 @@ const yamlSchema = z
         }
       }
     }),
-    labels: z.record(z.string(), z.array(labelSchema)).default({}),
-    rules: z
-      .array(
-        z
-          .object({
-            id: z.string().optional(),
-            match: z
-              .object({
-                tool: z.string().optional(),
-                upstream: z.string().optional(),
-                label: labelSchema.optional(),
-                session: z.enum(["clean", "tainted"]).optional(),
-                args: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
-              })
-              .strict(),
-            action: actionSchema,
-            mask: z.object({ fields: z.array(z.string()).min(1) }).strict().optional(),
-          })
-          .strict()
-          .refine((rule) => rule.mask === undefined || rule.action === "mask", {
-            message: "mask.fields only applies to action: mask",
-            path: ["mask"],
-          }),
-      )
-      .default([]),
-    taint: z.object({ mode: z.enum(["strict", "approve", "warn", "off"]).default("strict") }).strict().default({ mode: "strict" }),
-    approval: z
-      .object({
-        timeoutSeconds: z.number().int().positive().default(120),
-        channels: z.array(z.enum(["elicitation", "dashboard"])).min(1).default(["elicitation"]),
-      })
-      .strict()
-      .default({ timeoutSeconds: 120, channels: ["elicitation"] }),
-    defaults: z.object({ action: actionSchema.default("allow") }).strict().default({ action: "allow" }),
+    ...policyShape,
     audit: z
       .object({
         enabled: z.boolean().default(true),
@@ -159,26 +128,14 @@ const yamlSchema = z
       })
       .strict()
       .default({ enabled: true, sink: "console", includePayloads: false }),
-    listen: listenSchema.default({ transport: "stdio", host: "127.0.0.1", port: 8787, path: "/mcp", apiKeys: [], maxSessions: 100 }),
-    interceptors: z
+    policy: z
       .object({
-        promptInjection: interceptorSchema.optional(),
-        toolResultInjection: interceptorSchema.optional(),
-        definitionDrift: interceptorSchema
-          .extend({ recheck: z.enum(["every-call", "on-change"]).optional() })
-          .optional(),
-        piiMasking: z
-          .object({
-            enabled: z.boolean(),
-            patterns: z.array(z.string()).optional(),
-            mode: z.enum(["redact", "tokenize"]).optional(),
-            detokenizeForEgress: z.boolean().optional(),
-          })
-          .strict()
-          .optional(),
+        source: z.enum(["local", "dashboard"]).default("local"),
+        refreshSeconds: z.number().int().min(10).default(60),
       })
       .strict()
-      .default({}),
+      .default({ source: "local", refreshSeconds: 60 }),
+    listen: listenSchema.default({ transport: "stdio", host: "127.0.0.1", port: 8787, path: "/mcp", apiKeys: [], maxSessions: 100 }),
   })
   .strict();
 
@@ -230,6 +187,9 @@ export function parseGatewayYaml(source: string, fileLabel = "guardbee-proxy.yam
     throw new Error(`Invalid ${fileLabel}:\n${issues.join("\n")}`);
   }
   const cfg = parsed.data;
+  if (cfg.policy.source === "dashboard" && !cfg.audit.dashboard) {
+    throw new Error(`Invalid ${fileLabel}:\n  - policy.source: "dashboard" needs audit.dashboard (url and apiKeyEnv)`);
+  }
   if (cfg.approval.channels.includes("dashboard") && !cfg.audit.dashboard) {
     throw new Error(`Invalid ${fileLabel}:\n  - approval.channels: "dashboard" needs audit.dashboard (url and apiKeyEnv)`);
   }
@@ -237,6 +197,7 @@ export function parseGatewayYaml(source: string, fileLabel = "guardbee-proxy.yam
     upstreams: Object.fromEntries(
       Object.entries(cfg.upstreams).map(([name, upstream]) => [name, interpolateUpstream(name, upstream)]),
     ),
+    policy: cfg.policy.source === "dashboard" ? { source: "dashboard", refreshSeconds: cfg.policy.refreshSeconds } : { source: "local" },
     listen:
       cfg.listen.transport === "http"
         ? { ...cfg.listen, transport: "http", apiKeys: cfg.listen.apiKeys.map((key) => interpolate(key, "listen.apiKeys")) }
@@ -259,6 +220,7 @@ export function parseGatewayYaml(source: string, fileLabel = "guardbee-proxy.yam
 export function fromLegacyConfig(config: ProxyConfig): GatewayConfig {
   return {
     upstreams: { default: config.server },
+    policy: { source: "local" },
     listen: { transport: "stdio" },
     namespaced: false,
     labels: {},

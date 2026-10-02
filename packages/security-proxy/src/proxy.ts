@@ -14,6 +14,7 @@ import { chainApprovers, dashboardApprover, elicitationApprover, type Approver }
 import { fromLegacyConfig, type GatewayConfig } from "./gateway/config.js";
 import { Gateway } from "./gateway/gateway.js";
 import { connectUpstream, type Upstream } from "./gateway/upstream.js";
+import { PolicySync } from "./gateway/policy-sync.js";
 
 /** The MCP server the agent talks to; every request goes through the gateway. */
 export function createProxyServer(gateway: Gateway): Server {
@@ -57,14 +58,17 @@ export function createGatewayServer(
   options: { sessionId?: string } = {}
 ): { gateway: Gateway; server: Server } {
   let server: Server | undefined;
-  const { timeoutSeconds, channels } = config.approval;
-  const approver = chainApprovers(
-    channels.map((channel): Approver =>
-      channel === "dashboard" && config.audit.dashboard
-        ? dashboardApprover(config.audit.dashboard, timeoutSeconds)
-        : (request) => (server ? elicitationApprover(server, timeoutSeconds)(request) : Promise.resolve("unavailable"))
-    )
-  );
+  // Read approval settings on every request: a dashboard policy update can change them mid-session.
+  const approver: Approver = (request) => {
+    const { timeoutSeconds, channels } = config.approval;
+    return chainApprovers(
+      channels.map((channel): Approver =>
+        channel === "dashboard" && config.audit.dashboard
+          ? dashboardApprover(config.audit.dashboard, timeoutSeconds)
+          : (req) => (server ? elicitationApprover(server, timeoutSeconds)(req) : Promise.resolve("unavailable"))
+      )
+    )(request);
+  };
   const gateway = new Gateway(upstreams, config, audit, approver, options);
   server = createProxyServer(gateway);
   return { gateway, server };
@@ -72,6 +76,10 @@ export function createGatewayServer(
 
 export async function startGateway(config: GatewayConfig): Promise<void> {
   const audit = new AuditLogger(config.audit);
+  // Start with the dashboard policy when there is one; refresh in the background.
+  if (config.policy.source === "dashboard" && config.audit.dashboard) {
+    await new PolicySync(config, config.audit.dashboard, config.policy.refreshSeconds).start();
+  }
   const upstreams: Upstream[] = [];
   for (const [name, server] of Object.entries(config.upstreams)) {
     upstreams.push(await connectUpstream(name, server));

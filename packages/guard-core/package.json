@@ -51,5 +51,8 @@
   "homepage": "https://github.com/GuardBee/guardbee-mcp/tree/main/packages/guard-core#readme",
   "bugs": {
     "url": "https://github.com/GuardBee/guardbee-mcp/issues"
+  },
+  "dependencies": {
+    "zod": "catalog:"
   }
 }

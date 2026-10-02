@@ -77,6 +77,7 @@ export function fakeUpstream(
 export function gatewayConfig(overrides: Partial<GatewayConfig> = {}): GatewayConfig {
   return {
     upstreams: {},
+    policy: { source: "local" },
     namespaced: true,
     labels: {},
     rules: [],
