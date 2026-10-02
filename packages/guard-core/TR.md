@@ -15,6 +15,7 @@ Amacı, aynı kuralın her yerde çalışması: bir kalıbı raporlayan statik t
 | `isValidTcKimlik`, `isValidVkn`, `isValidIban`, `isValidLuhn`, `isValidTrPhone` | security-proxy, prompt-leak-scanner | Regex eşleşmesinden sonra doğrulama |
 | `INJECTION_RULES`, `findInjections` | prompt-injection-scanner, security-proxy | İngilizce ve Türkçe 27 injection kuralı, base64 çözme dahil; tarayıcı 17 kesin kuralı kullanır |
 | `scanForPromptInjection`, `scanToolResult` | security-proxy | Kesin bir high/critical kuralda engeller, geri kalan her şeyde uyarır |
+| `gatewayPolicySchema`, `validatePolicy`, `policyShape` | security-proxy, app.guardbee.ai | Gateway politika belgesi (etiketler, kurallar, taint, onay, varsayılanlar, interceptor'lar). Dashboard bir düzenlemeyi kaydetmeden önce bununla doğrular; kaydedilen politika proxy'nin kabul ettiği politikadır |
 | `classifyTool`, `CAPABILITY_RULES` | toxic-flow-auditor, security-proxy | Bir tool'u untrusted-content / sensitive-data / exfiltration / destructive olarak etiketler (lethal trifecta) |
 
 ## Checksum doğrulamalı maskeleme

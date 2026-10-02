@@ -166,7 +166,11 @@ importers:
         specifier: 'catalog:'
         version: 4.6.2
 
-  packages/guard-core: {}
+  packages/guard-core:
+    dependencies:
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.2
 
   packages/llm-redteam:
     dependencies:

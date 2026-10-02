@@ -13,3 +13,5 @@ export {
 export type { ScanResult, InjectionRule, InjectionCategory, InjectionFinding } from "./injection.js";
 export { CAPABILITY_RULES, classifyTool, textOf } from "./classify.js";
 export type { Capability, FlowCategory, ToolRecord } from "./classify.js";
+export { POLICY_LABELS, POLICY_ACTIONS, policyRuleSchema, policyShape, gatewayPolicySchema, validatePolicy } from "./policy.js";
+export type { GatewayPolicy, PolicyValidation } from "./policy.js";

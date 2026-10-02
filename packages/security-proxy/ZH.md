@@ -122,6 +122,7 @@ audit:
 - **规则**可按 `tool`（glob）、`upstream`、`label`、`session`（`clean` | `tainted`）和 `args` 匹配。即使全局脱敏关闭，`mask` 也会对该工具强制进行 PII 脱敏；`mask.fields` 还会清空文本和 `structuredContent` 中指定的 JSON 键。规则中的 `allow` 不会跳过有毒数据流检查；如需放行，请修改该工具的标签。
 - **审批：** `approve`（规则动作，或针对有毒数据流的 `taint.mode: approve`）会通过 MCP elicitation 向用户展示一个是/否表单，其中包含工具、原因和参数。除明确的"是"之外的任何回答——拒绝、取消、在 `approval.timeoutSeconds`（默认 120 秒）内未作答——都会拦截该调用。不支持 elicitation 的客户端无法审批，调用会被拦截并附带说明。
 - **在仪表盘中审批：** 设置 `approval.channels: [elicitation, dashboard]` 和 `audit.dashboard` 后，无法显示表单的客户端不会再直接拦截调用。请求会以 PII 已脱敏的参数发送到 GuardBee 仪表盘（MCP Gateway 页面），工作区所有者和管理员会收到通知；代理会一直保留该调用，直到有人在那里批准或拒绝，或 `timeoutSeconds` 到期。各渠道按顺序尝试，第一个能够发起询问的渠道给出答案。
+- **来自仪表盘的策略：** `policy: { source: dashboard, refreshSeconds: 60 }`（需配合 `audit.dashboard`）会从 GuardBee 仪表盘中编辑的工作区策略获取标签、规则、污点、审批、默认动作和拦截器设置，而不是从本文件读取。上游、listen 和 audit 仍保留在本地。代理在启动时拉取策略，并用 ETag 重新检查；更新会在每个会话的下一次调用中生效（标签在下一次 `tools/list` 时生效）。如果仪表盘中尚未保存策略、仪表盘不可达或文档无效，代理会保留本地或最后一次有效的策略——绝不会在没有策略的情况下运行。
 - **令牌化（Tokenize）：** 设置 `interceptors.piiMasking.mode: tokenize` 后，模型看到的是 `<pii:tc_kimlik:7f3a9b21>` 而不是真实值，并且仍然可以把它传给另一个工具：代理会在发往该服务器时把真实值放回去。令牌只在会话期间保存在内存中；除非设置 `piiMasking.detokenizeForEgress: true`，否则不会为 `egress` 工具还原成真实值。
 - **Prompt**（`prompts/get`）与工具结果一样，经过注入扫描和 PII 脱敏。
 - `interceptors.definitionDrift.recheck: on-change` 会跳过每次调用前的 `tools/list`，只在服务器发送 `tools/list_changed` 后重新检查；代理也会把该通知转发给智能体。

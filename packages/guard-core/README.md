@@ -15,6 +15,7 @@ It exists so the same rule runs everywhere: a static scanner flagging a pattern 
 | `isValidTcKimlik`, `isValidVkn`, `isValidIban`, `isValidLuhn`, `isValidTrPhone` | security-proxy, prompt-leak-scanner | Validation after a regex match |
 | `INJECTION_RULES`, `findInjections` | prompt-injection-scanner, security-proxy | 27 injection rules in English and Turkish, with base64-decoding; the scanner uses the 17 precise ones |
 | `scanForPromptInjection`, `scanToolResult` | security-proxy | Block on a precise high/critical rule, warn on anything else |
+| `gatewayPolicySchema`, `validatePolicy`, `policyShape` | security-proxy, app.guardbee.ai | The gateway policy document (labels, rules, taint, approval, defaults, interceptors). The dashboard validates an edit with it before saving, so a policy that saves is one the proxy accepts |
 | `classifyTool`, `CAPABILITY_RULES` | toxic-flow-auditor, security-proxy | Label a tool as untrusted-content / sensitive-data / exfiltration / destructive (lethal trifecta) |
 
 ## Checksum-validated masking
