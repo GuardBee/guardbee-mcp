@@ -1,6 +1,6 @@
 export { startProxy, startGateway, createProxyServer, createGatewayServer } from "./proxy.js";
-export { elicitationApprover } from "./gateway/approval.js";
-export type { Approver, ApprovalRequest, ApprovalOutcome } from "./gateway/approval.js";
+export { elicitationApprover, dashboardApprover, chainApprovers } from "./gateway/approval.js";
+export type { Approver, ApprovalRequest, ApprovalOutcome, ApprovalChannel } from "./gateway/approval.js";
 export { PiiVault } from "./gateway/tokens.js";
 export { maskFields } from "./gateway/fields.js";
 export { loadProxyConfig } from "./config.js";

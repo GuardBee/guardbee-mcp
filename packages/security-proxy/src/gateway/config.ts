@@ -8,6 +8,7 @@ import type { AuditConfig, McpServerConfig, ProxyConfig, UpstreamConfig } from "
 import { LABELS, type Label } from "./labels.js";
 import type { PolicyAction, PolicyRule } from "./policy.js";
 import type { TaintMode } from "./taint.js";
+import type { ApprovalChannel } from "./approval.js";
 
 /** How the agent reaches the proxy. */
 export type ListenConfig =
@@ -31,8 +32,12 @@ export interface GatewayConfig {
   labels: Record<string, Label[]>;
   rules: PolicyRule[];
   taint: { mode: TaintMode };
-  /** How long an `approve` decision waits for the person before it becomes a deny. */
-  approval: { timeoutSeconds: number };
+  /**
+   * How long an `approve` decision waits before it becomes a deny, and where
+   * to ask, in order: the client's own prompt (MCP elicitation) and/or the
+   * GuardBee dashboard (needs audit.dashboard).
+   */
+  approval: { timeoutSeconds: number; channels: ApprovalChannel[] };
   defaults: { action: PolicyAction };
   audit: AuditConfig;
   interceptors: NonNullable<ProxyConfig["interceptors"]>;
@@ -128,9 +133,12 @@ const yamlSchema = z
       .default([]),
     taint: z.object({ mode: z.enum(["strict", "approve", "warn", "off"]).default("strict") }).strict().default({ mode: "strict" }),
     approval: z
-      .object({ timeoutSeconds: z.number().int().positive().default(120) })
+      .object({
+        timeoutSeconds: z.number().int().positive().default(120),
+        channels: z.array(z.enum(["elicitation", "dashboard"])).min(1).default(["elicitation"]),
+      })
       .strict()
-      .default({ timeoutSeconds: 120 }),
+      .default({ timeoutSeconds: 120, channels: ["elicitation"] }),
     defaults: z.object({ action: actionSchema.default("allow") }).strict().default({ action: "allow" }),
     audit: z
       .object({
@@ -222,6 +230,9 @@ export function parseGatewayYaml(source: string, fileLabel = "guardbee-proxy.yam
     throw new Error(`Invalid ${fileLabel}:\n${issues.join("\n")}`);
   }
   const cfg = parsed.data;
+  if (cfg.approval.channels.includes("dashboard") && !cfg.audit.dashboard) {
+    throw new Error(`Invalid ${fileLabel}:\n  - approval.channels: "dashboard" needs audit.dashboard (url and apiKeyEnv)`);
+  }
   return {
     upstreams: Object.fromEntries(
       Object.entries(cfg.upstreams).map(([name, upstream]) => [name, interpolateUpstream(name, upstream)]),
@@ -253,7 +264,7 @@ export function fromLegacyConfig(config: ProxyConfig): GatewayConfig {
     labels: {},
     rules: [],
     taint: { mode: "warn" },
-    approval: { timeoutSeconds: 120 },
+    approval: { timeoutSeconds: 120, channels: ["elicitation"] },
     defaults: { action: "allow" },
     audit: { includePayloads: true, ...(config.audit ?? { enabled: true, sink: "console" }) },
     interceptors: config.interceptors ?? {},

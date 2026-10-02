@@ -81,7 +81,7 @@ export function gatewayConfig(overrides: Partial<GatewayConfig> = {}): GatewayCo
     labels: {},
     rules: [],
     taint: { mode: "strict" },
-    approval: { timeoutSeconds: 120 },
+    approval: { timeoutSeconds: 120, channels: ["elicitation"] },
     defaults: { action: "allow" },
     audit: { enabled: false, sink: "console" },
     interceptors: {},

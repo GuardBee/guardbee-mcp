@@ -190,7 +190,7 @@ export class Gateway {
     /** null = approved, go on; otherwise the result to return. */
     const askApproval = async (reason: string, extra: Partial<AuditEvent> = {}): Promise<CallToolResult | null> => {
       const outcome = this.approver
-        ? await this.approver({ tool: name, upstream: upstream.name, args, reason })
+        ? await this.approver({ tool: name, upstream: upstream.name, args, reason, ...(this.sessionId ? { sessionId: this.sessionId } : {}) })
         : "unavailable";
       this.log({ ...base, type: "approval", input: args, reason: `${outcome}: ${reason}`, ...extra });
       if (outcome === "approved") return null;
