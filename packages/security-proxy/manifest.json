@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "@guardbee/mcp-security-proxy",
   "display_name": "GuardBee Security Proxy",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "MCP security gateway: several MCP servers behind one policy, with toxic-flow (lethal trifecta) blocking, approvals, PII masking and a hash-chained audit log",
   "long_description": "Sits between an MCP client and another MCP server, wrapping its tool calls: detects and can block prompt injection attempts, masks PII in tool inputs/outputs, and writes an audit log of every intercepted call. Unlike GuardBee's other servers, this one does not expose its own fixed tool set — it forwards (and can transform) whichever tools the wrapped server provides. Requires the command to launch the wrapped server (proxyCommand/proxyArgs), not an API key. From 1.0 it can also front several servers from one guardbee-proxy.yaml: tool names get an <upstream>__ prefix, policy rules allow/deny/mask/approve calls, and an egress call is blocked once a session has seen both untrusted content and sensitive data.",
   "author": {
