@@ -1,5 +1,13 @@
 # @guardbee/mcp-security-proxy
 
+## 1.3.0
+
+### Minor Changes
+
+- [#17](https://github.com/GuardBee/guardbee-mcp/pull/17) [`dac242d`](https://github.com/GuardBee/guardbee-mcp/commit/dac242dbcf7258039ca4bd7c6d44059e420b6a36) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Approvals in the GuardBee dashboard.
+  
+  `approval.channels: [elicitation, dashboard]` (with `audit.dashboard` configured) sends an approval request to the dashboard when the client cannot show a prompt. The arguments go PII-masked, the dashboard notifies workspace owners and admins, and the proxy polls until the request is approved, denied or expired, or `timeoutSeconds` passes. Channels are tried in order; a channel that cannot ask (no elicitation support, dashboard unreachable) falls through to the next one. Requires app.guardbee.ai with the gateway approvals endpoint.
+
 ## 1.2.0
 
 ### Minor Changes
