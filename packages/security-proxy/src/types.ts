@@ -96,6 +96,12 @@ export type AuditEvent = {
   inputHash?: string;
   output?: unknown;
   reason?: string;
+  /**
+   * Personal data the proxy found in a tool response or resource, counted by
+   * category (tc_kimlik, email, iban, …; credentials as "secret"). Counts
+   * only — never the values. Feeds the dashboard's KVKK report.
+   */
+  piiHits?: Record<string, number>;
   /** Hash chain: each event carries the previous event's hash. Set by AuditLogger. */
   prevHash?: string;
   hash?: string;
