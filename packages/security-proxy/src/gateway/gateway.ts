@@ -6,10 +6,10 @@ import type {
   Resource,
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
-import { maskPiiInValue, scanForPromptInjection, scanToolResult } from "@guardbee/guard-core";
+import { maskPiiInValue, PII_PATTERNS, scanForPromptInjection, scanToolResult } from "@guardbee/guard-core";
 import { recordEvent } from "@guardbee/mcp-telemetry";
 import type { AuditLogger } from "../audit/logger.js";
-import { stable, ToolDefinitionPin, type ToolRecord } from "../interceptors/definition-drift.js";
+import { ToolDefinitionPin, type ToolRecord } from "../interceptors/definition-drift.js";
 import type { AuditEvent } from "../types.js";
 import type { Approver } from "./approval.js";
 import type { GatewayConfig } from "./config.js";
@@ -21,6 +21,17 @@ import { PiiVault } from "./tokens.js";
 import type { Upstream } from "./upstream.js";
 
 const SEPARATOR = "__";
+
+/** Pattern names that are personal data; every other PII pattern is a credential and counts as "secret". */
+const PERSONAL_DATA = new Set(["tc_kimlik", "vkn", "iban", "credit_card", "email", "phone_tr"]);
+const PLACEHOLDER = new Map(PII_PATTERNS.map((p) => [p.name, p.replacement]));
+
+type PiiHits = Record<string, number>;
+
+function addHits(into: PiiHits, from: PiiHits): PiiHits {
+  for (const [category, count] of Object.entries(from)) into[category] = (into[category] ?? 0) + count;
+  return into;
+}
 const PREFIX = "[GuardBee Security Proxy]";
 
 interface ToolRoute {
@@ -120,13 +131,18 @@ export class Gateway {
    * Find PII in a value (it taints the session either way) and hide it unless
    * masking is off. `force` comes from a `mask` rule and overrides "off".
    */
-  private protect<T>(value: T, force = false): { value: T; piiFound: boolean } {
-    const redacted = maskPiiInValue(value) as T;
-    const piiFound = stable(redacted) !== stable(value);
+  private protect<T>(value: T, force = false): { value: T; piiFound: boolean; hits: PiiHits } {
+    const hits: PiiHits = {};
+    const redacted = maskPiiInValue(value, (name) => {
+      const category = PERSONAL_DATA.has(name) ? name : "secret";
+      hits[category] = (hits[category] ?? 0) + 1;
+      return PLACEHOLDER.get(name) ?? "[REDACTED]";
+    }) as T;
+    const piiFound = Object.keys(hits).length > 0;
     const enabled = this.interceptors.piiMasking?.enabled !== false || force;
-    if (!piiFound || !enabled) return { value, piiFound };
+    if (!piiFound || !enabled) return { value, piiFound, hits };
     const tokenize = this.interceptors.piiMasking?.mode === "tokenize";
-    return { value: tokenize ? this.vault.tokenize(value) : redacted, piiFound };
+    return { value: tokenize ? this.vault.tokenize(value) : redacted, piiFound, hits };
   }
 
   async listTools(): Promise<Tool[]> {
@@ -302,15 +318,18 @@ export class Gateway {
     const text = this.protect(content, force);
     let out: CallToolResult = { ...result, content: text.value };
     let piiFound = text.piiFound;
+    // structuredContent usually repeats the text content: count the larger of the two, not both
+    let hits = text.hits;
     if (result.structuredContent) {
       const structured = this.protect(result.structuredContent, force);
       out.structuredContent = structured.value;
       piiFound ||= structured.piiFound;
+      for (const [category, count] of Object.entries(structured.hits)) hits[category] = Math.max(hits[category] ?? 0, count);
     }
     if (decision.maskFields) out = maskFields(out, decision.maskFields);
 
     this.taint.observe(name, labels, piiFound);
-    this.log({ ...base, type: "tool_response", output: out.content });
+    this.log({ ...base, type: "tool_response", output: out.content, ...(piiFound ? { piiHits: hits } : {}) });
 
     void recordEvent({
       server: "security-proxy",
@@ -361,15 +380,17 @@ export class Gateway {
     }
 
     let piiFound = false;
+    const hits: PiiHits = {};
     const contents = result.contents.map((item) => {
       if (!("text" in item) || typeof item.text !== "string") return item;
       const text = this.protect(item.text);
       piiFound ||= text.piiFound;
+      addHits(hits, text.hits);
       return { ...item, text: text.value };
     });
 
     this.taint.observe(source, ["untrusted"], piiFound);
-    this.log({ type: "resource_read", tool: source, upstream: upstream.name });
+    this.log({ type: "resource_read", tool: source, upstream: upstream.name, ...(piiFound ? { piiHits: hits } : {}) });
     return { ...result, contents };
   }
 
