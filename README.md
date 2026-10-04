@@ -1,5 +1,6 @@
 # guardbee-mcp
 
+[![AgentHub 已收录：a2a-auditor](https://myagenthub.cn/badge/io.github.4hmetuyar/a2a-auditor)](https://myagenthub.cn/p/io.github.4hmetuyar/a2a-auditor)
 **🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
 
 [guardbee.ai](https://guardbee.ai) — AI Security Copilot for websites.
