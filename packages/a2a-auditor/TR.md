@@ -1,5 +1,7 @@
 # @guardbee/mcp-a2a-auditor
 
+[![Listed on AgentHub](https://myagenthub.cn/badge/io.github.4hmetuyar/a2a-auditor)](https://myagenthub.cn/p/io.github.4hmetuyar/a2a-auditor)
+
 [🇬🇧 English](README.md) | **🇹🇷 Türkçe**
 
 MCP (Model Context Protocol) sunucusu — bir agent'ın kendi **Agent2Agent (A2A) protokol implementasyonunu** anti-pattern'ler için tarar. Bu kalıplar spec metninden uydurulmadı, doğrudan referans SDK'lardan (`@a2a-js/sdk`, `a2a-sdk`) ve onların kendi resmi örnek kodundan okundu.
