@@ -23,7 +23,7 @@ describe("parseGatewayYaml", () => {
     process.env["TEST_GH_TOKEN"] = "ghp_test";
     const cfg = parseGatewayYaml(minimal);
     expect(cfg.namespaced).toBe(true);
-    expect(cfg.taint).toEqual({ mode: "strict" });
+    expect(cfg.taint).toEqual({ mode: "strict", basis: "capability" });
     expect(cfg.defaults).toEqual({ action: "allow" });
     expect(cfg.audit).toEqual({ enabled: true, sink: "console", includePayloads: false });
     expect(cfg.upstreams["github"]).toEqual({

@@ -42,7 +42,7 @@ describe("PolicySync", () => {
     expect(await sync.refresh()).toBe("updated");
     expect(requests[0]).toMatchObject({ url: "https://dash.test/api/v1/gateway/policy", auth: "Bearer gb_key" });
     expect(config.rules).toEqual(remotePolicy.rules);
-    expect(config.taint).toEqual({ mode: "approve" });
+    expect(config.taint).toEqual({ mode: "approve", basis: "capability" });
     expect(config.labels).toEqual({ web__fetch: ["untrusted"] });
     expect(config.defaults).toEqual({ action: "allow" });
     expect(sync.version).toBe(3);
@@ -78,7 +78,7 @@ describe("PolicySync", () => {
     ]);
     await sync.refresh();
     expect(await sync.refresh()).toBe("invalid");
-    expect(config.taint).toEqual({ mode: "approve" });
+    expect(config.taint).toEqual({ mode: "approve", basis: "capability" });
   });
 
   it("rejects a dashboard approval channel this proxy cannot use", async () => {

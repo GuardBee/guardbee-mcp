@@ -15,6 +15,7 @@ import type { Approver } from "./approval.js";
 import type { GatewayConfig } from "./config.js";
 import { maskFields } from "./fields.js";
 import { labelTool, type Label } from "./labels.js";
+import { DataFingerprints } from "./fingerprints.js";
 import { evaluatePolicy } from "./policy.js";
 import { TaintTracker } from "./taint.js";
 import { PiiVault } from "./tokens.js";
@@ -56,6 +57,8 @@ function errorResult(text: string): CallToolResult {
 export class Gateway {
   readonly taint = new TaintTracker();
   readonly vault = new PiiVault();
+  /** Hashes of the sensitive data this session's tools returned, for the data-based taint check. */
+  readonly fingerprints = new DataFingerprints();
   private readonly pins = new Map<string, ToolDefinitionPin>();
   private readonly tools = new Map<string, ToolRoute>();
   private readonly resources = new Map<string, Upstream>();
@@ -260,8 +263,14 @@ export class Gateway {
 
     // 4. Toxic flow: untrusted + sensitive already in context, and this call can send data out
     const taintMode = this.config.taint.mode;
-    if (taintMode !== "off" && this.taint.completesTrifecta(labels)) {
-      const reason = this.taint.describe(name);
+    // The evidence: sensitive data this session saw, now in the arguments (tokens count as their values)
+    const carried = taintMode !== "off" && labels.includes("egress") ? this.fingerprints.find(this.vault.detokenize(args)) : null;
+    const toxic =
+      this.config.taint.basis === "data"
+        ? labels.includes("egress") && this.taint.sawUntrusted && carried !== null
+        : this.taint.completesTrifecta(labels);
+    if (taintMode !== "off" && toxic) {
+      const reason = carried ? this.taint.describeData(name, carried) : this.taint.describe(name);
       if (taintMode === "strict") {
         this.log({ ...base, type: "toxic_flow", input: args, reason: `${reason} — blocked (taint.mode=strict)` });
         return errorResult(
@@ -329,6 +338,8 @@ export class Gateway {
     if (decision.maskFields) out = maskFields(out, decision.maskFields);
 
     this.taint.observe(name, labels, piiFound);
+    if (labels.includes("sensitive") || piiFound) this.fingerprints.add(name, [result.content, result.structuredContent ?? null]);
+    else if (this.config.taint.basis === "data") this.fingerprints.addOrdinary([result.content, result.structuredContent ?? null]);
     this.log({ ...base, type: "tool_response", output: out.content, ...(piiFound ? { piiHits: hits } : {}) });
 
     void recordEvent({
@@ -390,6 +401,8 @@ export class Gateway {
     });
 
     this.taint.observe(source, ["untrusted"], piiFound);
+    if (piiFound) this.fingerprints.add(source, result.contents);
+    else if (this.config.taint.basis === "data") this.fingerprints.addOrdinary(result.contents);
     this.log({ type: "resource_read", tool: source, upstream: upstream.name, ...(piiFound ? { piiHits: hits } : {}) });
     return { ...result, contents };
   }
