@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "@guardbee/mcp-toxic-flow-auditor",
   "display_name": "GuardBee Toxic Flow Auditor",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "MCP server that detects toxic flows (lethal trifecta) across an MCP tool catalog — untrusted content + private/sensitive data + exfiltration or destruction on the same server",
   "long_description": "Audits an MCP server's tools/list (or source .tool registrations) for Simon Willison's lethal trifecta: the combination of untrusted content, sensitive/private data, and an exfiltration or destruction path on one server. A prompt injection can chain those capabilities. Reports A–F grades and dangerous pairs (sensitive+exfil, untrusted+exfil, sensitive+destruct). Includes KVKK-aware PII heuristics. Mapped to OWASP MCP10:2025. No API key — local static/catalog analysis only.",
   "author": {
