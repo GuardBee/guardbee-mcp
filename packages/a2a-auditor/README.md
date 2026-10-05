@@ -1,5 +1,7 @@
 # @guardbee/mcp-a2a-auditor
 
+[![Listed on AgentHub](https://myagenthub.cn/badge/io.github.4hmetuyar/a2a-auditor)](https://myagenthub.cn/p/io.github.4hmetuyar/a2a-auditor)
+
 **🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
 
 An MCP (Model Context Protocol) server that scans an agent's own **Agent2Agent (A2A) protocol implementation** for anti-patterns — not invented from the spec text, but read directly out of the reference SDKs (`@a2a-js/sdk`, `a2a-sdk`) and their own official sample code.
