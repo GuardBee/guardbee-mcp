@@ -8,7 +8,7 @@ import os from "os";
 import type { AuditConfig, McpServerConfig, ProxyConfig, UpstreamConfig } from "../types.js";
 import type { Label } from "./labels.js";
 import type { PolicyAction, PolicyRule } from "./policy.js";
-import type { TaintMode } from "./taint.js";
+import type { TaintBasis, TaintMode } from "./taint.js";
 import type { ApprovalChannel } from "./approval.js";
 
 /** How the agent reaches the proxy. */
@@ -36,7 +36,7 @@ export interface GatewayConfig {
   /** Label overrides by the tool name the agent sees; replaces the heuristic labels entirely. */
   labels: Record<string, Label[]>;
   rules: PolicyRule[];
-  taint: { mode: TaintMode };
+  taint: { mode: TaintMode; basis: TaintBasis };
   /**
    * How long an `approve` decision waits before it becomes a deny, and where
    * to ask, in order: the client's own prompt (MCP elicitation) and/or the
@@ -225,7 +225,7 @@ export function fromLegacyConfig(config: ProxyConfig): GatewayConfig {
     namespaced: false,
     labels: {},
     rules: [],
-    taint: { mode: "warn" },
+    taint: { mode: "warn", basis: "capability" },
     approval: { timeoutSeconds: 120, channels: ["elicitation"] },
     defaults: { action: "allow" },
     audit: { includePayloads: true, ...(config.audit ?? { enabled: true, sink: "console" }) },

@@ -40,7 +40,17 @@ export const policyRuleSchema = z
 export const policyShape = {
   labels: z.record(z.string(), z.array(labelSchema)).default({}),
   rules: z.array(policyRuleSchema).default([]),
-  taint: z.object({ mode: z.enum(["strict", "approve", "warn", "off"]).default("strict") }).strict().default({ mode: "strict" }),
+  taint: z
+    .object({
+      mode: z.enum(["strict", "approve", "warn", "off"]).default("strict"),
+      /**
+       * capability: any egress call after untrusted + sensitive content is a toxic flow.
+       * data: only an egress call whose arguments carry sensitive data the session saw.
+       */
+      basis: z.enum(["capability", "data"]).default("capability"),
+    })
+    .strict()
+    .default({ mode: "strict", basis: "capability" }),
   approval: z
     .object({
       timeoutSeconds: z.number().int().positive().default(120),

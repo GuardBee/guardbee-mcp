@@ -1,6 +1,9 @@
+import type { DataMatch } from "./fingerprints.js";
 import type { Label } from "./labels.js";
 
 export type TaintMode = "strict" | "approve" | "warn" | "off";
+/** capability: tool labels decide; data: the egress arguments must carry data the session saw. */
+export type TaintBasis = "capability" | "data";
 
 export interface TaintSnapshot {
   sawUntrusted: boolean;
@@ -43,6 +46,15 @@ export class TaintTracker {
     return (
       `Toxic flow (lethal trifecta): untrusted content from "${this.untrustedFrom}" and ` +
       `sensitive data from "${this.sensitiveFrom}" are in this session, and "${egressTool}" can send data out`
+    );
+  }
+
+  /** The toxic flow with its evidence: which earlier result the outgoing data came from. */
+  describeData(egressTool: string, match: DataMatch): string {
+    const what = match.kind === "pii" ? "personal data or a credential" : match.kind === "id" ? "an identifier" : "text";
+    return (
+      `Toxic flow (data): ${what} from "${match.source}" is in the arguments of "${egressTool}", which can send data out` +
+      (this.untrustedFrom ? `, and untrusted content from "${this.untrustedFrom}" is in this session` : "")
     );
   }
 

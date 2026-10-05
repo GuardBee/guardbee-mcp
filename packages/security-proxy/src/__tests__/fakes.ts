@@ -81,7 +81,7 @@ export function gatewayConfig(overrides: Partial<GatewayConfig> = {}): GatewayCo
     namespaced: true,
     labels: {},
     rules: [],
-    taint: { mode: "strict" },
+    taint: { mode: "strict", basis: "capability" },
     approval: { timeoutSeconds: 120, channels: ["elicitation"] },
     defaults: { action: "allow" },
     audit: { enabled: false, sink: "console" },

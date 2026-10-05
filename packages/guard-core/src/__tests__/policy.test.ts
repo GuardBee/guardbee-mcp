@@ -9,7 +9,7 @@ describe("validatePolicy", () => {
       policy: {
         labels: {},
         rules: [],
-        taint: { mode: "strict" },
+        taint: { mode: "strict", basis: "capability" },
         approval: { timeoutSeconds: 120, channels: ["elicitation"] },
         defaults: { action: "allow" },
         interceptors: {},
@@ -32,5 +32,12 @@ describe("validatePolicy", () => {
       // Deployment settings do not belong in a policy document.
       expect(result.issues.some((i) => i.includes("upstreams"))).toBe(true);
     }
+  });
+});
+
+describe("taint.basis", () => {
+  it("accepts data and rejects anything else", () => {
+    expect(validatePolicy({ taint: { mode: "approve", basis: "data" } })).toMatchObject({ ok: true, policy: { taint: { mode: "approve", basis: "data" } } });
+    expect(validatePolicy({ taint: { basis: "content" } }).ok).toBe(false);
   });
 });
