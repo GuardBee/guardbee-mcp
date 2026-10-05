@@ -1,5 +1,12 @@
 # @guardbee/mcp-prompt-injection-scanner
 
+## 0.2.3
+
+### Patch Changes
+
+- Updated dependencies [[`75f4bad`](https://github.com/GuardBee/guardbee-mcp/commit/75f4baddd164e252be4f8004e2ec8e0054cbd218)]:
+  - @guardbee/guard-core@0.4.0
+
 ## 0.2.2
 
 ### Patch Changes
