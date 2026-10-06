@@ -1,6 +1,6 @@
 # @guardbee/mcp-audit-gap-auditor
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
 
 An MCP server that audits MCP server source for **OWASP MCP08:2025 — Lack of Audit and Telemetry**.
 

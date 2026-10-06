@@ -44,7 +44,13 @@ GuardBee 的 MCP（Model Context Protocol）服务器系列——一个 monorepo
 
 ## 最近更新
 
-各版本的详细变更记录见英文 README 的 [Recent Changes](README.md#recent-changes-2026-09-30) 部分，以及各包的 `CHANGELOG.md`。
+### 2026-10-06（续）— OWASP MCP08
+
+对照 [OWASP MCP Top 10](https://owasp.org/www-project-mcp-top-10/) 的缺口扫描后新增 **[`@guardbee/mcp-audit-gap-auditor`](packages/audit-gap-auditor/ZH.md)**（MCP08：缺少审计与遥测）。`mcp-server-auditor` 的 shell/eval/SQL 汇点已标注为 **MCP05:2025**。后续候选：**MCP09 Shadow MCP**（主机级发现 + 组织 allowlist）。包内文档见 [ZH.md](packages/audit-gap-auditor/ZH.md)。
+
+### 更早版本
+
+各版本的详细变更记录见英文 README 的 [Recent Changes](README.md#recent-changes-2026-10-06) 部分，以及各包的 `CHANGELOG.md`。
 
 ## 遥测
 
