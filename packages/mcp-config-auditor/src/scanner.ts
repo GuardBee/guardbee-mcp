@@ -1,9 +1,21 @@
 import { readFileSync, readdirSync, statSync } from "fs";
 import { basename, join, relative } from "path";
+import {
+  defaultHostConfigPaths,
+  discoverShadowMcp,
+  loadAllowlistFile,
+  parseAllowlist,
+  type Allowlist,
+  type DiscoverResult,
+  type HostConfigPath,
+} from "./discover.js";
 import { parseMcpConfig } from "./parseConfig.js";
 import { auditServers, findToolShadowing } from "./rules.js";
 import { auditSkill, findSkillShadowing, parseSkillMarkdown, skillNameFromPath, type NamedSkill } from "./skills.js";
 import type { ConfigFinding, InventoryServer } from "./types.js";
+
+export type { Allowlist, DiscoverResult, HostConfigPath };
+export { defaultHostConfigPaths, discoverShadowMcp, loadAllowlistFile, parseAllowlist };
 
 const CONFIG_NAMES = new Set(["mcp.json", "mcp_config.json", "claude_desktop_config.json"]);
 const SKILL_FILE = "SKILL.md";
@@ -130,4 +142,17 @@ export function scanDirectory(
 
 export function scanInventory(servers: InventoryServer[], file?: string): ConfigFinding[] {
   return findToolShadowing(servers, file);
+}
+
+/** Discover MCP client configs on this host and flag Shadow MCP (MCP09) vs an allowlist. */
+export function discoverHostMcp(options: {
+  home?: string;
+  paths?: HostConfigPath[];
+  allowlist?: Allowlist | null;
+  includeContentAudit?: boolean;
+} = {}): DiscoverResult {
+  return discoverShadowMcp({
+    ...options,
+    contentAudit: options.includeContentAudit ? scanConfigText : undefined,
+  });
 }

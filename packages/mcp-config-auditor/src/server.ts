@@ -2,7 +2,16 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
-import { scanConfigFile, scanConfigText, scanDirectory, scanInventory, scanSkillText } from "./scanner.js";
+import {
+  defaultHostConfigPaths,
+  discoverHostMcp,
+  parseAllowlist,
+  scanConfigFile,
+  scanConfigText,
+  scanDirectory,
+  scanInventory,
+  scanSkillText,
+} from "./scanner.js";
 import type { ConfigFinding, InventoryServer } from "./types.js";
 
 function formatFindings(findings: ConfigFinding[], scannedFiles: number, durationMs: number): string {
@@ -114,8 +123,56 @@ export async function startServer() {
   );
 
   server.tool(
+    "discover_shadow_mcp",
+    "OWASP MCP09:2025 — discover MCP client configs in well-known host paths (Cursor, Claude Desktop, Windsurf, VS Code, Claude Code) and flag servers that are not on an organization allowlist (Shadow MCP). Does not start any MCP server.",
+    {
+      allowlist: z
+        .string()
+        .optional()
+        .describe(
+          'JSON allowlist: {"names":["filesystem"],"packages":["@modelcontextprotocol/server-filesystem"],"hosts":["mcp.example.com"]} or line form name:/package:/host:'
+        ),
+      home: z.string().optional().describe("Override home directory used to resolve well-known config paths"),
+      includeContentAudit: z
+        .boolean()
+        .optional()
+        .describe("Also run the normal config content checks on each discovered file (default false)"),
+    },
+    async ({ allowlist: allowlistText, home, includeContentAudit }) => {
+      let allowlist = null;
+      if (allowlistText?.trim()) {
+        try {
+          allowlist = parseAllowlist(allowlistText);
+        } catch (err) {
+          return {
+            content: [{ type: "text", text: `Allowlist error: ${err instanceof Error ? err.message : String(err)}` }],
+          };
+        }
+      }
+      const result = discoverHostMcp({ home, allowlist, includeContentAudit });
+      const header = `Discovered ${result.scannedFiles} config(s); ${result.missingPaths} well-known path(s) absent.\n\n`;
+      return {
+        content: [{ type: "text", text: header + formatFindings(result.findings, result.scannedFiles, result.durationMs) }],
+      };
+    }
+  );
+
+  server.tool(
+    "list_host_config_paths",
+    "List the well-known MCP client config paths this auditor checks during shadow (MCP09) discovery on the current OS.",
+    {
+      home: z.string().optional().describe("Override home directory"),
+    },
+    async ({ home }) => {
+      const paths = defaultHostConfigPaths(home);
+      const lines = ["Well-known MCP client config paths:\n", ...paths.map((p) => `  • ${p.client}: ${p.path}`)];
+      return { content: [{ type: "text", text: lines.join("\n") }] };
+    }
+  );
+
+  server.tool(
     "list_patterns",
-    "List the MCP config, agent skill, and cross-server shadowing checks, with their OWASP MCP Top 10 tags.",
+    "List the MCP config, agent skill, shadow-MCP discovery, and cross-server shadowing checks, with their OWASP MCP Top 10 tags.",
     {},
     async () => {
       const lines = [
@@ -127,6 +184,13 @@ export async function startServer() {
         "  • auto_approve_wildcard (MCP02:2025, critical)",
         "  • cleartext_remote (MCP07:2025, high)",
         "  • unauthenticated_remote (MCP07:2025, high/medium)",
+        "",
+        "Shadow MCP discovery (MCP09:2025):",
+        "  • shadow_mcp_server (high) — server not on allowlist",
+        "  • allowlist_not_configured (medium)",
+        "  • unreviewed_mcp_server (low) — discovered without allowlist",
+        "  • shadow_config_unreadable (medium)",
+        "  • mcp_server_drift_across_clients (medium)",
         "",
         "Agent skill checks (SKILL.md):",
         "  • skill_unrestricted_shell (MCP02:2025, critical)",

@@ -1,11 +1,11 @@
 {
-  "name": "@guardbee/mcp-config-auditor",
-  "version": "0.3.1",
-  "mcpName": "io.github.4hmetuyar/mcp-config-auditor",
-  "description": "MCP server that audits installed MCP client configs (Cursor, Claude Desktop, Windsurf, VS Code) and agent SKILL.md files for unpinned packages, secrets, wildcard auto-approve, unauthenticated remote endpoints, typosquats, unrestricted skill tools, cross-server or cross-skill shadowing, and OWASP MCP09 Shadow MCP host discovery against an organization allowlist",
+  "name": "@guardbee/mcp-audit-gap-auditor",
+  "version": "0.1.0",
+  "mcpName": "io.github.4hmetuyar/audit-gap-auditor",
+  "description": "MCP server that audits MCP server source for OWASP MCP08:2025 (Lack of Audit and Telemetry) — missing tool-call logging, raw args/results in logs, disabled audit sinks, and tool errors swallowed without a record",
   "type": "module",
   "bin": {
-    "guardbee-mcp-config-auditor": "./dist/cli.js"
+    "guardbee-audit-gap-auditor": "./dist/cli.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -18,7 +18,8 @@
   "files": [
     "dist",
     "README.md",
-    "TR.md"
+    "TR.md",
+    "ZH.md"
   ],
   "scripts": {
     "build": "tsc",
@@ -35,9 +36,12 @@
   "keywords": [
     "mcp",
     "security",
-    "mcp-security",
     "ai-security",
-    "supply-chain",
+    "mcp-security",
+    "audit",
+    "telemetry",
+    "owasp",
+    "mcp08",
     "guardbee",
     "devtools"
   ],
@@ -45,6 +49,6 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/GuardBee/guardbee-mcp.git",
-    "directory": "packages/mcp-config-auditor"
+    "directory": "packages/audit-gap-auditor"
   }
 }

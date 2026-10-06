@@ -66,14 +66,14 @@ npx @guardbee/mcp-server-auditor scan ./src --fail-on=high --format=sarif > resu
 
 ## Detected Patterns
 
-| Category | Pattern | Severity | What it means |
-|---|---|---|---|
-| excessive-agency | `shell_exec_from_tool_input` | critical | A tool handler passes tool input directly into a shell call like `execSync`/`spawn` |
-| excessive-agency | `eval_of_tool_input` | critical | Tool input is executed as code via `eval()`/`new Function()` |
-| excessive-agency | `unrestricted_shell_tool_name` | high | A tool name (`run_shell`, `execute_sql`, etc.) implies shell/SQL execution directly |
-| unsafe-input | `fs_write_from_raw_tool_input` | high | A path from tool input flows into a file write/delete call with no validation (path traversal) |
-| unsafe-input | `ssrf_fetch_from_tool_input` | high | A URL from tool input flows directly into `fetch`/`axios` with no allowlist (SSRF) |
-| unsafe-input | `sql_injection_via_tool_input` | critical | Tool input is interpolated into a SQL string via a template literal |
+| Category | Pattern | Severity | OWASP | What it means |
+|---|---|---|---|---|
+| excessive-agency | `shell_exec_from_tool_input` | critical | MCP05:2025 | A tool handler passes tool input directly into a shell call like `execSync`/`spawn` |
+| excessive-agency | `eval_of_tool_input` | critical | MCP05:2025 | Tool input is executed as code via `eval()`/`new Function()` |
+| excessive-agency | `unrestricted_shell_tool_name` | high | MCP05:2025 | A tool name (`run_shell`, `execute_sql`, etc.) implies shell/SQL execution directly |
+| unsafe-input | `fs_write_from_raw_tool_input` | high | | A path from tool input flows into a file write/delete call with no validation (path traversal) |
+| unsafe-input | `ssrf_fetch_from_tool_input` | high | | A URL from tool input flows directly into `fetch`/`axios` with no allowlist (SSRF) |
+| unsafe-input | `sql_injection_via_tool_input` | critical | MCP05:2025 | Tool input is interpolated into a SQL string via a template literal |
 | loose-schema | `overly_permissive_tool_schema` | medium | A tool parameter is typed `z.any()`/`z.unknown()` — accepts anything |
 | secrets-exposure | `hardcoded_secret_in_tool_schema` | critical | A credential-shaped schema field's default value is a hardcoded literal |
 | secrets-exposure | `full_env_exposed_to_tool_caller` | critical | The entire `process.env` is spread/stringified/returned (not one named variable) |

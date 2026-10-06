@@ -11,6 +11,8 @@ export interface McpAuditPattern {
   category: AuditCategory;
   pattern: RegExp;
   severity: "critical" | "high" | "medium" | "low";
+  /** OWASP MCP Top 10 tag when the pattern maps cleanly to one. */
+  owasp?: string;
   /** Neden riskli olduğu ve ne yapılması gerektiği — bulgu ile birlikte gösterilir. */
   recommendation: string;
 }
@@ -31,6 +33,7 @@ export const MCP_AUDITOR_PATTERNS: McpAuditPattern[] = [
     category: "excessive-agency",
     pattern: /\b(?:execSync|spawnSync|exec|spawn)\s*\(\s*(?:input|params|args)\s*\.\s*\w+/g,
     severity: "critical",
+    owasp: "MCP05:2025",
     recommendation:
       "A tool parameter is passed straight into a shell/process exec call. Any caller of this tool — including a prompt-injected LLM upstream — can run arbitrary commands. Validate against a strict allowlist of commands/args instead of executing the parameter directly.",
   },
@@ -40,6 +43,7 @@ export const MCP_AUDITOR_PATTERNS: McpAuditPattern[] = [
     category: "excessive-agency",
     pattern: /\b(?:eval|new\s+Function)\s*\(\s*(?:input|params|args)\s*\.\s*\w+/g,
     severity: "critical",
+    owasp: "MCP05:2025",
     recommendation:
       "Executing a tool parameter as code turns any caller of this tool into a remote code execution vector. Never eval() input; parse and validate it as data instead.",
   },
@@ -50,6 +54,7 @@ export const MCP_AUDITOR_PATTERNS: McpAuditPattern[] = [
     pattern:
       /\.tool\(\s*["'](?:run_shell|execute_command|run_command|execute_shell|eval_code|execute_code|run_script|shell_exec|run_sql|execute_sql|run_query)["']/gi,
     severity: "high",
+    owasp: "MCP05:2025",
     recommendation:
       "A tool named like this typically hands the calling LLM arbitrary shell/code/SQL execution. If intentional, gate it behind an explicit opt-in config flag (off by default) and a strict allowlist — not just a cautious-sounding tool description.",
   },
@@ -80,6 +85,7 @@ export const MCP_AUDITOR_PATTERNS: McpAuditPattern[] = [
     pattern:
       /(?<!\.)\b(?:SELECT|INSERT|UPDATE|DELETE)\b[\s\S]{0,40}?\b(?:FROM|INTO|SET|WHERE|VALUES)\b[\s\S]{0,160}?\$\{\s*(?:input|params|args)\s*\.\s*\w+/gi,
     severity: "critical",
+    owasp: "MCP05:2025",
     recommendation:
       "A SQL statement is built with a template-literal interpolation of a raw tool parameter — classic SQL injection, now reachable by anything that can call this tool. Use parameterized queries; never interpolate tool input into SQL text.",
   },

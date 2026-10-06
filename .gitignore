@@ -2,6 +2,7 @@ node_modules/
 dist/
 .turbo/
 .pnpm-store/
+.tmp-discover/
 *.tsbuildinfo
 *.mcpb
 *.js.map

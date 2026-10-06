@@ -87,6 +87,18 @@ importers:
         specifier: 'catalog:'
         version: 4.6.2
 
+  packages/audit-gap-auditor:
+    dependencies:
+      '@guardbee/mcp-telemetry':
+        specifier: workspace:^
+        version: link:../telemetry
+      '@modelcontextprotocol/sdk':
+        specifier: 'catalog:'
+        version: 1.30.0(zod@4.6.2)
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.2
+
   packages/compliance-checker:
     dependencies:
       '@guardbee/mcp-telemetry':

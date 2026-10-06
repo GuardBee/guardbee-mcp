@@ -38,10 +38,10 @@ export function buildSarif(toolVersion: string, findings: Finding[]): object {
         name: f.patternName.replace(/[^a-zA-Z0-9]/g, ""),
         shortDescription: { text: f.patternName },
         fullDescription: { text: f.recommendation },
-        helpUri: "https://guardbee.ai/docs/mcp-server-auditor",
+        helpUri: "https://guardbee.ai/docs/audit-gap-auditor",
         properties: {
           "problem.severity": f.severity,
-          tags: ["security", "mcp-security", f.category, ...(f.owasp ? [f.owasp] : [])],
+          tags: ["security", "ai-security", "mcp-security", "MCP08:2025", f.category],
         },
       });
     }
@@ -49,9 +49,8 @@ export function buildSarif(toolVersion: string, findings: Finding[]): object {
     const result: SarifResult = {
       ruleId: f.patternId,
       level: severityToLevel(f.severity),
-      message: { text: `${f.patternName} — ${f.recommendation}` },
+      message: { text: `${f.patternName} [${f.owasp}] — ${f.recommendation}` },
     };
-
     if (f.file) {
       result.locations = [
         {
@@ -62,19 +61,17 @@ export function buildSarif(toolVersion: string, findings: Finding[]): object {
         },
       ];
     }
-
     results.push(result);
   }
 
   return {
-    $schema:
-      "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+    $schema: "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
     version: "2.1.0",
     runs: [
       {
         tool: {
           driver: {
-            name: "@guardbee/mcp-server-auditor",
+            name: "@guardbee/mcp-audit-gap-auditor",
             version: toolVersion,
             informationUri: "https://guardbee.ai",
             rules: Array.from(rulesMap.values()),
