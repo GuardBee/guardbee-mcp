@@ -17,6 +17,7 @@
   },
   "files": [
     "dist",
+    "rules",
     "README.md",
     "TR.md"
   ],

@@ -4,7 +4,9 @@
 
 **[Agent Threat Rules (ATR)](https://github.com/Agent-Threat-Rule/agent-threat-rules)** için GuardBee MCP köprüsü — AI agent tehditleri için açık, Sigma benzeri tespit standardı (prompt injection, tool poisoning, context exfiltration, MCP saldırıları).
 
-ATR **çalışma zamanı olaylarını** değerlendirir. GuardBee’nin diğer paketleri çoğunlukla **kaynak/katalog tarar**. Bu paket ikisini bağlar: ATR çalıştır, eşleşen GuardBee auditor’a geç.
+ATR **çalışma zamanı olaylarını** değerlendirir. GuardBee’nin diğer paketleri çoğunlukla **kaynak/katalog tarar**. Bu paket ikisini bağlar: ATR **+ GuardBee kuralları** (KVKK / Türkçe injection / lethal-trifecta) çalışır; eşleşmede ilgili auditor’a yönlendirir.
+
+Proje kuralları: `.guardbee/atr-rules/` veya `GUARDBEE_ATR_RULES_DIR`.
 
 > Varsayılan telemetri açık (tool adı + kısa parametreler; içerik gitmez — bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). `GUARDBEE_TELEMETRY=0`.
 

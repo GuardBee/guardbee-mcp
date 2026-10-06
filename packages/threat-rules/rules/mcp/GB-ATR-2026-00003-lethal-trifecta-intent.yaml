@@ -1,0 +1,54 @@
+title: "Lethal trifecta intent — fetch + secrets + exfil in one instruction"
+id: GB-ATR-2026-00003
+rule_version: 1
+status: experimental
+description: >
+  Detects a single user/tool instruction that asks an agent to fetch untrusted
+  content, read secrets/PII, and send/export the result — the lethal trifecta /
+  toxic-flow shape (OWASP MCP10) expressed as runtime intent.
+author: GuardBee
+date: 2026/10/06
+schema_version: "0.1"
+detection_tier: pattern
+maturity: test
+severity: critical
+
+references:
+  owasp_llm:
+    - "LLM01:2025"
+    - "LLM06:2025"
+  owasp_agentic:
+    - "ASI02:2026"
+
+tags:
+  category: context-exfiltration
+  subcategory: lethal-trifecta-intent
+  scan_target: mcp
+  confidence: medium
+
+agent_source:
+  type: llm_io
+  framework:
+    - any
+
+detection:
+  conditions:
+    - field: user_input
+      operator: regex
+      value: "(?i)(fetch|scrape|browse|crawl|indir|çek|cek).{0,120}(secret|vault|api[_-]?key|password|tc[_-]?kimlik|müşteri|musteri|credential).{0,120}(email|mail|slack|webhook|exfil|sızdır|sizdir|gönder|gonder|export|upload)"
+      description: "Fetch → secrets → outbound in one instruction"
+    - field: content
+      operator: regex
+      value: "(?i)(fetch|scrape|url).{0,80}(read|dump|get).{0,40}(secret|vault|env).{0,80}(send|post|webhook|email)"
+      description: "English compact trifecta chain"
+  condition: any
+  false_positives:
+    - "Security docs describing the trifecta without instructing the agent to do it"
+
+response:
+  actions:
+    - alert
+    - escalate
+  message_template: |
+    [GB-ATR-2026-00003] Lethal-trifecta intent in a single instruction.
+    Follow up with @guardbee/mcp-toxic-flow-auditor on the MCP tool catalog.

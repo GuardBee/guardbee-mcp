@@ -4,7 +4,9 @@
 
 GuardBee MCP bridge to **[Agent Threat Rules (ATR)](https://github.com/Agent-Threat-Rule/agent-threat-rules)** — the open, Sigma-like detection standard for AI agent threats (prompt injection, tool poisoning, context exfiltration, MCP attacks).
 
-ATR evaluates **runtime events**. GuardBee’s other packages mostly **scan source/catalogs**. This package connects both: run ATR, then jump to the matching GuardBee auditor.
+ATR evaluates **runtime events**. GuardBee’s other packages mostly **scan source/catalogs**. This package connects both: run ATR **plus GuardBee rules** (KVKK / Turkish injection / lethal-trifecta intent), then jump to the matching GuardBee auditor.
+
+Custom project rules: drop YAML into `.guardbee/atr-rules/` or set `GUARDBEE_ATR_RULES_DIR`.
 
 > Telemetry on by default (tool name + short params; scanned content never leaves — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
 
@@ -22,16 +24,20 @@ Upstream ATR is MIT-licensed and already used across the industry. We depend on 
 
 | Tool | Purpose |
 |---|---|
-| `evaluate_text` | Score free text against ATR |
+| `evaluate_text` | Score free text against ATR + GuardBee rules |
+| `evaluate_file` | Score a local file |
 | `evaluate_event` | Score a structured ATR `AgentEvent` JSON |
-| `list_rules` | List loaded ATR rules |
+| `list_rules` | List loaded rules (`source=atr\|guardbee`) |
+| `rule_stats` | Counts by category/source |
 | `explain_bridge` | How ATR maps onto GuardBee scanners |
 
 ## CLI
 
 ```
-npx @guardbee/mcp-threat-rules eval "Ignore previous instructions…"
-npx @guardbee/mcp-threat-rules list --category=tool-poisoning
+npx @guardbee/mcp-threat-rules eval "…" --format=json --fail-on=high
+npx @guardbee/mcp-threat-rules scan ./prompt.txt --format=sarif
+npx @guardbee/mcp-threat-rules list --source=guardbee
+npx @guardbee/mcp-threat-rules stats
 ```
 
 ## Related GuardBee packages

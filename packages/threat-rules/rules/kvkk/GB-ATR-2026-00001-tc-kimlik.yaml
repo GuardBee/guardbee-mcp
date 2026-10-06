@@ -1,0 +1,58 @@
+title: "KVKK — TC Kimlik No in agent I/O"
+id: GB-ATR-2026-00001
+rule_version: 1
+status: experimental
+description: >
+  Detects a Turkish national ID (TC Kimlik No) pattern in agent input or output.
+  Under KVKK this is personal data; agents must not echo or exfiltrate it without
+  a lawful basis and masking.
+author: GuardBee
+date: 2026/10/06
+schema_version: "0.1"
+detection_tier: pattern
+maturity: test
+severity: high
+
+references:
+  owasp_llm:
+    - "LLM02:2025"
+  owasp_agentic:
+    - "ASI03:2026"
+
+tags:
+  category: context-exfiltration
+  subcategory: kvkk-tc-kimlik
+  scan_target: mcp
+  confidence: high
+
+agent_source:
+  type: llm_io
+  framework:
+    - any
+
+detection:
+  conditions:
+    - field: user_input
+      operator: regex
+      value: "(?<!\\d)\\d{11}(?!\\d)"
+      description: "11-digit sequence typical of TC Kimlik No in user input"
+    - field: agent_output
+      operator: regex
+      value: "(?<!\\d)\\d{11}(?!\\d)"
+      description: "11-digit sequence typical of TC Kimlik No in agent output"
+    - field: content
+      operator: regex
+      value: "(?i)\\b(tc\\s*kimlik|t\\.c\\.\\s*kimlik|tc_kimlik|tckn)\\b.{0,40}\\d{11}"
+      description: "Explicit TC Kimlik label near an 11-digit number"
+  condition: any
+  false_positives:
+    - "Phone numbers padded to 11 digits in non-TR contexts"
+    - "Order IDs that happen to be 11 digits without a kimlik label"
+
+response:
+  actions:
+    - alert
+    - escalate
+  message_template: |
+    [GB-ATR-2026-00001] Possible TC Kimlik No in agent I/O (KVKK).
+    Mask before logging or forwarding. Follow up with @guardbee/mcp-prompt-leak-scanner / compliance-checker.
