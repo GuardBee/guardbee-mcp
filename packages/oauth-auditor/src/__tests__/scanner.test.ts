@@ -84,6 +84,28 @@ describe("scanText — missing audience validation", () => {
     const code = `const decoded = jwt.verify(token, publicKey, { algorithms: ["RS256"], audience: "https://my-mcp-server.example.com" });`;
     expect(idsOf(code)).not.toContain("missing_audience_validation");
   });
+
+  it("yakalar: audience= olmayan PyJWT jwt.decode", () => {
+    const code = `decoded = jwt.decode(token, key, algorithms=["RS256"])`;
+    expect(idsOf(code)).toContain("python_missing_audience_validation");
+  });
+
+  it("audience= olan PyJWT jwt.decode yakalamaz", () => {
+    const code = `decoded = jwt.decode(token, key, algorithms=["RS256"], audience="https://mcp.example.com")`;
+    expect(idsOf(code)).not.toContain("python_missing_audience_validation");
+  });
+});
+
+describe("scanText — Python OAuth patterns", () => {
+  it("yakalar: requests ile Authorization passthrough", () => {
+    const code = `requests.get(url, headers={"Authorization": request.headers["authorization"]})`;
+    expect(idsOf(code)).toContain("python_token_passthrough_to_downstream");
+  });
+
+  it("yakalar: redirect_uri.startswith", () => {
+    const code = `if redirect_uri.startswith(allowed): pass`;
+    expect(idsOf(code)).toContain("python_loose_redirect_uri_validation");
+  });
 });
 
 describe("scanText — missing PKCE", () => {

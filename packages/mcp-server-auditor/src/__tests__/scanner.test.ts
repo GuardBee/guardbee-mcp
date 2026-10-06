@@ -184,3 +184,29 @@ describe("scanText — permissive_cors_on_server", () => {
     );
   });
 });
+
+describe("scanText — Python MCP05 patterns", () => {
+  it("yakalar: subprocess.run(arguments['cmd'])", () => {
+    expect(idsOf(`subprocess.run(arguments["cmd"], shell=True)`)).toContain("python_shell_from_tool_input");
+  });
+
+  it("yakalar: eval(args.code)", () => {
+    expect(idsOf(`result = eval(args.code)`)).toContain("python_eval_of_tool_input");
+  });
+
+  it("yakalar: @mcp.tool(name=\"run_shell\")", () => {
+    expect(idsOf(`@mcp.tool(name="run_shell")\ndef run():\n    pass\n`)).toContain(
+      "python_unrestricted_shell_tool_name"
+    );
+  });
+
+  it("yakalar: requests.get(arguments['url'])", () => {
+    expect(idsOf(`requests.get(arguments["url"])`)).toContain("python_ssrf_from_tool_input");
+  });
+
+  it("OWASP MCP05 etiketini taşır", () => {
+    const findings = scanText(`subprocess.run(input.command, shell=True)`);
+    const hit = findings.find((f) => f.patternId === "python_shell_from_tool_input");
+    expect(hit?.owasp).toBe("MCP05:2025");
+  });
+});

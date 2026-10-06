@@ -29,6 +29,8 @@ GuardBee'nin MCP (Model Context Protocol) server ailesi — tek monorepo, bağı
 | [`packages/elicitation-auditor`](packages/elicitation-auditor) | `@guardbee/mcp-elicitation-auditor` | MCP server kodunu 2026-07-28 spec'indeki elicitation anti-pattern'leri için tarar — form modunda secret veya ödeme verisi isteme, URL modunu doğrudan üçüncü parti authorize adresine yöneltme, elicitation URL'sine gömülü credential veya kişisel veri |
 | [`packages/toxic-flow-auditor`](packages/toxic-flow-auditor) | `@guardbee/mcp-toxic-flow-auditor` | MCP tool kataloğunu toksik akışlar (Simon Willison'ın lethal trifecta'sı) için denetler — aynı server'da güvenilmeyen içerik + hassas/özel veri + sızdırma veya yıkım; A–F notu, KVKK bilinçli sezgiseller, OWASP MCP10:2025 |
 | [`packages/audit-gap-auditor`](packages/audit-gap-auditor) | `@guardbee/mcp-audit-gap-auditor` | MCP server kaynağını OWASP MCP08:2025 (Lack of Audit and Telemetry) için denetler — eksik tool-call izi, ham args/result logları, kapalı audit, sessiz catch, korelasyon id'siz audit olayları |
+| [`packages/context-oversharing-auditor`](packages/context-oversharing-auditor) | `@guardbee/mcp-context-oversharing-auditor` | Agent/MCP kaynağını OWASP MCP10:2025 context oversharing için denetler — tam konuşma dump'ı, scopesuz memory tool'ları, paylaşılan global session, tool üzerinden system-prompt sızıntısı, oturumlar arası tool-result karışması, filtresiz vektör sorguları (toxic-flow kataloğunu tamamlar) |
+| [`packages/owasp-scan`](packages/owasp-scan) | `@guardbee/mcp-owasp-scan` | Birleşik OWASP MCP Top 10 meta-tarayıcı — path'te GuardBee auditor orkestrasyonu + canlı/katalog `tools/list` toxic-flow/poisoning, A–F notu, SARIF; isteğe bağlı MCP09 Shadow MCP discover |
 | [`packages/mcp-config-auditor`](packages/mcp-config-auditor) | `@guardbee/mcp-config-auditor` | MCP istemci config'lerini (Cursor/Claude/Windsurf/VS Code) ve agent `SKILL.md` dosyalarını denetler — pinsiz paket, secret, wildcard auto-approve, auth'suz remote, typosquat, sunucular arası/skill gölgeleme; `discover` ile Shadow MCP (OWASP MCP09) + org allowlist |
 | [`packages/threat-rules`](packages/threat-rules) | `@guardbee/mcp-threat-rules` | [Agent Threat Rules (ATR)](https://github.com/Agent-Threat-Rule/agent-threat-rules) MCP köprüsü — prompt injection, tool poisoning ve MCP saldırıları için runtime tespit; GuardBee takip scanner ipuçlarıyla |
 | [`packages/a2a-auditor`](packages/a2a-auditor) | `@guardbee/mcp-a2a-auditor` | Bir agent'ın Agent2Agent (A2A) protokol implementasyonunu (TypeScript ve Python) referans SDK'ların kendi kaynağında bulunan anti-pattern'ler için tarar — auth'suz push-notification webhook fetch'leri (SSRF), hiç authentication gerektirmeyen Agent Card'lar, herkese açık servis edilen Agent Card metadata'sına gömülü credential'lar |
@@ -41,6 +43,10 @@ GuardBee'nin MCP (Model Context Protocol) server ailesi — tek monorepo, bağı
 | [`packages/vulnerability-scanner`](packages/vulnerability-scanner) | `@guardbee/mcp-vulnerability-scanner` | GuardBee tarama tetikleme, bulgu sorgulama, AI destekli düzeltme önerisi |
 | [`packages/guard-core`](packages/guard-core) | `@guardbee/guard-core` | (internal) Paylaşılan dedektör kütüphanesi — PII/secret maskeleme, prompt injection kuralları, tool sınıflandırma; kendi başına bir MCP server değil |
 | [`packages/telemetry`](packages/telemetry) | `@guardbee/mcp-telemetry` | (internal) Paylaşılan kullanım telemetrisi client'ı — kendi başına bir MCP server değil |
+
+## Son Değişiklikler (2026-10-06, devam 2)
+
+AI-security MCP boşluk takibi: **[`@guardbee/mcp-owasp-scan`](packages/owasp-scan)** (birleşik Top 10 path + live), **[`@guardbee/mcp-context-oversharing-auditor`](packages/context-oversharing-auditor)** (MCP10 oversharing), Python MCP05/OAuth kalıpları, **[`.github/actions/mcp-security-scan`](.github/actions/mcp-security-scan)** SARIF Action.
 
 ## Son Değişiklikler (2026-10-06, devam)
 

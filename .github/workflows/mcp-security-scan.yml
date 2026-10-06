@@ -1,0 +1,53 @@
+name: MCP Security Scan
+
+on:
+  pull_request:
+    paths:
+      - "packages/**"
+      - ".github/workflows/mcp-security-scan.yml"
+      - ".github/actions/mcp-security-scan/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build scanners
+        run: >
+          pnpm turbo run build --filter=@guardbee/mcp-owasp-scan
+          --filter=@guardbee/mcp-toxic-flow-auditor
+          --filter=@guardbee/mcp-audit-gap-auditor
+          --filter=@guardbee/mcp-context-oversharing-auditor
+          --filter=@guardbee/mcp-server-auditor
+          --filter=@guardbee/mcp-oauth-auditor
+          --filter=@guardbee/mcp-secret-scanner
+          --filter=@guardbee/mcp-tool-poisoning-scanner
+          --filter=@guardbee/mcp-config-auditor
+          --filter=@guardbee/guard-core
+          --filter=@guardbee/mcp-telemetry
+
+      - name: GuardBee MCP security scan
+        uses: ./.github/actions/mcp-security-scan
+        with:
+          path: packages
+          fail-on: critical
+          upload-sarif: "true"

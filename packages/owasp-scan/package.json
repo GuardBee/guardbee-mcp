@@ -1,0 +1,63 @@
+{
+  "name": "@guardbee/mcp-owasp-scan",
+  "version": "0.1.0",
+  "mcpName": "io.github.4hmetuyar/owasp-scan",
+  "description": "Unified OWASP MCP Top 10 scanner — one CLI/MCP that orchestrates GuardBee auditors against a path or a live tools/list, maps findings to MCP01–MCP10, and grades A–F",
+  "type": "module",
+  "bin": {
+    "guardbee-owasp-scan": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "TR.md",
+    "ZH.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@guardbee/mcp-audit-gap-auditor": "workspace:^",
+    "@guardbee/mcp-context-oversharing-auditor": "workspace:^",
+    "@guardbee/mcp-config-auditor": "workspace:^",
+    "@guardbee/mcp-oauth-auditor": "workspace:^",
+    "@guardbee/mcp-secret-scanner": "workspace:^",
+    "@guardbee/mcp-server-auditor": "workspace:^",
+    "@guardbee/mcp-telemetry": "workspace:^",
+    "@guardbee/mcp-tool-poisoning-scanner": "workspace:^",
+    "@guardbee/mcp-toxic-flow-auditor": "workspace:^",
+    "@modelcontextprotocol/sdk": "catalog:",
+    "zod": "catalog:"
+  },
+  "keywords": [
+    "mcp",
+    "security",
+    "ai-security",
+    "mcp-security",
+    "owasp",
+    "owasp-mcp-top-10",
+    "guardbee",
+    "devtools"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git",
+    "directory": "packages/owasp-scan"
+  }
+}
