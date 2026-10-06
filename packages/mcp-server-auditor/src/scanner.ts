@@ -7,6 +7,7 @@ export interface Finding {
   patternName: string;
   category: McpAuditPattern["category"];
   severity: McpAuditPattern["severity"];
+  owasp?: string;
   recommendation: string;
   file?: string;
   line: number;
@@ -64,6 +65,7 @@ export function scanText(text: string, filePath?: string): Finding[] {
         patternName: p.name,
         category: p.category,
         severity: p.severity,
+        owasp: p.owasp,
         recommendation: p.recommendation,
         file: filePath,
         line,
