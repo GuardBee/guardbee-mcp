@@ -1,0 +1,43 @@
+{
+  "manifest_version": "0.3",
+  "name": "@guardbee/mcp-threat-rules",
+  "display_name": "GuardBee Threat Rules (ATR Bridge)",
+  "version": "0.1.0",
+  "description": "GuardBee MCP bridge to Agent Threat Rules (ATR) — evaluate agent/MCP events against the open detection standard for prompt injection, tool poisoning, and MCP attacks",
+  "long_description": "Wraps the MIT-licensed agent-threat-rules (ATR) engine as a GuardBee MCP server. ATR is a Sigma-like runtime detection layer for AI agent events. Matches include GuardBee follow-up hints that point to static auditors (toxic-flow, tool-poisoning, OAuth, prompt-injection, etc.). Complements GuardBee's source/catalog scanners with industry-standard runtime rules used across Microsoft, Cisco, and other adopters.",
+  "author": {
+    "name": "GuardBee",
+    "email": "hello@guardbee.ai",
+    "url": "https://guardbee.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git"
+  },
+  "homepage": "https://guardbee.ai",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "ai-security",
+    "mcp-security",
+    "agent-threat-rules",
+    "atr",
+    "security"
+  ],
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18"
+    }
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/cli.js"]
+    }
+  },
+  "user_config": {},
+  "tools_generated": true
+}
