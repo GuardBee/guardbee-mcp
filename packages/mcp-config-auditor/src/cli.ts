@@ -4,7 +4,7 @@ import { dirname, resolve } from "path";
 import { fileURLToPath } from "url";
 import { configFilePath, loadConfig } from "./config.js";
 import { buildSarif } from "./sarif.js";
-import { scanConfigFile, scanDirectory, scanInventory } from "./scanner.js";
+import { discoverHostMcp, loadAllowlistFile, scanConfigFile, scanDirectory, scanInventory } from "./scanner.js";
 import type { ConfigFinding, InventoryServer } from "./types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -50,18 +50,32 @@ function shouldFail(findings: ConfigFinding[], failOn: string): boolean {
   return findings.some((finding) => (rank[finding.severity] ?? 3) <= threshold);
 }
 
-function parseArgs(args: string[]): { positionals: string[]; failOn: string; format: string; maxFiles: number } {
+function parseArgs(args: string[]): {
+  positionals: string[];
+  failOn: string;
+  format: string;
+  maxFiles: number;
+  allowlist?: string;
+  home?: string;
+  includeContentAudit: boolean;
+} {
   const positionals: string[] = [];
   let failOn = "any";
   let format = "text";
   let maxFiles = 5000;
+  let allowlist: string | undefined;
+  let home: string | undefined;
+  let includeContentAudit = false;
   for (const arg of args) {
     if (arg.startsWith("--fail-on=")) failOn = arg.split("=")[1] ?? "any";
     else if (arg.startsWith("--format=")) format = arg.split("=")[1] ?? "text";
     else if (arg.startsWith("--max-files=")) maxFiles = parseInt(arg.split("=")[1] ?? "5000", 10);
+    else if (arg.startsWith("--allowlist=")) allowlist = arg.slice("--allowlist=".length);
+    else if (arg.startsWith("--home=")) home = arg.slice("--home=".length);
+    else if (arg === "--include-content-audit") includeContentAudit = true;
     else if (!arg.startsWith("--")) positionals.push(arg);
   }
-  return { positionals, failOn, format, maxFiles };
+  return { positionals, failOn, format, maxFiles, allowlist, home, includeContentAudit };
 }
 
 function emit(findings: ConfigFinding[], scannedFiles: number, durationMs: number, format: string, failOn: string): void {
@@ -128,6 +142,45 @@ function runInventory(rawArgs: string[]): void {
   emit(findings, 1, 0, format, failOn);
 }
 
+function runDiscover(rawArgs: string[]): void {
+  const { failOn, format, allowlist: allowlistPath, home, includeContentAudit } = parseArgs(rawArgs);
+  let allowlist = null;
+  if (allowlistPath) {
+    try {
+      allowlist = loadAllowlistFile(allowlistPath);
+    } catch (err) {
+      console.error(`Cannot read allowlist: ${err instanceof Error ? err.message : String(err)}`);
+      process.exit(2);
+    }
+  }
+  const result = discoverHostMcp({ home, allowlist, includeContentAudit });
+  if (format === "text") {
+    console.log(`Discovered ${result.scannedFiles} config(s); ${result.missingPaths} well-known path(s) absent.`);
+    console.log("");
+  } else if (format === "json") {
+    console.log(
+      JSON.stringify(
+        {
+          findings: result.findings,
+          scannedFiles: result.scannedFiles,
+          missingPaths: result.missingPaths,
+          durationMs: result.durationMs,
+          discovered: result.discovered.map((d) => ({
+            client: d.client,
+            path: d.path,
+            servers: d.servers.map((s) => s.name),
+          })),
+        },
+        null,
+        2
+      )
+    );
+    process.exit(shouldFail(result.findings, failOn) ? 1 : 0);
+    return;
+  }
+  emit(result.findings, result.scannedFiles, result.durationMs, format, failOn);
+}
+
 function printHelp(): void {
   console.log(`@guardbee/mcp-config-auditor
 
@@ -137,15 +190,22 @@ Usage (MCP server):
 Usage (CLI):
   guardbee-mcp-config-auditor scan <file-or-dir>   Audit MCP client configs and SKILL.md files
   guardbee-mcp-config-auditor inventory <file.json>  Cross-server tool shadowing
+  guardbee-mcp-config-auditor discover             OWASP MCP09 shadow MCP host discovery
 
 A directory scan reads mcp.json, mcp_config.json, claude_desktop_config.json, and SKILL.md.
 An explicit file path is scanned even when the name differs. A file named SKILL.md is audited as an agent skill.
 Skill name collisions are reported on a directory scan.
 
+discover walks well-known Cursor / Claude / Windsurf / VS Code paths and compares
+installed servers to an organization allowlist.
+
 Options:
   --fail-on=<level>   any (default) | critical | high | medium | low | none
   --format=<fmt>      text (default) | json | sarif
   --max-files=<n>     Max files to scan (default: 5000)
+  --allowlist=<file>  Allowlist JSON or line file (discover)
+  --home=<dir>        Override home for well-known paths (discover)
+  --include-content-audit  Also run content checks on discovered configs (discover)
 `);
 }
 
@@ -168,6 +228,13 @@ if (!firstArg || firstArg === "serve") {
 } else if (firstArg === "inventory") {
   try {
     runInventory(rest);
+  } catch (err) {
+    console.error("Error:", (err as Error).message);
+    process.exit(2);
+  }
+} else if (firstArg === "discover") {
+  try {
+    runDiscover(rest);
   } catch (err) {
     console.error("Error:", (err as Error).message);
     process.exit(2);

@@ -29,6 +29,10 @@ Bir ajanın hangi MCP sunucularını çalıştıracağına karar veren istemci c
 | `secret_in_skill` | critical | MCP01:2025 | Skill dosyasında düz metin token var |
 | `skill_name_shadow` | high | MCP03:2025 | İki `SKILL.md` aynı adı kullanıyor |
 | `skill_confusable_name` | critical | MCP03:2025 | İki skill adı yalnızca benzeyen bir karakterle ayrılıyor |
+| `shadow_mcp_server` | high | MCP09:2025 | `discover` — host'ta kurulu ama org allowlist'te olmayan sunucu |
+| `allowlist_not_configured` | medium | MCP09:2025 | Allowlist olmadan discover |
+| `unreviewed_mcp_server` | low | MCP09:2025 | Allowlist yokken bulunan sunucu |
+| `mcp_server_drift_across_clients` | medium | MCP09:2025 | Aynı sunucu anahtarı iki istemcide farklı paket/URL |
 
 `localhost`, `127.0.0.1` ve `::1` uzak bulgu değildir. `${API_KEY}` ve `changeme` secret değildir. Secret eşleşmeleri maskelenir. `Bash(git diff:*)` bir komut izin listesidir; kısıtsız kabuk sayılmaz. Tek başına `Read` işaretlenmez.
 
@@ -37,6 +41,9 @@ Bir ajanın hangi MCP sunucularını çalıştıracağına karar veren istemci c
 ```bash
 npx @guardbee/mcp-config-auditor scan .cursor/mcp.json --fail-on=high --format=sarif > results.sarif
 npx @guardbee/mcp-config-auditor inventory ./tool-inventory.json
+npx @guardbee/mcp-config-auditor discover --allowlist=./mcp-allowlist.json --fail-on=high
 ```
+
+`discover` (OWASP MCP09) Cursor / Claude / Windsurf / VS Code yollarını tarar ve kurulu sunucuları org allowlist ile karşılaştırır.
 
 Dizin taraması `mcp.json`, `mcp_config.json`, `claude_desktop_config.json` ve `SKILL.md` açar. Adı `SKILL.md` olan bir dosya agent skill'i olarak denetlenir. Aynı ad ve benzeyen ad bulguları dizin taramasında çıkar; tek dosya diğer skill'leri göremez. Sunucular arası gölgeleme ayrıca tool envanteri ister, çünkü istemci config'i tool listesi içermez.
