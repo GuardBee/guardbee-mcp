@@ -1,11 +1,5 @@
 # @guardbee/mcp-config-auditor
 
-## 0.4.1
-
-### Patch Changes
-
-- Re-publish after CI Trusted Publishing left `0.4.0` staged (E409). Same MCP09 Shadow MCP discover contents as 0.4.0.
-
 ## 0.4.0
 
 ### Minor Changes
