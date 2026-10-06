@@ -1,0 +1,72 @@
+title: "Chinese-language prompt injection / instruction override"
+id: GB-ATR-2026-00004
+rule_version: 1
+status: experimental
+description: >
+  Detects common Simplified/Traditional Chinese instruction-override phrases
+  aimed at an AI agent (忽略之前的指令, 显示系统提示词, 进入开发者模式, etc.).
+author: GuardBee
+date: 2026/10/06
+schema_version: "0.1"
+detection_tier: pattern
+maturity: test
+severity: high
+
+references:
+  owasp_llm:
+    - "LLM01:2025"
+  owasp_agentic:
+    - "ASI01:2026"
+
+tags:
+  category: prompt-injection
+  subcategory: chinese-direct
+  scan_target: mcp
+  confidence: high
+
+agent_source:
+  type: llm_io
+  framework:
+    - any
+
+detection:
+  conditions:
+    - field: user_input
+      operator: regex
+      value: "(忽略|无视|忘掉|忘记|不要遵守|别遵守).{0,12}(之前|以前|先前|以上|所有|全部).{0,8}(指令|指示|规则|要求|提示|命令)"
+      description: "Chinese: ignore previous instructions"
+    - field: user_input
+      operator: regex
+      value: "(忽略|無視|忘掉|忘記|不要遵守|別遵守).{0,12}(之前|以前|先前|以上|所有|全部).{0,8}(指令|指示|規則|要求|提示|命令)"
+      description: "Traditional Chinese: ignore previous instructions"
+    - field: user_input
+      operator: regex
+      value: "(显示|输出|打印|泄露|披露|告诉我|说出).{0,16}(系统提示|系统提示词|系统指令|system\\s*prompt)"
+      description: "Chinese: reveal system prompt"
+    - field: user_input
+      operator: regex
+      value: "(顯示|輸出|列印|洩露|披露|告訴我|說出).{0,16}(系統提示|系統提示詞|系統指令|system\\s*prompt)"
+      description: "Traditional Chinese: reveal system prompt"
+    - field: user_input
+      operator: regex
+      value: "(进入|开启|切换到|启用).{0,8}(开发者模式|DAN模式|越狱模式|无限制模式)"
+      description: "Chinese: enter developer / jailbreak mode"
+    - field: user_input
+      operator: regex
+      value: "(進入|開啟|切換到|啟用).{0,8}(開發者模式|DAN模式|越獄模式|無限制模式)"
+      description: "Traditional Chinese: enter developer / jailbreak mode"
+    - field: content
+      operator: regex
+      value: "(忽略之前的指令|显示系统提示词|进入开发者模式|忽略之前的指示|顯示系統提示詞)"
+      description: "Chinese shorthand injection phrases on raw content"
+  condition: any
+  false_positives:
+    - "Security docs explaining Chinese injection phrases without directing the model"
+
+response:
+  actions:
+    - alert
+    - escalate
+  message_template: |
+    [GB-ATR-2026-00004] Chinese prompt-injection phrasing detected.
+    Follow up with @guardbee/mcp-prompt-injection-scanner.

@@ -1,0 +1,58 @@
+title: "Chinese national ID (居民身份证) in agent I/O"
+id: GB-ATR-2026-00005
+rule_version: 1
+status: experimental
+description: >
+  Detects a mainland China resident identity card number (18-digit 身份证号)
+  pattern in agent input or output, especially when labeled. Personal data
+  that agents must not echo or exfiltrate without a lawful basis and masking.
+author: GuardBee
+date: 2026/10/06
+schema_version: "0.1"
+detection_tier: pattern
+maturity: test
+severity: high
+
+references:
+  owasp_llm:
+    - "LLM02:2025"
+  owasp_agentic:
+    - "ASI03:2026"
+
+tags:
+  category: context-exfiltration
+  subcategory: chinese-id-card
+  scan_target: mcp
+  confidence: high
+
+agent_source:
+  type: llm_io
+  framework:
+    - any
+
+detection:
+  conditions:
+    - field: user_input
+      operator: regex
+      value: "(?<![0-9])[1-9]\\d{5}(?:18|19|20)\\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\\d|3[01])\\d{3}[\\dXx](?![0-9])"
+      description: "18-digit Chinese ID card number in user input"
+    - field: agent_output
+      operator: regex
+      value: "(?<![0-9])[1-9]\\d{5}(?:18|19|20)\\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\\d|3[01])\\d{3}[\\dXx](?![0-9])"
+      description: "18-digit Chinese ID card number in agent output"
+    - field: content
+      operator: regex
+      value: "(身份证|身分证|身份证号|身份证号码|居民身份证).{0,24}[1-9]\\d{5}(?:18|19|20)\\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\\d|3[01])\\d{3}[\\dXx]"
+      description: "Explicit 身份证 label near an 18-digit ID"
+  condition: any
+  false_positives:
+    - "Random 18-digit product serials without an ID label"
+    - "Documentation examples using clearly fake IDs"
+
+response:
+  actions:
+    - alert
+    - escalate
+  message_template: |
+    [GB-ATR-2026-00005] Possible Chinese national ID in agent I/O.
+    Mask before logging or forwarding. Follow up with @guardbee/mcp-prompt-leak-scanner.

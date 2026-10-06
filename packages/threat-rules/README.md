@@ -1,10 +1,10 @@
 # @guardbee/mcp-threat-rules
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
 
 GuardBee MCP bridge to **[Agent Threat Rules (ATR)](https://github.com/Agent-Threat-Rule/agent-threat-rules)** — the open, Sigma-like detection standard for AI agent threats (prompt injection, tool poisoning, context exfiltration, MCP attacks).
 
-ATR evaluates **runtime events**. GuardBee’s other packages mostly **scan source/catalogs**. This package connects both: run ATR **plus GuardBee rules** (KVKK / Turkish injection / lethal-trifecta intent), then jump to the matching GuardBee auditor.
+ATR evaluates **runtime events**. GuardBee’s other packages mostly **scan source/catalogs**. This package connects both: run ATR **plus GuardBee rules** (KVKK / Turkish & Chinese injection / Chinese ID / lethal-trifecta intent), then jump to the matching GuardBee auditor.
 
 Custom project rules: drop YAML into `.guardbee/atr-rules/` or set `GUARDBEE_ATR_RULES_DIR`.
 
@@ -13,10 +13,12 @@ Custom project rules: drop YAML into `.guardbee/atr-rules/` or set `GUARDBEE_ATR
 ```
 Claude ──► threat-rules (ATR) ──► matches + GuardBee follow-up hints
               │
-              ├─ evaluate_text / evaluate_event
-              ├─ list_rules
+              ├─ evaluate_text / evaluate_file / evaluate_event
+              ├─ list_rules / rule_stats
               └─ explain_bridge
 ```
+
+Built-in GuardBee rules include KVKK TC Kimlik, Turkish & Chinese injection, Chinese national ID, and lethal-trifecta intent (`GB-ATR-2026-00001` … `00005`).
 
 Upstream ATR is MIT-licensed and already used across the industry. We depend on `agent-threat-rules` rather than forking it.
 

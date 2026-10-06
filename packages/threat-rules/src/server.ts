@@ -230,7 +230,7 @@ export async function startServer() {
         "ATR (agent-threat-rules) is a Sigma-like runtime detection layer for agent events.",
         "GuardBee auditors are mostly static/catalog scanners for MCP source and configs.",
         "This package loads upstream ATR rules + GuardBee rules under packages/threat-rules/rules",
-        "(KVKK TC Kimlik, Turkish injection, lethal-trifecta intent).",
+        "(KVKK TC Kimlik, Turkish/Chinese injection, Chinese ID, lethal-trifecta intent).",
         "Project overrides: GUARDBEE_ATR_RULES_DIR or .guardbee/atr-rules/",
         "",
         "Category → GuardBee follow-up:",
