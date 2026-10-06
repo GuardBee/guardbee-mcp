@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.4hmetuyar/threat-rules",
+  "description": "GuardBee MCP bridge to Agent Threat Rules (ATR) for runtime agent/MCP threat detection",
+  "repository": {
+    "url": "https://github.com/GuardBee/guardbee-mcp",
+    "source": "github",
+    "subfolder": "packages/threat-rules"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@guardbee/mcp-threat-rules",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
