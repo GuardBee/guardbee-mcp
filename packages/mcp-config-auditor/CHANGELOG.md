@@ -1,5 +1,11 @@
 # @guardbee/mcp-config-auditor
 
+## 0.4.0
+
+### Minor Changes
+
+- [#33](https://github.com/GuardBee/guardbee-mcp/pull/33) [`16634d3`](https://github.com/GuardBee/guardbee-mcp/commit/16634d383623d377de696027112c0618decc092d) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Add OWASP MCP09 Shadow MCP host discovery (`discover` CLI + MCP tools) with organization allowlist matching for server names, packages, and remote hosts.
+
 ## 0.3.0
 
 ### Minor Changes
