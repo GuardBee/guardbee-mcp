@@ -29,6 +29,8 @@ GuardBee 的 MCP（Model Context Protocol）服务器系列——一个 monorepo
 | [`packages/elicitation-auditor`](packages/elicitation-auditor) | `@guardbee/mcp-elicitation-auditor` | 扫描 MCP 服务器代码中 2026-07-28 规范的 elicitation 反模式——表单模式索要密钥或支付数据、URL 模式直接指向第三方授权端点、elicitation URL 中嵌入凭据或 PII |
 | [`packages/toxic-flow-auditor`](packages/toxic-flow-auditor) | `@guardbee/mcp-toxic-flow-auditor` | 审计 MCP 工具目录中的有毒数据流（Simon Willison 所说的 lethal trifecta，"致命三要素"）——同一服务器上同时存在不可信内容 + 敏感/私有数据 + 外泄或破坏能力；A–F 评级、考虑 KVKK 的启发式规则、OWASP MCP10:2025 |
 | [`packages/audit-gap-auditor`](packages/audit-gap-auditor) | `@guardbee/mcp-audit-gap-auditor` | 审计 MCP 服务器源码中的 OWASP MCP08:2025（缺少审计与遥测）缺口——无工具调用记录、日志中的原始参数/结果、硬编码关闭审计、静默 catch、缺少关联 ID 的审计事件 |
+| [`packages/context-oversharing-auditor`](packages/context-oversharing-auditor) | `@guardbee/mcp-context-oversharing-auditor` | 审计 agent/MCP 源码中的 OWASP MCP10:2025 上下文过度共享——完整会话转储、无作用域记忆工具、共享全局会话、通过工具泄露 system prompt、跨会话工具结果混入、无租户过滤的向量查询（补充 toxic-flow 的目录三元组） |
+| [`packages/owasp-scan`](packages/owasp-scan) | `@guardbee/mcp-owasp-scan` | 统一的 OWASP MCP Top 10 元扫描器——路径上编排 GuardBee 审计器 + 实时/目录 `tools/list` toxic-flow/投毒、A–F 评级、SARIF；可选 MCP09 Shadow MCP 发现 |
 | [`packages/mcp-config-auditor`](packages/mcp-config-auditor) | `@guardbee/mcp-config-auditor` | 审计 MCP 客户端配置（Cursor/Claude/Windsurf/VS Code）与 agent `SKILL.md`——未固定版本、密钥、通配 auto-approve、无认证远程、仿冒包名、跨服务器/技能阴影；`discover` 对照组织 allowlist 发现 Shadow MCP（OWASP MCP09） |
 | [`packages/threat-rules`](packages/threat-rules) | `@guardbee/mcp-threat-rules` | [Agent Threat Rules (ATR)](https://github.com/Agent-Threat-Rule/agent-threat-rules) 的 MCP 桥接——运行时检测 prompt 注入、工具投毒与 MCP 攻击，并给出 GuardBee 后续扫描提示（含中文注入/身份证规则） |
 | [`packages/a2a-auditor`](packages/a2a-auditor) | `@guardbee/mcp-a2a-auditor` | 扫描智能体的 Agent2Agent（A2A）协议实现（TypeScript 和 Python）中在参考 SDK 源码里发现的反模式——未经认证的推送通知 webhook 请求（SSRF）、不要求认证的 Agent Card、公开 Agent Card 元数据中嵌入的凭据 |
@@ -43,6 +45,10 @@ GuardBee 的 MCP（Model Context Protocol）服务器系列——一个 monorepo
 | [`packages/telemetry`](packages/telemetry) | `@guardbee/mcp-telemetry` | （内部）共享的使用遥测客户端——本身不是 MCP 服务器 |
 
 ## 最近更新
+
+### 2026-10-06（续 2）— 统一 Top 10 / 上下文过度共享
+
+AI-security MCP 缺口跟进：**[`@guardbee/mcp-owasp-scan`](packages/owasp-scan)**（统一 Top 10 路径 + live）、**[`@guardbee/mcp-context-oversharing-auditor`](packages/context-oversharing-auditor)**（MCP10 过度共享）、Python MCP05/OAuth 规则、**[`.github/actions/mcp-security-scan`](.github/actions/mcp-security-scan)** SARIF Action。
 
 ### 2026-10-06（续）— OWASP MCP08
 

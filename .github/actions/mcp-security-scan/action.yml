@@ -1,0 +1,99 @@
+name: GuardBee MCP Security Scan
+description: Run GuardBee AI-security auditors (OWASP meta-scan, toxic-flow, audit-gap, context-oversharing) and upload SARIF
+inputs:
+  path:
+    description: Directory or file to scan
+    required: false
+    default: "."
+  fail-on:
+    description: Fail the job at this severity (any|critical|high|medium|none)
+    required: false
+    default: high
+  discover-shadow:
+    description: Also run MCP09 Shadow MCP host discover
+    required: false
+    default: "false"
+  allowlist-path:
+    description: Optional allowlist file for Shadow MCP discover
+    required: false
+    default: ""
+  upload-sarif:
+    description: Upload combined SARIF via codeql-action/upload-sarif
+    required: false
+    default: "true"
+runs:
+  using: composite
+  steps:
+    - name: Run GuardBee OWASP / gap scanners
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        GUARDBEE_TELEMETRY: "0"
+        SCAN_PATH: ${{ inputs.path }}
+        FAIL_ON: ${{ inputs.fail-on }}
+        DISCOVER: ${{ inputs.discover-shadow }}
+        ALLOWLIST: ${{ inputs.allowlist-path }}
+      run: |
+        set -euo pipefail
+        mkdir -p guardbee-sarif
+        EXTRA=()
+        if [[ "${DISCOVER}" == "true" ]]; then
+          EXTRA+=(--discover-shadow)
+          if [[ -n "${ALLOWLIST}" ]]; then
+            EXTRA+=(--allowlist="${ALLOWLIST}")
+          fi
+        fi
+
+        run_scan() {
+          local bin="$1"; shift
+          if [[ -x "$bin" ]] || [[ -f "$bin" ]]; then
+            node "$bin" "$@"
+          else
+            return 127
+          fi
+        }
+
+        if [[ -f packages/owasp-scan/dist/cli.js ]]; then
+          run_scan packages/owasp-scan/dist/cli.js scan "${SCAN_PATH}" \
+            --format=sarif --fail-on=none "${EXTRA[@]+"${EXTRA[@]}"}" > guardbee-sarif/owasp.sarif || true
+          run_scan packages/toxic-flow-auditor/dist/cli.js scan "${SCAN_PATH}" \
+            --format=sarif --fail-on=none > guardbee-sarif/toxic-flow.sarif || true
+          run_scan packages/audit-gap-auditor/dist/cli.js scan "${SCAN_PATH}" \
+            --format=sarif --fail-on=none > guardbee-sarif/audit-gap.sarif || true
+          run_scan packages/context-oversharing-auditor/dist/cli.js scan "${SCAN_PATH}" \
+            --format=sarif --fail-on=none > guardbee-sarif/context-oversharing.sarif || true
+          set +e
+          run_scan packages/owasp-scan/dist/cli.js scan "${SCAN_PATH}" \
+            --format=text --fail-on="${FAIL_ON}" "${EXTRA[@]+"${EXTRA[@]}"}"
+          EXIT=$?
+          set -e
+        else
+          npx -y @guardbee/mcp-owasp-scan scan "${SCAN_PATH}" \
+            --format=sarif --fail-on=none "${EXTRA[@]+"${EXTRA[@]}"}" > guardbee-sarif/owasp.sarif || true
+          npx -y @guardbee/mcp-toxic-flow-auditor scan "${SCAN_PATH}" \
+            --format=sarif --fail-on=none > guardbee-sarif/toxic-flow.sarif || true
+          npx -y @guardbee/mcp-audit-gap-auditor scan "${SCAN_PATH}" \
+            --format=sarif --fail-on=none > guardbee-sarif/audit-gap.sarif || true
+          npx -y @guardbee/mcp-context-oversharing-auditor scan "${SCAN_PATH}" \
+            --format=sarif --fail-on=none > guardbee-sarif/context-oversharing.sarif || true
+          set +e
+          npx -y @guardbee/mcp-owasp-scan scan "${SCAN_PATH}" \
+            --format=text --fail-on="${FAIL_ON}" "${EXTRA[@]+"${EXTRA[@]}"}"
+          EXIT=$?
+          set -e
+        fi
+        echo "${EXIT}" > guardbee-sarif/exit_code.txt
+
+    - name: Upload SARIF
+      if: ${{ always() && inputs.upload-sarif == 'true' && hashFiles('guardbee-sarif/*.sarif') != '' }}
+      uses: github/codeql-action/upload-sarif@v4
+      with:
+        sarif_file: guardbee-sarif
+        category: guardbee-mcp-security
+
+    - name: Enforce fail-on
+      if: always()
+      shell: bash
+      run: |
+        code=$(cat guardbee-sarif/exit_code.txt 2>/dev/null || echo 1)
+        exit "$code"

@@ -72,6 +72,12 @@ describe("disabled audit", () => {
   it("yakalar: GUARDBEE_TELEMETRY=0", () => {
     expect(idsOf(`process.env.GUARDBEE_TELEMETRY=0`)).toContain("audit_disabled_in_code");
   });
+
+  it("yakalamaz: README'de opt-out talimatı", () => {
+    const doc = "Disable with `GUARDBEE_TELEMETRY=0`.";
+    const ids = scanText(doc, "packages/x/README.md").map((f) => f.patternId);
+    expect(ids).not.toContain("audit_disabled_in_code");
+  });
 });
 
 describe("silent failure", () => {

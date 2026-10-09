@@ -1,13 +1,13 @@
 import { readFileSync, statSync, readdirSync } from "fs";
 import { join, relative, extname } from "path";
-import { checkById, type AuditGapCategory } from "./patterns.js";
+import { checkById, type ContextOvershareCategory } from "./patterns.js";
 
 export interface Finding {
   patternId: string;
   patternName: string;
-  category: AuditGapCategory;
+  category: ContextOvershareCategory;
   severity: "critical" | "high" | "medium";
-  owasp: "MCP08:2025";
+  owasp: "MCP10:2025";
   recommendation: string;
   file?: string;
   line: number;
@@ -37,37 +37,29 @@ const SKIP_DIRS = new Set([
   "__pycache__", ".mypy_cache", ".pytest_cache", "venv", ".venv",
   "coverage", ".nyc_output",
 ]);
-// Docs routinely tell users how to opt out (`GUARDBEE_TELEMETRY=0`); that is
-// not a hard-coded disable in source.
-const DOC_EXTENSIONS = new Set([".md", ".mdx", ".markdown", ".rst", ".txt", ".adoc"]);
 const MAX_FILE_SIZE = 1 * 1024 * 1024;
 const MAX_CONTEXT_LENGTH = 240;
 
-const MCP_SERVER_RE =
-  /\b(?:McpServer|Server)\s*\(|\bFastMCP\s*\(|\bmcp\.server\b|\bfrom\s+mcp\.server\b/i;
-const TOOL_REGISTER_RE =
-  /\.tool\s*\(|\bCallToolRequest\b|\btools\/call\b|\b@mcp\.tool\b|\b@server\.tool\b/i;
+const FULL_CONVERSATION_RE =
+  /\b(?:return|content\s*:\s*\[\s*\{\s*type\s*:\s*["']text["'])[\s\S]{0,120}?\b(?:messages|conversationHistory|chat_history|conversation_history|fullHistory|full_history)\b/gi;
 
-const AUDIT_PRESENCE_RE =
-  /\b(?:audit|telemetry|AuditLogger|auditLog|audit_log|logTool|log_tool|recordTool|toolCallLog|instrumentServer)\b/i;
+const MEMORY_TOOL_RE =
+  /\.(?:tool|registerTool)\s*\(\s*["'](?:get_all_memories|dump_memory|list_all_memories|list_context|export_memory|dump_context|get_full_context)["']/gi;
 
-const RAW_ARGS_LOG_RE =
-  /\b(?:console\.(?:log|debug|info|warn)|logger\.(?:log|debug|info|warn|error)|log\.(?:debug|info|warn|error)|logging\.(?:debug|info|warning|error))\s*\(\s*(?:JSON\.stringify\s*\(\s*)?(?:args|params|input|arguments|toolArgs|tool_args)\b/gi;
+const PYTHON_MEMORY_TOOL_RE =
+  /@(?:mcp|server)\.tool\s*\(\s*(?:name\s*=\s*)?["'](?:get_all_memories|dump_memory|list_all_memories|list_context|export_memory|dump_context|get_full_context)["']/gi;
 
-const RAW_RESULT_LOG_RE =
-  /\b(?:console\.(?:log|debug|info|warn)|logger\.(?:log|debug|info|warn|error)|log\.(?:debug|info|warn|error)|logging\.(?:debug|info|warning|error))\s*\(\s*(?:JSON\.stringify\s*\(\s*)?(?:result|toolResult|tool_result)\b/gi;
+const GLOBAL_SESSION_RE =
+  /(?:(?:const|let|var)\s+(?:global(?:Session|Context|Memory)|shared(?:Session|Context)|SESSION_STORE|CONTEXT_STORE)\s*=\s*new\s+Map\s*\(\s*\)|(?:^[ \t]*)(?:global_session|shared_context|session_store)\s*=\s*\{\s*\})/gim;
 
-const AUDIT_DISABLED_RE =
-  /\b(?:audit|enableAudit|enable_audit|telemetry)\s*[:=]\s*(?:false|0|False)\b|\b(?:GUARDBEE_TELEMETRY|AUDIT_ENABLED|ENABLE_AUDIT)\s*=\s*["']?0["']?/g;
+const SYSTEM_PROMPT_LEAK_RE =
+  /\b(?:return|content\s*:)[\s\S]{0,100}?\b(?:systemPrompt|SYSTEM_PROMPT|system_prompt|developerInstructions|developer_instructions)\b/gi;
 
-const SILENT_CATCH_RE =
-  /catch\s*\([^)]*\)\s*\{\s*(?:return\s+[^;{]+;?\s*)?\}/g;
+const CROSS_SESSION_RE =
+  /\b(?:lastToolResults|toolHistory|previous_tool_results|prior_tool_results)\b[\s\S]{0,80}?\b(?:messages|context|prompt)\b|\b(?:messages|context|prompt)\b[\s\S]{0,80}?\b(?:lastToolResults|toolHistory|previous_tool_results)\b/gi;
 
-const AUDIT_EVENT_RE =
-  /\b(?:audit(?:Log(?:ger)?)?|logTool(?:Call)?|recordTool(?:Call)?)\s*(?:\.\s*(?:log|write|record|emit|append))?\s*\(\s*\{/gi;
-
-const CORRELATION_RE =
-  /\b(?:sessionId|session_id|requestId|request_id|correlationId|correlation_id|traceId|trace_id|userId|user_id|authInfo)\b/;
+const VECTOR_NO_FILTER_RE =
+  /\.(?:similaritySearch|similarity_search|query|query_points|search)\s*\(\s*[^)]{0,200}\)/gi;
 
 function locationOf(text: string, index: number): { line: number; column: number } {
   const before = text.slice(0, index);
@@ -102,20 +94,6 @@ function pushFinding(
   });
 }
 
-function isMcpToolFile(text: string): boolean {
-  return MCP_SERVER_RE.test(text) || TOOL_REGISTER_RE.test(text);
-}
-
-function checkMissingToolAudit(text: string, filePath: string | undefined, findings: Finding[]): void {
-  if (!MCP_SERVER_RE.test(text)) return;
-  if (!TOOL_REGISTER_RE.test(text)) return;
-  if (AUDIT_PRESENCE_RE.test(text)) return;
-
-  const serverMatch = MCP_SERVER_RE.exec(text);
-  if (!serverMatch) return;
-  pushFinding(findings, "mcp_server_without_tool_audit", text, serverMatch.index, serverMatch[0], filePath);
-}
-
 function runGlobal(
   re: RegExp,
   id: string,
@@ -131,56 +109,34 @@ function runGlobal(
   }
 }
 
-function checkSilentCatch(text: string, filePath: string | undefined, findings: Finding[]): void {
-  if (!isMcpToolFile(text)) return;
-
-  const re = new RegExp(SILENT_CATCH_RE.source, "g");
+function checkVectorWithoutFilter(text: string, filePath: string | undefined, findings: Finding[]): void {
+  const re = new RegExp(VECTOR_NO_FILTER_RE.source, "gi");
   let match: RegExpExecArray | null;
   while ((match = re.exec(text)) !== null) {
-    const body = match[0];
-    if (/\b(?:log|audit|telemetry|console|throw|logger|logging)\b/i.test(body)) {
+    const call = match[0];
+    if (/\b(?:where|filter|metadata|tenantId|tenant_id|userId|user_id)\b/i.test(call)) {
       if (match.index === re.lastIndex) re.lastIndex++;
       continue;
     }
-    pushFinding(findings, "tool_error_swallowed_silently", text, match.index, match[0], filePath);
-    if (match.index === re.lastIndex) re.lastIndex++;
-  }
-}
-
-function checkAuditCorrelation(text: string, filePath: string | undefined, findings: Finding[]): void {
-  if (!isMcpToolFile(text)) return;
-
-  const re = new RegExp(AUDIT_EVENT_RE.source, "gi");
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(text)) !== null) {
-    const start = match.index;
-    const window = text.slice(start, Math.min(text.length, start + 320));
-    if (CORRELATION_RE.test(window)) {
+    // Only flag when the surrounding file looks like RAG/vector usage.
+    if (!/\b(?:vector|embedding|chroma|qdrant|weaviate|pgvector|retriev)/i.test(text)) {
       if (match.index === re.lastIndex) re.lastIndex++;
       continue;
     }
-    pushFinding(findings, "audit_log_without_correlation_id", text, start, match[0], filePath);
+    pushFinding(findings, "vector_query_without_filter", text, match.index, call, filePath);
     if (match.index === re.lastIndex) re.lastIndex++;
   }
 }
 
 export function scanText(text: string, filePath?: string): Finding[] {
   const findings: Finding[] = [];
-  checkMissingToolAudit(text, filePath, findings);
-
-  if (isMcpToolFile(text)) {
-    runGlobal(RAW_ARGS_LOG_RE, "raw_tool_args_logged", text, filePath, findings);
-    runGlobal(RAW_RESULT_LOG_RE, "raw_tool_result_logged", text, filePath, findings);
-    checkSilentCatch(text, filePath, findings);
-    checkAuditCorrelation(text, filePath, findings);
-  }
-
-  // Disabled-audit is useful even outside a tool file (config modules).
-  const isDoc = filePath !== undefined && DOC_EXTENSIONS.has(extname(filePath).toLowerCase());
-  if (!isDoc) {
-    runGlobal(AUDIT_DISABLED_RE, "audit_disabled_in_code", text, filePath, findings);
-  }
-
+  runGlobal(FULL_CONVERSATION_RE, "tool_dumps_full_conversation", text, filePath, findings);
+  runGlobal(MEMORY_TOOL_RE, "unscoped_memory_recall_tool", text, filePath, findings);
+  runGlobal(PYTHON_MEMORY_TOOL_RE, "unscoped_memory_recall_tool", text, filePath, findings);
+  runGlobal(GLOBAL_SESSION_RE, "shared_global_session_store", text, filePath, findings);
+  runGlobal(SYSTEM_PROMPT_LEAK_RE, "system_prompt_exposed_via_tool", text, filePath, findings);
+  runGlobal(CROSS_SESSION_RE, "cross_session_tool_result_reuse", text, filePath, findings);
+  checkVectorWithoutFilter(text, filePath, findings);
   return findings;
 }
 

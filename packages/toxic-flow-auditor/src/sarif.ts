@@ -6,7 +6,12 @@ function severityToLevel(sev: string): "error" | "warning" | "note" {
   return "note";
 }
 
-export function buildSarif(toolVersion: string, findings: Finding[]): object {
+/**
+ * Toxic flows span several tools, so a finding has no file of its own.
+ * `artifactUri` (the scanned path) anchors it: GitHub code scanning rejects
+ * results without a location.
+ */
+export function buildSarif(toolVersion: string, findings: Finding[], artifactUri?: string): object {
   const rulesMap = new Map<string, object>();
   const results: object[] = [];
 
@@ -20,7 +25,8 @@ export function buildSarif(toolVersion: string, findings: Finding[]): object {
         helpUri: "https://guardbee.ai/docs/toxic-flow-auditor",
         properties: {
           "problem.severity": f.severity,
-          tags: ["security", "ai-security", "mcp-security", "toxic-flow", f.owasp, f.category],
+          // category can itself be "toxic-flow"; SARIF rejects duplicate tags.
+          tags: [...new Set(["security", "ai-security", "mcp-security", "toxic-flow", f.owasp, f.category])],
         },
       });
     }
@@ -29,6 +35,9 @@ export function buildSarif(toolVersion: string, findings: Finding[]): object {
       level: severityToLevel(f.severity),
       message: { text: `${f.patternName} — ${f.recommendation}` },
       properties: { tools: f.tools, capabilities: f.capabilities },
+      ...(artifactUri && {
+        locations: [{ physicalLocation: { artifactLocation: { uri: artifactUri, uriBaseId: "%SRCROOT%" } } }],
+      }),
     });
   }
 

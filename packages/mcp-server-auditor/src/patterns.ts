@@ -58,6 +58,38 @@ export const MCP_AUDITOR_PATTERNS: McpAuditPattern[] = [
     recommendation:
       "A tool named like this typically hands the calling LLM arbitrary shell/code/SQL execution. If intentional, gate it behind an explicit opt-in config flag (off by default) and a strict allowlist — not just a cautious-sounding tool description.",
   },
+  {
+    id: "python_shell_from_tool_input",
+    name: "Python tool handler passes tool input into subprocess/os.system",
+    category: "excessive-agency",
+    pattern:
+      /\b(?:subprocess\.(?:run|call|Popen|check_output|check_call)|os\.system|os\.popen)\s*\(\s*(?:arguments|args|params|input)\s*(?:\[|\.get\(|\.)/g,
+    severity: "critical",
+    owasp: "MCP05:2025",
+    recommendation:
+      "A FastMCP/Python tool parameter is passed into subprocess/os.system. Validate against a strict allowlist of commands/args; never interpolate raw tool input into a shell string.",
+  },
+  {
+    id: "python_eval_of_tool_input",
+    name: "Python tool handler eval/exec's tool input",
+    category: "excessive-agency",
+    pattern: /\b(?:eval|exec|compile)\s*\(\s*(?:arguments|args|params|input)\s*(?:\[|\.get\(|\.)/g,
+    severity: "critical",
+    owasp: "MCP05:2025",
+    recommendation:
+      "eval/exec on a tool parameter is remote code execution for any caller of the tool. Parse and validate input as data instead.",
+  },
+  {
+    id: "python_unrestricted_shell_tool_name",
+    name: "Python @mcp.tool / @server.tool name grants shell/SQL execution",
+    category: "excessive-agency",
+    pattern:
+      /@(?:mcp|server)\.tool\s*\(\s*(?:name\s*=\s*)?["'](?:run_shell|execute_command|run_command|execute_shell|eval_code|execute_code|run_script|shell_exec|run_sql|execute_sql|run_query)["']/gi,
+    severity: "high",
+    owasp: "MCP05:2025",
+    recommendation:
+      "A Python MCP tool named like this typically hands the calling LLM arbitrary shell/code/SQL execution. Gate it behind an explicit opt-in and a strict allowlist.",
+  },
 
   // ── Unsafe input handling ───────────────────────────────────────────────────
   {
@@ -88,6 +120,27 @@ export const MCP_AUDITOR_PATTERNS: McpAuditPattern[] = [
     owasp: "MCP05:2025",
     recommendation:
       "A SQL statement is built with a template-literal interpolation of a raw tool parameter — classic SQL injection, now reachable by anything that can call this tool. Use parameterized queries; never interpolate tool input into SQL text.",
+  },
+  {
+    id: "python_sql_injection_via_tool_input",
+    name: "Python SQL built with f-string / % formatting of tool input",
+    category: "unsafe-input",
+    pattern:
+      /(?:f["'][^"']*(?:SELECT|INSERT|UPDATE|DELETE)[^"']*\{(?:arguments|args|params|input)(?:\[|\.)[^"']*["']|(?:SELECT|INSERT|UPDATE|DELETE)[^"']*%\s*(?:arguments|args|params|input)\s*(?:\[|\.))/gi,
+    severity: "critical",
+    owasp: "MCP05:2025",
+    recommendation:
+      "Python f-string or % formatting of tool input into SQL is injection. Use parameterized queries (e.g. cursor.execute(sql, params)).",
+  },
+  {
+    id: "python_ssrf_from_tool_input",
+    name: "Python HTTP client URL comes from tool input",
+    category: "unsafe-input",
+    pattern:
+      /\b(?:requests\.(?:get|post|put|delete|request)|httpx\.(?:get|post|put|delete|request)|urllib\.request\.urlopen)\s*\(\s*(?:arguments|args|params|input)\s*(?:\[|\.get\(|\.)/g,
+    severity: "high",
+    recommendation:
+      "A request URL taken from tool input without an allowlist enables SSRF (e.g. cloud metadata). Validate the host before fetching.",
   },
 
   // ── Loose schema ────────────────────────────────────────────────────────────

@@ -1,0 +1,81 @@
+name: MCP Security Scan
+
+on:
+  pull_request:
+    paths:
+      - "packages/**"
+      - ".github/workflows/mcp-security-scan.yml"
+      - ".github/actions/mcp-security-scan/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build scanners
+        run: >
+          pnpm turbo run build --filter=@guardbee/mcp-owasp-scan
+          --filter=@guardbee/mcp-toxic-flow-auditor
+          --filter=@guardbee/mcp-audit-gap-auditor
+          --filter=@guardbee/mcp-context-oversharing-auditor
+          --filter=@guardbee/mcp-server-auditor
+          --filter=@guardbee/mcp-oauth-auditor
+          --filter=@guardbee/mcp-secret-scanner
+          --filter=@guardbee/mcp-tool-poisoning-scanner
+          --filter=@guardbee/mcp-config-auditor
+          --filter=@guardbee/guard-core
+          --filter=@guardbee/mcp-telemetry
+
+      - name: GuardBee MCP security scan
+        uses: ./.github/actions/mcp-security-scan
+        with:
+          path: packages
+          # This repo ships the scanners' own rule files, attack-payload test
+          # fixtures and docs, so a self-scan always has findings. Exercise
+          # the Action end to end without gating or uploading alerts;
+          # consumers keep the defaults.
+          fail-on: none
+          upload-sarif: "false"
+
+      # Upload is off here, so check locally what GitHub code scanning would
+      # reject: results without a location, and duplicate rule tags.
+      - name: Validate SARIF for code scanning
+        run: |
+          python3 - <<'PY'
+          import glob, json, sys
+          errors = []
+          files = sorted(glob.glob("guardbee-sarif/*.sarif"))
+          if not files:
+              sys.exit("no SARIF files produced")
+          for path in files:
+              with open(path) as fh:
+                  sarif = json.load(fh)
+              for run in sarif["runs"]:
+                  for rule in run["tool"]["driver"].get("rules", []):
+                      tags = rule.get("properties", {}).get("tags", [])
+                      if len(tags) != len(set(tags)):
+                          errors.append(f"{path}: rule {rule['id']} has duplicate tags")
+                  for result in run.get("results", []):
+                      if not result.get("locations"):
+                          errors.append(f"{path}: result {result['ruleId']} has no location")
+              print(f"ok {path}")
+          if errors:
+              print("\n".join(errors))
+              sys.exit(1)
+          PY

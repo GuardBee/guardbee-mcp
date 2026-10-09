@@ -37,6 +37,16 @@ export const OAUTH_AUDIT_PATTERNS: OAuthAuditPattern[] = [
     recommendation: "The MCP spec explicitly calls out token passthrough as a confused-deputy risk: a token a client presented to this server is being forwarded, unchanged, to a different downstream API. That token was scoped/audienced for this server, not the one it's now being sent to. Exchange it for a token scoped to the downstream service instead of relaying the original.",
   },
   {
+    id: "python_token_passthrough_to_downstream",
+    name: "Python: incoming Authorization header forwarded unchanged via requests/httpx",
+    category: "token-passthrough",
+    pattern:
+      /\b(?:requests|httpx)\.(?:get|post|put|delete|request)\s*\([^;]{0,300}?(?:headers\s*=\s*\{[^}]{0,200}?["']Authorization["']\s*:\s*(?:request\.headers|headers)\s*(?:\[[^\]]+\]|\.get\s*\()|Authorization["']\s*:\s*request\.headers)/gis,
+    severity: "critical",
+    recommendation:
+      "Python FastAPI/Starlette handlers that relay request.headers['Authorization'] into requests/httpx are the same MCP confused-deputy token-passthrough risk. Exchange for a downstream-scoped token instead of forwarding the client token.",
+  },
+  {
     id: "oauth_discovery_ssrf",
     name: "OAuth/OIDC discovery document fetched from a request-derived URL",
     category: "discovery-ssrf",
@@ -45,12 +55,31 @@ export const OAUTH_AUDIT_PATTERNS: OAuthAuditPattern[] = [
     recommendation: "Building the OAuth/OIDC discovery URL from a client-supplied value (issuer, resource, etc.) lets a caller point this server at an arbitrary internal or attacker-controlled host — this is the same shape as CVE-2026-45609. Validate the value against an allowlist of known-good issuers before using it to build any URL this server fetches.",
   },
   {
+    id: "python_oauth_discovery_ssrf",
+    name: "Python: OAuth/OIDC discovery fetched from a request-derived URL",
+    category: "discovery-ssrf",
+    pattern:
+      /(?:requests|httpx)\.(?:get|request)\s*\(\s*(?:f["'][^"']*\.well-known\/(?:oauth-authorization-server|openid-configuration)[^"']*\{|(?:["'][^"']*\.well-known\/(?:oauth-authorization-server|openid-configuration)[^"']*["']\s*%|\.format\s*\())/gi,
+    severity: "critical",
+    recommendation:
+      "Building the discovery URL from client-supplied issuer/resource values in Python enables SSRF. Allowlist known issuers before any fetch.",
+  },
+  {
     id: "loose_redirect_uri_validation",
     name: "redirect_uri validated with startsWith/includes instead of exact match",
     category: "redirect-validation",
     pattern: /redirect_uri[\s\S]{0,80}?\.(?:startsWith|includes)\s*\(/gi,
     severity: "high",
     recommendation: "A prefix/substring check on redirect_uri (instead of an exact match against a registered allowlist) is a classic open-redirect bypass — `https://legit.com.evil.com` or `https://legit.com/../evil` style values can pass. Compare against the exact, pre-registered redirect URI(s).",
+  },
+  {
+    id: "python_loose_redirect_uri_validation",
+    name: "Python: redirect_uri validated with startswith/in instead of exact match",
+    category: "redirect-validation",
+    pattern: /redirect_uri[\s\S]{0,100}?\.(?:startswith|endswith)\s*\(|redirect_uri\s+in\s+/gi,
+    severity: "high",
+    recommendation:
+      "Python startswith/in checks on redirect_uri are classic open-redirect bypasses. Compare against the exact pre-registered redirect URI(s).",
   },
   {
     id: "hardcoded_oauth_client_secret",

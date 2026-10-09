@@ -93,6 +93,31 @@ function checkMissingAudienceValidation(text: string, filePath?: string): Findin
     }
     re.lastIndex = m.index + 1;
   }
+
+  // PyJWT: jwt.decode(token, key, algorithms=[...]) without audience=
+  const pyRe = /\bjwt\.decode\s*\(/g;
+  while ((m = pyRe.exec(text)) !== null) {
+    const openParenIndex = m.index + m[0].length - 1;
+    const callEnd = findMatchingParenEnd(text, openParenIndex);
+    const callSpan = text.slice(m.index, callEnd);
+    if (!/\baudience\s*=/i.test(callSpan)) {
+      const { line, column } = locationOf(text, m.index);
+      findings.push({
+        patternId: "python_missing_audience_validation",
+        patternName: "PyJWT jwt.decode() call has no audience= check",
+        category: "token-validation",
+        severity: "high",
+        recommendation:
+          "PyJWT jwt.decode without audience= accepts tokens minted for any resource server. Pass audience=<this server's resource identifier> explicitly (and disable verify_aud only in tests).",
+        file: filePath,
+        line,
+        column,
+        match: callSpan.trim().replace(/\s+/g, " ").slice(0, MAX_CONTEXT_LENGTH),
+        context: "",
+      });
+    }
+    pyRe.lastIndex = m.index + 1;
+  }
   return findings;
 }
 
