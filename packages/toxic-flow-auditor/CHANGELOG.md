@@ -1,3 +1,8 @@
+## 0.1.6
+
+### Patch Changes
+
+- [#38](https://github.com/GuardBee/guardbee-mcp/pull/38) [`67f10b5`](https://github.com/GuardBee/guardbee-mcp/commit/67f10b56b9ac924b95872e1925549caa04d81246) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - SARIF output is now accepted by GitHub code scanning: rules no longer repeat the `toxic-flow` tag, and findings (which span several tools and have no file of their own) are anchored to the scanned path.
 ## 0.1.5
 
 ### Patch Changes

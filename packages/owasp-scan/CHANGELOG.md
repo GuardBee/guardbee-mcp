@@ -1,5 +1,20 @@
 # @guardbee/mcp-owasp-scan
 
+## 0.2.0
+
+### Minor Changes
+
+- [#38](https://github.com/GuardBee/guardbee-mcp/pull/38) [`e8b97bb`](https://github.com/GuardBee/guardbee-mcp/commit/e8b97bb6f3cb434b07f5660cfb9d73258581db8c) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Ship AI-security MCP gap follow-up: unified OWASP MCP Top 10 meta-scanner (`mcp-owasp-scan`), MCP10 context-oversharing auditor, Python MCP05/OAuth patterns, and a reusable GitHub Action that uploads SARIF for toxic-flow / audit-gap / context-oversharing / owasp-scan.
+
+### Patch Changes
+
+- Updated dependencies [[`e8b97bb`](https://github.com/GuardBee/guardbee-mcp/commit/e8b97bb6f3cb434b07f5660cfb9d73258581db8c), [`7a87a12`](https://github.com/GuardBee/guardbee-mcp/commit/7a87a1240e6a069d1efdb7fb598598dda5baa271), [`67f10b5`](https://github.com/GuardBee/guardbee-mcp/commit/67f10b56b9ac924b95872e1925549caa04d81246)]:
+  - @guardbee/mcp-context-oversharing-auditor@0.2.0
+  - @guardbee/mcp-server-auditor@0.1.7
+  - @guardbee/mcp-oauth-auditor@0.1.4
+  - @guardbee/mcp-audit-gap-auditor@0.2.1
+  - @guardbee/mcp-toxic-flow-auditor@0.1.6
+
 ## 0.1.0
 
 ### Minor Changes
