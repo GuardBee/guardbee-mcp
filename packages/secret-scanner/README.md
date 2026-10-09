@@ -16,10 +16,12 @@ An MCP server that scans your source files, directories, and environment configs
 
 - **38 Secret Patterns** — AWS, GitHub, GitLab, Stripe, OpenAI, Anthropic, HuggingFace, Slack, Twilio, SendGrid, and more. The rules live in [`@guardbee/guard-core`](../guard-core/README.md), so `@guardbee/mcp-security-proxy` masks the same formats in tool results at runtime
 - **File & Directory Scanning** — a single file or an entire project tree
+- **Git History & Staged Scanning** — `--history` scans every line any commit added, so a key deleted from the files but still in the repository is found, reported once at the commit that added it (with author and date); `--staged` scans only what you are about to commit
+- **Baseline** — `--write-baseline` records today's findings as hashes (never the secrets, safe to commit); `--baseline` then reports only new ones, so an existing repo can adopt the scanner in CI without fixing everything first. SARIF results carry a stable `partialFingerprints` value
 - **Smart Skipping** — directories like `node_modules`, `.git`, `dist`, `build`, `.next` are skipped automatically
 - **Safe Redaction** — matches are shown as first 4 + stars + last 4 characters
 - **Allowlist Support** — allowlist known test/fake values
-- **39 Unit Tests** — 100% passing test suite
+- **49 Unit Tests** — 100% passing test suite
 
 ---
 
@@ -51,6 +53,7 @@ Add to `claude_desktop_config.json`:
 | `scan_text` | Scans the given text for secrets |
 | `scan_file` | Scans a single file |
 | `scan_directory` | Recursively scans a directory and its subdirectories |
+| `scan_git` | Scans a git repository's staged changes or every commit's added lines (history) |
 | `list_patterns` | Lists all active secret patterns |
 
 ### Example Usage
@@ -104,6 +107,16 @@ npx @guardbee/mcp-secret-scanner scan . --fail-on=high
 
 # JSON output (for CI reporting)
 npx @guardbee/mcp-secret-scanner scan . --format=json
+# Pre-commit: only the lines you are about to commit
+npx @guardbee/mcp-secret-scanner scan --staged
+
+# Every commit on every branch (finds keys deleted from the files)
+npx @guardbee/mcp-secret-scanner scan . --history
+npx @guardbee/mcp-secret-scanner scan . --history=main..HEAD   # just this branch
+
+# Adopt an existing repo: record known findings once, then fail only on new ones
+npx @guardbee/mcp-secret-scanner scan . --history --write-baseline=.guardbee-secrets-baseline.json
+npx @guardbee/mcp-secret-scanner scan . --history --baseline=.guardbee-secrets-baseline.json
 ```
 
 **Exit codes:** `0` = no secrets found · `1` = secrets found · `2` = error
@@ -119,8 +132,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history for --history
       - name: Scan for exposed secrets
-        run: npx @guardbee/mcp-secret-scanner scan . --fail-on=high
+        run: npx @guardbee/mcp-secret-scanner scan . --history --baseline=.guardbee-secrets-baseline.json --fail-on=high
 ```
 
 ### GitLab CI
@@ -139,7 +154,7 @@ secret-scan:
 
 ```bash
 # .git/hooks/pre-commit
-npx @guardbee/mcp-secret-scanner scan . --fail-on=critical || exit 1
+npx @guardbee/mcp-secret-scanner scan --staged --fail-on=high || exit 1
 ```
 
 ---
@@ -148,7 +163,7 @@ npx @guardbee/mcp-secret-scanner scan . --fail-on=critical || exit 1
 
 ```bash
 npm install
-npm test          # 39 unit tests
+npm test          # 49 unit tests
 npm run build     # TypeScript compile
 ```
 
