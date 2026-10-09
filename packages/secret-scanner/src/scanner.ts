@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { readFileSync, statSync, readdirSync } from "fs";
 import { join, relative, extname } from "path";
 import { SECRET_PATTERNS, type SecretPattern } from "./patterns.js";
@@ -11,6 +12,16 @@ export interface Finding {
   column: number;
   match: string; // redacted
   context: string; // surrounding line, redacted
+  /**
+   * Stable across line moves and machines: a hash of the rule, the path
+   * relative to the scan root and the secret. Baselines store this, never the
+   * secret.
+   */
+  fingerprint: string;
+  /** Set for git scans: the commit that added the line. */
+  commit?: string;
+  author?: string;
+  date?: string;
 }
 
 export interface ScanResult {
@@ -21,7 +32,7 @@ export interface ScanResult {
   durationMs: number;
 }
 
-const SKIP_EXTENSIONS = new Set([
+export const SKIP_EXTENSIONS = new Set([
   ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".webp", ".bmp",
   ".pdf", ".zip", ".tar", ".gz", ".bz2", ".rar", ".7z",
   ".exe", ".dll", ".so", ".dylib", ".bin", ".wasm",
@@ -96,7 +107,17 @@ function isTestFilePath(filePath: string | undefined): boolean {
   return !!filePath && TEST_PATH_RE.test(filePath);
 }
 
-export function scanText(text: string, filePath?: string): Finding[] {
+/** Hash of rule + path + secret; the path uses "/" so Windows and Unix agree. */
+export function fingerprintOf(patternId: string, path: string | undefined, secret: string): string {
+  const normalized = (path ?? "").replace(/\\/g, "/");
+  return createHash("sha256").update(`${patternId}\0${normalized}\0${secret}`).digest("hex").slice(0, 32);
+}
+
+/**
+ * `fingerprintPath` is the path the fingerprint uses (relative to the scan
+ * root); it defaults to `filePath`.
+ */
+export function scanText(text: string, filePath?: string, fingerprintPath: string | undefined = filePath): Finding[] {
   const findings: Finding[] = [];
   const lines = text.split("\n");
 
@@ -131,6 +152,7 @@ export function scanText(text: string, filePath?: string): Finding[] {
         column,
         match: redact(matchStr),
         context: redactedContext.trim().slice(0, 200),
+        fingerprint: fingerprintOf(sp.id, fingerprintPath, matchStr),
       });
     }
   }
@@ -138,7 +160,7 @@ export function scanText(text: string, filePath?: string): Finding[] {
   return findings;
 }
 
-export function scanFile(filePath: string): { findings: Finding[]; skipped: boolean } {
+export function scanFile(filePath: string, fingerprintPath: string = filePath): { findings: Finding[]; skipped: boolean } {
   const ext = extname(filePath).toLowerCase();
   if (SKIP_EXTENSIONS.has(ext)) return { findings: [], skipped: true };
 
@@ -158,7 +180,7 @@ export function scanFile(filePath: string): { findings: Finding[]; skipped: bool
     return { findings: [], skipped: true };
   }
 
-  return { findings: scanText(content, filePath), skipped: false };
+  return { findings: scanText(content, filePath, fingerprintPath), skipped: false };
 }
 
 export function scanDirectory(
@@ -202,7 +224,7 @@ export function scanDirectory(
           continue;
         }
 
-        const { findings, skipped } = scanFile(fullPath);
+        const { findings, skipped } = scanFile(fullPath, relPath);
         if (skipped) {
           skippedFiles++;
         } else {

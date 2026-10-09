@@ -16,10 +16,12 @@ Kaynak dosyalarınızı, dizinleri ve ortam konfigürasyonlarını açık API ke
 
 - **38 Secret Deseni** — AWS, GitHub, GitLab, Stripe, OpenAI, Anthropic, HuggingFace, Slack, Twilio, SendGrid ve daha fazlası. Kurallar [`@guardbee/guard-core`](../guard-core/TR.md) içinde durduğu için `@guardbee/mcp-security-proxy` aynı formatları çalışma anında tool sonuçlarında maskeler
 - **Dosya & Dizin Tarama** — Tek dosya veya tüm proje ağacı
+- **Git Geçmişi & Staged Tarama** — `--history`, herhangi bir commit'in eklediği her satırı tarar; dosyalardan silinmiş ama repoda hâlâ duran bir key bulunur ve onu ekleyen commit'te (yazar ve tarihle) bir kez raporlanır; `--staged` yalnızca commit'lemek üzere olduğunuz satırları tarar
+- **Baseline** — `--write-baseline` bugünkü bulguları hash olarak kaydeder (secret'ların kendisini asla; commit'lemek güvenlidir); `--baseline` sonra yalnızca yenilerini raporlar, böylece mevcut bir repo her şeyi önce düzeltmeden scanner'ı CI'a alabilir. SARIF sonuçları kalıcı bir `partialFingerprints` değeri taşır
 - **Akıllı Atlama** — `node_modules`, `.git`, `dist`, `build`, `.next` gibi dizinler otomatik atlanır
 - **Güvenli Redaksyon** — Eşleşmeler ilk 4 + yıldız + son 4 karakter olarak gösterilir
 - **Allowlist Desteği** — Bilinen test/sahte değerleri beyaz listeye alın
-- **39 Unit Test** — %100 geçen test paketi
+- **49 Unit Test** — %100 geçen test paketi
 
 ---
 
@@ -51,6 +53,7 @@ npm install -g @guardbee/mcp-secret-scanner
 | `scan_text` | Verilen metin içinde secret tarar |
 | `scan_file` | Tek bir dosyayı tarar |
 | `scan_directory` | Bir dizini ve alt dizinlerini yinelemeli olarak tarar |
+| `scan_git` | Bir git reposunun staged değişikliklerini ya da her commit'in eklediği satırları (geçmiş) tarar |
 | `list_patterns` | Tüm aktif secret desenlerini listeler |
 
 ### Örnek Kullanım
@@ -104,6 +107,16 @@ npx @guardbee/mcp-secret-scanner scan . --fail-on=high
 
 # JSON çıktı (CI raporlama için)
 npx @guardbee/mcp-secret-scanner scan . --format=json
+# Pre-commit: yalnızca commit'lemek üzere olduğunuz satırlar
+npx @guardbee/mcp-secret-scanner scan --staged
+
+# Her branch'teki her commit (dosyalardan silinmiş key'leri bulur)
+npx @guardbee/mcp-secret-scanner scan . --history
+npx @guardbee/mcp-secret-scanner scan . --history=main..HEAD   # sadece bu branch
+
+# Mevcut bir repoyu alın: bilinen bulguları bir kez kaydedin, sonra yalnızca yenilerde başarısız olun
+npx @guardbee/mcp-secret-scanner scan . --history --write-baseline=.guardbee-secrets-baseline.json
+npx @guardbee/mcp-secret-scanner scan . --history --baseline=.guardbee-secrets-baseline.json
 ```
 
 **Exit kodları:** `0` = secret bulunamadı · `1` = secret bulundu · `2` = hata
@@ -119,8 +132,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # --history için tüm geçmiş
       - name: Scan for exposed secrets
-        run: npx @guardbee/mcp-secret-scanner scan . --fail-on=high
+        run: npx @guardbee/mcp-secret-scanner scan . --history --baseline=.guardbee-secrets-baseline.json --fail-on=high
 ```
 
 ### GitLab CI
@@ -139,7 +154,7 @@ secret-scan:
 
 ```bash
 # .git/hooks/pre-commit
-npx @guardbee/mcp-secret-scanner scan . --fail-on=critical || exit 1
+npx @guardbee/mcp-secret-scanner scan --staged --fail-on=high || exit 1
 ```
 
 ---
@@ -148,7 +163,7 @@ npx @guardbee/mcp-secret-scanner scan . --fail-on=critical || exit 1
 
 ```bash
 npm install
-npm test          # 39 unit test
+npm test          # 49 unit test
 npm run build     # TypeScript derleme
 ```
 

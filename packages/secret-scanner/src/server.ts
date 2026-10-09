@@ -3,18 +3,25 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
 import { scanText, scanFile, scanDirectory } from "./scanner.js";
+import { applyBaseline, readBaseline } from "./baseline.js";
+import { scanGit } from "./git.js";
 import { SECRET_PATTERNS } from "./patterns.js";
 
-function formatFindings(result: ReturnType<typeof scanDirectory>) {
+function formatFindings(
+  result: Pick<ReturnType<typeof scanDirectory>, "findings" | "totalFindings" | "scannedFiles" | "durationMs">,
+  scope = "files",
+  suppressed = 0,
+) {
+  const known = suppressed > 0 ? ` (${suppressed} known finding(s) hidden by the baseline)` : "";
   if (result.totalFindings === 0) {
-    return `✅ No secrets found. Scanned ${result.scannedFiles} files in ${result.durationMs}ms.`;
+    return `✅ No secrets found. Scanned ${result.scannedFiles} ${scope} in ${result.durationMs}ms.${known}`;
   }
 
   const bySeverity = { critical: 0, high: 0, medium: 0, low: 0 };
   for (const f of result.findings) bySeverity[f.severity]++;
 
   const lines: string[] = [
-    `⚠️  Found ${result.totalFindings} potential secret(s) in ${result.scannedFiles} files (${result.durationMs}ms)`,
+    `⚠️  Found ${result.totalFindings} potential secret(s) in ${result.scannedFiles} ${scope} (${result.durationMs}ms)${known}`,
     `   Critical: ${bySeverity.critical}  High: ${bySeverity.high}  Medium: ${bySeverity.medium}  Low: ${bySeverity.low}`,
     "",
   ];
@@ -23,6 +30,7 @@ function formatFindings(result: ReturnType<typeof scanDirectory>) {
     const loc = f.file ? `${f.file}:${f.line}:${f.column}` : `line ${f.line}:${f.column}`;
     lines.push(`[${f.severity.toUpperCase()}] ${f.patternName}`);
     lines.push(`  Location : ${loc}`);
+    if (f.commit) lines.push(`  Commit   : ${f.commit.slice(0, 12)} ${f.date ?? ""} ${f.author ?? ""}`.trimEnd());
     lines.push(`  Match    : ${f.match}`);
     lines.push(`  Context  : ${f.context}`);
     lines.push("");
@@ -122,10 +130,36 @@ export async function startServer() {
         .array(z.string())
         .optional()
         .describe("Skip files/dirs whose path contains one of these strings"),
+      baseline: z.string().optional().describe("Path to a baseline file: only findings not in it are reported"),
     },
-    async ({ path: dirPath, maxFiles, include, exclude }) => {
+    async ({ path: dirPath, maxFiles, include, exclude, baseline }) => {
       const result = scanDirectory(dirPath, { maxFiles, include, exclude });
-      return { content: [{ type: "text", text: formatFindings(result) }] };
+      const applied = baseline ? applyBaseline(result.findings, readBaseline(baseline)) : { findings: result.findings, suppressed: 0 };
+      const shown = { ...result, findings: applied.findings, totalFindings: applied.findings.length };
+      return { content: [{ type: "text", text: formatFindings(shown, "files", applied.suppressed) }] };
+    }
+  );
+
+  server.tool(
+    "scan_git",
+    "Scan a git repository for secrets in what git says was added: the staged changes (before a commit) or every commit's added lines (history). History finds secrets that were deleted from the files but are still in the repository.",
+    {
+      path: z.string().describe("A directory inside the git repository"),
+      mode: z.enum(["staged", "history"]).describe("staged: lines added in the index; history: lines added by each commit"),
+      range: z.string().optional().describe("History only: a revision range such as main..HEAD (default: all refs)"),
+      maxCommits: z.number().int().positive().optional().describe("History only: stop after this many commits"),
+      baseline: z.string().optional().describe("Path to a baseline file: only findings not in it are reported"),
+    },
+    async ({ path: repoPath, mode, range, maxCommits, baseline }) => {
+      const result = await scanGit({ cwd: repoPath, mode, ...(range ? { range } : {}), ...(maxCommits ? { maxCommits } : {}) });
+      const applied = baseline ? applyBaseline(result.findings, readBaseline(baseline)) : { findings: result.findings, suppressed: 0 };
+      const shown = {
+        findings: applied.findings,
+        totalFindings: applied.findings.length,
+        scannedFiles: mode === "history" ? result.scannedCommits : result.scannedHunks,
+        durationMs: result.durationMs,
+      };
+      return { content: [{ type: "text", text: formatFindings(shown, mode === "history" ? "commits" : "staged hunks", applied.suppressed) }] };
     }
   );
 

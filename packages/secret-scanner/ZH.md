@@ -16,10 +16,12 @@
 
 - **38 种密钥模式** —— AWS、GitHub、GitLab、Stripe、OpenAI、Anthropic、HuggingFace、Slack、Twilio、SendGrid 等。规则位于 [`@guardbee/guard-core`](../guard-core/ZH.md)，因此 `@guardbee/mcp-security-proxy` 会在运行时对工具结果中的相同格式进行脱敏
 - **文件和目录扫描** —— 单个文件或整个项目目录树
+- **Git 历史与暂存区扫描** —— `--history` 扫描每次提交新增的每一行，因此能找到已从文件中删除但仍留在仓库中的密钥，并在引入它的提交处（附作者和日期）只报告一次；`--staged` 只扫描你即将提交的内容
+- **基线（Baseline）** —— `--write-baseline` 以哈希形式记录当前发现（从不保存密钥本身，可安全提交）；之后 `--baseline` 只报告新发现，让现有仓库无需先全部修复即可在 CI 中启用扫描。SARIF 结果带有稳定的 `partialFingerprints` 值
 - **智能跳过** —— 自动跳过 `node_modules`、`.git`、`dist`、`build`、`.next` 等目录
 - **安全的部分隐藏** —— 匹配结果只显示前 4 个和后 4 个字符，中间用星号代替
 - **允许列表支持** —— 可把已知的测试/假值加入允许列表
-- **39 个单元测试** —— 测试全部通过
+- **49 个单元测试** —— 测试全部通过
 
 ---
 
@@ -51,6 +53,7 @@ npm install -g @guardbee/mcp-secret-scanner
 | `scan_text` | 扫描给定文本中的密钥 |
 | `scan_file` | 扫描单个文件 |
 | `scan_directory` | 递归扫描目录及其子目录 |
+| `scan_git` | 扫描 git 仓库的暂存区改动或每次提交新增的行（历史） |
 | `list_patterns` | 列出所有启用的密钥模式 |
 
 ### 使用示例
@@ -104,6 +107,16 @@ npx @guardbee/mcp-secret-scanner scan . --fail-on=high
 
 # JSON 输出（用于 CI 报告）
 npx @guardbee/mcp-secret-scanner scan . --format=json
+# Pre-commit：只扫描即将提交的行
+npx @guardbee/mcp-secret-scanner scan --staged
+
+# 所有分支的每次提交（能找到已从文件中删除的密钥）
+npx @guardbee/mcp-secret-scanner scan . --history
+npx @guardbee/mcp-secret-scanner scan . --history=main..HEAD   # 仅当前分支
+
+# 接入已有仓库：先记录已知发现，之后只对新发现报错
+npx @guardbee/mcp-secret-scanner scan . --history --write-baseline=.guardbee-secrets-baseline.json
+npx @guardbee/mcp-secret-scanner scan . --history --baseline=.guardbee-secrets-baseline.json
 ```
 
 **退出码：** `0` = 未发现密钥 · `1` = 发现密钥 · `2` = 出错
@@ -119,8 +132,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # --history 需要完整历史
       - name: Scan for exposed secrets
-        run: npx @guardbee/mcp-secret-scanner scan . --fail-on=high
+        run: npx @guardbee/mcp-secret-scanner scan . --history --baseline=.guardbee-secrets-baseline.json --fail-on=high
 ```
 
 ### GitLab CI
@@ -139,7 +154,7 @@ secret-scan:
 
 ```bash
 # .git/hooks/pre-commit
-npx @guardbee/mcp-secret-scanner scan . --fail-on=critical || exit 1
+npx @guardbee/mcp-secret-scanner scan --staged --fail-on=high || exit 1
 ```
 
 ---
@@ -148,7 +163,7 @@ npx @guardbee/mcp-secret-scanner scan . --fail-on=critical || exit 1
 
 ```bash
 npm install
-npm test          # 39 个单元测试
+npm test          # 49 个单元测试
 npm run build     # TypeScript 编译
 ```
 
