@@ -65,6 +65,16 @@ export type ProxyConfig = {
       enabled: boolean;
       action: "block" | "warn";
     };
+    /**
+     * Credentials in the arguments an `egress` tool is about to receive
+     * (provider keys, private keys, connection strings with a password).
+     * `allowTools` exempts tools by glob, e.g. a deploy tool that takes a DB URL.
+     */
+    egressSecrets?: {
+      enabled: boolean;
+      action: "block" | "warn";
+      allowTools?: string[];
+    };
     definitionDrift?: {
       enabled: boolean;
       action: "block" | "warn";
