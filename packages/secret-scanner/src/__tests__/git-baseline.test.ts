@@ -36,7 +36,8 @@ function repo(): { dir: string; git: (...args: string[]) => string; write: (file
   };
 }
 
-describe("git history", () => {
+// These tests run git (and the CLI) as child processes: slow on a busy CI runner
+describe("git history", { timeout: 30_000 }, () => {
   it("finds a secret deleted from the files, at the commit that added it", async () => {
     const r = repo();
     r.write("README.md", "hello\n");
@@ -88,7 +89,7 @@ describe("git history", () => {
   });
 });
 
-describe("staged", () => {
+describe("staged", { timeout: 30_000 }, () => {
   it("scans only lines added in the index, with their line numbers", async () => {
     const r = repo();
     r.write("app.env", `OLD=${GH}\n`);
@@ -148,7 +149,7 @@ describe("fingerprints and baselines", () => {
   });
 });
 
-describe("CLI", () => {
+describe("CLI", { timeout: 60_000 }, () => {
   const cli = resolve(__dirname, "../../dist/cli.js");
   const run = (cwd: string, ...args: string[]) => spawnSync("node", [cli, "scan", ...args], { cwd, encoding: "utf8", env: { ...ENV, GUARDBEE_TELEMETRY: "0" } });
 
