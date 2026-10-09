@@ -27,7 +27,12 @@ function severityToLevel(sev: string): "error" | "warning" | "note" {
   return "note";
 }
 
-export function buildSarif(toolVersion: string, findings: NormalizedFinding[]): object {
+/**
+ * `fallbackUri` anchors findings that have no file of their own (toxic-flow
+ * combinations, catalog/live results) — GitHub code scanning rejects results
+ * without a location.
+ */
+export function buildSarif(toolVersion: string, findings: NormalizedFinding[], fallbackUri?: string): object {
   const rulesMap = new Map<string, SarifRule>();
   const results: SarifResult[] = [];
 
@@ -52,11 +57,12 @@ export function buildSarif(toolVersion: string, findings: NormalizedFinding[]): 
       level: severityToLevel(f.severity),
       message: { text: `${f.patternName} [${f.owasp}] — ${f.recommendation}` },
     };
-    if (f.file) {
+    const uri = f.file ?? fallbackUri;
+    if (uri) {
       result.locations = [
         {
           physicalLocation: {
-            artifactLocation: { uri: f.file, uriBaseId: "%SRCROOT%" },
+            artifactLocation: { uri, uriBaseId: "%SRCROOT%" },
             region: { startLine: f.line ?? 1, startColumn: f.column ?? 1 },
           },
         },

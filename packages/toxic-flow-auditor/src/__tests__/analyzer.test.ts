@@ -101,4 +101,18 @@ describe("buildSarif", () => {
       expect(new Set(rule.properties.tags).size).toBe(rule.properties.tags.length);
     }
   });
+
+  it("konumsuz bulguyu taranan yola bağlar (GitHub location ister)", () => {
+    const result = auditCatalog([
+      { name: "fetch_page", description: "Scrape a URL" },
+      { name: "read_vault_secret", description: "Read API key from vault" },
+      { name: "send_slack_message", description: "Post to webhook" },
+    ]);
+    const sarif = buildSarif("0.0.0", result.findings, "src") as {
+      runs: Array<{ results: Array<{ locations?: Array<{ physicalLocation: { artifactLocation: { uri: string } } }> }> }>;
+    };
+    for (const r of sarif.runs[0]!.results) {
+      expect(r.locations?.[0]?.physicalLocation.artifactLocation.uri).toBe("src");
+    }
+  });
 });

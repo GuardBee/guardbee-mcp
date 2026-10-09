@@ -55,24 +55,25 @@ function shouldFail(findings: { severity: string }[], failOn: string): boolean {
 async function runAudit(path: string, format: string, failOn: string): Promise<void> {
   const tools = parseToolsJson(readFileSync(path, "utf8"));
   const result = auditCatalog(tools, path);
-  emit(result, format, failOn);
+  emit(result, format, failOn, path);
 }
 
 async function runScan(path: string, format: string, failOn: string): Promise<void> {
   const stat = statSync(path);
   const result = stat.isDirectory() ? scanDirectory(path) : scanSourceFile(path).result;
-  emit(result, format, failOn);
+  emit(result, format, failOn, path);
 }
 
 function emit(
   result: Awaited<ReturnType<typeof auditCatalog>>,
   format: string,
-  failOn: string
+  failOn: string,
+  artifactUri?: string
 ): void {
   if (format === "json") {
     console.log(JSON.stringify(result, null, 2));
   } else if (format === "sarif") {
-    console.log(JSON.stringify(buildSarif(getVersion(), result.findings), null, 2));
+    console.log(JSON.stringify(buildSarif(getVersion(), result.findings, artifactUri), null, 2));
   } else {
     console.log(`Grade ${result.grade} (${result.score}/100) — ${result.toolCount} tools, ${result.durationMs}ms`);
     console.log(`  untrusted : ${result.byCapability["untrusted-content"].join(", ") || "—"}`);

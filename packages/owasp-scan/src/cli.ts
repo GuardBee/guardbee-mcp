@@ -70,11 +70,11 @@ function shouldFail(findings: { severity: string }[], failOn: string): boolean {
   return findings.some((f) => (RANK[f.severity] ?? 3) <= threshold);
 }
 
-function emit(report: OwaspReport, format: string, failOn: string): void {
+function emit(report: OwaspReport, format: string, failOn: string, fallbackUri?: string): void {
   if (format === "json") {
     console.log(JSON.stringify(report, null, 2));
   } else if (format === "sarif") {
-    console.log(JSON.stringify(buildSarif(getVersion(), report.findings), null, 2));
+    console.log(JSON.stringify(buildSarif(getVersion(), report.findings, fallbackUri), null, 2));
   } else {
     console.log(`Grade ${report.grade} (${report.score}/100) — ${report.totalFindings} finding(s), ${report.durationMs}ms`);
     console.log(`  mode: ${report.mode}  label: ${report.label}`);
@@ -121,7 +121,7 @@ async function main(): Promise<void> {
       discoverShadow: opts.discoverShadow,
       allowlistPath: opts.allowlist,
     });
-    emit(report, opts.format, opts.failOn);
+    emit(report, opts.format, opts.failOn, path);
     return;
   }
 
@@ -131,7 +131,7 @@ async function main(): Promise<void> {
       console.error("Usage: guardbee-owasp-scan catalog <tools.json>");
       process.exit(2);
     }
-    emit(scanCatalogFile(path), opts.format, opts.failOn);
+    emit(scanCatalogFile(path), opts.format, opts.failOn, path);
     return;
   }
 
