@@ -9,6 +9,7 @@ import type { AuditConfig, McpServerConfig, ProxyConfig, UpstreamConfig } from "
 import type { Label } from "./labels.js";
 import type { PolicyAction, PolicyRule } from "./policy.js";
 import type { OidcConfig } from "../auth.js";
+import type { QuotaRule } from "./quota.js";
 import type { TaintBasis, TaintMode } from "./taint.js";
 import type { ApprovalChannel } from "./approval.js";
 
@@ -48,6 +49,8 @@ export interface GatewayConfig {
   /** Which tools the agent sees (globs on the name it sees) and descriptions you wrote. */
   tools: ToolExposure;
   rules: PolicyRule[];
+  /** Call caps over a window, counted across sessions (see gateway/quota.ts). */
+  quotas: QuotaRule[];
   taint: { mode: TaintMode; basis: TaintBasis };
   /**
    * How long an `approve` decision waits before it becomes a deny, and where
@@ -229,6 +232,7 @@ export function parseGatewayYaml(source: string, fileLabel = "guardbee-proxy.yam
     labels: cfg.labels,
     tools: cfg.tools,
     rules: cfg.rules,
+    quotas: cfg.quotas,
     taint: cfg.taint,
     approval: cfg.approval,
     defaults: cfg.defaults,
@@ -250,6 +254,7 @@ export function fromLegacyConfig(config: ProxyConfig): GatewayConfig {
     labels: {},
     tools: { hide: [], descriptions: {} },
     rules: [],
+    quotas: [],
     taint: { mode: "warn", basis: "capability" },
     approval: { timeoutSeconds: 120, channels: ["elicitation"] },
     defaults: { action: "allow" },

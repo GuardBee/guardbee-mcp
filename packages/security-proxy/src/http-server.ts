@@ -6,6 +6,7 @@ import type { AuditLogger } from "./audit/logger.js";
 import { createAuthenticator, type Authenticate, type Identity } from "./auth.js";
 import type { GatewayConfig, ListenConfig } from "./gateway/config.js";
 import type { Gateway } from "./gateway/gateway.js";
+import { QuotaStore } from "./gateway/quota.js";
 import type { Upstream } from "./gateway/upstream.js";
 import { createGatewayServer } from "./proxy.js";
 
@@ -69,6 +70,8 @@ export async function startHttpGateway(
   options: { authenticate?: Authenticate } = {},
 ): Promise<HttpGateway> {
   const sessions = new Map<string, Session>();
+  // One set of quota counters for every session of this process
+  const quotas = new QuotaStore();
   const authenticate = options.authenticate ?? createAuthenticator(listen.apiKeys, listen.oidc);
   const metadataPath = `/.well-known/oauth-protected-resource${listen.path}`;
 
@@ -94,6 +97,7 @@ export async function startHttpGateway(
     const sessionId = randomUUID();
     const { gateway, server } = createGatewayServer(upstreams, config, audit, {
       sessionId,
+      quotas,
       ...(identity.user ? { identity: { user: identity.user, groups: identity.groups } } : {}),
     });
     const transport = new StreamableHTTPServerTransport({

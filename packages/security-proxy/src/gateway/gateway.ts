@@ -30,6 +30,7 @@ import { maskFields } from "./fields.js";
 import { labelTool, type Label } from "./labels.js";
 import { DataFingerprints } from "./fingerprints.js";
 import { evaluatePolicy, globToRegExp } from "./policy.js";
+import { QuotaStore } from "./quota.js";
 import { TaintTracker } from "./taint.js";
 import { PiiVault } from "./tokens.js";
 import type { CallOptions, Upstream } from "./upstream.js";
@@ -81,7 +82,7 @@ function errorResult(text: string): CallToolResult {
  * tools/list scans each definition for poisoning before the agent sees it.
  * A tool call runs: exposure / poisoning → session anomaly checks → input injection scan →
  * definition drift → policy rules (incl. approval) → toxic-flow check →
- * detokenize → credentials leaving → upstream → result injection scan → PII masking / tokenizing →
+ * detokenize → credentials leaving → quotas → upstream → result injection scan → PII masking / tokenizing →
  * field masking → taint update. Sampling requests the server sends during the
  * call are answered through sample().
  */
@@ -107,6 +108,8 @@ export class Gateway {
   private readonly sessionId?: string;
   private readonly identity?: CallerIdentity;
   private readonly sampler?: Sampler;
+  /** Shared by every session of the process over HTTP; this session's own over stdio. */
+  private readonly quotas: QuotaStore;
 
   /**
    * One Gateway per agent session: taint, PII tokens and pins are per session.
@@ -117,8 +120,9 @@ export class Gateway {
     private readonly config: GatewayConfig,
     private readonly audit: AuditLogger,
     private readonly approver?: Approver,
-    options: { sessionId?: string; identity?: CallerIdentity; sampler?: Sampler; now?: () => number } = {},
+    options: { sessionId?: string; identity?: CallerIdentity; sampler?: Sampler; quotas?: QuotaStore; now?: () => number } = {},
   ) {
+    this.quotas = options.quotas ?? new QuotaStore(options.now);
     this.sessionId = options.sessionId;
     this.identity = options.identity;
     this.sampler = options.sampler;
@@ -494,6 +498,19 @@ export class Gateway {
         }
         this.log({ ...base, type: "warn", ruleId: "egress:credential", input, reason });
       }
+    }
+
+    // 5c. Quotas: only a call that is about to go out counts
+    if (this.config.quotas.length > 0) {
+      const over = this.quotas.take(this.config.quotas, {
+        tool: name,
+        upstream: upstream.name,
+        labels,
+        ...(this.sessionId ? { sessionId: this.sessionId } : {}),
+        ...(this.identity ? { user: this.identity.user, groups: this.identity.groups } : {}),
+      });
+      // A full quota is not probing: it does not count toward anomaly.repeatedBlocks
+      if (over) return block(over.reason, { ruleId: `quota:${over.ruleId}` }, false);
     }
 
     // 6. Forward
