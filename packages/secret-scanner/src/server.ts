@@ -52,9 +52,10 @@ export async function startServer() {
     {
       content: z.string().describe("The text content to scan"),
       label: z.string().optional().describe("Optional label shown in findings (e.g. filename)"),
+      entropy: z.boolean().optional().describe("Also flag random-looking values assigned to secret-like names (default true)"),
     },
-    async ({ content, label }) => {
-      const findings = scanText(content, label);
+    async ({ content, label, entropy }) => {
+      const findings = scanText(content, label, label, { entropy });
 
       if (findings.length === 0) {
         return {
@@ -88,9 +89,10 @@ export async function startServer() {
     "Scan a single file for exposed secrets and API keys",
     {
       path: z.string().describe("Absolute or relative path to the file to scan"),
+      entropy: z.boolean().optional().describe("Also flag random-looking values assigned to secret-like names (default true)"),
     },
-    async ({ path: filePath }) => {
-      const { findings, skipped } = scanFile(filePath);
+    async ({ path: filePath, entropy }) => {
+      const { findings, skipped } = scanFile(filePath, filePath, { entropy });
 
       if (skipped) {
         return {
@@ -131,9 +133,10 @@ export async function startServer() {
         .optional()
         .describe("Skip files/dirs whose path contains one of these strings"),
       baseline: z.string().optional().describe("Path to a baseline file: only findings not in it are reported"),
+      entropy: z.boolean().optional().describe("Also flag random-looking values assigned to secret-like names (default true)"),
     },
-    async ({ path: dirPath, maxFiles, include, exclude, baseline }) => {
-      const result = scanDirectory(dirPath, { maxFiles, include, exclude });
+    async ({ path: dirPath, maxFiles, include, exclude, baseline, entropy }) => {
+      const result = scanDirectory(dirPath, { maxFiles, include, exclude, entropy });
       const applied = baseline ? applyBaseline(result.findings, readBaseline(baseline)) : { findings: result.findings, suppressed: 0 };
       const shown = { ...result, findings: applied.findings, totalFindings: applied.findings.length };
       return { content: [{ type: "text", text: formatFindings(shown, "files", applied.suppressed) }] };
@@ -149,9 +152,10 @@ export async function startServer() {
       range: z.string().optional().describe("History only: a revision range such as main..HEAD (default: all refs)"),
       maxCommits: z.number().int().positive().optional().describe("History only: stop after this many commits"),
       baseline: z.string().optional().describe("Path to a baseline file: only findings not in it are reported"),
+      entropy: z.boolean().optional().describe("Also flag random-looking values assigned to secret-like names (default true)"),
     },
-    async ({ path: repoPath, mode, range, maxCommits, baseline }) => {
-      const result = await scanGit({ cwd: repoPath, mode, ...(range ? { range } : {}), ...(maxCommits ? { maxCommits } : {}) });
+    async ({ path: repoPath, mode, range, maxCommits, baseline, entropy }) => {
+      const result = await scanGit({ cwd: repoPath, mode, entropy, ...(range ? { range } : {}), ...(maxCommits ? { maxCommits } : {}) });
       const applied = baseline ? applyBaseline(result.findings, readBaseline(baseline)) : { findings: result.findings, suppressed: 0 };
       const shown = {
         findings: applied.findings,

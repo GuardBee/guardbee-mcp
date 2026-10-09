@@ -11,6 +11,8 @@ export interface GitScanOptions {
   /** Revision range for history, e.g. `main..HEAD` or `v1.0.0..`; default: all refs. */
   range?: string;
   maxCommits?: number;
+  /** Also run the high-entropy check (default true). */
+  entropy?: boolean;
 }
 
 export interface GitScanResult {
@@ -85,7 +87,7 @@ export async function scanGit(options: GitScanOptions): Promise<GitScanResult> {
   const flush = () => {
     if (file && block.length > 0 && !skipped(file)) {
       scannedHunks++;
-      for (const finding of scanText(block.join("\n"), file, file)) {
+      for (const finding of scanText(block.join("\n"), file, file, { entropy: options.entropy })) {
         const located: Finding = {
           ...finding,
           line: finding.line + blockStart - 1,

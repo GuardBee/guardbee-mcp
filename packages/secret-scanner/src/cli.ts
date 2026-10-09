@@ -64,16 +64,18 @@ interface CliArgs {
   maxCommits?: number;
   baseline?: string;
   writeBaseline?: string;
+  entropy: boolean;
 }
 
 function parseArgs(args: string[]): CliArgs {
-  const parsed: CliArgs = { positionals: [], failOn: "any", format: "text", maxFiles: 5000, staged: false };
+  const parsed: CliArgs = { positionals: [], failOn: "any", format: "text", maxFiles: 5000, staged: false, entropy: true };
   const value = (arg: string) => arg.slice(arg.indexOf("=") + 1);
   for (const arg of args) {
     if (arg.startsWith("--fail-on=")) parsed.failOn = value(arg) || "any";
     else if (arg.startsWith("--format=")) parsed.format = value(arg) || "text";
     else if (arg.startsWith("--max-files=")) parsed.maxFiles = parseInt(value(arg) || "5000", 10);
     else if (arg === "--staged") parsed.staged = true;
+    else if (arg === "--no-entropy") parsed.entropy = false;
     else if (arg === "--history") parsed.history = "";
     else if (arg.startsWith("--history=")) parsed.history = value(arg);
     else if (arg.startsWith("--max-commits=")) parsed.maxCommits = parseInt(value(arg), 10);
@@ -131,6 +133,7 @@ async function runCli(rawArgs: string[]): Promise<void> {
         mode: gitMode,
         ...(args.history ? { range: args.history } : {}),
         ...(args.maxCommits ? { maxCommits: args.maxCommits } : {}),
+        entropy: args.entropy,
       });
       findings = result.findings;
       scannedFiles = gitMode === "history" ? result.scannedCommits : result.scannedHunks;
@@ -141,13 +144,13 @@ async function runCli(rawArgs: string[]): Promise<void> {
       process.exit(2);
     }
   } else if (stat.isDirectory()) {
-    const result = scanDirectory(target, { maxFiles, exclude: cfg.exclude });
+    const result = scanDirectory(target, { maxFiles, exclude: cfg.exclude, entropy: args.entropy });
     findings = result.findings;
     scannedFiles = result.scannedFiles;
     durationMs = result.durationMs;
   } else {
     const start = Date.now();
-    const result = scanFile(target);
+    const result = scanFile(target, target, { entropy: args.entropy });
     findings = result.findings;
     scannedFiles = result.skipped ? 0 : 1;
     durationMs = Date.now() - start;
@@ -207,6 +210,7 @@ Options:
   --max-commits=<n>        Stop after n commits (history)
   --write-baseline=<file>  Record current findings (hashes, never secrets) and exit 0
   --baseline=<file>        Report only findings not in the baseline
+  --no-entropy             Skip the high-entropy check (random values assigned to secret-like names)
 
 Exit codes:
   0  No secrets found (or none above --fail-on threshold)

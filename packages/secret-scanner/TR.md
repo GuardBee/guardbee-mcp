@@ -18,10 +18,11 @@ Kaynak dosyalarınızı, dizinleri ve ortam konfigürasyonlarını açık API ke
 - **Dosya & Dizin Tarama** — Tek dosya veya tüm proje ağacı
 - **Git Geçmişi & Staged Tarama** — `--history`, herhangi bir commit'in eklediği her satırı tarar; dosyalardan silinmiş ama repoda hâlâ duran bir key bulunur ve onu ekleyen commit'te (yazar ve tarihle) bir kez raporlanır; `--staged` yalnızca commit'lemek üzere olduğunuz satırları tarar
 - **Baseline** — `--write-baseline` bugünkü bulguları hash olarak kaydeder (secret'ların kendisini asla; commit'lemek güvenlidir); `--baseline` sonra yalnızca yenilerini raporlar, böylece mevcut bir repo her şeyi önce düzeltmeden scanner'ı CI'a alabilir. SARIF sonuçları kalıcı bir `partialFingerprints` değeri taşır
+- **Yüksek Entropili Değerler** — secret'a benzeyen bir ada atanmış rastgele görünümlü bir değer (`.env`'de `WEBHOOK_SIGNING_SECRET=…`, YAML'da `client_secret:`, JSON'da `"internalApiKey"`) hiçbir sağlayıcı kuralı formatını bilmese de raporlanır. Rastgelelik Shannon entropisiyle ölçülür (hex değerler 32+ karakter ister; rakam içermeyen değerler daha yüksek eşiği geçmelidir, böylece camel-case bir parola sayılmaz); `public`/`publishable`, `*_hash`, `*_id` ve `*_url` adları, yer tutucular ve `${VAR}` referansları atlanır, bir sağlayıcı kuralının zaten raporladığı değer ikinci kez raporlanmaz. Önem medium, test dosyalarında low; `--no-entropy` (ya da MCP araçlarında `entropy: false`) kapatır
 - **Akıllı Atlama** — `node_modules`, `.git`, `dist`, `build`, `.next` gibi dizinler otomatik atlanır
 - **Güvenli Redaksyon** — Eşleşmeler ilk 4 + yıldız + son 4 karakter olarak gösterilir
 - **Allowlist Desteği** — Bilinen test/sahte değerleri beyaz listeye alın
-- **49 Unit Test** — %100 geçen test paketi
+- **58 Unit Test** — %100 geçen test paketi
 
 ---
 
@@ -163,7 +164,7 @@ npx @guardbee/mcp-secret-scanner scan --staged --fail-on=high || exit 1
 
 ```bash
 npm install
-npm test          # 49 unit test
+npm test          # 58 unit test
 npm run build     # TypeScript derleme
 ```
 
