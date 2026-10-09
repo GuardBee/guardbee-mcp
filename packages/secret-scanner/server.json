@@ -7,12 +7,12 @@
     "source": "github",
     "subfolder": "packages/secret-scanner"
   },
-  "version": "0.2.12",
+  "version": "0.2.13",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@guardbee/mcp-secret-scanner",
-      "version": "0.2.12",
+      "version": "0.2.13",
       "transport": {
         "type": "stdio"
       }

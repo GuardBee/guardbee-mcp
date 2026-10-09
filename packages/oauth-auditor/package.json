@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-oauth-auditor",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "mcpName": "io.github.GuardBee/oauth-auditor",
   "description": "MCP server that scans an MCP server's own authorization code for OAuth 2.1 anti-patterns named in the MCP spec's Security Considerations: token passthrough, missing audience validation, OAuth/OIDC discovery SSRF, missing PKCE, loose redirect_uri validation, and hardcoded client secrets",
   "type": "module",

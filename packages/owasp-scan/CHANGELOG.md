@@ -1,5 +1,18 @@
 # @guardbee/mcp-owasp-scan
 
+## 0.2.1
+
+### Patch Changes
+
+- [#42](https://github.com/GuardBee/guardbee-mcp/pull/42) [`033dbda`](https://github.com/GuardBee/guardbee-mcp/commit/033dbda55671b1589fcd2afb0344314fa420ff00) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - MCP Registry name moves to `io.github.GuardBee/<server>` (`mcpName`), so the Release workflow can publish it to the registry with GitHub OIDC on every release. Earlier versions stay listed under `io.github.4hmetuyar/<server>`.
+- Updated dependencies [[`033dbda`](https://github.com/GuardBee/guardbee-mcp/commit/033dbda55671b1589fcd2afb0344314fa420ff00)]:
+  - @guardbee/mcp-audit-gap-auditor@0.2.2
+  - @guardbee/mcp-context-oversharing-auditor@0.2.1
+  - @guardbee/mcp-server-auditor@0.1.8
+  - @guardbee/mcp-oauth-auditor@0.1.5
+  - @guardbee/mcp-secret-scanner@0.2.13
+  - @guardbee/mcp-toxic-flow-auditor@0.1.8
+
 ## 0.2.0
 
 ### Minor Changes
