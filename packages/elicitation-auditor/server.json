@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.4hmetuyar/elicitation-auditor",
+  "name": "io.github.GuardBee/elicitation-auditor",
   "description": "MCP elicitation anti-patterns: secrets in forms, third-party authorize URLs, credentials in URLs",
   "repository": {
     "url": "https://github.com/GuardBee/guardbee-mcp",

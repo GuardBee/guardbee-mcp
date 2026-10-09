@@ -1,18 +1,18 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.4hmetuyar/prompt-leak-scanner",
+  "name": "io.github.GuardBee/prompt-leak-scanner",
   "description": "Catches leaked credentials and PII in outbound LLM prompts",
   "repository": {
     "url": "https://github.com/GuardBee/guardbee-mcp",
     "source": "github",
     "subfolder": "packages/prompt-leak-scanner"
   },
-  "version": "0.1.7",
+  "version": "0.1.8",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@guardbee/mcp-prompt-leak-scanner",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "transport": {
         "type": "stdio"
       }

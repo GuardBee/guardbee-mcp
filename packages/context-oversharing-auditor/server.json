@@ -1,18 +1,18 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.4hmetuyar/context-oversharing-auditor",
+  "name": "io.github.GuardBee/context-oversharing-auditor",
   "description": "OWASP MCP10 context oversharing: session dumps, unscoped memory, shared context, prompt leaks",
   "repository": {
     "url": "https://github.com/GuardBee/guardbee-mcp",
     "source": "github",
     "subfolder": "packages/context-oversharing-auditor"
   },
-  "version": "0.1.0",
+  "version": "0.2.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@guardbee/mcp-context-oversharing-auditor",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "transport": {
         "type": "stdio"
       }

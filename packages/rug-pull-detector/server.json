@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.4hmetuyar/rug-pull-detector",
+  "name": "io.github.GuardBee/rug-pull-detector",
   "description": "Baselines an MCP server's tools and detects tool-definition changes after approval",
   "repository": {
     "url": "https://github.com/GuardBee/guardbee-mcp",

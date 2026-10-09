@@ -1,7 +1,7 @@
 {
   "name": "@guardbee/mcp-threat-rules",
   "version": "0.2.0",
-  "mcpName": "io.github.4hmetuyar/threat-rules",
+  "mcpName": "io.github.GuardBee/threat-rules",
   "description": "GuardBee MCP bridge to Agent Threat Rules (ATR) — evaluate agent/MCP events against the open Sigma-like detection standard for prompt injection, tool poisoning, context exfiltration, and MCP attacks",
   "type": "module",
   "bin": {

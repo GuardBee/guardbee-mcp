@@ -1,7 +1,7 @@
 {
   "name": "@guardbee/mcp-secret-scanner",
   "version": "0.2.12",
-  "mcpName": "io.github.4hmetuyar/secret-scanner",
+  "mcpName": "io.github.GuardBee/secret-scanner",
   "description": "MCP server that scans files and directories for exposed secrets, API keys, and credentials",
   "type": "module",
   "bin": {

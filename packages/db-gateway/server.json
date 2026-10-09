@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.4hmetuyar/db-gateway",
+  "name": "io.github.GuardBee/db-gateway",
   "description": "KVKK/GDPR-compliant LLM-to-database gateway: PII masking, RBAC, rate limiting, audit log",
   "repository": {
     "url": "https://github.com/GuardBee/guardbee-mcp",

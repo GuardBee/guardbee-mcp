@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.4hmetuyar/llm-redteam",
+  "name": "io.github.GuardBee/llm-redteam",
   "description": "Active jailbreak/extraction/obfuscation red-teaming for live LLM endpoints",
   "repository": {
     "url": "https://github.com/GuardBee/guardbee-mcp",

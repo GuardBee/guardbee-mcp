@@ -1,7 +1,7 @@
 {
   "name": "@guardbee/mcp-llm-redteam",
   "version": "0.1.1",
-  "mcpName": "io.github.4hmetuyar/llm-redteam",
+  "mcpName": "io.github.GuardBee/llm-redteam",
   "description": "MCP server that red-teams a live LLM endpoint or chatbot with canary-based jailbreak/extraction/obfuscation probes to test whether known bypass techniques defeat its guardrails",
   "type": "module",
   "bin": {

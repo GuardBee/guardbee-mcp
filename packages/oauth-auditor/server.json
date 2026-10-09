@@ -1,18 +1,18 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.4hmetuyar/oauth-auditor",
+  "name": "io.github.GuardBee/oauth-auditor",
   "description": "Scans MCP server auth code for OAuth 2.1 anti-patterns: token passthrough, missing audience",
   "repository": {
     "url": "https://github.com/GuardBee/guardbee-mcp",
     "source": "github",
     "subfolder": "packages/oauth-auditor"
   },
-  "version": "0.1.2",
+  "version": "0.1.4",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@guardbee/mcp-oauth-auditor",
-      "version": "0.1.2",
+      "version": "0.1.4",
       "transport": {
         "type": "stdio"
       }

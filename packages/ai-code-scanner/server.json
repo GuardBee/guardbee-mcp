@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.4hmetuyar/ai-code-scanner",
+  "name": "io.github.GuardBee/ai-code-scanner",
   "description": "Scans code for insecure LLM/AI integration: exposed keys, unsafe output, prompt injection",
   "repository": {
     "url": "https://github.com/GuardBee/guardbee-mcp",

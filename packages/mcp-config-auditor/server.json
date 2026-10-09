@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.4hmetuyar/mcp-config-auditor",
+  "name": "io.github.GuardBee/mcp-config-auditor",
   "description": "Scans Cursor/Claude/Windsurf/VS Code MCP configs for unpinned versions, secrets, typosquats",
   "repository": {
     "url": "https://github.com/GuardBee/guardbee-mcp",
