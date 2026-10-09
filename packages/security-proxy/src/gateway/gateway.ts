@@ -11,6 +11,7 @@ import { recordEvent } from "@guardbee/mcp-telemetry";
 import type { AuditLogger } from "../audit/logger.js";
 import { ToolDefinitionPin, type ToolRecord } from "../interceptors/definition-drift.js";
 import type { AuditEvent } from "../types.js";
+import { AnomalyDetector } from "./anomaly.js";
 import type { Approver } from "./approval.js";
 import type { GatewayConfig } from "./config.js";
 import { maskFields } from "./fields.js";
@@ -50,15 +51,18 @@ function errorResult(text: string): CallToolResult {
  * The policy pipeline between the agent and its MCP servers. Transport-free:
  * proxy.ts wires it to stdio, tests drive it directly.
  *
- * A tool call runs: input injection scan → definition drift → policy rules
- * (incl. approval) → toxic-flow check → detokenize → upstream → result
- * injection scan → PII masking / tokenizing → field masking → taint update.
+ * A tool call runs: session anomaly checks → input injection scan →
+ * definition drift → policy rules (incl. approval) → toxic-flow check →
+ * detokenize → upstream → result injection scan → PII masking / tokenizing →
+ * field masking → taint update.
  */
 export class Gateway {
   readonly taint = new TaintTracker();
   readonly vault = new PiiVault();
   /** Hashes of the sensitive data this session's tools returned, for the data-based taint check. */
   readonly fingerprints = new DataFingerprints();
+  /** Behaviour over this session's calls (bursts, sweeps, probing); null when interceptors.anomaly is off. */
+  private readonly anomaly: AnomalyDetector | null;
   private readonly pins = new Map<string, ToolDefinitionPin>();
   private readonly tools = new Map<string, ToolRoute>();
   private readonly resources = new Map<string, Upstream>();
@@ -78,9 +82,11 @@ export class Gateway {
     private readonly config: GatewayConfig,
     private readonly audit: AuditLogger,
     private readonly approver?: Approver,
-    options: { sessionId?: string } = {},
+    options: { sessionId?: string; now?: () => number } = {},
   ) {
     this.sessionId = options.sessionId;
+    const anomaly = config.interceptors.anomaly;
+    this.anomaly = anomaly?.enabled ? new AnomalyDetector(anomaly, options.now) : null;
     for (const upstream of upstreams) {
       const unsubscribe = upstream.onToolsChanged?.(() => {
         this.stale.add(upstream.name);
@@ -194,8 +200,21 @@ export class Gateway {
 
     const { upstream, labels } = route;
     const base = { tool: name, server: upstream.name, upstream: upstream.name, labels };
-    const block = (reason: string, extra: Partial<AuditEvent> = {}): CallToolResult => {
+    /** A refused call counts toward the repeated-blocks check. */
+    const countRefusal = (): void => {
+      const anomaly = this.anomaly?.observeBlocked(name);
+      if (!anomaly?.fresh) return;
+      const locked = this.anomaly!.locked;
+      this.log({
+        ...base,
+        type: locked ? "blocked" : "warn",
+        ruleId: `anomaly:${anomaly.kind}`,
+        reason: locked ?? anomaly.reason,
+      });
+    };
+    const block = (reason: string, extra: Partial<AuditEvent> = {}, counts = true): CallToolResult => {
       this.log({ ...base, type: "blocked", input: args, reason, ...extra });
+      if (counts) countRefusal();
       void recordEvent({
         server: "security-proxy",
         tool: name,
@@ -213,6 +232,8 @@ export class Gateway {
         : "unavailable";
       this.log({ ...base, type: "approval", input: args, reason: `${outcome}: ${reason}`, ...extra });
       if (outcome === "approved") return null;
+      // A client that cannot show the prompt is not probing the policy.
+      if (outcome !== "unavailable") countRefusal();
       if (outcome === "unavailable") {
         return errorResult(
           `Tool call blocked: it needs a person's approval, but this client cannot show an approval prompt (MCP elicitation). ${reason}`,
@@ -220,6 +241,16 @@ export class Gateway {
       }
       return errorResult(`Tool call not approved (${outcome}): ${reason}`);
     };
+
+    // 0. Session behaviour: a locked session, a burst, a sweep of sensitive reads
+    if (this.anomaly) {
+      if (this.anomaly.locked) return block(this.anomaly.locked, { ruleId: "anomaly:repeated_blocks" }, false);
+      for (const anomaly of this.anomaly.observeCall(name, labels, args)) {
+        const ruleId = `anomaly:${anomaly.kind}`;
+        if (this.anomaly.blocking) return block(anomaly.reason, { ruleId }, false);
+        if (anomaly.fresh) this.log({ ...base, type: "warn", ruleId, input: args, reason: anomaly.reason });
+      }
+    }
 
     // 1. Prompt injection in the arguments
     if (this.interceptors.promptInjection?.enabled !== false) {
@@ -273,6 +304,7 @@ export class Gateway {
       const reason = carried ? this.taint.describeData(name, carried) : this.taint.describe(name);
       if (taintMode === "strict") {
         this.log({ ...base, type: "toxic_flow", input: args, reason: `${reason} — blocked (taint.mode=strict)` });
+        countRefusal();
         return errorResult(
           `Tool call blocked: ${reason}. Start a new session to use this tool, or relabel it in the proxy config.`,
         );
@@ -306,6 +338,7 @@ export class Gateway {
       const scan = scanToolResult([content, result.structuredContent ?? null], this.resultAction);
       if (scan.action === "block") {
         this.log({ ...base, type: "blocked", output: content, reason: scan.reason });
+        countRefusal();
         void recordEvent({
           server: "security-proxy",
           tool: name,
