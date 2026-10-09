@@ -7,12 +7,12 @@
     "source": "github",
     "subfolder": "packages/toxic-flow-auditor"
   },
-  "version": "0.1.11",
+  "version": "0.1.12",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@guardbee/mcp-toxic-flow-auditor",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "transport": {
         "type": "stdio"
       }

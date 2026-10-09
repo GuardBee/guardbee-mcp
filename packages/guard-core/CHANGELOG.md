@@ -1,5 +1,11 @@
 # @guardbee/guard-core
 
+## 0.9.0
+
+### Minor Changes
+
+- [#52](https://github.com/GuardBee/guardbee-mcp/pull/52) [`659b893`](https://github.com/GuardBee/guardbee-mcp/commit/659b893a82c92f6c579ea50de50b942448c23bea) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Users over HTTP (`listen.oidc`): the proxy accepts JWTs from an OpenID Connect provider next to or instead of API keys, checking signature (JWKS via discovery), issuer, audience and lifetime. Rules can match `user` (glob) and `group`; audit events carry `user`; a session belongs to the user who opened it. A `401` points MCP clients at `/.well-known/oauth-protected-resource` (RFC 9728). guard-core's rule schema gains `match.user` and `match.group`.
+
 ## 0.8.0
 
 ### Minor Changes
