@@ -63,7 +63,7 @@ function errorResult(text: string): CallToolResult {
  * tools/list scans each definition for poisoning before the agent sees it.
  * A tool call runs: exposure / poisoning → session anomaly checks → input injection scan →
  * definition drift → policy rules (incl. approval) → toxic-flow check →
- * detokenize → upstream → result injection scan → PII masking / tokenizing →
+ * detokenize → credentials leaving → upstream → result injection scan → PII masking / tokenizing →
  * field masking → taint update.
  */
 export class Gateway {
@@ -178,6 +178,16 @@ export class Gateway {
 
   private get poisoningAction(): "block" | "warn" {
     return this.interceptors.toolPoisoning?.action ?? this.interceptors.promptInjection?.action ?? "block";
+  }
+
+  /** Credential pattern names in a value (personal data is left to PII masking). */
+  private credentialsIn(value: unknown): string[] {
+    const names = new Set<string>();
+    maskPiiInValue(value, (name) => {
+      if (!PERSONAL_DATA.has(name)) names.add(name);
+      return "";
+    });
+    return [...names];
   }
 
   private get driftEnabled(): boolean {
@@ -406,6 +416,22 @@ export class Gateway {
         this.log({ ...base, type: "warn", reason: "PII tokens passed on as-is: the tool can send data out (piiMasking.detokenizeForEgress is off)" });
       } else {
         forwardArgs = this.vault.detokenize(args);
+      }
+    }
+
+    // 5b. A credential on its way out: what the server would actually receive
+    const egressSecrets = this.interceptors.egressSecrets;
+    if (labels.includes("egress") && egressSecrets?.enabled !== false) {
+      const found = this.credentialsIn(forwardArgs);
+      const exempt = (egressSecrets?.allowTools ?? []).some((glob) => globToRegExp(glob).test(name));
+      if (found.length > 0 && !exempt) {
+        const reason = `credential in the arguments of "${name}", which can send data out (${found.join(", ")})`;
+        // Never write the credential itself into the audit log
+        const input = maskPiiInValue(args, (pattern) => PLACEHOLDER.get(pattern) ?? "[REDACTED]");
+        if ((egressSecrets?.action ?? this.interceptors.promptInjection?.action ?? "block") === "block") {
+          return block(reason, { ruleId: "egress:credential", input });
+        }
+        this.log({ ...base, type: "warn", ruleId: "egress:credential", input, reason });
       }
     }
 
