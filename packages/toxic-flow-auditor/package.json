@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-toxic-flow-auditor",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "mcpName": "io.github.4hmetuyar/toxic-flow-auditor",
   "description": "MCP server that detects toxic flows (lethal trifecta) across an MCP tool catalog — untrusted content + private/sensitive data + exfiltration or destruction on the same server",
   "type": "module",
