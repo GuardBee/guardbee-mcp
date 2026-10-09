@@ -1,5 +1,11 @@
 # @guardbee/guard-core
 
+## 0.11.0
+
+### Minor Changes
+
+- [#59](https://github.com/GuardBee/guardbee-mcp/pull/59) [`64aeffa`](https://github.com/GuardBee/guardbee-mcp/commit/64aeffa43ce641738a9858818aa59d88154bf25a) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Quotas (`quotas`): caps on tool calls over a fixed window, counted across sessions per user (OIDC; the session without one), per session or for the whole gateway, matched on tool, upstream, label, user and group. Only calls about to reach the upstream count, a call counts against all matching quotas or none, and a full quota refuses with the time to retry. guard-core's policy schema gains `quotas`.
+
 ## 0.10.0
 
 ### Minor Changes

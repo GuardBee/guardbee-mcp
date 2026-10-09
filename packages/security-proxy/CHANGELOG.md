@@ -1,5 +1,18 @@
 # @guardbee/mcp-security-proxy
 
+## 1.13.0
+
+### Minor Changes
+
+- [#57](https://github.com/GuardBee/guardbee-mcp/pull/57) [`16551ca`](https://github.com/GuardBee/guardbee-mcp/commit/16551ca31c9c591792c4a84713cee2622c79ca62) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - OpenTelemetry: each tool call is a `tools/call <tool>` span with MCP semantic-convention attributes, the upstream call is a child span, and every audit event of the call (blocks, toxic flows, approvals, sampling) is a span event. The proxy depends only on `@opentelemetry/api`; with the SDK installed (optional peers, included in the Docker image) and `OTEL_EXPORTER_OTLP_ENDPOINT` set, spans go out over OTLP/HTTP. An SDK the process registered first is left in place.
+
+- [#59](https://github.com/GuardBee/guardbee-mcp/pull/59) [`64aeffa`](https://github.com/GuardBee/guardbee-mcp/commit/64aeffa43ce641738a9858818aa59d88154bf25a) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Quotas (`quotas`): caps on tool calls over a fixed window, counted across sessions per user (OIDC; the session without one), per session or for the whole gateway, matched on tool, upstream, label, user and group. Only calls about to reach the upstream count, a call counts against all matching quotas or none, and a full quota refuses with the time to retry. guard-core's policy schema gains `quotas`.
+
+### Patch Changes
+
+- Updated dependencies [[`64aeffa`](https://github.com/GuardBee/guardbee-mcp/commit/64aeffa43ce641738a9858818aa59d88154bf25a)]:
+  - @guardbee/guard-core@0.11.0
+
 ## 1.12.0
 
 ### Minor Changes
