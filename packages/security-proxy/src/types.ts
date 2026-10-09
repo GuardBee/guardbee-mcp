@@ -75,6 +75,23 @@ export type ProxyConfig = {
       action: "block" | "warn";
       allowTools?: string[];
     };
+    /**
+     * Let servers ask the agent's model for a completion (sampling), with
+     * guards: only during one of the server's tool calls, no context from the
+     * conversation, a token and per-call cap, an injection scan on what the
+     * server sends, and the model's answer checked like an egress call.
+     * Off (default): servers are not offered sampling at all.
+     */
+    sampling?: {
+      enabled: boolean;
+      action: "block" | "warn";
+      /** Cap on the completion length the server may ask for (default 1024). */
+      maxTokens?: number;
+      /** Sampling requests allowed during one tool call (default 3). */
+      maxPerCall?: number;
+      /** Ask the person before each request (MCP elicitation / dashboard). */
+      approval?: boolean;
+    };
     definitionDrift?: {
       enabled: boolean;
       action: "block" | "warn";

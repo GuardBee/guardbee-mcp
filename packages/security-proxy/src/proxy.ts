@@ -12,7 +12,7 @@ import type { ProxyConfig } from "./types.js";
 import { AuditLogger } from "./audit/logger.js";
 import { chainApprovers, dashboardApprover, elicitationApprover, type Approver } from "./gateway/approval.js";
 import { fromLegacyConfig, type GatewayConfig } from "./gateway/config.js";
-import { Gateway, type CallerIdentity } from "./gateway/gateway.js";
+import { Gateway, type CallerIdentity, type Sampler } from "./gateway/gateway.js";
 import { connectUpstream, type Upstream } from "./gateway/upstream.js";
 import { PolicySync } from "./gateway/policy-sync.js";
 
@@ -69,7 +69,12 @@ export function createGatewayServer(
       )
     )(request);
   };
-  const gateway = new Gateway(upstreams, config, audit, approver, options);
+  // Servers' sampling requests go to this session's client, when it offers sampling
+  const sampler: Sampler = {
+    available: () => Boolean(server?.getClientCapabilities()?.sampling),
+    create: (params) => server!.createMessage(params),
+  };
+  const gateway = new Gateway(upstreams, config, audit, approver, { ...options, sampler });
   server = createProxyServer(gateway);
   return { gateway, server };
 }
@@ -82,7 +87,7 @@ export async function startGateway(config: GatewayConfig): Promise<void> {
   }
   const upstreams: Upstream[] = [];
   for (const [name, server] of Object.entries(config.upstreams)) {
-    upstreams.push(await connectUpstream(name, server));
+    upstreams.push(await connectUpstream(name, server, { sampling: config.interceptors.sampling?.enabled === true }));
   }
 
   if (config.listen.transport === "http") {
