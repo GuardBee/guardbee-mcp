@@ -14,6 +14,10 @@ export interface PolicyRule {
     session?: "clean" | "tainted";
     /** Dotted path into the call arguments → expected value; strings are globs. */
     args?: Record<string, ArgMatcher>;
+    /** Glob on the caller's user (OIDC over HTTP); never matches a call without one. */
+    user?: string;
+    /** One of the caller's groups (OIDC `groups` claim). */
+    group?: string;
   };
   action: PolicyAction;
   /** For `mask`: also blank these JSON keys in the result (case-insensitive). */
@@ -26,6 +30,8 @@ export interface PolicyContext {
   labels: readonly Label[];
   tainted: boolean;
   args?: Record<string, unknown>;
+  user?: string;
+  groups?: readonly string[];
 }
 
 export interface PolicyDecision {
@@ -60,11 +66,13 @@ function argMatches(actual: unknown, expected: ArgMatcher): boolean {
 }
 
 function matches(rule: PolicyRule, ctx: PolicyContext): boolean {
-  const { tool, upstream, label, session, args } = rule.match;
+  const { tool, upstream, label, session, args, user, group } = rule.match;
   if (tool !== undefined && !globToRegExp(tool).test(ctx.tool)) return false;
   if (upstream !== undefined && upstream !== ctx.upstream) return false;
   if (label !== undefined && !ctx.labels.includes(label)) return false;
   if (session !== undefined && (session === "tainted") !== ctx.tainted) return false;
+  if (user !== undefined && (ctx.user === undefined || !globToRegExp(user).test(ctx.user))) return false;
+  if (group !== undefined && !(ctx.groups ?? []).includes(group)) return false;
   if (args !== undefined) {
     for (const [dotted, expected] of Object.entries(args)) {
       if (!argMatches(valueAt(ctx.args, dotted), expected)) return false;

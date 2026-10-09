@@ -107,6 +107,8 @@ export type AuditEvent = {
   type: "tool_call" | "tool_response" | "blocked" | "warn" | "toxic_flow" | "resource_read" | "approval";
   /** MCP session (HTTP mode); absent over stdio, where the process is the session. */
   sessionId?: string;
+  /** The caller's user from an OIDC token (HTTP mode); absent for API keys and stdio. */
+  user?: string;
   tool?: string;
   server?: string;
   upstream?: string;

@@ -8,6 +8,7 @@ import os from "os";
 import type { AuditConfig, McpServerConfig, ProxyConfig, UpstreamConfig } from "../types.js";
 import type { Label } from "./labels.js";
 import type { PolicyAction, PolicyRule } from "./policy.js";
+import type { OidcConfig } from "../auth.js";
 import type { TaintBasis, TaintMode } from "./taint.js";
 import type { ApprovalChannel } from "./approval.js";
 
@@ -19,8 +20,10 @@ export type ListenConfig =
       host: string;
       port: number;
       path: string;
-      /** Accepted Bearer keys; required unless the host is loopback. */
+      /** Accepted Bearer keys; beyond loopback, keys or `oidc` are required. */
       apiKeys: string[];
+      /** Accept JWTs from this OpenID Connect issuer; the user and groups feed rules and audit. */
+      oidc?: OidcConfig;
       maxSessions: number;
     };
 
@@ -87,15 +90,26 @@ const listenSchema = z
     port: z.number().int().min(1).max(65535).default(8787),
     path: z.string().startsWith("/").default("/mcp"),
     apiKeys: z.array(z.string()).default([]),
+    oidc: z
+      .object({
+        issuer: z.string().regex(/^https?:\/\//, "issuer must start with http:// or https://"),
+        audience: z.union([z.string().min(1), z.array(z.string().min(1)).min(1)]).transform((value) => (Array.isArray(value) ? value : [value])),
+        jwksUri: z.string().regex(/^https?:\/\//, "jwksUri must start with http:// or https://").optional(),
+        userClaim: z.string().min(1).default("sub"),
+        groupsClaim: z.string().min(1).default("groups"),
+        resource: z.string().regex(/^https?:\/\//, "resource must start with http:// or https://").optional(),
+      })
+      .strict()
+      .optional(),
     maxSessions: z.number().int().positive().default(100),
   })
   .strict()
   .superRefine((value, ctx) => {
-    if (value.transport === "http" && !LOOPBACK.has(value.host) && value.apiKeys.length === 0) {
+    if (value.transport === "http" && !LOOPBACK.has(value.host) && value.apiKeys.length === 0 && !value.oidc) {
       ctx.addIssue({
         code: "custom",
         path: ["apiKeys"],
-        message: `listening on ${value.host} needs at least one API key; without one anyone on the network can drive your MCP servers`,
+        message: `listening on ${value.host} needs at least one API key or listen.oidc; without one anyone on the network can drive your MCP servers`,
       });
     }
   });

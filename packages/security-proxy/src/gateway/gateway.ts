@@ -31,6 +31,12 @@ import type { Upstream } from "./upstream.js";
 
 const SEPARATOR = "__";
 
+/** The person behind an HTTP session, from their OIDC token. */
+export interface CallerIdentity {
+  user: string;
+  groups: string[];
+}
+
 /** Pattern names that are personal data; every other PII pattern is a credential and counts as "secret". */
 const PERSONAL_DATA = new Set(["tc_kimlik", "vkn", "iban", "credit_card", "email", "phone_tr"]);
 const PLACEHOLDER = new Map(PII_PATTERNS.map((p) => [p.name, p.replacement]));
@@ -86,6 +92,7 @@ export class Gateway {
   private readonly toolListeners: (() => void)[] = [];
   private readonly unsubscribers: (() => void)[] = [];
   private readonly sessionId?: string;
+  private readonly identity?: CallerIdentity;
 
   /**
    * One Gateway per agent session: taint, PII tokens and pins are per session.
@@ -96,9 +103,10 @@ export class Gateway {
     private readonly config: GatewayConfig,
     private readonly audit: AuditLogger,
     private readonly approver?: Approver,
-    options: { sessionId?: string; now?: () => number } = {},
+    options: { sessionId?: string; identity?: CallerIdentity; now?: () => number } = {},
   ) {
     this.sessionId = options.sessionId;
+    this.identity = options.identity;
     this.now = options.now;
     for (const upstream of upstreams) {
       const unsubscribe = upstream.onToolsChanged?.(() => {
@@ -150,6 +158,7 @@ export class Gateway {
     this.audit.log({
       ts: new Date().toISOString(),
       ...(this.sessionId ? { sessionId: this.sessionId } : {}),
+      ...(this.identity ? { user: this.identity.user } : {}),
       ...event,
       taint: this.taint.snapshot(),
     });
@@ -372,6 +381,7 @@ export class Gateway {
       labels,
       tainted: this.taint.tainted,
       args,
+      ...(this.identity ? { user: this.identity.user, groups: this.identity.groups } : {}),
     });
     const rule = decision.ruleId ?? "defaults.action";
     if (decision.action === "deny") return block(`denied by policy rule ${rule}`, { ruleId: decision.ruleId });

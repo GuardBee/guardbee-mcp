@@ -29,6 +29,8 @@ export const policyRuleSchema = z
         label: labelSchema.optional(),
         session: z.enum(["clean", "tainted"]).optional(),
         args: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+        user: z.string().min(1).optional(),
+        group: z.string().min(1).optional(),
       })
       .strict(),
     action: actionSchema,
