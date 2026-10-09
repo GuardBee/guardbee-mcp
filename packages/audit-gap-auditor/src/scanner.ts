@@ -37,6 +37,9 @@ const SKIP_DIRS = new Set([
   "__pycache__", ".mypy_cache", ".pytest_cache", "venv", ".venv",
   "coverage", ".nyc_output",
 ]);
+// Docs routinely tell users how to opt out (`GUARDBEE_TELEMETRY=0`); that is
+// not a hard-coded disable in source.
+const DOC_EXTENSIONS = new Set([".md", ".mdx", ".markdown", ".rst", ".txt", ".adoc"]);
 const MAX_FILE_SIZE = 1 * 1024 * 1024;
 const MAX_CONTEXT_LENGTH = 240;
 
@@ -173,7 +176,10 @@ export function scanText(text: string, filePath?: string): Finding[] {
   }
 
   // Disabled-audit is useful even outside a tool file (config modules).
-  runGlobal(AUDIT_DISABLED_RE, "audit_disabled_in_code", text, filePath, findings);
+  const isDoc = filePath !== undefined && DOC_EXTENSIONS.has(extname(filePath).toLowerCase());
+  if (!isDoc) {
+    runGlobal(AUDIT_DISABLED_RE, "audit_disabled_in_code", text, filePath, findings);
+  }
 
   return findings;
 }
