@@ -1,8 +1,9 @@
 import http from "http";
-import { createHash, randomUUID, timingSafeEqual } from "crypto";
+import { randomUUID } from "crypto";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import type { AuditLogger } from "./audit/logger.js";
+import { createAuthenticator, type Authenticate, type Identity } from "./auth.js";
 import type { GatewayConfig, ListenConfig } from "./gateway/config.js";
 import type { Gateway } from "./gateway/gateway.js";
 import type { Upstream } from "./gateway/upstream.js";
@@ -22,9 +23,9 @@ export interface HttpGateway {
 interface Session {
   transport: StreamableHTTPServerTransport;
   gateway: Gateway;
+  /** Who opened it; with OIDC only that user may continue it. */
+  user?: string;
 }
-
-const digest = (value: string) => createHash("sha256").update(value).digest();
 
 function jsonRpcError(res: http.ServerResponse, status: number, message: string, headers: Record<string, string> = {}): void {
   res.writeHead(status, { "content-type": "application/json", ...headers });
@@ -65,30 +66,40 @@ export async function startHttpGateway(
   config: GatewayConfig,
   audit: AuditLogger,
   listen: HttpListen,
+  options: { authenticate?: Authenticate } = {},
 ): Promise<HttpGateway> {
   const sessions = new Map<string, Session>();
-  const keyDigests = listen.apiKeys.map(digest);
+  const authenticate = options.authenticate ?? createAuthenticator(listen.apiKeys, listen.oidc);
+  const metadataPath = `/.well-known/oauth-protected-resource${listen.path}`;
 
-  const authorized = (req: http.IncomingMessage): boolean => {
-    if (keyDigests.length === 0) return true;
-    const match = /^Bearer\s+(.+)$/i.exec(req.headers.authorization ?? "");
-    if (!match?.[1]) return false;
-    const presented = digest(match[1].trim());
-    // Compare fixed-length digests in constant time; check every key so timing does not reveal which one matched.
-    return keyDigests.reduce((ok, key) => timingSafeEqual(key, presented) || ok, false);
+  /** This gateway's public URL: configured, or from the request (behind a proxy, set oidc.resource). */
+  const resourceUrl = (req: http.IncomingMessage): string => {
+    if (listen.oidc?.resource) return listen.oidc.resource;
+    const proto = String(req.headers["x-forwarded-proto"] ?? "http").split(",")[0]!.trim();
+    return `${proto}://${req.headers.host ?? `${listen.host}:${listen.port}`}${listen.path}`;
   };
 
-  const openSession = async (req: http.IncomingMessage, res: http.ServerResponse, body: unknown): Promise<void> => {
+  /** RFC 9728: an MCP client finds the authorization server from the 401. */
+  const challenge = (req: http.IncomingMessage): Record<string, string> => {
+    if (!listen.oidc) return { "www-authenticate": "Bearer" };
+    const origin = new URL(resourceUrl(req)).origin;
+    return { "www-authenticate": `Bearer resource_metadata="${origin}${metadataPath}"` };
+  };
+
+  const openSession = async (req: http.IncomingMessage, res: http.ServerResponse, body: unknown, identity: Identity): Promise<void> => {
     if (sessions.size >= listen.maxSessions) {
       jsonRpcError(res, 503, `Too many sessions (listen.maxSessions=${listen.maxSessions})`);
       return;
     }
     const sessionId = randomUUID();
-    const { gateway, server } = createGatewayServer(upstreams, config, audit, { sessionId });
+    const { gateway, server } = createGatewayServer(upstreams, config, audit, {
+      sessionId,
+      ...(identity.user ? { identity: { user: identity.user, groups: identity.groups } } : {}),
+    });
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => sessionId,
       onsessioninitialized: (id) => {
-        sessions.set(id, { transport, gateway });
+        sessions.set(id, { transport, gateway, ...(identity.user ? { user: identity.user } : {}) });
       },
     });
     transport.onclose = () => {
@@ -106,12 +117,24 @@ export async function startHttpGateway(
       res.end(JSON.stringify({ ok: true, sessions: sessions.size }));
       return;
     }
+    if (listen.oidc && req.method === "GET" && (path === metadataPath || path === "/.well-known/oauth-protected-resource")) {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          resource: resourceUrl(req),
+          authorization_servers: [listen.oidc.issuer],
+          bearer_methods_supported: ["header"],
+        }),
+      );
+      return;
+    }
     if (path !== listen.path) {
       jsonRpcError(res, 404, "Not found");
       return;
     }
-    if (!authorized(req)) {
-      jsonRpcError(res, 401, "Missing or invalid Bearer API key", { "www-authenticate": "Bearer" });
+    const identity = await authenticate(req.headers.authorization);
+    if (!identity) {
+      jsonRpcError(res, 401, listen.oidc ? "Missing or invalid Bearer token" : "Missing or invalid Bearer API key", challenge(req));
       return;
     }
 
@@ -133,11 +156,16 @@ export async function startHttpGateway(
         jsonRpcError(res, 404, "Session not found");
         return;
       }
+      // A session id is not a credential: another user's token does not continue it.
+      if (session.user !== undefined && session.user !== identity.user) {
+        jsonRpcError(res, 403, "This session belongs to another user");
+        return;
+      }
       await session.transport.handleRequest(req, res, body);
       return;
     }
     if (req.method === "POST" && isInitializeRequest(body)) {
-      await openSession(req, res, body);
+      await openSession(req, res, body, identity);
       return;
     }
     jsonRpcError(res, 400, "Bad request: no valid session; start with an initialize request");

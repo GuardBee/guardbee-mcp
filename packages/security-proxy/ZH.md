@@ -164,6 +164,9 @@ listen:
   port: 8787
   path: /mcp
   apiKeys: ["${GUARDBEE_PROXY_KEY}"]   # 智能体发送 Authorization: Bearer <key>
+  oidc:                       # 和/或：用户通过你的身份提供商登录
+    issuer: https://login.acme.com
+    audience: guardbee-gateway
   maxSessions: 100
 upstreams:
   github:
@@ -181,7 +184,8 @@ audit:
 ```
 
 - **会话相互隔离。** 每个 MCP 会话都有自己的污点状态、PII 令牌和工具固定；一个智能体的有毒数据流绝不会拦截另一个智能体。所有会话共享上游连接。审计事件带有 `sessionId`。
-- **没有密钥就不能监听网络。** 未配置 `listen.apiKeys` 就在回环地址以外监听属于配置错误。密钥以恒定时间比较；错误或缺失的密钥返回 `401`。
+- **没有密钥就不能监听网络。** 未配置 `listen.apiKeys` 或 `listen.oidc` 就在回环地址以外监听属于配置错误。密钥以恒定时间比较；错误或缺失的密钥返回 `401`。
+- **用户（`listen.oidc`）：** 代理除 API 密钥外（或代替它）接受你的 OpenID Connect 提供商（Okta、Entra ID、Auth0、Keycloak、Google 等）签发的 JWT。它会根据颁发者的 JWKS（通过发现文档或 `jwksUri` 获取）验证签名，并校验颁发者、`audience`（必填：为其他服务签发的令牌会被拒绝）和有效期。用户来自 `userClaim`（默认 `sub`；常用 `email`），组来自 `groupsClaim`（默认 `groups`，列表或以空格分隔的字符串）。规则可以匹配 `user`（glob，例如 `"*@contractor.com"`）和 `group`，每个审计事件都带有 `user`。会话属于打开它的用户：其他用户的令牌访问该会话会得到 `403`。`401` 响应带有 `WWW-Authenticate: Bearer resource_metadata=…`，`/.well-known/oauth-protected-resource`（RFC 9728）会给出颁发者，因此实现了授权规范的 MCP 客户端能找到登录位置；在反向代理之后请将 `oidc.resource` 设为公网 URL。
 - `GET /healthz` 返回 `{"ok": true, "sessions": N}`。超过 `maxSessions` 的会话返回 `503`。
 - **仪表盘：** `audit.dashboard` 会用从 `apiKeyEnv` 读取的工作区 API 密钥，把每个审计事件批量发送到 GuardBee 仪表盘；密钥不写在文件中。仪表盘不可达时，事件会在内存中等待（最多 10,000 条）并稍后发送。被拒绝的密钥只会在 stderr 报告一次。工具调用从不等待仪表盘。
 - `init` 现在也会把 Streamable HTTP 服务器（`url` + `headers`）移到代理之后。旧的 SSE 服务器保留在客户端配置中并会被报告。

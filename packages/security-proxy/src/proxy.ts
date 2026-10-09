@@ -12,7 +12,7 @@ import type { ProxyConfig } from "./types.js";
 import { AuditLogger } from "./audit/logger.js";
 import { chainApprovers, dashboardApprover, elicitationApprover, type Approver } from "./gateway/approval.js";
 import { fromLegacyConfig, type GatewayConfig } from "./gateway/config.js";
-import { Gateway } from "./gateway/gateway.js";
+import { Gateway, type CallerIdentity } from "./gateway/gateway.js";
 import { connectUpstream, type Upstream } from "./gateway/upstream.js";
 import { PolicySync } from "./gateway/policy-sync.js";
 
@@ -55,7 +55,7 @@ export function createGatewayServer(
   upstreams: Upstream[],
   config: GatewayConfig,
   audit: AuditLogger,
-  options: { sessionId?: string } = {}
+  options: { sessionId?: string; identity?: CallerIdentity } = {}
 ): { gateway: Gateway; server: Server } {
   let server: Server | undefined;
   // Read approval settings on every request: a dashboard policy update can change them mid-session.

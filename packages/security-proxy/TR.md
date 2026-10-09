@@ -164,6 +164,9 @@ listen:
   port: 8787
   path: /mcp
   apiKeys: ["${GUARDBEE_PROXY_KEY}"]   # ajanlar Authorization: Bearer <key> gönderir
+  oidc:                       # ve/veya: kullanıcılar kimlik sağlayıcınızla girer
+    issuer: https://login.acme.com
+    audience: guardbee-gateway
   maxSessions: 100
 upstreams:
   github:
@@ -181,7 +184,8 @@ audit:
 ```
 
 - **Oturumlar birbirinden ayrık.** Her MCP oturumunun kendi taint durumu, PII token'ları ve tool pin'leri vardır; bir ajanın toxic flow'u başka bir ajanı asla engellemez. Tüm oturumlar upstream bağlantılarını paylaşır. Audit olayları `sessionId` taşır.
-- **Key yoksa ağ da yok.** `listen.apiKeys` olmadan loopback dışında dinlemek config hatasıdır. Key'ler sabit zamanda karşılaştırılır; yanlış veya eksik key `401` alır.
+- **Key yoksa ağ da yok.** `listen.apiKeys` ya da `listen.oidc` olmadan loopback dışında dinlemek config hatasıdır. Key'ler sabit zamanda karşılaştırılır; yanlış veya eksik key `401` alır.
+- **Kullanıcılar (`listen.oidc`):** proxy, API key'lerin yanında ya da yerine OpenID Connect sağlayıcınızın (Okta, Entra ID, Auth0, Keycloak, Google…) JWT'lerini kabul eder. İmzayı issuer'ın JWKS'ine göre (discovery belgesinden ya da `jwksUri`'den), issuer'ı, `audience`'ı (zorunlu: başka bir servis için verilmiş token reddedilir) ve süreyi doğrular. Kullanıcı `userClaim`'den (varsayılan `sub`; `email` yaygındır), gruplar `groupsClaim`'den (varsayılan `groups`, liste ya da boşlukla ayrılmış metin) gelir. Kurallar `user` (glob, ör. `"*@contractor.com"`) ve `group` ile eşleşebilir, her audit event'i `user` taşır. Oturum onu açan kullanıcıya aittir: başka bir kullanıcının token'ı o oturumda `403` alır. `401` cevabı `WWW-Authenticate: Bearer resource_metadata=…` taşır ve `/.well-known/oauth-protected-resource` (RFC 9728) issuer'ı bildirir; böylece yetkilendirme spec'ini uygulayan MCP istemcileri nerede giriş yapacağını bulur. Reverse proxy arkasında `oidc.resource`'u herkese açık URL'e ayarlayın.
 - `GET /healthz` `{"ok": true, "sessions": N}` döner. `maxSessions` üstündeki oturumlar `503` alır.
 - **Dashboard:** `audit.dashboard` her audit olayını toplu halde, `apiKeyEnv`'den alınan workspace API key'iyle GuardBee dashboard'una gönderir; key dosyada durmaz. Dashboard'a ulaşılamazsa olaylar bellekte bekler (en fazla 10.000) ve sonra gönderilir. Reddedilen key stderr'e bir kez raporlanır. Tool çağrıları dashboard'u asla beklemez.
 - `init` artık Streamable HTTP server'ları (`url` + `headers`) da proxy'nin arkasına taşır. Eski SSE server'lar istemci config'inde kalır ve raporlanır.
