@@ -66,6 +66,16 @@ describe("git history", () => {
     expect(result.findings.map((f) => f.commit)).toEqual([first]);
   });
 
+  it("skips the same directories as a directory scan (a vendored node_modules)", async () => {
+    const r = repo();
+    execFileSync("mkdir", ["-p", join(r.dir, "node_modules/lib")]);
+    r.write("node_modules/lib/fixture.js", `const t = "${GH}";\n`);
+    r.write("app.env", `TOKEN=${GH2}\n`);
+    r.commit("vendored deps");
+    const result = await scanGit({ cwd: r.dir, mode: "history" });
+    expect(result.findings.map((f) => f.file)).toEqual(["app.env"]);
+  });
+
   it("limits history to a range and refuses a range that looks like an option", async () => {
     const r = repo();
     r.write("old.env", `TOKEN=${GH}\n`);

@@ -41,7 +41,7 @@ export const SKIP_EXTENSIONS = new Set([
   ".lock", // package-lock, yarn.lock — too noisy
 ]);
 
-const SKIP_DIRS = new Set([
+export const SKIP_DIRS = new Set([
   "node_modules", ".git", ".svn", "dist", "build", ".next",
   "__pycache__", ".mypy_cache", ".pytest_cache", "venv", ".venv",
   "coverage", ".nyc_output",

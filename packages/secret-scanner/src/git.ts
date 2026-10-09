@@ -1,7 +1,7 @@
 import { spawn } from "child_process";
 import { createInterface } from "readline";
 import { extname } from "path";
-import { scanText, SKIP_EXTENSIONS, type Finding } from "./scanner.js";
+import { scanText, SKIP_DIRS, SKIP_EXTENSIONS, type Finding } from "./scanner.js";
 
 export interface GitScanOptions {
   /** A directory inside the repository. */
@@ -22,6 +22,12 @@ export interface GitScanResult {
 }
 
 const COMMIT_MARK = "\u0000commit ";
+
+/** The directory scan's skip rules, so a vendored node_modules in history is not reported either. */
+function skipped(file: string): boolean {
+  if (SKIP_EXTENSIONS.has(extname(file).toLowerCase())) return true;
+  return file.split("/").slice(0, -1).some((dir) => SKIP_DIRS.has(dir));
+}
 const MAX_HUNK_BYTES = 1024 * 1024;
 
 /** Lines of a git command's stdout, streamed; rejects with git's stderr on failure. */
@@ -77,7 +83,7 @@ export async function scanGit(options: GitScanOptions): Promise<GitScanResult> {
   let scannedHunks = 0;
 
   const flush = () => {
-    if (file && block.length > 0 && !SKIP_EXTENSIONS.has(extname(file).toLowerCase())) {
+    if (file && block.length > 0 && !skipped(file)) {
       scannedHunks++;
       for (const finding of scanText(block.join("\n"), file, file)) {
         const located: Finding = {
