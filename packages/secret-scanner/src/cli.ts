@@ -5,6 +5,7 @@ import type { Finding } from "./scanner.js";
 import { buildSarif } from "./sarif.js";
 import { applyBaseline, readBaseline, writeBaseline } from "./baseline.js";
 import { scanGit } from "./git.js";
+import { scanAgentHistory } from "./agent-history.js";
 import { loadConfig, configFilePath } from "./config.js";
 import { statSync, readFileSync } from "fs";
 import { resolve, dirname } from "path";
@@ -65,10 +66,12 @@ interface CliArgs {
   baseline?: string;
   writeBaseline?: string;
   entropy: boolean;
+  agentHistory: boolean;
+  home?: string;
 }
 
 function parseArgs(args: string[]): CliArgs {
-  const parsed: CliArgs = { positionals: [], failOn: "any", format: "text", maxFiles: 5000, staged: false, entropy: true };
+  const parsed: CliArgs = { positionals: [], failOn: "any", format: "text", maxFiles: 5000, staged: false, entropy: true, agentHistory: false };
   const value = (arg: string) => arg.slice(arg.indexOf("=") + 1);
   for (const arg of args) {
     if (arg.startsWith("--fail-on=")) parsed.failOn = value(arg) || "any";
@@ -76,6 +79,9 @@ function parseArgs(args: string[]): CliArgs {
     else if (arg.startsWith("--max-files=")) parsed.maxFiles = parseInt(value(arg) || "5000", 10);
     else if (arg === "--staged") parsed.staged = true;
     else if (arg === "--no-entropy") parsed.entropy = false;
+    else if (arg === "--agent-history") parsed.agentHistory = true;
+    else if (arg === "--entropy") parsed.entropy = true;
+    else if (arg.startsWith("--home=")) parsed.home = value(arg);
     else if (arg === "--history") parsed.history = "";
     else if (arg.startsWith("--history=")) parsed.history = value(arg);
     else if (arg.startsWith("--max-commits=")) parsed.maxCommits = parseInt(value(arg), 10);
@@ -94,8 +100,37 @@ function shouldFail(findings: Finding[], failOn: string): boolean {
   return findings.some((f) => (RANK[f.severity] ?? 3) <= threshold);
 }
 
+/** Agent transcripts on this machine: summary per agent, each secret once with how often it appears. */
+function runAgentHistory(args: CliArgs, rawArgs: string[]): never {
+  // Off unless asked for: transcripts are full of code the agent read
+  const entropy = rawArgs.includes("--entropy");
+  const result = scanAgentHistory({ ...(args.home ? { home: args.home } : {}), entropy });
+  let findings = result.findings;
+  if (args.baseline) findings = applyBaseline(findings, readBaseline(args.baseline)).findings as typeof findings;
+  if (args.writeBaseline) {
+    writeBaseline(args.writeBaseline, findings);
+    process.exit(0);
+  }
+  if (args.format === "json") {
+    console.log(JSON.stringify({ sources: result.sources, findings, scannedFiles: result.scannedFiles, durationMs: result.durationMs }, null, 2));
+  } else if (args.format === "sarif") {
+    console.log(JSON.stringify(buildSarif(getVersion(), findings), null, 2));
+  } else {
+    if (result.sources.length === 0) console.log("No agent history found (Claude Code, Codex, Gemini CLI, Continue).");
+    for (const source of result.sources) console.log(`   ${source.agent.padEnd(12)} ${source.path} (${source.files} file(s))`);
+    console.log("");
+    printText(findings, result.scannedFiles, result.durationMs, "agent history file(s)");
+    if (findings.length > 0) {
+      console.log("A secret in an agent transcript was already sent to the model provider: rotate it, then delete the transcript.");
+      for (const f of findings) if (f.occurrences > 1) console.log(`   ${f.patternName} (${f.match}) appears ${f.occurrences} times`);
+    }
+  }
+  process.exit(shouldFail(findings, args.failOn) ? 1 : 0);
+}
+
 async function runCli(rawArgs: string[]): Promise<void> {
   const args = parseArgs(rawArgs);
+  if (args.agentHistory) runAgentHistory(args, rawArgs);
   const gitMode = args.staged ? "staged" : args.history !== undefined ? "history" : null;
   const target = args.positionals[0] ?? (gitMode ? "." : undefined);
   if (!target) {
@@ -200,6 +235,8 @@ Usage (CLI):
   guardbee-secret-scanner scan <path>              Scan a file or directory for secrets
   guardbee-secret-scanner scan [repo] --staged     Scan only lines added in the git index (pre-commit)
   guardbee-secret-scanner scan [repo] --history    Scan lines added by every commit (all refs)
+  guardbee-secret-scanner scan --agent-history     Scan coding agents' transcripts on this machine
+                                                   (Claude Code, Codex, Gemini CLI, Continue)
 
 Options:
   --fail-on=<level>        Exit 1 if secrets at this severity or above are found
@@ -211,6 +248,8 @@ Options:
   --write-baseline=<file>  Record current findings (hashes, never secrets) and exit 0
   --baseline=<file>        Report only findings not in the baseline
   --no-entropy             Skip the high-entropy check (random values assigned to secret-like names)
+  --entropy                With --agent-history: also run the high-entropy check (off there by default)
+  --home=<dir>             With --agent-history: look under this folder instead of your home
 
 Exit codes:
   0  No secrets found (or none above --fail-on threshold)

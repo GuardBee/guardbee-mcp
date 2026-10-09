@@ -19,10 +19,12 @@
 - **Git 历史与暂存区扫描** —— `--history` 扫描每次提交新增的每一行，因此能找到已从文件中删除但仍留在仓库中的密钥，并在引入它的提交处（附作者和日期）只报告一次；`--staged` 只扫描你即将提交的内容
 - **基线（Baseline）** —— `--write-baseline` 以哈希形式记录当前发现（从不保存密钥本身，可安全提交）；之后 `--baseline` 只报告新发现，让现有仓库无需先全部修复即可在 CI 中启用扫描。SARIF 结果带有稳定的 `partialFingerprints` 值
 - **高熵值** —— 赋给类似密钥名称的随机值（`.env` 中的 `WEBHOOK_SIGNING_SECRET=…`、YAML 中的 `client_secret:`、JSON 中的 `"internalApiKey"`）即使没有任何服务商规则认识其格式也会被报告。随机性以香农熵衡量（十六进制值需 32 个字符以上；不含数字的值需更高阈值，因此驼峰式口令不算）；`public`/`publishable`、`*_hash`、`*_id` 和 `*_url` 名称、占位符和 `${VAR}` 引用会被跳过，已被服务商规则报告的值不会重复报告。严重程度为 medium，测试文件中为 low；`--no-entropy`（或 MCP 工具中的 `entropy: false`）可关闭
+- **智能体对话记录** —— `scan --agent-history`（MCP：`scan_agent_history`）扫描编码智能体保存在本机的内容：Claude Code（`~/.claude/projects`、`~/.claude.json`）、Codex（`~/.codex`）、Gemini CLI（`~/.gemini/tmp`）和 Continue（`~/.continue/sessions`）。粘贴到对话中、或智能体运行的命令打印出的密钥会留在那里——并且已经发送给了模型提供商，请轮换它。每个密钥按智能体只报告一次，并附出现次数；由于对话记录充满智能体读取的代码，此处的熵检查默认关闭，除非使用 `--entropy`
+- **大型行文件** —— 超过 1 MB 的 `.jsonl`、`.ndjson`、`.ipynb` 和 `.log` 文件（对话记录、带输出的 notebook、日志）会逐行读取，而不是被跳过
 - **智能跳过** —— 自动跳过 `node_modules`、`.git`、`dist`、`build`、`.next` 等目录
 - **安全的部分隐藏** —— 匹配结果只显示前 4 个和后 4 个字符，中间用星号代替
 - **允许列表支持** —— 可把已知的测试/假值加入允许列表
-- **58 个单元测试** —— 测试全部通过
+- **64 个单元测试** —— 测试全部通过
 
 ---
 
@@ -55,6 +57,7 @@ npm install -g @guardbee/mcp-secret-scanner
 | `scan_file` | 扫描单个文件 |
 | `scan_directory` | 递归扫描目录及其子目录 |
 | `scan_git` | 扫描 git 仓库的暂存区改动或每次提交新增的行（历史） |
+| `scan_agent_history` | 扫描本机编码智能体的对话记录（Claude Code、Codex、Gemini CLI、Continue） |
 | `list_patterns` | 列出所有启用的密钥模式 |
 
 ### 使用示例
@@ -108,6 +111,8 @@ npx @guardbee/mcp-secret-scanner scan . --fail-on=high
 
 # JSON 输出（用于 CI 报告）
 npx @guardbee/mcp-secret-scanner scan . --format=json
+# 本机 Claude Code / Codex / Gemini CLI / Continue 会话中粘贴的密钥
+npx @guardbee/mcp-secret-scanner scan --agent-history
 # Pre-commit：只扫描即将提交的行
 npx @guardbee/mcp-secret-scanner scan --staged
 
@@ -164,7 +169,7 @@ npx @guardbee/mcp-secret-scanner scan --staged --fail-on=high || exit 1
 
 ```bash
 npm install
-npm test          # 58 个单元测试
+npm test          # 64 个单元测试
 npm run build     # TypeScript 编译
 ```
 

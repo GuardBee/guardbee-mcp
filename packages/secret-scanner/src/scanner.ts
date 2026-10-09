@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import { readFileSync, statSync, readdirSync } from "fs";
+import { closeSync, openSync, readFileSync, readSync, statSync, readdirSync } from "fs";
 import { join, relative, extname } from "path";
 import { SECRET_PATTERNS, type SecretPattern } from "./patterns.js";
 import { findHighEntropy } from "./entropy.js";
@@ -19,6 +19,8 @@ export interface Finding {
    * secret.
    */
   fingerprint: string;
+  /** Hash of the rule and the secret only: the same secret anywhere has the same value. */
+  valueHash: string;
   /** Set for git scans: the commit that added the line. */
   commit?: string;
   author?: string;
@@ -50,6 +52,32 @@ export const SKIP_DIRS = new Set([
 ]);
 
 const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1 MB
+
+/**
+ * Line-oriented files that grow large — agent transcripts (.jsonl), notebooks
+ * with outputs, logs — are read line by line instead of being skipped.
+ */
+export const STREAM_EXTENSIONS = new Set([".jsonl", ".ndjson", ".ipynb", ".log"]);
+const MAX_STREAM_SIZE = 512 * 1024 * 1024;
+
+/** Call `onLine` for each line of a file without loading it whole (sync, like the rest of the scanner). */
+function forEachLine(filePath: string, onLine: (line: string, lineNumber: number) => void): void {
+  const fd = openSync(filePath, "r");
+  const chunk = Buffer.alloc(1024 * 1024);
+  let carry = "";
+  let lineNumber = 0;
+  try {
+    let read: number;
+    while ((read = readSync(fd, chunk, 0, chunk.length, null)) > 0) {
+      const lines = (carry + chunk.toString("utf8", 0, read)).split("\n");
+      carry = lines.pop() ?? "";
+      for (const line of lines) onLine(line, ++lineNumber);
+    }
+    if (carry) onLine(carry, ++lineNumber);
+  } finally {
+    closeSync(fd);
+  }
+}
 
 function redact(match: string): string {
   if (match.length <= 8) return "***";
@@ -176,6 +204,7 @@ export function scanText(
         match: redact(matchStr),
         context: redactedContext.trim().slice(0, 200),
         fingerprint: fingerprintOf(sp.id, fingerprintPath, matchStr),
+        valueHash: fingerprintOf(sp.id, undefined, matchStr),
       });
     }
   }
@@ -198,6 +227,7 @@ export function scanText(
         match: redact(hit.value),
         context: contextLine.replace(hit.value, redact(hit.value)).trim().slice(0, 200),
         fingerprint: fingerprintOf("high_entropy_secret", fingerprintPath, hit.value),
+        valueHash: fingerprintOf("high_entropy_secret", undefined, hit.value),
       });
     }
   }
@@ -220,7 +250,19 @@ export function scanFile(
     return { findings: [], skipped: true };
   }
 
-  if (!stat.isFile() || stat.size > MAX_FILE_SIZE) return { findings: [], skipped: true };
+  if (!stat.isFile()) return { findings: [], skipped: true };
+  if (stat.size > MAX_FILE_SIZE) {
+    if (!STREAM_EXTENSIONS.has(ext) || stat.size > MAX_STREAM_SIZE) return { findings: [], skipped: true };
+    const findings: Finding[] = [];
+    try {
+      forEachLine(filePath, (line, lineNumber) => {
+        for (const finding of scanText(line, filePath, fingerprintPath, options)) findings.push({ ...finding, line: lineNumber });
+      });
+    } catch {
+      return { findings: [], skipped: true };
+    }
+    return { findings, skipped: false };
+  }
 
   let content: string;
   try {
