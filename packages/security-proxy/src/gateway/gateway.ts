@@ -1,5 +1,8 @@
+import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 import type {
   CallToolResult,
+  CreateMessageRequest,
+  CreateMessageResult,
   GetPromptResult,
   Prompt,
   ReadResourceResult,
@@ -27,9 +30,16 @@ import { DataFingerprints } from "./fingerprints.js";
 import { evaluatePolicy, globToRegExp } from "./policy.js";
 import { TaintTracker } from "./taint.js";
 import { PiiVault } from "./tokens.js";
-import type { Upstream } from "./upstream.js";
+import type { CallOptions, Upstream } from "./upstream.js";
 
 const SEPARATOR = "__";
+
+/** The agent's client, for answering servers' sampling requests (see interceptors.sampling). */
+export interface Sampler {
+  /** The client declared the sampling capability. */
+  available(): boolean;
+  create(params: CreateMessageRequest["params"]): Promise<CreateMessageResult>;
+}
 
 /** The person behind an HTTP session, from their OIDC token. */
 export interface CallerIdentity {
@@ -70,7 +80,8 @@ function errorResult(text: string): CallToolResult {
  * A tool call runs: exposure / poisoning → session anomaly checks → input injection scan →
  * definition drift → policy rules (incl. approval) → toxic-flow check →
  * detokenize → credentials leaving → upstream → result injection scan → PII masking / tokenizing →
- * field masking → taint update.
+ * field masking → taint update. Sampling requests the server sends during the
+ * call are answered through sample().
  */
 export class Gateway {
   readonly taint = new TaintTracker();
@@ -93,6 +104,7 @@ export class Gateway {
   private readonly unsubscribers: (() => void)[] = [];
   private readonly sessionId?: string;
   private readonly identity?: CallerIdentity;
+  private readonly sampler?: Sampler;
 
   /**
    * One Gateway per agent session: taint, PII tokens and pins are per session.
@@ -103,10 +115,11 @@ export class Gateway {
     private readonly config: GatewayConfig,
     private readonly audit: AuditLogger,
     private readonly approver?: Approver,
-    options: { sessionId?: string; identity?: CallerIdentity; now?: () => number } = {},
+    options: { sessionId?: string; identity?: CallerIdentity; sampler?: Sampler; now?: () => number } = {},
   ) {
     this.sessionId = options.sessionId;
     this.identity = options.identity;
+    this.sampler = options.sampler;
     this.now = options.now;
     for (const upstream of upstreams) {
       const unsubscribe = upstream.onToolsChanged?.(() => {
@@ -447,7 +460,7 @@ export class Gateway {
 
     // 6. Forward
     this.log({ ...base, type: "tool_call", ruleId: decision.ruleId, input: args });
-    const result = await upstream.callTool(route.name, forwardArgs);
+    const result = await upstream.callTool(route.name, forwardArgs, this.samplingFor(upstream, name));
 
     // 7. Indirect injection in the result (text and structured)
     let content = result.content;
@@ -501,6 +514,80 @@ export class Gateway {
     });
 
     return out;
+  }
+
+  /** Lets the server ask for completions while this call runs, when interceptors.sampling is on. */
+  private samplingFor(upstream: Upstream, tool: string): CallOptions {
+    if (!this.interceptors.sampling?.enabled) return {};
+    let asked = 0;
+    return { sampling: { owner: this, handler: (params) => this.sample(upstream, tool, params, ++asked) } };
+  }
+
+  /**
+   * A server asking the agent's model for a completion. What it sends is
+   * untrusted text aimed at the model; what the model answers goes to the
+   * server, so it is checked like an egress call.
+   */
+  private async sample(
+    upstream: Upstream,
+    tool: string,
+    params: CreateMessageRequest["params"],
+    nth: number,
+  ): Promise<CreateMessageResult> {
+    const config = this.interceptors.sampling;
+    const source = `sampling:${upstream.name}`;
+    const base = { tool: source, server: upstream.name, upstream: upstream.name };
+    const refuse = (reason: string, ruleId: string): never => {
+      this.log({ ...base, type: "blocked", ruleId, reason });
+      this.anomaly?.observeBlocked(source);
+      throw new McpError(ErrorCode.InvalidRequest, `${PREFIX} Sampling refused: ${reason}`);
+    };
+    if (!config?.enabled) return refuse("interceptors.sampling is off", "sampling:off");
+    if (!this.sampler?.available()) return refuse("the agent's client does not support sampling", "sampling:unavailable");
+    const maxPerCall = config.maxPerCall ?? 3;
+    if (nth > maxPerCall) return refuse(`more than ${maxPerCall} sampling requests during one call of "${tool}"`, "sampling:per_call");
+
+    // What the server puts in front of the model
+    const scan = scanToolResult([params.systemPrompt ?? "", params.messages], config.action);
+    if (scan.action === "block") return refuse(scan.reason, "sampling:injection");
+    if (scan.action === "warn") this.log({ ...base, type: "warn", ruleId: "sampling:injection", reason: scan.reason });
+
+    if (config.approval) {
+      const outcome = this.approver
+        ? await this.approver({
+            tool: source,
+            upstream: upstream.name,
+            args: { systemPrompt: params.systemPrompt ?? null, messages: params.messages },
+            reason: `"${upstream.name}" asks your model for a completion during "${tool}"`,
+            ...(this.sessionId ? { sessionId: this.sessionId } : {}),
+          })
+        : "unavailable";
+      this.log({ ...base, type: "approval", reason: `${outcome}: sampling during "${tool}"` });
+      if (outcome !== "approved") return refuse(`not approved (${outcome})`, "sampling:approval");
+    }
+
+    // No conversation context for the server, and a bounded completion
+    if (params.includeContext && params.includeContext !== "none") {
+      this.log({ ...base, type: "warn", ruleId: "sampling:context", reason: `includeContext "${params.includeContext}" reduced to "none": a server gets no conversation context` });
+    }
+    const request = { ...params, includeContext: "none" as const, maxTokens: Math.min(params.maxTokens, config.maxTokens ?? 1024) };
+    this.log({ ...base, type: "tool_call", reason: `sampling during "${tool}" (${nth}/${maxPerCall})`, input: { systemPrompt: request.systemPrompt ?? null, messages: request.messages } });
+    const result = await this.sampler.create(request);
+
+    // The answer goes to the server: no credentials, no data this session saw
+    const credentials = this.credentialsIn(result.content);
+    const carried = this.fingerprints.find(this.vault.detokenize(result.content));
+    const leak = credentials.length > 0
+      ? `the model's answer holds a credential (${credentials.join(", ")})`
+      : carried
+        ? `the model's answer carries data from "${carried.source}"`
+        : null;
+    if (leak && config.action === "block") return refuse(`${leak}; it would go to "${upstream.name}"`, "sampling:egress");
+    if (leak) this.log({ ...base, type: "warn", ruleId: "sampling:egress", reason: leak });
+
+    const masked = this.protect(result.content, true);
+    this.log({ ...base, type: "tool_response", output: masked.value, ...(masked.piiFound ? { piiHits: masked.hits } : {}) });
+    return { ...result, content: masked.value };
   }
 
   async listResources(): Promise<Resource[]> {

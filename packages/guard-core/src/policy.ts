@@ -88,6 +88,17 @@ export const policyShape = {
       toolPoisoning: interceptorSchema.optional(),
       /** Credentials (provider keys, private keys, DB URLs with passwords) in the arguments of an egress tool. */
       egressSecrets: interceptorSchema.extend({ allowTools: z.array(z.string().min(1)).optional() }).optional(),
+      /**
+       * Servers asking the agent's model for a completion (sampling/createMessage).
+       * Off: the proxy does not offer sampling to servers. Read at start: a change needs a restart.
+       */
+      sampling: interceptorSchema
+        .extend({
+          maxTokens: z.number().int().positive().max(100_000).optional(),
+          maxPerCall: z.number().int().positive().max(100).optional(),
+          approval: z.boolean().optional(),
+        })
+        .optional(),
       piiMasking: z
         .object({
           enabled: z.boolean(),
