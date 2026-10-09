@@ -1,3 +1,5 @@
+import type { AnomalyConfig } from "./gateway/anomaly.js";
+
 export type McpServerConfig = {
   command: string;
   args?: string[];
@@ -71,6 +73,8 @@ export type ProxyConfig = {
       /** Put real values back even when the tool can send data out. Off by default. */
       detokenizeForEgress?: boolean;
     };
+    /** Session behaviour checks; see gateway/anomaly.ts. Off unless configured. */
+    anomaly?: AnomalyConfig;
   };
 };
 

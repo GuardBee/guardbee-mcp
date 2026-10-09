@@ -14,6 +14,10 @@ export const POLICY_ACTIONS = ["allow", "deny", "mask", "warn", "approve"] as co
 const labelSchema = z.enum(POLICY_LABELS);
 const actionSchema = z.enum(POLICY_ACTIONS);
 const interceptorSchema = z.object({ enabled: z.boolean(), action: z.enum(["block", "warn"]) }).strict();
+/** At most `count` events within `windowSeconds`; one more trips the anomaly check. */
+const anomalyWindowSchema = z
+  .object({ count: z.number().int().positive(), windowSeconds: z.number().int().positive().max(86_400) })
+  .strict();
 
 export const policyRuleSchema = z
   .object({
@@ -72,6 +76,15 @@ export const policyShape = {
           detokenizeForEgress: z.boolean().optional(),
         })
         .strict()
+        .optional(),
+      /** Behaviour over a session: call bursts, sweeps of sensitive reads, bulk destructive calls, repeated blocks. */
+      anomaly: interceptorSchema
+        .extend({
+          callBurst: anomalyWindowSchema.optional(),
+          sensitiveSweep: anomalyWindowSchema.optional(),
+          destructiveBurst: anomalyWindowSchema.optional(),
+          repeatedBlocks: anomalyWindowSchema.optional(),
+        })
         .optional(),
     })
     .strict()
