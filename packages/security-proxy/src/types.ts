@@ -56,6 +56,15 @@ export type ProxyConfig = {
       enabled: boolean;
       action: "block" | "warn";
     };
+    /**
+     * Scan each tool definition in tools/list for poisoning (instructions aimed
+     * at the model, hidden characters, a read-only annotation that lies).
+     * `block` hides a tool with a critical or high finding; medium ones warn.
+     */
+    toolPoisoning?: {
+      enabled: boolean;
+      action: "block" | "warn";
+    };
     definitionDrift?: {
       enabled: boolean;
       action: "block" | "warn";
