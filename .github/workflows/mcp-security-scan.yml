@@ -10,7 +10,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write
   pull-requests: read
 
 jobs:
@@ -48,7 +47,35 @@ jobs:
         with:
           path: packages
           # This repo ships the scanners' own rule files, attack-payload test
-          # fixtures and docs, so a self-scan always has findings. Report via
-          # SARIF only; consumers of the Action keep the default gate.
+          # fixtures and docs, so a self-scan always has findings. Exercise
+          # the Action end to end without gating or uploading alerts;
+          # consumers keep the defaults.
           fail-on: none
-          upload-sarif: "true"
+          upload-sarif: "false"
+
+      # Upload is off here, so check locally what GitHub code scanning would
+      # reject: results without a location, and duplicate rule tags.
+      - name: Validate SARIF for code scanning
+        run: |
+          python3 - <<'PY'
+          import glob, json, sys
+          errors = []
+          files = sorted(glob.glob("guardbee-sarif/*.sarif"))
+          if not files:
+              sys.exit("no SARIF files produced")
+          for path in files:
+              with open(path) as fh:
+                  sarif = json.load(fh)
+              for run in sarif["runs"]:
+                  for rule in run["tool"]["driver"].get("rules", []):
+                      tags = rule.get("properties", {}).get("tags", [])
+                      if len(tags) != len(set(tags)):
+                          errors.append(f"{path}: rule {rule['id']} has duplicate tags")
+                  for result in run.get("results", []):
+                      if not result.get("locations"):
+                          errors.append(f"{path}: result {result['ruleId']} has no location")
+              print(f"ok {path}")
+          if errors:
+              print("\n".join(errors))
+              sys.exit(1)
+          PY
