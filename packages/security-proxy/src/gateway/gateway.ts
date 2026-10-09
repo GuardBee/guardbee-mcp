@@ -18,6 +18,8 @@ import {
   type CatalogFinding,
 } from "@guardbee/guard-core";
 import { recordEvent } from "@guardbee/mcp-telemetry";
+import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
+import { activeCallSpan, tracer, withCallSpan } from "../tracing.js";
 import type { AuditLogger } from "../audit/logger.js";
 import { ToolDefinitionPin, type ToolRecord } from "../interceptors/definition-drift.js";
 import type { AuditEvent } from "../types.js";
@@ -168,6 +170,16 @@ export class Gateway {
   }
 
   private log(event: Omit<AuditEvent, "ts" | "taint">): void {
+    // Inside a tool call, every audit event is also an event on its span
+    const span = activeCallSpan();
+    if (span) {
+      span.addEvent(`guardbee.${event.type}`, {
+        ...(event.tool ? { "gen_ai.tool.name": event.tool } : {}),
+        ...(event.ruleId ? { "guardbee.rule_id": event.ruleId } : {}),
+        ...(event.reason ? { "guardbee.reason": event.reason } : {}),
+      });
+      if (event.type === "blocked" || event.type === "toxic_flow") span.setAttribute(`guardbee.${event.type}`, true);
+    }
     this.audit.log({
       ts: new Date().toISOString(),
       ...(this.sessionId ? { sessionId: this.sessionId } : {}),
@@ -298,7 +310,32 @@ export class Gateway {
     return listed;
   }
 
+  /** One span per call (MCP semantic conventions); the audit events of the call become its events. */
   async callTool(name: string, args: Record<string, unknown>): Promise<CallToolResult> {
+    const span = tracer().startSpan(`tools/call ${name}`, {
+      kind: SpanKind.SERVER,
+      attributes: {
+        "mcp.method.name": "tools/call",
+        "gen_ai.operation.name": "execute_tool",
+        "gen_ai.tool.name": name,
+        ...(this.sessionId ? { "mcp.session.id": this.sessionId } : {}),
+        ...(this.identity ? { "enduser.id": this.identity.user } : {}),
+      },
+    });
+    try {
+      const result = await withCallSpan(span, () => this.handleCall(name, args));
+      if (result.isError) span.setAttribute("error.type", "tool_error");
+      return result;
+    } catch (err) {
+      span.recordException(err instanceof Error ? err : String(err));
+      span.setStatus({ code: SpanStatusCode.ERROR, message: err instanceof Error ? err.message : String(err) });
+      throw err;
+    } finally {
+      span.end();
+    }
+  }
+
+  private async handleCall(name: string, args: Record<string, unknown>): Promise<CallToolResult> {
     const started = Date.now();
     let route = this.tools.get(name);
     if (!route) {
@@ -309,6 +346,7 @@ export class Gateway {
 
     const { upstream, labels } = route;
     const base = { tool: name, server: upstream.name, upstream: upstream.name, labels };
+    activeCallSpan()?.setAttributes({ "guardbee.upstream": upstream.name, "guardbee.labels": labels });
     /** A refused call counts toward the repeated-blocks check. */
     const countRefusal = (): void => {
       const anomaly = this.anomaly?.observeBlocked(name);
@@ -460,7 +498,22 @@ export class Gateway {
 
     // 6. Forward
     this.log({ ...base, type: "tool_call", ruleId: decision.ruleId, input: args });
-    const result = await upstream.callTool(route.name, forwardArgs, this.samplingFor(upstream, name));
+    const parent = activeCallSpan();
+    const upstreamSpan = tracer().startSpan(
+      `tools/call ${route.name}`,
+      { kind: SpanKind.CLIENT, attributes: { "mcp.method.name": "tools/call", "gen_ai.tool.name": route.name, "server.address": upstream.name } },
+      parent ? trace.setSpan(context.active(), parent) : undefined,
+    );
+    let result: CallToolResult;
+    try {
+      result = await upstream.callTool(route.name, forwardArgs, this.samplingFor(upstream, name));
+      if (result.isError) upstreamSpan.setAttribute("error.type", "tool_error");
+    } catch (err) {
+      upstreamSpan.setStatus({ code: SpanStatusCode.ERROR, message: err instanceof Error ? err.message : String(err) });
+      throw err;
+    } finally {
+      upstreamSpan.end();
+    }
 
     // 7. Indirect injection in the result (text and structured)
     let content = result.content;
@@ -504,6 +557,7 @@ export class Gateway {
     if (labels.includes("sensitive") || piiFound) this.fingerprints.add(name, [result.content, result.structuredContent ?? null]);
     else if (this.config.taint.basis === "data") this.fingerprints.addOrdinary([result.content, result.structuredContent ?? null]);
     this.log({ ...base, type: "tool_response", output: out.content, ...(piiFound ? { piiHits: hits } : {}) });
+    if (piiFound) activeCallSpan()?.setAttribute("guardbee.pii_hits", Object.values(hits).reduce((sum, n) => sum + n, 0));
 
     void recordEvent({
       server: "security-proxy",
@@ -520,7 +574,11 @@ export class Gateway {
   private samplingFor(upstream: Upstream, tool: string): CallOptions {
     if (!this.interceptors.sampling?.enabled) return {};
     let asked = 0;
-    return { sampling: { owner: this, handler: (params) => this.sample(upstream, tool, params, ++asked) } };
+    // The server's request arrives on its own transport: tie it back to this call's span
+    const span = activeCallSpan();
+    const handler = (params: CreateMessageRequest["params"]) =>
+      span ? withCallSpan(span, () => this.sample(upstream, tool, params, ++asked)) : this.sample(upstream, tool, params, ++asked);
+    return { sampling: { owner: this, handler } };
   }
 
   /**

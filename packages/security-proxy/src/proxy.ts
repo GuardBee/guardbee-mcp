@@ -15,6 +15,9 @@ import { fromLegacyConfig, type GatewayConfig } from "./gateway/config.js";
 import { Gateway, type CallerIdentity, type Sampler } from "./gateway/gateway.js";
 import { connectUpstream, type Upstream } from "./gateway/upstream.js";
 import { PolicySync } from "./gateway/policy-sync.js";
+import { readFileSync } from "fs";
+import { join } from "path";
+import { startTracing } from "./tracing.js";
 
 /** The MCP server the agent talks to; every request goes through the gateway. */
 export function createProxyServer(gateway: Gateway): Server {
@@ -80,6 +83,9 @@ export function createGatewayServer(
 }
 
 export async function startGateway(config: GatewayConfig): Promise<void> {
+  const { version } = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf8")) as { version: string };
+  // OTLP export when OTEL_EXPORTER_OTLP_ENDPOINT is set and the SDK is installed
+  const stopTracing = await startTracing({ version });
   const audit = new AuditLogger(config.audit);
   // Start with the dashboard policy when there is one; refresh in the background.
   if (config.policy.source === "dashboard" && config.audit.dashboard) {
@@ -99,6 +105,7 @@ export async function startGateway(config: GatewayConfig): Promise<void> {
       await http.close();
       await audit.close();
       await Promise.allSettled(upstreams.map((upstream) => upstream.close()));
+      await stopTracing?.();
       process.exit(0);
     };
     process.on("SIGINT", shutdown);
@@ -117,6 +124,7 @@ export async function startGateway(config: GatewayConfig): Promise<void> {
     closing = true;
     await server.close().catch(() => {});
     await gateway.close();
+    await stopTracing?.();
     process.exit(0);
   };
   server.onclose = () => void shutdown();

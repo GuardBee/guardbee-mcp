@@ -153,6 +153,21 @@ The single-server `--` form above keeps its 0.x behavior: tool names are not pre
 
 ---
 
+## Observability (OpenTelemetry)
+
+Every tool call is a span named `tools/call <tool>` (kind SERVER) with the MCP semantic-convention attributes — `mcp.method.name`, `gen_ai.tool.name`, `gen_ai.operation.name: execute_tool`, `mcp.session.id`, `enduser.id` (OIDC) — plus `guardbee.upstream`, `guardbee.labels` and `guardbee.pii_hits`. The call to the upstream is a child span (kind CLIENT, `server.address` = upstream). Every audit event of the call — blocks, toxic flows, approvals, warnings, a server's sampling requests — is a span event (`guardbee.blocked`, … with `guardbee.rule_id` and `guardbee.reason`), and a blocked call carries `guardbee.blocked: true`. Arguments and results are never put on spans.
+
+The proxy depends only on `@opentelemetry/api`, so without an SDK the spans cost nothing. To export over OTLP/HTTP, install the SDK next to the proxy and set the standard environment:
+
+```bash
+npm i -g @opentelemetry/sdk-trace-base @opentelemetry/exporter-trace-otlp-http @opentelemetry/resources
+export OTEL_EXPORTER_OTLP_ENDPOINT=https://otel-collector.example.com:4318
+export OTEL_EXPORTER_OTLP_HEADERS="authorization=Bearer …"   # if your collector needs it
+export OTEL_SERVICE_NAME=guardbee-gateway                      # default: guardbee-security-proxy
+```
+
+The Docker image already has the SDK. `OTEL_SDK_DISABLED=true` or `OTEL_TRACES_EXPORTER=none` keeps it off, and a process that registered its own SDK first (zero-code instrumentation through `NODE_OPTIONS`) keeps that one.
+
 ## Remote Mode (HTTP)
 
 The proxy can run as a shared network service instead of a subprocess of one client. Agents connect over Streamable HTTP, and upstreams can be remote Streamable HTTP servers too.

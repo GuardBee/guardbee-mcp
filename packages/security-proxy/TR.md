@@ -153,6 +153,21 @@ Yukarıdaki tek sunuculu `--` kullanımı 0.x davranışını korur: tool adlar�
 
 ---
 
+## Gözlemlenebilirlik (OpenTelemetry)
+
+Her tool çağrısı `tools/call <tool>` adlı bir span'dır (kind SERVER) ve MCP semantik kurallarının özniteliklerini taşır — `mcp.method.name`, `gen_ai.tool.name`, `gen_ai.operation.name: execute_tool`, `mcp.session.id`, `enduser.id` (OIDC) — ayrıca `guardbee.upstream`, `guardbee.labels` ve `guardbee.pii_hits`. Upstream'e yapılan çağrı bir alt span'dır (kind CLIENT, `server.address` = upstream). Çağrının her audit olayı — engellemeler, toxic flow'lar, onaylar, uyarılar, sunucunun sampling istekleri — bir span event'idir (`guardbee.blocked`, … `guardbee.rule_id` ve `guardbee.reason` ile); engellenen çağrı `guardbee.blocked: true` taşır. Argümanlar ve sonuçlar span'lara asla yazılmaz.
+
+Proxy yalnızca `@opentelemetry/api`'ye bağımlıdır; SDK yoksa span'ların maliyeti yoktur. OTLP/HTTP ile göndermek için SDK'yı proxy'nin yanına kurun ve standart ortam değişkenlerini ayarlayın:
+
+```bash
+npm i -g @opentelemetry/sdk-trace-base @opentelemetry/exporter-trace-otlp-http @opentelemetry/resources
+export OTEL_EXPORTER_OTLP_ENDPOINT=https://otel-collector.example.com:4318
+export OTEL_EXPORTER_OTLP_HEADERS="authorization=Bearer …"   # collector'ınız istiyorsa
+export OTEL_SERVICE_NAME=guardbee-gateway                      # varsayılan: guardbee-security-proxy
+```
+
+Docker imajında SDK hazırdır. `OTEL_SDK_DISABLED=true` ya da `OTEL_TRACES_EXPORTER=none` kapalı tutar; kendi SDK'sını önce kaydeden bir process (`NODE_OPTIONS` ile zero-code enstrümantasyon) onu kullanmaya devam eder.
+
 ## Remote Mod (HTTP)
 
 Proxy, tek bir istemcinin alt süreci olmak yerine paylaşılan bir ağ servisi olarak da çalışabilir. Ajanlar Streamable HTTP ile bağlanır; upstream'ler de uzak Streamable HTTP server'lar olabilir.
