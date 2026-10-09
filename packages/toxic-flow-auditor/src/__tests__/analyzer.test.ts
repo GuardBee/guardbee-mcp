@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { auditCatalog, classifyTool, extractToolsFromSource } from "../index.js";
+import { buildSarif } from "../sarif.js";
 
 describe("classifyTool", () => {
   it("fetch toolunu untrusted sayar", () => {
@@ -83,5 +84,21 @@ server.tool("send_email", "Mail user", {}, async () => {});
 `;
     const tools = extractToolsFromSource(src);
     expect(tools.map((t) => t.name)).toEqual(["fetch_url", "send_email"]);
+  });
+});
+
+describe("buildSarif", () => {
+  it("rule tag'lerini tekrarlamaz (GitHub upload'u reddeder)", () => {
+    const result = auditCatalog([
+      { name: "fetch_page", description: "Scrape a URL" },
+      { name: "read_vault_secret", description: "Read API key from vault" },
+      { name: "send_slack_message", description: "Post to webhook" },
+    ]);
+    const sarif = buildSarif("0.0.0", result.findings) as {
+      runs: Array<{ tool: { driver: { rules: Array<{ properties: { tags: string[] } }> } } }>;
+    };
+    for (const rule of sarif.runs[0]!.tool.driver.rules) {
+      expect(new Set(rule.properties.tags).size).toBe(rule.properties.tags.length);
+    }
   });
 });

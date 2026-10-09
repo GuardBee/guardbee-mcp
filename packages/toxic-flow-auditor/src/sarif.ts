@@ -20,7 +20,8 @@ export function buildSarif(toolVersion: string, findings: Finding[]): object {
         helpUri: "https://guardbee.ai/docs/toxic-flow-auditor",
         properties: {
           "problem.severity": f.severity,
-          tags: ["security", "ai-security", "mcp-security", "toxic-flow", f.owasp, f.category],
+          // category can itself be "toxic-flow"; SARIF rejects duplicate tags.
+          tags: [...new Set(["security", "ai-security", "mcp-security", "toxic-flow", f.owasp, f.category])],
         },
       });
     }
