@@ -36,11 +36,21 @@ async function run(cmd, args, cwd = root) {
   }
 }
 
+/** true / false, or an error string when the registry keeps failing (a 5xx must not stop every other package). */
 async function inRegistry(name, version) {
-  const res = await fetch(`${REGISTRY}/v0/servers/${encodeURIComponent(name)}/versions/${encodeURIComponent(version)}`);
-  if (res.status === 200) return true;
-  if (res.status === 404) return false;
-  throw new Error(`registry lookup ${name}@${version}: HTTP ${res.status}`);
+  let last = "";
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res = await fetch(`${REGISTRY}/v0/servers/${encodeURIComponent(name)}/versions/${encodeURIComponent(version)}`);
+      if (res.status === 200) return true;
+      if (res.status === 404) return false;
+      last = `HTTP ${res.status}`;
+    } catch (err) {
+      last = err instanceof Error ? err.message : String(err);
+    }
+    if (attempt < 3) await sleep(2_000 * attempt);
+  }
+  return `registry lookup ${name}@${version} failed: ${last}`;
 }
 
 /** The npm tarball's mcpName, or null when npm does not serve that version (yet). */
@@ -54,12 +64,18 @@ async function npmMcpName(pkg, version) {
 const justTagged = new Set((await run("git", ["tag", "--points-at", "HEAD"])).out.split("\n").filter(Boolean));
 
 const pending = [];
+const lookupErrors = [];
 for (const dir of readdirSync(packagesDir).sort()) {
   const serverPath = join(packagesDir, dir, "server.json");
   if (!existsSync(serverPath)) continue;
   const pkg = JSON.parse(readFileSync(join(packagesDir, dir, "package.json"), "utf8"));
   const server = JSON.parse(readFileSync(serverPath, "utf8"));
-  if (await inRegistry(server.name, server.version)) continue;
+  const listed = await inRegistry(server.name, server.version);
+  if (listed === true) continue;
+  if (typeof listed === "string") {
+    lookupErrors.push(listed);
+    continue;
+  }
   pending.push({ dir: join(packagesDir, dir), pkg: pkg.name, server, fresh: justTagged.has(`${pkg.name}@${server.version}`) });
 }
 
@@ -101,9 +117,9 @@ async function publishOne({ dir, pkg, server, fresh }) {
   return `${label}: ${last.split("\n").slice(-3).join(" ")}`;
 }
 
-const failed = (await Promise.all(pending.map(publishOne))).filter((reason) => reason !== null);
+const failed = [...lookupErrors, ...(await Promise.all(pending.map(publishOne))).filter((reason) => reason !== null)];
 
-if (pending.length === 0) console.log("MCP Registry is up to date");
+if (pending.length === 0 && lookupErrors.length === 0) console.log("MCP Registry is up to date");
 if (failed.length > 0) {
   console.error(`MCP Registry publish failed:\n  ${failed.join("\n  ")}`);
   process.exit(1);
