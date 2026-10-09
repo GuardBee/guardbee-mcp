@@ -15,6 +15,7 @@ import { fromLegacyConfig, type GatewayConfig } from "./gateway/config.js";
 import { Gateway, type CallerIdentity, type Sampler } from "./gateway/gateway.js";
 import { connectUpstream, type Upstream } from "./gateway/upstream.js";
 import { PolicySync } from "./gateway/policy-sync.js";
+import type { QuotaStore } from "./gateway/quota.js";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { startTracing } from "./tracing.js";
@@ -58,7 +59,7 @@ export function createGatewayServer(
   upstreams: Upstream[],
   config: GatewayConfig,
   audit: AuditLogger,
-  options: { sessionId?: string; identity?: CallerIdentity } = {}
+  options: { sessionId?: string; identity?: CallerIdentity; quotas?: QuotaStore } = {}
 ): { gateway: Gateway; server: Server } {
   let server: Server | undefined;
   // Read approval settings on every request: a dashboard policy update can change them mid-session.

@@ -13,7 +13,7 @@ export {
 export type { ScanResult, InjectionRule, InjectionCategory, InjectionFinding } from "./injection.js";
 export { CAPABILITY_RULES, classifyTool, textOf } from "./classify.js";
 export type { Capability, FlowCategory, ToolRecord } from "./classify.js";
-export { POLICY_LABELS, POLICY_ACTIONS, policyRuleSchema, policyShape, gatewayPolicySchema, validatePolicy } from "./policy.js";
+export { POLICY_LABELS, POLICY_ACTIONS, policyRuleSchema, quotaRuleSchema, policyShape, gatewayPolicySchema, validatePolicy } from "./policy.js";
 export type { GatewayPolicy, PolicyValidation } from "./policy.js";
 export { DESCRIPTION_INJECTION_PATTERNS, MISMATCH_SINK_RULES, READ_ONLY_HINT } from "./tool-poisoning.js";
 export type { DescriptionInjectionPattern, MismatchSinkRule, ToolPoisoningCategory } from "./tool-poisoning.js";

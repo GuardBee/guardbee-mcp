@@ -42,6 +42,26 @@ export const policyRuleSchema = z
     path: ["mask"],
   });
 
+/** At most `limit` calls per `windowSeconds`, counted across sessions per user, session or gateway. */
+export const quotaRuleSchema = z
+  .object({
+    id: z.string().optional(),
+    match: z
+      .object({
+        tool: z.string().optional(),
+        upstream: z.string().optional(),
+        label: labelSchema.optional(),
+        user: z.string().min(1).optional(),
+        group: z.string().min(1).optional(),
+      })
+      .strict()
+      .default({}),
+    limit: z.number().int().positive(),
+    windowSeconds: z.number().int().positive().max(2_592_000),
+    per: z.enum(["user", "session", "gateway"]).default("user"),
+  })
+  .strict();
+
 /** Every field has a default, so `{}` is a valid (allow-all, strict-taint) policy. */
 export const policyShape = {
   labels: z.record(z.string(), z.array(labelSchema)).default({}),
@@ -60,6 +80,7 @@ export const policyShape = {
     .strict()
     .default({ hide: [], descriptions: {} }),
   rules: z.array(policyRuleSchema).default([]),
+  quotas: z.array(quotaRuleSchema).default([]),
   taint: z
     .object({
       mode: z.enum(["strict", "approve", "warn", "off"]).default("strict"),
