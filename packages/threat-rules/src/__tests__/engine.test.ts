@@ -21,11 +21,16 @@ describe("fieldsForEventType", () => {
   });
 });
 
-describe("ATR + GuardBee rules", () => {
+// The ATR engine compiles its rules lazily: the first evaluations cost ~200ms
+// each locally and several seconds on a busy CI runner. Pay that once here.
+describe("ATR + GuardBee rules", { timeout: 20_000 }, () => {
   beforeAll(async () => {
     resetEngineCache();
-    await getEngine("hunt");
-  });
+    const { engine, atrRuleCount, guardbeeRuleCount } = await getEngine("hunt");
+    for (const content of ["warm up", "ısınma çalıştırması", "预热"]) {
+      evaluateEvent(engine, buildEvent({ content }), { atrRuleCount, guardbeeRuleCount });
+    }
+  }, 60_000);
 
   it("upstream ATR + GuardBee kurallarını birlikte yükler", async () => {
     const { atrRuleCount, guardbeeRuleCount, engine } = await getEngine("hunt");
