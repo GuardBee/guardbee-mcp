@@ -8,6 +8,7 @@ describe("validatePolicy", () => {
       ok: true,
       policy: {
         labels: {},
+        tools: { hide: [], descriptions: {} },
         rules: [],
         taint: { mode: "strict", basis: "capability" },
         approval: { timeoutSeconds: 120, channels: ["elicitation"] },
