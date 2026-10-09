@@ -1,18 +1,18 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.4hmetuyar/owasp-scan",
+  "name": "io.github.GuardBee/owasp-scan",
   "description": "Unified OWASP MCP Top 10 scan — path or live tools/list, A–F grade, SARIF",
   "repository": {
     "url": "https://github.com/GuardBee/guardbee-mcp",
     "source": "github",
     "subfolder": "packages/owasp-scan"
   },
-  "version": "0.1.0",
+  "version": "0.2.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@guardbee/mcp-owasp-scan",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "transport": {
         "type": "stdio"
       }

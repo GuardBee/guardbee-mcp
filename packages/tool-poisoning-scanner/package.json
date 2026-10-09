@@ -1,7 +1,7 @@
 {
   "name": "@guardbee/mcp-tool-poisoning-scanner",
   "version": "0.2.1",
-  "mcpName": "io.github.4hmetuyar/tool-poisoning-scanner",
+  "mcpName": "io.github.GuardBee/tool-poisoning-scanner",
   "description": "MCP server that scans other MCP servers' tool definitions for tool poisoning (hidden instructions embedded in a tool's description, read as trusted context by the calling LLM) and confused-deputy mismatches (a tool's name/description promises read-only behavior while its handler has a shell/eval/file-write/env-dump sink)",
   "type": "module",
   "bin": {

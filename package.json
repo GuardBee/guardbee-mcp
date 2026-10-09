@@ -11,7 +11,7 @@
     "test": "turbo run test",
     "dev": "turbo run dev",
     "changeset": "changeset",
-    "version-packages": "changeset version",
+    "version-packages": "node scripts/version.mjs",
     "release": "turbo run build && changeset publish",
     "prepare": "husky"
   },

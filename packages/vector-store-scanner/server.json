@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.4hmetuyar/vector-store-scanner",
+  "name": "io.github.GuardBee/vector-store-scanner",
   "description": "Probes vector-database endpoints for unauthenticated exposure of embeddings/RAG data",
   "repository": {
     "url": "https://github.com/GuardBee/guardbee-mcp",

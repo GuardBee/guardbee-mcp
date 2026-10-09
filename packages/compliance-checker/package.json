@@ -1,7 +1,7 @@
 {
   "name": "@guardbee/mcp-compliance-checker",
   "version": "0.2.4",
-  "mcpName": "io.github.4hmetuyar/compliance-checker",
+  "mcpName": "io.github.GuardBee/compliance-checker",
   "description": "MCP server that checks KVKK, GDPR, and CCPA compliance for websites via the GuardBee API",
   "type": "module",
   "bin": {

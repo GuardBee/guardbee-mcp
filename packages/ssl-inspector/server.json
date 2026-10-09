@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.4hmetuyar/ssl-inspector",
+  "name": "io.github.GuardBee/ssl-inspector",
   "description": "TLS certificate/cipher/protocol inspection",
   "repository": {
     "url": "https://github.com/GuardBee/guardbee-mcp",

@@ -59,10 +59,24 @@ jobs:
       # The build already ran above with pnpm 10; changeset publish then calls the
       # pnpm 11 on PATH for each `pnpm publish`.
       - uses: changesets/action@v1
+        id: changesets
         with:
+          version: node scripts/version.mjs
           publish: npx changeset publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           pnpm_config_verify_deps_before_run: "false"
           # Do not set NODE_AUTH_TOKEN / NPM_TOKEN — that forces the staging-only
           # classic token path and blocks trusted publishing.
+
+      # Put what npm just got into the official MCP Registry as well. GitHub
+      # OIDC proves this repo, so names live under io.github.GuardBee/*.
+      - name: Publish to the MCP Registry
+        if: steps.changesets.outputs.published == 'true'
+        env:
+          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
+        run: |
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/download/v1.8.1/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
+          sudo mv mcp-publisher /usr/local/bin/
+          mcp-publisher login github-oidc
+          node scripts/publish-registry.mjs

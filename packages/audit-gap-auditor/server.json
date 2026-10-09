@@ -1,18 +1,18 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.4hmetuyar/audit-gap-auditor",
+  "name": "io.github.GuardBee/audit-gap-auditor",
   "description": "OWASP MCP08 audit/telemetry gaps: missing tool-call logs, raw args in logs, disabled audit",
   "repository": {
     "url": "https://github.com/GuardBee/guardbee-mcp",
     "source": "github",
     "subfolder": "packages/audit-gap-auditor"
   },
-  "version": "0.2.0",
+  "version": "0.2.1",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@guardbee/mcp-audit-gap-auditor",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "transport": {
         "type": "stdio"
       }

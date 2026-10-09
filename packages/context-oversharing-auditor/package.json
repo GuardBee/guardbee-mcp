@@ -1,7 +1,7 @@
 {
   "name": "@guardbee/mcp-context-oversharing-auditor",
   "version": "0.2.0",
-  "mcpName": "io.github.4hmetuyar/context-oversharing-auditor",
+  "mcpName": "io.github.GuardBee/context-oversharing-auditor",
   "description": "MCP server that audits agent/MCP source for OWASP MCP10:2025 context oversharing — unrestricted session/memory dumps, cross-user shared context, system-prompt leakage via tools, and unscoped vector recalls",
   "type": "module",
   "bin": {

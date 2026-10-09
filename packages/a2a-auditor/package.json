@@ -1,7 +1,7 @@
 {
   "name": "@guardbee/mcp-a2a-auditor",
   "version": "0.1.1",
-  "mcpName": "io.github.4hmetuyar/a2a-auditor",
+  "mcpName": "io.github.GuardBee/a2a-auditor",
   "description": "MCP server that scans Agent2Agent (A2A) protocol implementation code for anti-patterns found in the reference SDKs and sample agents: unauthenticated push-notification webhook fetches (SSRF), Agent Cards with no authentication requirement, and credentials embedded in publicly-served Agent Card metadata",
   "type": "module",
   "bin": {

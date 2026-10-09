@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.4hmetuyar/a2a-auditor",
+  "name": "io.github.GuardBee/a2a-auditor",
   "description": "Scans Agent2Agent (A2A) protocol code for webhook SSRF, missing auth, and credential exposure",
   "repository": {
     "url": "https://github.com/GuardBee/guardbee-mcp",

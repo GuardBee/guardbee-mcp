@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.4hmetuyar/tool-poisoning-scanner",
+  "name": "io.github.GuardBee/tool-poisoning-scanner",
   "description": "Scans MCP tool definitions for hidden instructions and confused-deputy sinks",
   "repository": {
     "url": "https://github.com/GuardBee/guardbee-mcp",

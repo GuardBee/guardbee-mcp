@@ -1,7 +1,7 @@
 {
   "name": "@guardbee/mcp-elicitation-auditor",
   "version": "0.1.1",
-  "mcpName": "io.github.4hmetuyar/elicitation-auditor",
+  "mcpName": "io.github.GuardBee/elicitation-auditor",
   "description": "MCP server that scans MCP server code for elicitation anti-patterns in the 2026-07-28 spec: form mode asking for secrets, URL mode pointed straight at a third-party authorize endpoint, and credentials or PII embedded in the elicitation URL",
   "type": "module",
   "bin": {

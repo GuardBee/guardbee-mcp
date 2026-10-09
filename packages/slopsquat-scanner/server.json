@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.4hmetuyar/slopsquat-scanner",
+  "name": "io.github.GuardBee/slopsquat-scanner",
   "description": "Checks declared npm/PyPI dependencies against real registries to catch slopsquatting",
   "repository": {
     "url": "https://github.com/GuardBee/guardbee-mcp",
