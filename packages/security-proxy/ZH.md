@@ -153,6 +153,21 @@ audit:
 
 ---
 
+## 可观测性（OpenTelemetry）
+
+每次工具调用都是一个名为 `tools/call <tool>` 的 span（kind SERVER），带有 MCP 语义约定属性——`mcp.method.name`、`gen_ai.tool.name`、`gen_ai.operation.name: execute_tool`、`mcp.session.id`、`enduser.id`（OIDC）——以及 `guardbee.upstream`、`guardbee.labels` 和 `guardbee.pii_hits`。对上游的调用是一个子 span（kind CLIENT，`server.address` = 上游）。该调用的每个审计事件——拦截、有毒数据流、审批、警告、服务器的采样请求——都是一个 span 事件（`guardbee.blocked` 等，带 `guardbee.rule_id` 和 `guardbee.reason`），被拦截的调用带有 `guardbee.blocked: true`。参数和结果永远不会写入 span。
+
+代理只依赖 `@opentelemetry/api`，没有 SDK 时 span 没有任何开销。要通过 OTLP/HTTP 导出，请在代理旁安装 SDK 并设置标准环境变量：
+
+```bash
+npm i -g @opentelemetry/sdk-trace-base @opentelemetry/exporter-trace-otlp-http @opentelemetry/resources
+export OTEL_EXPORTER_OTLP_ENDPOINT=https://otel-collector.example.com:4318
+export OTEL_EXPORTER_OTLP_HEADERS="authorization=Bearer …"   # 如果收集器需要
+export OTEL_SERVICE_NAME=guardbee-gateway                      # 默认：guardbee-security-proxy
+```
+
+Docker 镜像已自带 SDK。`OTEL_SDK_DISABLED=true` 或 `OTEL_TRACES_EXPORTER=none` 可保持关闭；先注册了自己 SDK 的进程（通过 `NODE_OPTIONS` 的零代码插桩）会继续使用它。
+
 ## 远程模式（HTTP）
 
 代理也可以作为共享的网络服务运行，而不只是某个客户端的子进程。智能体通过 Streamable HTTP 连接；上游也可以是远程的 Streamable HTTP 服务器。

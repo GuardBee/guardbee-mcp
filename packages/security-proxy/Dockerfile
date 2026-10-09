@@ -9,7 +9,10 @@
 FROM node:22-alpine
 
 ARG VERSION=1
+# The OpenTelemetry SDK is an optional peer of the proxy; the image ships it so
+# OTEL_EXPORTER_OTLP_ENDPOINT alone turns span export on.
 RUN npm install -g --omit=dev "@guardbee/mcp-security-proxy@${VERSION}" \
+      @opentelemetry/sdk-trace-base@^2.12.0 @opentelemetry/exporter-trace-otlp-http@^0.223.0 @opentelemetry/resources@^2.12.0 \
  && npm cache clean --force
 
 USER node
