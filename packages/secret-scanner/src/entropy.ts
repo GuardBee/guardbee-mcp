@@ -30,9 +30,10 @@ export function shannonEntropy(value: string): number {
 const SECRET_WORD = /(?:secret|token|passw(?:or)?d|pwd|api_?key|apikey|private_?key|signing_?key|access_?key|auth|credential|salt|webhook_?key|encryption_?key|client_?key|master_?key)/i;
 const NOT_SECRET = /(?:public|publishable|pub_?key|hash|checksum|sha\d*|digest|_id$|^id$|uuid|url|uri|path|file|name|version|commit|ref$|prefix|header|type|length|ttl|expir|timeout|count|format|algorithm|mode)/i;
 
-// name = value, name: value, "name": "value" — the value unquoted or quoted
+// name = value, name: value, "name": "value" — the value unquoted or quoted; also
+// inside a JSON string ("content":"API_SECRET=…"), as in transcripts and logs
 const ASSIGNMENT =
-  /(?:^|[\s,{;(])["']?([A-Za-z_][A-Za-z0-9_.-]{1,60})["']?\s*(?::|=|:=|=>)\s*["'`]?([A-Za-z0-9+/=_.-]{20,512})(?=["'`]?(?:[\s,;)}\]]|$))/gm;
+  /(?:^|[\s,{;(:"'])["']?([A-Za-z_][A-Za-z0-9_.-]{1,60})["']?\s*(?::|=|:=|=>)\s*["'`]?([A-Za-z0-9+/=_.-]{20,512})(?=["'`]?(?:[\s,;)}\]]|$))/gm;
 
 const HEX = /^[0-9a-f]+$/i;
 
@@ -59,9 +60,17 @@ export function findHighEntropy(text: string): EntropyHit[] {
   while ((m = re.exec(text)) !== null) {
     const name = m[1]!;
     const value = m[2]!;
-    if (!SECRET_WORD.test(name) || NOT_SECRET.test(name)) continue;
+    // A skipped match must not swallow an assignment nested in its value
+    // ("content":"API_SECRET=…"): resume right after where it started
+    if (!SECRET_WORD.test(name) || NOT_SECRET.test(name)) {
+      re.lastIndex = m.index + 1;
+      continue;
+    }
     const { random, entropy } = looksRandom(value);
-    if (!random) continue;
+    if (!random) {
+      re.lastIndex = m.index + 1;
+      continue;
+    }
     hits.push({ index: m.index + m[0].lastIndexOf(value), value, name, entropy });
   }
   return hits;
