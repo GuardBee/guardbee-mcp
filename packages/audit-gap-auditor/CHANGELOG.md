@@ -1,5 +1,11 @@
 # @guardbee/mcp-audit-gap-auditor
 
+## 0.2.1
+
+### Patch Changes
+
+- [#38](https://github.com/GuardBee/guardbee-mcp/pull/38) [`7a87a12`](https://github.com/GuardBee/guardbee-mcp/commit/7a87a1240e6a069d1efdb7fb598598dda5baa271) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - `audit_disabled_in_code` no longer fires on documentation files (`.md`, `.mdx`, `.rst`, `.txt`, `.adoc`), where `GUARDBEE_TELEMETRY=0` is an opt-out instruction rather than a hard-coded disable.
+
 ## 0.2.0
 
 ### Minor Changes
