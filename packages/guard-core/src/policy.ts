@@ -43,6 +43,20 @@ export const policyRuleSchema = z
 /** Every field has a default, so `{}` is a valid (allow-all, strict-taint) policy. */
 export const policyShape = {
   labels: z.record(z.string(), z.array(labelSchema)).default({}),
+  /**
+   * Which tools the agent sees, by the name it sees (globs). `expose` is an
+   * allowlist (absent: every tool), `hide` removes tools after it. A hidden
+   * tool is left out of tools/list and its calls are refused. `descriptions`
+   * replaces a tool's description with one you wrote.
+   */
+  tools: z
+    .object({
+      expose: z.array(z.string().min(1)).optional(),
+      hide: z.array(z.string().min(1)).default([]),
+      descriptions: z.record(z.string(), z.string().min(1).max(2000)).default({}),
+    })
+    .strict()
+    .default({ hide: [], descriptions: {} }),
   rules: z.array(policyRuleSchema).default([]),
   taint: z
     .object({

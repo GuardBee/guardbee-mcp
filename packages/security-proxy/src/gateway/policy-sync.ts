@@ -89,6 +89,7 @@ export class PolicySync {
 
   private apply(policy: GatewayPolicy): void {
     this.config.labels = policy.labels;
+    this.config.tools = policy.tools;
     this.config.rules = policy.rules;
     this.config.taint = policy.taint;
     this.config.approval = policy.approval;
