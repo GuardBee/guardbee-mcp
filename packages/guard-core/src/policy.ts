@@ -84,6 +84,8 @@ export const policyShape = {
       definitionDrift: interceptorSchema.extend({ recheck: z.enum(["every-call", "on-change"]).optional() }).optional(),
       /** Poisoned tool definitions in tools/list (injected instructions, hidden characters, read-only lies). */
       toolPoisoning: interceptorSchema.optional(),
+      /** Credentials (provider keys, private keys, DB URLs with passwords) in the arguments of an egress tool. */
+      egressSecrets: interceptorSchema.extend({ allowTools: z.array(z.string().min(1)).optional() }).optional(),
       piiMasking: z
         .object({
           enabled: z.boolean(),
