@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/guard-core",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Shared detectors for GuardBee MCP packages — checksum-validated PII masking, prompt injection patterns, and lethal-trifecta tool classification",
   "type": "module",
   "main": "./dist/index.js",
