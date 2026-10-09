@@ -80,6 +80,7 @@ export function gatewayConfig(overrides: Partial<GatewayConfig> = {}): GatewayCo
     policy: { source: "local" },
     namespaced: true,
     labels: {},
+    tools: { hide: [], descriptions: {} },
     rules: [],
     taint: { mode: "strict", basis: "capability" },
     approval: { timeoutSeconds: 120, channels: ["elicitation"] },

@@ -27,6 +27,13 @@ export type ListenConfig =
 /** Where the policy (labels, rules, taint, approval, defaults, interceptors) comes from. */
 export type PolicySourceConfig = { source: "local" } | { source: "dashboard"; refreshSeconds: number };
 
+export interface ToolExposure {
+  /** Allowlist; absent → every tool. */
+  expose?: string[];
+  hide: string[];
+  descriptions: Record<string, string>;
+}
+
 export interface GatewayConfig {
   upstreams: Record<string, UpstreamConfig>;
   policy: PolicySourceConfig;
@@ -35,6 +42,8 @@ export interface GatewayConfig {
   namespaced: boolean;
   /** Label overrides by the tool name the agent sees; replaces the heuristic labels entirely. */
   labels: Record<string, Label[]>;
+  /** Which tools the agent sees (globs on the name it sees) and descriptions you wrote. */
+  tools: ToolExposure;
   rules: PolicyRule[];
   taint: { mode: TaintMode; basis: TaintBasis };
   /**
@@ -204,6 +213,7 @@ export function parseGatewayYaml(source: string, fileLabel = "guardbee-proxy.yam
         : { transport: "stdio" },
     namespaced: true,
     labels: cfg.labels,
+    tools: cfg.tools,
     rules: cfg.rules,
     taint: cfg.taint,
     approval: cfg.approval,
@@ -224,6 +234,7 @@ export function fromLegacyConfig(config: ProxyConfig): GatewayConfig {
     listen: { transport: "stdio" },
     namespaced: false,
     labels: {},
+    tools: { hide: [], descriptions: {} },
     rules: [],
     taint: { mode: "warn", basis: "capability" },
     approval: { timeoutSeconds: 120, channels: ["elicitation"] },

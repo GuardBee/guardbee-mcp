@@ -11,13 +11,13 @@ import { recordEvent } from "@guardbee/mcp-telemetry";
 import type { AuditLogger } from "../audit/logger.js";
 import { ToolDefinitionPin, type ToolRecord } from "../interceptors/definition-drift.js";
 import type { AuditEvent } from "../types.js";
-import { AnomalyDetector } from "./anomaly.js";
+import { AnomalyDetector, type AnomalyConfig } from "./anomaly.js";
 import type { Approver } from "./approval.js";
 import type { GatewayConfig } from "./config.js";
 import { maskFields } from "./fields.js";
 import { labelTool, type Label } from "./labels.js";
 import { DataFingerprints } from "./fingerprints.js";
-import { evaluatePolicy } from "./policy.js";
+import { evaluatePolicy, globToRegExp } from "./policy.js";
 import { TaintTracker } from "./taint.js";
 import { PiiVault } from "./tokens.js";
 import type { Upstream } from "./upstream.js";
@@ -51,7 +51,7 @@ function errorResult(text: string): CallToolResult {
  * The policy pipeline between the agent and its MCP servers. Transport-free:
  * proxy.ts wires it to stdio, tests drive it directly.
  *
- * A tool call runs: session anomaly checks → input injection scan →
+ * A tool call runs: exposure → session anomaly checks → input injection scan →
  * definition drift → policy rules (incl. approval) → toxic-flow check →
  * detokenize → upstream → result injection scan → PII masking / tokenizing →
  * field masking → taint update.
@@ -61,8 +61,10 @@ export class Gateway {
   readonly vault = new PiiVault();
   /** Hashes of the sensitive data this session's tools returned, for the data-based taint check. */
   readonly fingerprints = new DataFingerprints();
-  /** Behaviour over this session's calls (bursts, sweeps, probing); null when interceptors.anomaly is off. */
-  private readonly anomaly: AnomalyDetector | null;
+  private anomalyDetector: AnomalyDetector | null = null;
+  /** The interceptors.anomaly object the detector was built from; a policy update replaces it. */
+  private anomalyConfig?: AnomalyConfig;
+  private readonly now?: () => number;
   private readonly pins = new Map<string, ToolDefinitionPin>();
   private readonly tools = new Map<string, ToolRoute>();
   private readonly resources = new Map<string, Upstream>();
@@ -85,8 +87,7 @@ export class Gateway {
     options: { sessionId?: string; now?: () => number } = {},
   ) {
     this.sessionId = options.sessionId;
-    const anomaly = config.interceptors.anomaly;
-    this.anomaly = anomaly?.enabled ? new AnomalyDetector(anomaly, options.now) : null;
+    this.now = options.now;
     for (const upstream of upstreams) {
       const unsubscribe = upstream.onToolsChanged?.(() => {
         this.stale.add(upstream.name);
@@ -103,6 +104,24 @@ export class Gateway {
 
   private get interceptors() {
     return this.config.interceptors;
+  }
+
+  /** Behaviour over this session's calls (bursts, sweeps, probing); null when interceptors.anomaly is off. */
+  private get anomaly(): AnomalyDetector | null {
+    const config = this.interceptors.anomaly;
+    // A dashboard policy update swaps the object: start counting under the new limits.
+    if (config !== this.anomalyConfig) {
+      this.anomalyConfig = config;
+      this.anomalyDetector = config?.enabled ? new AnomalyDetector(config, this.now) : null;
+    }
+    return this.anomalyDetector;
+  }
+
+  /** Left out of tools/list and refused: not in `tools.expose` (when set), or in `tools.hide`. */
+  private hidden(name: string): boolean {
+    const { expose, hide } = this.config.tools;
+    const matches = (glob: string) => globToRegExp(glob).test(name);
+    return (expose !== undefined && !expose.some(matches)) || hide.some(matches);
   }
 
   private exposed(upstream: Upstream, name: string): string {
@@ -183,7 +202,9 @@ export class Gateway {
         const name = this.exposed(upstream, tool.name);
         const labels = this.config.labels[name] ?? labelTool(tool);
         this.tools.set(name, { upstream, name: tool.name, labels });
-        listed.push({ ...tool, name });
+        if (this.hidden(name)) continue;
+        const description = this.config.tools.descriptions[name];
+        listed.push({ ...tool, name, ...(description ? { description } : {}) });
       }
     }
     return listed;
@@ -242,7 +263,10 @@ export class Gateway {
       return errorResult(`Tool call not approved (${outcome}): ${reason}`);
     };
 
-    // 0. Session behaviour: a locked session, a burst, a sweep of sensitive reads
+    // 0. A hidden tool is not there for the agent; asking for it anyway counts as probing
+    if (this.hidden(name)) return block(`"${name}" is not exposed by this gateway (tools.expose / tools.hide)`);
+
+    // Session behaviour: a locked session, a burst, a sweep of sensitive reads
     if (this.anomaly) {
       if (this.anomaly.locked) return block(this.anomaly.locked, { ruleId: "anomaly:repeated_blocks" }, false);
       for (const anomaly of this.anomaly.observeCall(name, labels, args)) {

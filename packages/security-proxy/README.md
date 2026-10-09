@@ -99,6 +99,11 @@ labels:                       # override the heuristic labels
   github__get_issue: [untrusted]
   github__create_pull_request: [egress]
 
+tools:                        # what the agent sees (globs on <upstream>__<tool>)
+  hide: ["*__delete_*"]
+  descriptions:
+    github__create_issue: "Create an issue in acme/* repositories only."
+
 rules:                        # first match wins
   - id: no-deletes
     match: { tool: "postgres__delete_*" }
@@ -127,6 +132,7 @@ audit:
 - Tools and prompts appear as `<upstream>__<tool>`.
 - **Toxic flow (lethal trifecta):** each tool is labeled `untrusted`, `sensitive`, `egress` or `destructive` (name/description heuristics, overridable under `labels`). Once a session has read untrusted content (an `untrusted` tool or any resource) and sensitive data (a `sensitive` tool or any PII in a result), an `egress` call is blocked in `strict` mode and only logged in `warn` mode. The check spans servers: an issue read from GitHub plus a customer record from a CRM blocks a webhook on a third server.
 - **Rules** match on `tool` (glob), `upstream`, `label`, `session` (`clean` | `tainted`) and `args`. `mask` forces PII masking for that tool even when masking is off, and `mask.fields` also blanks the named JSON keys in text and `structuredContent`. A rule's `allow` does not skip the toxic-flow check; relabel the tool instead.
+- **Tool exposure (`tools`):** `expose` is an allowlist of globs on the name the agent sees (absent: every tool), and `hide` removes tools after it. A hidden tool is left out of `tools/list`, so the model never reads its description (a smaller poisoning surface and fewer tokens), and a call to it is refused and counts toward `anomaly.repeatedBlocks`. `descriptions` replaces a tool's description with one you wrote; drift detection keeps watching the server's own. Unlike a `deny` rule, which refuses at call time, hiding takes the tool out of the agent's view.
 - **Approval:** `approve` (a rule action, or `taint.mode: approve` for toxic flows) shows the person a yes/no form through MCP elicitation, with the tool, the reason and the arguments. Anything but an explicit yes — decline, cancel, no answer within `approval.timeoutSeconds` (default 120) — blocks the call. A client without elicitation support cannot approve, so the call is blocked with a message saying so.
 - **Approval in the dashboard:** with `approval.channels: [elicitation, dashboard]` and `audit.dashboard` set, a client that cannot show a prompt no longer blocks the call outright. The request goes to the GuardBee dashboard (MCP Gateway page) with the arguments PII-masked, workspace owners and admins get a notification, and the proxy holds the call until someone approves or denies it there or `timeoutSeconds` passes. Channels are tried in order; the first one that can ask gives the answer.
 - **Data-based taint (`taint.basis: data`):** the default `capability` basis blocks every egress call once a session holds untrusted and sensitive content. With `data`, the proxy keeps hashed fingerprints of what sensitive tools (and PII-bearing results) returned — personal data and credentials, id-like tokens, and runs of words — and treats an egress call as a toxic flow only when its arguments carry that data (12+ words in common, or an exact identifier; PII tokens count as their values) and the session also read untrusted content. The block message names the tool the data came from. Licence text, markdown boilerplate and text that also came back from ordinary results or from 3+ tools are ignored. Fingerprints are hashes, kept in memory per session. Trade-off: a paraphrase or a summary of the data is not caught; keep `capability` where that matters. In `capability` mode the same evidence is added to the block reason when found.
