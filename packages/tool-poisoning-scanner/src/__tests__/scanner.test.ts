@@ -203,6 +203,14 @@ describe("scanToolCatalog", () => {
     expect(ids).toContain("encoded_blob_in_description");
   });
 
+  it("does not flag a description written in another script next to Latin words", () => {
+    const findings = scanToolCatalog([
+      { name: "orders", description: "Возвращает список заказов в формате JSON" },
+      { name: "data", description: "Επιστρέφει δεδομένα από το API" },
+    ]);
+    expect(findings.map((finding) => finding.patternId)).not.toContain("mixed_script_in_description");
+  });
+
   it("sıradan bir hava durumu tool'unda bulgu döndürmez", () => {
     expect(scanToolCatalog([{ name: "get_weather", description: "Returns the current weather for a city" }])).toEqual([]);
   });

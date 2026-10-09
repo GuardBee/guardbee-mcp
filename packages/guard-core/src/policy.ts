@@ -82,6 +82,8 @@ export const policyShape = {
       promptInjection: interceptorSchema.optional(),
       toolResultInjection: interceptorSchema.optional(),
       definitionDrift: interceptorSchema.extend({ recheck: z.enum(["every-call", "on-change"]).optional() }).optional(),
+      /** Poisoned tool definitions in tools/list (injected instructions, hidden characters, read-only lies). */
+      toolPoisoning: interceptorSchema.optional(),
       piiMasking: z
         .object({
           enabled: z.boolean(),

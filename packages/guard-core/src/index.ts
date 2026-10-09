@@ -15,3 +15,7 @@ export { CAPABILITY_RULES, classifyTool, textOf } from "./classify.js";
 export type { Capability, FlowCategory, ToolRecord } from "./classify.js";
 export { POLICY_LABELS, POLICY_ACTIONS, policyRuleSchema, policyShape, gatewayPolicySchema, validatePolicy } from "./policy.js";
 export type { GatewayPolicy, PolicyValidation } from "./policy.js";
+export { DESCRIPTION_INJECTION_PATTERNS, MISMATCH_SINK_RULES, READ_ONLY_HINT } from "./tool-poisoning.js";
+export type { DescriptionInjectionPattern, MismatchSinkRule, ToolPoisoningCategory } from "./tool-poisoning.js";
+export { annotationContradicts, matchSurface, scanToolCatalog } from "./tool-catalog.js";
+export type { CatalogFinding, CatalogTool, SurfaceHit } from "./tool-catalog.js";

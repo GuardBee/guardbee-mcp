@@ -6,7 +6,14 @@ import type {
   Resource,
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
-import { maskPiiInValue, PII_PATTERNS, scanForPromptInjection, scanToolResult } from "@guardbee/guard-core";
+import {
+  maskPiiInValue,
+  PII_PATTERNS,
+  scanForPromptInjection,
+  scanToolCatalog,
+  scanToolResult,
+  type CatalogFinding,
+} from "@guardbee/guard-core";
 import { recordEvent } from "@guardbee/mcp-telemetry";
 import type { AuditLogger } from "../audit/logger.js";
 import { ToolDefinitionPin, type ToolRecord } from "../interceptors/definition-drift.js";
@@ -41,6 +48,8 @@ interface ToolRoute {
   /** The tool's name on its own server. */
   name: string;
   labels: Label[];
+  /** Why the definition is held back as poisoned; the tool is hidden and its calls refused. */
+  poisoned?: string;
 }
 
 function errorResult(text: string): CallToolResult {
@@ -51,7 +60,8 @@ function errorResult(text: string): CallToolResult {
  * The policy pipeline between the agent and its MCP servers. Transport-free:
  * proxy.ts wires it to stdio, tests drive it directly.
  *
- * A tool call runs: exposure → session anomaly checks → input injection scan →
+ * tools/list scans each definition for poisoning before the agent sees it.
+ * A tool call runs: exposure / poisoning → session anomaly checks → input injection scan →
  * definition drift → policy rules (incl. approval) → toxic-flow check →
  * detokenize → upstream → result injection scan → PII masking / tokenizing →
  * field masking → taint update.
@@ -69,6 +79,8 @@ export class Gateway {
   private readonly tools = new Map<string, ToolRoute>();
   private readonly resources = new Map<string, Upstream>();
   private readonly prompts = new Map<string, { upstream: Upstream; name: string }>();
+  /** Poisoning findings already logged, by tool and finding, so each list does not log them again. */
+  private readonly poisonLogged = new Set<string>();
   /** Upstreams that announced tools/list_changed since the agent last listed tools. */
   private readonly stale = new Set<string>();
   private readonly toolListeners: (() => void)[] = [];
@@ -143,6 +155,31 @@ export class Gateway {
     });
   }
 
+  /**
+   * Poisoning findings per tool, from what the model would read: your own
+   * description when you set one, otherwise the server's, plus the schema.
+   */
+  private poisoning(upstream: Upstream, tools: Tool[]): Map<string, CatalogFinding[]> {
+    const byTool = new Map<string, CatalogFinding[]>();
+    if (this.interceptors.toolPoisoning?.enabled === false) return byTool;
+    const seen = tools.map((tool) => ({
+      name: tool.name,
+      description: this.config.tools.descriptions[this.exposed(upstream, tool.name)] ?? tool.description,
+      inputSchema: tool.inputSchema,
+      annotations: tool.annotations,
+    }));
+    for (const finding of scanToolCatalog(seen, upstream.name)) {
+      const list = byTool.get(finding.toolName) ?? [];
+      list.push(finding);
+      byTool.set(finding.toolName, list);
+    }
+    return byTool;
+  }
+
+  private get poisoningAction(): "block" | "warn" {
+    return this.interceptors.toolPoisoning?.action ?? this.interceptors.promptInjection?.action ?? "block";
+  }
+
   private get driftEnabled(): boolean {
     return this.interceptors.definitionDrift?.enabled !== false;
   }
@@ -198,11 +235,30 @@ export class Gateway {
         }
         tools = observed.tools as Tool[];
       }
+      const poisoning = this.poisoning(upstream, tools);
       for (const tool of tools) {
         const name = this.exposed(upstream, tool.name);
         const labels = this.config.labels[name] ?? labelTool(tool);
-        this.tools.set(name, { upstream, name: tool.name, labels });
-        if (this.hidden(name)) continue;
+        const findings = poisoning.get(tool.name) ?? [];
+        // Medium findings only warn: they are the patterns most likely to be benign wording.
+        const blocking = this.poisoningAction === "block" ? findings.filter((f) => f.severity !== "medium") : [];
+        const poisoned = blocking.length > 0 ? `Tool poisoning in "${name}": ${blocking.map((f) => `${f.patternName} (${f.field})`).join("; ")}` : undefined;
+        this.tools.set(name, { upstream, name: tool.name, labels, ...(poisoned ? { poisoned } : {}) });
+        for (const finding of findings) {
+          const key = `${name}\0${finding.patternId}\0${finding.field}\0${finding.match}`;
+          if (this.poisonLogged.has(key)) continue;
+          this.poisonLogged.add(key);
+          const held = blocking.includes(finding);
+          this.log({
+            type: held ? "blocked" : "warn",
+            tool: name,
+            server: upstream.name,
+            upstream: upstream.name,
+            ruleId: `poisoning:${finding.patternId}`,
+            reason: `Tool poisoning (${finding.severity}) in ${finding.field}: ${finding.patternName}${held ? " — tool hidden" : ""}`,
+          });
+        }
+        if (poisoned || this.hidden(name)) continue;
         const description = this.config.tools.descriptions[name];
         listed.push({ ...tool, name, ...(description ? { description } : {}) });
       }
@@ -265,6 +321,7 @@ export class Gateway {
 
     // 0. A hidden tool is not there for the agent; asking for it anyway counts as probing
     if (this.hidden(name)) return block(`"${name}" is not exposed by this gateway (tools.expose / tools.hide)`);
+    if (route.poisoned) return block(`${route.poisoned} — the tool is held back`);
 
     // Session behaviour: a locked session, a burst, a sweep of sensitive reads
     if (this.anomaly) {
