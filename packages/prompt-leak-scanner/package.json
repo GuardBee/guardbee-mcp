@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-prompt-leak-scanner",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "mcpName": "io.github.GuardBee/prompt-leak-scanner",
   "description": "MCP server and reverse proxy that catches leaked credentials and PII (API keys, TC Kimlik No, credit cards, IBANs) in outbound LLM prompts before they leave your application",
   "type": "module",
