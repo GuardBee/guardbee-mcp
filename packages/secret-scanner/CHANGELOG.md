@@ -1,5 +1,11 @@
 # @guardbee/mcp-secret-scanner
 
+## 0.4.0
+
+### Minor Changes
+
+- [#62](https://github.com/GuardBee/guardbee-mcp/pull/62) [`841d816`](https://github.com/GuardBee/guardbee-mcp/commit/841d81617c76fdfe9849336e5daeee2fe09a1c9d) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - High-entropy detection: a random-looking value assigned to a secret-like name (`.env`, YAML, JSON, code) is reported as `high_entropy_secret` even when no provider rule knows its format. Thresholds are per character set (hex needs 32+ characters; values without digits need more bits), public/hash/id/url names, placeholders and references are skipped, and a value a provider rule already reported is not repeated. Medium severity, low in test files; `--no-entropy` or `entropy: false` turns it off. `.tsbuildinfo` files are skipped.
+
 ## 0.3.0
 
 ### Minor Changes
