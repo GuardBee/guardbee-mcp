@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import { readFileSync, statSync, readdirSync } from "fs";
 import { join, relative, extname } from "path";
 import { SECRET_PATTERNS, type SecretPattern } from "./patterns.js";
+import { findHighEntropy } from "./entropy.js";
 
 export interface Finding {
   patternId: string;
@@ -39,6 +40,7 @@ export const SKIP_EXTENSIONS = new Set([
   ".mp3", ".mp4", ".avi", ".mov", ".wav",
   ".ttf", ".woff", ".woff2", ".eot",
   ".lock", // package-lock, yarn.lock — too noisy
+  ".tsbuildinfo", // TypeScript build cache: file hashes under "signature"
 ]);
 
 export const SKIP_DIRS = new Set([
@@ -117,9 +119,27 @@ export function fingerprintOf(patternId: string, path: string | undefined, secre
  * `fingerprintPath` is the path the fingerprint uses (relative to the scan
  * root); it defaults to `filePath`.
  */
-export function scanText(text: string, filePath?: string, fingerprintPath: string | undefined = filePath): Finding[] {
+export interface ScanOptions {
+  /** Also report random-looking values assigned to secret-like names (default true). */
+  entropy?: boolean;
+}
+
+function locate(text: string, index: number): { line: number; column: number } {
+  const before = text.slice(0, index);
+  const lastNl = before.lastIndexOf("\n");
+  return { line: before.split("\n").length, column: index - (lastNl === -1 ? 0 : lastNl + 1) + 1 };
+}
+
+export function scanText(
+  text: string,
+  filePath?: string,
+  fingerprintPath: string | undefined = filePath,
+  options: ScanOptions = {},
+): Finding[] {
   const findings: Finding[] = [];
   const lines = text.split("\n");
+  /** Where rule matches sit, so the entropy check does not report the same value again. */
+  const spans: [number, number][] = [];
 
   for (const sp of SECRET_PATTERNS) {
     const re = new RegExp(sp.pattern.source, sp.pattern.flags);
@@ -143,6 +163,9 @@ export function scanText(text: string, filePath?: string, fingerprintPath: strin
       const severity =
         sp.lowerSeverityInTestFiles && isTestFilePath(filePath) ? "low" : sp.severity;
 
+      // Only a reported match hides the value from the entropy check: a rule that
+      // dropped it (allowlist, placeholder) has not covered it
+      spans.push([m.index, m.index + matchStr.length]);
       findings.push({
         patternId: sp.id,
         patternName: sp.name,
@@ -157,10 +180,36 @@ export function scanText(text: string, filePath?: string, fingerprintPath: strin
     }
   }
 
+  if (options.entropy !== false) {
+    for (const hit of findHighEntropy(text)) {
+      const end = hit.index + hit.value.length;
+      if (spans.some(([from, to]) => hit.index < to && end > from)) continue;
+      if (isPlaceholderValue(hit.value)) continue;
+      const { line, column } = locate(text, hit.index);
+      const contextLine = lines[line - 1] ?? "";
+      if (isSuppressed(contextLine)) continue;
+      findings.push({
+        patternId: "high_entropy_secret",
+        patternName: `High-entropy value assigned to "${hit.name}"`,
+        severity: isTestFilePath(filePath) ? "low" : "medium",
+        file: filePath,
+        line,
+        column,
+        match: redact(hit.value),
+        context: contextLine.replace(hit.value, redact(hit.value)).trim().slice(0, 200),
+        fingerprint: fingerprintOf("high_entropy_secret", fingerprintPath, hit.value),
+      });
+    }
+  }
+
   return findings;
 }
 
-export function scanFile(filePath: string, fingerprintPath: string = filePath): { findings: Finding[]; skipped: boolean } {
+export function scanFile(
+  filePath: string,
+  fingerprintPath: string = filePath,
+  options: ScanOptions = {},
+): { findings: Finding[]; skipped: boolean } {
   const ext = extname(filePath).toLowerCase();
   if (SKIP_EXTENSIONS.has(ext)) return { findings: [], skipped: true };
 
@@ -180,12 +229,12 @@ export function scanFile(filePath: string, fingerprintPath: string = filePath): 
     return { findings: [], skipped: true };
   }
 
-  return { findings: scanText(content, filePath, fingerprintPath), skipped: false };
+  return { findings: scanText(content, filePath, fingerprintPath, options), skipped: false };
 }
 
 export function scanDirectory(
   dirPath: string,
-  options: { maxFiles?: number; include?: string[]; exclude?: string[] } = {}
+  options: { maxFiles?: number; include?: string[]; exclude?: string[] } & ScanOptions = {}
 ): ScanResult {
   const start = Date.now();
   const { maxFiles = 5000, include, exclude } = options;
@@ -224,7 +273,7 @@ export function scanDirectory(
           continue;
         }
 
-        const { findings, skipped } = scanFile(fullPath, relPath);
+        const { findings, skipped } = scanFile(fullPath, relPath, options);
         if (skipped) {
           skippedFiles++;
         } else {

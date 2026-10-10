@@ -18,10 +18,11 @@
 - **文件和目录扫描** —— 单个文件或整个项目目录树
 - **Git 历史与暂存区扫描** —— `--history` 扫描每次提交新增的每一行，因此能找到已从文件中删除但仍留在仓库中的密钥，并在引入它的提交处（附作者和日期）只报告一次；`--staged` 只扫描你即将提交的内容
 - **基线（Baseline）** —— `--write-baseline` 以哈希形式记录当前发现（从不保存密钥本身，可安全提交）；之后 `--baseline` 只报告新发现，让现有仓库无需先全部修复即可在 CI 中启用扫描。SARIF 结果带有稳定的 `partialFingerprints` 值
+- **高熵值** —— 赋给类似密钥名称的随机值（`.env` 中的 `WEBHOOK_SIGNING_SECRET=…`、YAML 中的 `client_secret:`、JSON 中的 `"internalApiKey"`）即使没有任何服务商规则认识其格式也会被报告。随机性以香农熵衡量（十六进制值需 32 个字符以上；不含数字的值需更高阈值，因此驼峰式口令不算）；`public`/`publishable`、`*_hash`、`*_id` 和 `*_url` 名称、占位符和 `${VAR}` 引用会被跳过，已被服务商规则报告的值不会重复报告。严重程度为 medium，测试文件中为 low；`--no-entropy`（或 MCP 工具中的 `entropy: false`）可关闭
 - **智能跳过** —— 自动跳过 `node_modules`、`.git`、`dist`、`build`、`.next` 等目录
 - **安全的部分隐藏** —— 匹配结果只显示前 4 个和后 4 个字符，中间用星号代替
 - **允许列表支持** —— 可把已知的测试/假值加入允许列表
-- **49 个单元测试** —— 测试全部通过
+- **58 个单元测试** —— 测试全部通过
 
 ---
 
@@ -163,7 +164,7 @@ npx @guardbee/mcp-secret-scanner scan --staged --fail-on=high || exit 1
 
 ```bash
 npm install
-npm test          # 49 个单元测试
+npm test          # 58 个单元测试
 npm run build     # TypeScript 编译
 ```
 
