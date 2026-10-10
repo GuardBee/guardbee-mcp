@@ -19,10 +19,12 @@ Kaynak dosyalarınızı, dizinleri ve ortam konfigürasyonlarını açık API ke
 - **Git Geçmişi & Staged Tarama** — `--history`, herhangi bir commit'in eklediği her satırı tarar; dosyalardan silinmiş ama repoda hâlâ duran bir key bulunur ve onu ekleyen commit'te (yazar ve tarihle) bir kez raporlanır; `--staged` yalnızca commit'lemek üzere olduğunuz satırları tarar
 - **Baseline** — `--write-baseline` bugünkü bulguları hash olarak kaydeder (secret'ların kendisini asla; commit'lemek güvenlidir); `--baseline` sonra yalnızca yenilerini raporlar, böylece mevcut bir repo her şeyi önce düzeltmeden scanner'ı CI'a alabilir. SARIF sonuçları kalıcı bir `partialFingerprints` değeri taşır
 - **Yüksek Entropili Değerler** — secret'a benzeyen bir ada atanmış rastgele görünümlü bir değer (`.env`'de `WEBHOOK_SIGNING_SECRET=…`, YAML'da `client_secret:`, JSON'da `"internalApiKey"`) hiçbir sağlayıcı kuralı formatını bilmese de raporlanır. Rastgelelik Shannon entropisiyle ölçülür (hex değerler 32+ karakter ister; rakam içermeyen değerler daha yüksek eşiği geçmelidir, böylece camel-case bir parola sayılmaz); `public`/`publishable`, `*_hash`, `*_id` ve `*_url` adları, yer tutucular ve `${VAR}` referansları atlanır, bir sağlayıcı kuralının zaten raporladığı değer ikinci kez raporlanmaz. Önem medium, test dosyalarında low; `--no-entropy` (ya da MCP araçlarında `entropy: false`) kapatır
+- **Ajan Transcript'leri** — `scan --agent-history` (MCP: `scan_agent_history`) kodlama ajanlarının makinenizde tuttuklarını tarar: Claude Code (`~/.claude/projects`, `~/.claude.json`), Codex (`~/.codex`), Gemini CLI (`~/.gemini/tmp`) ve Continue (`~/.continue/sessions`). Sohbete yapıştırılan ya da ajanın çalıştırdığı bir komutun yazdırdığı key orada kalır — ve model sağlayıcısına zaten gönderilmiştir, döndürün. Her secret ajan başına bir kez, kaç kez geçtiğiyle raporlanır; transcript'ler ajanın okuduğu kodla dolu olduğundan entropi kontrolü burada `--entropy` verilmedikçe kapalıdır
+- **Büyük Satır Dosyaları** — 1 MB'ı aşan `.jsonl`, `.ndjson`, `.ipynb` ve `.log` dosyaları (transcript'ler, çıktılı notebook'lar, log'lar) atlanmak yerine satır satır okunur
 - **Akıllı Atlama** — `node_modules`, `.git`, `dist`, `build`, `.next` gibi dizinler otomatik atlanır
 - **Güvenli Redaksyon** — Eşleşmeler ilk 4 + yıldız + son 4 karakter olarak gösterilir
 - **Allowlist Desteği** — Bilinen test/sahte değerleri beyaz listeye alın
-- **58 Unit Test** — %100 geçen test paketi
+- **64 Unit Test** — %100 geçen test paketi
 
 ---
 
@@ -55,6 +57,7 @@ npm install -g @guardbee/mcp-secret-scanner
 | `scan_file` | Tek bir dosyayı tarar |
 | `scan_directory` | Bir dizini ve alt dizinlerini yinelemeli olarak tarar |
 | `scan_git` | Bir git reposunun staged değişikliklerini ya da her commit'in eklediği satırları (geçmiş) tarar |
+| `scan_agent_history` | Bu makinedeki kodlama ajanlarının transcript'lerini tarar (Claude Code, Codex, Gemini CLI, Continue) |
 | `list_patterns` | Tüm aktif secret desenlerini listeler |
 
 ### Örnek Kullanım
@@ -108,6 +111,8 @@ npx @guardbee/mcp-secret-scanner scan . --fail-on=high
 
 # JSON çıktı (CI raporlama için)
 npx @guardbee/mcp-secret-scanner scan . --format=json
+# Bu makinedeki Claude Code / Codex / Gemini CLI / Continue oturumlarına yapıştırılan secret'lar
+npx @guardbee/mcp-secret-scanner scan --agent-history
 # Pre-commit: yalnızca commit'lemek üzere olduğunuz satırlar
 npx @guardbee/mcp-secret-scanner scan --staged
 
@@ -164,7 +169,7 @@ npx @guardbee/mcp-secret-scanner scan --staged --fail-on=high || exit 1
 
 ```bash
 npm install
-npm test          # 58 unit test
+npm test          # 64 unit test
 npm run build     # TypeScript derleme
 ```
 

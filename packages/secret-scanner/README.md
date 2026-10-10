@@ -19,10 +19,12 @@ An MCP server that scans your source files, directories, and environment configs
 - **Git History & Staged Scanning** — `--history` scans every line any commit added, so a key deleted from the files but still in the repository is found, reported once at the commit that added it (with author and date); `--staged` scans only what you are about to commit
 - **Baseline** — `--write-baseline` records today's findings as hashes (never the secrets, safe to commit); `--baseline` then reports only new ones, so an existing repo can adopt the scanner in CI without fixing everything first. SARIF results carry a stable `partialFingerprints` value
 - **High-Entropy Values** — a random-looking value assigned to a secret-like name (`WEBHOOK_SIGNING_SECRET=…` in `.env`, `client_secret:` in YAML, `"internalApiKey"` in JSON) is reported even when no provider rule knows its format. Randomness is measured as Shannon entropy (hex values need 32+ characters; values without digits need more bits, so a camel-case passphrase does not count); `public`/`publishable`, `*_hash`, `*_id` and `*_url` names, placeholders and `${VAR}` references are left alone, and a value a provider rule already reported is not reported twice. Medium severity, low in test files; `--no-entropy` (or `entropy: false` in the MCP tools) turns it off
+- **Agent Transcripts** — `scan --agent-history` (MCP: `scan_agent_history`) scans what coding agents keep on your machine: Claude Code (`~/.claude/projects`, `~/.claude.json`), Codex (`~/.codex`), Gemini CLI (`~/.gemini/tmp`) and Continue (`~/.continue/sessions`). A key pasted into a chat or printed by a command the agent ran stays there — and was already sent to the model provider, so rotate it. Each secret is reported once per agent with how often it appears; the entropy check is off here unless `--entropy`, since transcripts are full of code the agent read
+- **Large Line Files** — `.jsonl`, `.ndjson`, `.ipynb` and `.log` files over 1 MB (transcripts, notebooks with outputs, logs) are read line by line instead of being skipped
 - **Smart Skipping** — directories like `node_modules`, `.git`, `dist`, `build`, `.next` are skipped automatically
 - **Safe Redaction** — matches are shown as first 4 + stars + last 4 characters
 - **Allowlist Support** — allowlist known test/fake values
-- **58 Unit Tests** — 100% passing test suite
+- **64 Unit Tests** — 100% passing test suite
 
 ---
 
@@ -55,6 +57,7 @@ Add to `claude_desktop_config.json`:
 | `scan_file` | Scans a single file |
 | `scan_directory` | Recursively scans a directory and its subdirectories |
 | `scan_git` | Scans a git repository's staged changes or every commit's added lines (history) |
+| `scan_agent_history` | Scans coding agents' transcripts on this machine (Claude Code, Codex, Gemini CLI, Continue) |
 | `list_patterns` | Lists all active secret patterns |
 
 ### Example Usage
@@ -108,6 +111,8 @@ npx @guardbee/mcp-secret-scanner scan . --fail-on=high
 
 # JSON output (for CI reporting)
 npx @guardbee/mcp-secret-scanner scan . --format=json
+# Secrets pasted into Claude Code / Codex / Gemini CLI / Continue sessions on this machine
+npx @guardbee/mcp-secret-scanner scan --agent-history
 # Pre-commit: only the lines you are about to commit
 npx @guardbee/mcp-secret-scanner scan --staged
 
@@ -164,7 +169,7 @@ npx @guardbee/mcp-secret-scanner scan --staged --fail-on=high || exit 1
 
 ```bash
 npm install
-npm test          # 58 unit tests
+npm test          # 64 unit tests
 npm run build     # TypeScript compile
 ```
 
