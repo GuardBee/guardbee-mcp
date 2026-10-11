@@ -1,5 +1,11 @@
 # @guardbee/mcp-secret-scanner
 
+## 0.6.0
+
+### Minor Changes
+
+- [#70](https://github.com/GuardBee/guardbee-mcp/pull/70) [`4545f53`](https://github.com/GuardBee/guardbee-mcp/commit/4545f53505315149567c063da58526d7b1fc1633) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Live verification, CLI only: `--verify` asks each provider (GitHub, GitLab, OpenAI, Anthropic, Slack, Stripe, Hugging Face, npm, SendGrid, Groq, OpenRouter, DigitalOcean) through a read-only identity endpoint whether a found key still works, marks findings `live` / `invalid` / `unknown` and lists live ones first; `--fail-on=live` fails only for keys that still work. Each key goes only to its own provider, once; raw values never reach a finding or the output. The MCP tools do not verify.
+
 ## 0.5.0
 
 ### Minor Changes
