@@ -5,6 +5,7 @@ import { z } from "zod";
 import { scanText, scanFile, scanDirectory } from "./scanner.js";
 import { applyBaseline, readBaseline } from "./baseline.js";
 import { scanGit } from "./git.js";
+import { scanAgentHistory } from "./agent-history.js";
 import { SECRET_PATTERNS } from "./patterns.js";
 
 function formatFindings(
@@ -164,6 +165,25 @@ export async function startServer() {
         durationMs: result.durationMs,
       };
       return { content: [{ type: "text", text: formatFindings(shown, mode === "history" ? "commits" : "staged hunks", applied.suppressed) }] };
+    }
+  );
+
+  server.tool(
+    "scan_agent_history",
+    "Scan the transcripts coding agents keep on this machine (Claude Code, Codex, Gemini CLI, Continue) for secrets that were pasted into a chat or printed by a command. Such a secret was already sent to the model provider and should be rotated. Each secret is reported once with how often it appears.",
+    {
+      entropy: z.boolean().optional().describe("Also flag random-looking values assigned to secret-like names (default false here: transcripts hold a lot of code)"),
+    },
+    async ({ entropy }) => {
+      const result = scanAgentHistory({ entropy: entropy ?? false });
+      if (result.sources.length === 0) {
+        return { content: [{ type: "text", text: "No agent history found (Claude Code, Codex, Gemini CLI, Continue)." }] };
+      }
+      const header = result.sources.map((source) => `${source.agent}: ${source.path} (${source.files} file(s))`).join("\n");
+      const body = formatFindings(result, "agent history files");
+      const repeats = result.findings.filter((f) => f.occurrences > 1).map((f) => `  ${f.patternName} (${f.match}) appears ${f.occurrences} times`);
+      const advice = result.totalFindings > 0 ? "\nThese were already sent to the model provider: rotate them, then delete the transcripts." : "";
+      return { content: [{ type: "text", text: [header, "", body, ...repeats, advice].join("\n") }] };
     }
   );
 

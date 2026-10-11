@@ -7,3 +7,5 @@ export { scanGit } from "./git.js";
 export type { GitScanOptions, GitScanResult } from "./git.js";
 export { applyBaseline, readBaseline, toBaseline, writeBaseline } from "./baseline.js";
 export type { Baseline } from "./baseline.js";
+export { scanAgentHistory, AGENT_HISTORY_LOCATIONS } from "./agent-history.js";
+export type { AgentHistoryFinding, AgentHistoryResult } from "./agent-history.js";
