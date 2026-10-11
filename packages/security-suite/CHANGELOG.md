@@ -1,5 +1,17 @@
 # @guardbee/security-suite
 
+## 0.2.9
+
+### Patch Changes
+
+- [#75](https://github.com/GuardBee/guardbee-mcp/pull/75) [`f3b785f`](https://github.com/GuardBee/guardbee-mcp/commit/f3b785fe9454f80720ec36468fee9f5b2e9a70ed) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - docs: add Chinese (ZH) README translation and short summaries in Japanese, Korean, Brazilian Portuguese, Spanish and German (JA.md, KO.md, PT-BR.md, ES.md, DE.md), with an eight-language switcher
+- Updated dependencies [[`f3b785f`](https://github.com/GuardBee/guardbee-mcp/commit/f3b785fe9454f80720ec36468fee9f5b2e9a70ed)]:
+  - @guardbee/mcp-dependency-auditor@0.2.5
+  - @guardbee/mcp-dns-intelligence@0.2.4
+  - @guardbee/mcp-secret-scanner@0.6.1
+  - @guardbee/mcp-ssl-inspector@0.3.1
+  - @guardbee/mcp-telemetry@0.1.4
+
 ## 0.2.8
 
 ### Patch Changes

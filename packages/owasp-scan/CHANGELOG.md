@@ -1,5 +1,21 @@
 # @guardbee/mcp-owasp-scan
 
+## 0.2.6
+
+### Patch Changes
+
+- [#75](https://github.com/GuardBee/guardbee-mcp/pull/75) [`f3b785f`](https://github.com/GuardBee/guardbee-mcp/commit/f3b785fe9454f80720ec36468fee9f5b2e9a70ed) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - docs: add Chinese (ZH) README translation and short summaries in Japanese, Korean, Brazilian Portuguese, Spanish and German (JA.md, KO.md, PT-BR.md, ES.md, DE.md), with an eight-language switcher
+- Updated dependencies [[`f3b785f`](https://github.com/GuardBee/guardbee-mcp/commit/f3b785fe9454f80720ec36468fee9f5b2e9a70ed)]:
+  - @guardbee/mcp-audit-gap-auditor@0.2.3
+  - @guardbee/mcp-config-auditor@0.4.1
+  - @guardbee/mcp-context-oversharing-auditor@0.2.2
+  - @guardbee/mcp-oauth-auditor@0.1.6
+  - @guardbee/mcp-secret-scanner@0.6.1
+  - @guardbee/mcp-server-auditor@0.1.9
+  - @guardbee/mcp-telemetry@0.1.4
+  - @guardbee/mcp-tool-poisoning-scanner@0.2.8
+  - @guardbee/mcp-toxic-flow-auditor@0.1.16
+
 ## 0.2.5
 
 ### Patch Changes
