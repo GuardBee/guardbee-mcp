@@ -1,6 +1,6 @@
 # @guardbee/mcp-elicitation-auditor
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 An MCP server that scans MCP server source for **elicitation anti-patterns in the 2026-07-28 specification**.
 

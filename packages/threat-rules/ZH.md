@@ -1,6 +1,6 @@
 # @guardbee/mcp-threat-rules
 
-[🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文**
+[🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文** | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 面向 **[Agent Threat Rules (ATR)](https://github.com/Agent-Threat-Rule/agent-threat-rules)** 的 GuardBee MCP 桥接层——针对 AI agent 威胁的开放、类 Sigma 检测标准（prompt 注入、工具投毒、上下文外泄、MCP 攻击）。
 

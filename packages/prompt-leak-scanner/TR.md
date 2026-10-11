@@ -1,6 +1,6 @@
 # @guardbee/mcp-prompt-leak-scanner
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 MCP (Model Context Protocol) sunucusu — ve bağımsız bir reverse proxy — **outbound** LLM prompt'larındaki sızmış credential ve PII'yi, uygulamanızdan çıkmadan önce yakalar.
 

@@ -1,6 +1,6 @@
 # @guardbee/mcp-vector-store-scanner
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 An MCP (Model Context Protocol) server that probes a vector-database (or vector-index-capable) endpoint for **unauthenticated exposure** — the same class of misconfiguration behind repeated real-world incidents of open Elasticsearch/MongoDB/Redis instances leaking data, now aimed at the RAG-era stack: Weaviate, Qdrant, Chroma, Elasticsearch/OpenSearch, Redis, and Postgres/pgvector.
 

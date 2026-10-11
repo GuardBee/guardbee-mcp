@@ -1,6 +1,6 @@
 # @guardbee/mcp-threat-rules
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 **[Agent Threat Rules (ATR)](https://github.com/Agent-Threat-Rule/agent-threat-rules)** için GuardBee MCP köprüsü — AI agent tehditleri için açık, Sigma benzeri tespit standardı (prompt injection, tool poisoning, context exfiltration, MCP saldırıları).
 

@@ -1,6 +1,6 @@
 # @guardbee/guard-core
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 Diğer GuardBee MCP paketlerinin kullandığı ortak dedektörler. Kendi başına bir MCP server değil, sadece bir kütüphane — bu paketi doğrudan kurmanız gerekmez.
 

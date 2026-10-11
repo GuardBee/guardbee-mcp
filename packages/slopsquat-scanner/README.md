@@ -1,6 +1,6 @@
 # @guardbee/mcp-slopsquat-scanner
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 An MCP (Model Context Protocol) server that checks every dependency declared in a project's own manifest (`package.json`, `requirements.txt`, `pyproject.toml`) against the **real** npm/PyPI registry — not a local database, an actual network lookup.
 

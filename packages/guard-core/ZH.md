@@ -1,6 +1,6 @@
 # @guardbee/guard-core
 
-[🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文**
+[🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文** | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 其他 GuardBee MCP 包共用的检测规则库。它本身不是 MCP 服务器，只是一个库——你不需要直接安装这个包。
 

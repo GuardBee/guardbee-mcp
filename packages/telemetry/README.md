@@ -1,6 +1,6 @@
 # @guardbee/mcp-telemetry
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 The shared, opt-out usage telemetry client used by other GuardBee MCP packages. Not an MCP server on its own, just a library — you don't need to install this package directly.
 

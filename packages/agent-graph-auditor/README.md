@@ -1,6 +1,6 @@
 # @guardbee/mcp-agent-graph-auditor
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 An MCP (Model Context Protocol) server that builds a reachability graph across a multi-agent orchestration and finds **transitive excessive agency** — an agent that was never directly given a dangerous tool, but can still reach one through another agent it's allowed to delegate to.
 

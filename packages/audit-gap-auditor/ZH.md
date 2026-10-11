@@ -1,6 +1,6 @@
 # @guardbee/mcp-audit-gap-auditor
 
-[🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文**
+[🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文** | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 一个 MCP 服务器，用于审计 MCP 服务器源码中的 **OWASP MCP08:2025 — Lack of Audit and Telemetry**（缺少审计与遥测）缺口。
 

@@ -1,6 +1,6 @@
 # @guardbee/mcp-rug-pull-detector
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 An MCP (Model Context Protocol) server that connects **live** to another MCP server and detects an **MCP rug pull** — a server presenting one tool definition when you approve it, then silently serving a different one later.
 

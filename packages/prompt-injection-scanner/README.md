@@ -1,6 +1,6 @@
 # @guardbee/mcp-prompt-injection-scanner
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 An MCP (Model Context Protocol) server that scans **content** — a RAG chunk, a scraped web page, a document — for indirect prompt injection payloads.
 

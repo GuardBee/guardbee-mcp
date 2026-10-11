@@ -1,6 +1,6 @@
 # @guardbee/mcp-prompt-leak-scanner
 
-[🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文**
+[🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文** | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 一个 MCP（Model Context Protocol）服务器——同时也是一个独立的反向代理——在**发往** LLM 的 prompt 离开你的应用之前，发现其中泄露的凭据和 PII。
 
