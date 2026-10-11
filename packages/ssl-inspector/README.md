@@ -88,15 +88,28 @@ You can ask Claude:
 |-------|----------|----------|
 | `CERT_EXPIRED` | 🔴 Critical | Certificate has expired |
 | `CERT_EXPIRY_CRITICAL` | 🔴 Critical | < 7 days remaining |
-| `CERT_EXPIRY_SOON` | 🟠 High | < 30 days remaining |
-| `CERT_EXPIRY_WARN` | 🟡 Medium | < 90 days remaining |
-| `CERT_CHAIN_INVALID` | 🟠 High | Chain validation error |
+| `CERT_EXPIRY_SOON` | 🟠 High | < 21 days remaining (ACME clients renew at 30: renewal is failing) |
+| `CERT_EXPIRY_WARN` | 🟡 Medium | < 30 days remaining |
+| `HOSTNAME_MISMATCH` | 🔴 Critical | The certificate is not valid for the host |
+| `CERT_REVOKED` | 🔴 Critical | The certificate has been revoked |
+| `CERT_SELF_SIGNED` | 🟠 High | Self-signed certificate |
+| `CERT_CHAIN_INCOMPLETE` | 🟠 High | The server does not send its intermediate certificate |
+| `CERT_CHAIN_INVALID` | 🟠 High | Other chain validation error |
+| `WEAK_KEY` | 🟠 High / 🔴 Critical | RSA key under 2048 bits (critical under 1024), EC key under 256 bits |
+| `WEAK_SIGNATURE` | 🟠 High | Leaf or intermediate signed with SHA-1 or MD5 |
 | `CERT_NO_SAN` | 🟡 Medium | No Subject Alternative Name |
-| `DEPRECATED_PROTOCOL` | 🟠 High | TLS 1.0 or 1.1 |
+| `DEPRECATED_PROTOCOL` | 🟠 High | The server still accepts TLS 1.0 or 1.1 (probe) |
 | `OBSOLETE_PROTOCOL` | 🔴 Critical | SSLv2 or SSLv3 |
-| `WEAK_CIPHER` | 🔴 Critical | NULL/EXPORT/RC4/anonymous cipher |
+| `WEAK_CIPHER` | 🔴 Critical / 🟠 High | Accepts NULL/EXPORT/RC4 (critical) or 3DES (high) suites (probe) |
+| `WEAK_DH` | 🟠 High / 🔴 Critical | Diffie-Hellman group under 2048 bits (critical under 1024) (probe) |
+| `NO_FORWARD_SECRECY` | 🟡 Medium | Accepts RSA key exchange ciphers (probe) |
 | `NO_HSTS` | 🟡 Medium | No HSTS header found |
 | `HSTS_SHORT_MAX_AGE` | 🔵 Low | max-age < 15552000s |
+| `NO_TLS13` | 🔵 Low | TLS 1.3 not supported (probe) |
+| `NO_OCSP_STAPLING` | 🔵 Low | No stapled OCSP response |
+| `NO_CAA` | 🔵 Low | No CAA DNS record for the domain or a parent |
+
+**Probes.** One default handshake lands on the best protocol and cipher both sides share, so a server that *also* accepts TLS 1.0 or RSA key exchange looks fine. `inspect_ssl` and the CLI therefore make a few extra handshakes, each offering only the thing under test (TLS 1.0, TLS 1.1, TLS 1.3, RSA key exchange, DHE, weak cipher families). Weak families the runtime's own OpenSSL cannot offer (Node 22 builds have no 3DES/RC4/EXPORT) are listed as *not tested* rather than passed. `--no-probes` / `probes: false` skips them; `inspect_ssl_bulk` leaves them off unless asked.
 
 ---
 
