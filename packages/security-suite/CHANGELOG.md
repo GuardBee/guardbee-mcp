@@ -1,5 +1,12 @@
 # @guardbee/security-suite
 
+## 0.2.7
+
+### Patch Changes
+
+- Updated dependencies [[`4545f53`](https://github.com/GuardBee/guardbee-mcp/commit/4545f53505315149567c063da58526d7b1fc1633)]:
+  - @guardbee/mcp-secret-scanner@0.6.0
+
 ## 0.2.6
 
 ### Patch Changes
