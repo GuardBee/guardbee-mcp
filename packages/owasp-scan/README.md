@@ -1,6 +1,6 @@
 # @guardbee/mcp-owasp-scan
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 One CLI/MCP for a **unified [OWASP MCP Top 10](https://owasp.org/www-project-mcp-top-10/) gut-check** — GuardBee’s answer to one-shot scanners that only connect live.
 

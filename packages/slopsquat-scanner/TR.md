@@ -1,6 +1,6 @@
 # @guardbee/mcp-slopsquat-scanner
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe**
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 Bir projenin kendi manifest dosyalarında (`package.json`, `requirements.txt`, `pyproject.toml`) beyan edilen her bağımlılığı **gerçek** npm/PyPI registry'sine karşı kontrol eden bir MCP (Model Context Protocol) sunucusu — yerel bir veritabanına değil, gerçek bir ağ sorgusuna karşı.
 

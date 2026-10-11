@@ -1,6 +1,6 @@
 # @guardbee/mcp-memory-poisoning-scanner
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 An MCP (Model Context Protocol) server that scans agent code for **memory poisoning** — untrusted input written into an agent's *persistent, cross-session* memory that later gets recalled and fed back to the model as trusted context, potentially in a completely unrelated future session.
 

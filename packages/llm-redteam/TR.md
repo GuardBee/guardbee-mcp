@@ -1,6 +1,6 @@
 # @guardbee/mcp-llm-redteam
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe**
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 MCP (Model Context Protocol) sunucusu — canlı bir LLM endpoint'ini ya da chatbot'u **aktif** olarak red-team'ler. GuardBee'nin diğer tarayıcıları gibi statik analiz değil, sizin kontrolünüzdeki gerçek bir hedefe gerçek probe istekleri gönderir.
 

@@ -1,6 +1,6 @@
 # @guardbee/mcp-unbounded-consumption-auditor
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 An MCP (Model Context Protocol) server that scans LLM/agent application code for **Unbounded Consumption** — OWASP LLM Top 10 2026's #6 category, also known as "denial of wallet": nothing stops the application from making unlimited billable calls.
 

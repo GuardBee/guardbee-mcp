@@ -1,6 +1,6 @@
 # @guardbee/mcp-agent-graph-auditor
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe**
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 MCP (Model Context Protocol) sunucusu — bir multi-agent orkestrasyonu üzerinde bir ulaşılabilirlik (reachability) grafiği kuruyor ve **transitive excessive agency** buluyor: hiçbir zaman doğrudan tehlikeli bir tool verilmemiş ama delegation yapabildiği başka bir agent üzerinden yine de ona ulaşabilen bir agent.
 

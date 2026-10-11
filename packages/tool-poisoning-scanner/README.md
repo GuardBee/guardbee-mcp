@@ -1,6 +1,6 @@
 # @guardbee/mcp-tool-poisoning-scanner
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 An MCP (Model Context Protocol) server that scans other MCP servers' tool definitions for **tool poisoning** and **confused-deputy** tools — two distinct ways an MCP server's own `server.tool(...)` registration can be dangerous without a single unsafe line ever running.
 

@@ -20,7 +20,12 @@
     "rules",
     "README.md",
     "TR.md",
-    "ZH.md"
+    "ZH.md",
+    "JA.md",
+    "KO.md",
+    "PT-BR.md",
+    "ES.md",
+    "DE.md"
   ],
   "scripts": {
     "build": "tsc",
