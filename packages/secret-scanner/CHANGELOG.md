@@ -1,5 +1,16 @@
 # @guardbee/mcp-secret-scanner
 
+## 0.5.0
+
+### Minor Changes
+
+- [#68](https://github.com/GuardBee/guardbee-mcp/pull/68) [`a1435e0`](https://github.com/GuardBee/guardbee-mcp/commit/a1435e0710466ba1d2c978dca7bfaca3923ee1a7) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - 38 more secret rules (76 in all): cloud and hosting (Azure AD client secret and storage key, DigitalOcean, Heroku, Fly.io, Cloudflare Origin CA, Supabase, PlanetScale), AI providers (OpenRouter, Groq, Perplexity, Replicate, Hugging Face org), developer tools (GitHub fine-grained, GitLab runner, PyPI, Vault, Terraform Cloud, Pulumi, Doppler, 1Password, age) and SaaS (Stripe webhook, Square, Shopify, Twilio API key, Linear, Notion, Atlassian, Sentry, Grafana, Postman, Discord webhook, Telegram bot). The fixed-format ones are also masked by security-proxy (66 formats, up from 32). Turkish providers iyzico, PayTR, Netgsm and İleti Merkezi are matched on their variable names and marked broad, so the scanner reports them and the proxy does not mask on them.
+
+### Patch Changes
+
+- Updated dependencies [[`a1435e0`](https://github.com/GuardBee/guardbee-mcp/commit/a1435e0710466ba1d2c978dca7bfaca3923ee1a7)]:
+  - @guardbee/guard-core@0.12.0
+
 ## 0.4.0
 
 ### Minor Changes
