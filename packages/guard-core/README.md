@@ -11,7 +11,7 @@ It exists so the same rule runs everywhere: a static scanner flagging a pattern 
 | Export | Used by | Purpose |
 |---|---|---|
 | `maskPiiInText`, `maskPiiInValue`, `PII_PATTERNS` | security-proxy | Mask TC Kimlik No, VKN, IBAN, card, phone, email, provider API keys, private keys, connection strings and JWTs in tool results; an optional replacer turns matches into tokens |
-| `SECRET_RULES` | secret-scanner, security-proxy | 38 secret rules (provider keys and tokens, private keys, connection strings, JWT). The scanner reports all of them; the proxy masks the 32 that are not marked `broad` |
+| `SECRET_RULES` | secret-scanner, security-proxy | 76 secret rules (provider keys and tokens — cloud, AI providers, developer tools, SaaS, Turkish payment and SMS providers — private keys, connection strings, JWT). The scanner reports all of them; the proxy masks the 66 that are not marked `broad` |
 | `isValidTcKimlik`, `isValidVkn`, `isValidIban`, `isValidLuhn`, `isValidTrPhone` | security-proxy, prompt-leak-scanner | Validation after a regex match |
 | `INJECTION_RULES`, `findInjections` | prompt-injection-scanner, security-proxy | 27 injection rules in English and Turkish, with base64-decoding; the scanner uses the 17 precise ones |
 | `scanForPromptInjection`, `scanToolResult` | security-proxy | Block on a precise high/critical rule, warn on anything else |

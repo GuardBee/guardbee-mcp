@@ -14,7 +14,7 @@ Kaynak dosyalarınızı, dizinleri ve ortam konfigürasyonlarını açık API ke
 
 ## Özellikler
 
-- **38 Secret Deseni** — AWS, GitHub, GitLab, Stripe, OpenAI, Anthropic, HuggingFace, Slack, Twilio, SendGrid ve daha fazlası. Kurallar [`@guardbee/guard-core`](../guard-core/TR.md) içinde durduğu için `@guardbee/mcp-security-proxy` aynı formatları çalışma anında tool sonuçlarında maskeler
+- **76 Secret Deseni** — AWS, Azure, GCP, GitHub, GitLab, Stripe, OpenAI, Anthropic, OpenRouter, Groq, Hugging Face, Slack, Twilio, SendGrid, DigitalOcean, Cloudflare, Supabase, Vault, PyPI, Shopify, Linear, Notion, Atlassian ve daha fazlası — ayrıca Türk sağlayıcılar iyzico, PayTR, Netgsm ve İleti Merkezi; key'lerinin öneki olmadığı için değişken adlarıyla eşleşir. Kurallar [`@guardbee/guard-core`](../guard-core/TR.md) içinde durduğu için `@guardbee/mcp-security-proxy` aynı formatları çalışma anında tool sonuçlarında maskeler
 - **Dosya & Dizin Tarama** — Tek dosya veya tüm proje ağacı
 - **Git Geçmişi & Staged Tarama** — `--history`, herhangi bir commit'in eklediği her satırı tarar; dosyalardan silinmiş ama repoda hâlâ duran bir key bulunur ve onu ekleyen commit'te (yazar ve tarihle) bir kez raporlanır; `--staged` yalnızca commit'lemek üzere olduğunuz satırları tarar
 - **Baseline** — `--write-baseline` bugünkü bulguları hash olarak kaydeder (secret'ların kendisini asla; commit'lemek güvenlidir); `--baseline` sonra yalnızca yenilerini raporlar, böylece mevcut bir repo her şeyi önce düzeltmeden scanner'ı CI'a alabilir. SARIF sonuçları kalıcı bir `partialFingerprints` değeri taşır
