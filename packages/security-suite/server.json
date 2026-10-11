@@ -7,12 +7,12 @@
     "source": "github",
     "subfolder": "packages/security-suite"
   },
-  "version": "0.2.4",
+  "version": "0.2.5",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@guardbee/security-suite",
-      "version": "0.2.4",
+      "version": "0.2.5",
       "transport": {
         "type": "stdio"
       }

@@ -1,5 +1,13 @@
 # @guardbee/mcp-secret-scanner
 
+## 0.4.0
+
+### Minor Changes
+
+- [#63](https://github.com/GuardBee/guardbee-mcp/pull/63) [`1cb3991`](https://github.com/GuardBee/guardbee-mcp/commit/1cb39919ca7a9a944c40d8865f3987b43d908435) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Agent transcripts: `scan --agent-history` and the `scan_agent_history` MCP tool scan what Claude Code, Codex, Gemini CLI and Continue keep on the machine, reporting each secret once per agent with how often it appears (entropy off there unless `--entropy`). `.jsonl`, `.ndjson`, `.ipynb` and `.log` files over 1 MB are now read line by line instead of skipped. Findings carry a path-independent `valueHash`.
+
+- [#62](https://github.com/GuardBee/guardbee-mcp/pull/62) [`841d816`](https://github.com/GuardBee/guardbee-mcp/commit/841d81617c76fdfe9849336e5daeee2fe09a1c9d) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - High-entropy detection: a random-looking value assigned to a secret-like name (`.env`, YAML, JSON, code) is reported as `high_entropy_secret` even when no provider rule knows its format. Thresholds are per character set (hex needs 32+ characters; values without digits need more bits), public/hash/id/url names, placeholders and references are skipped, and a value a provider rule already reported is not repeated. Medium severity, low in test files; `--no-entropy` or `entropy: false` turns it off. `.tsbuildinfo` files are skipped.
+
 ## 0.3.0
 
 ### Minor Changes

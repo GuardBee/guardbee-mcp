@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-owasp-scan",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "mcpName": "io.github.GuardBee/owasp-scan",
   "description": "Unified OWASP MCP Top 10 scanner — one CLI/MCP that orchestrates GuardBee auditors against a path or a live tools/list, maps findings to MCP01–MCP10, and grades A–F",
   "type": "module",
