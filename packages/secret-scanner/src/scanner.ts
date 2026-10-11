@@ -21,6 +21,8 @@ export interface Finding {
   fingerprint: string;
   /** Hash of the rule and the secret only: the same secret anywhere has the same value. */
   valueHash: string;
+  /** Set by `--verify`: whether the provider still accepts the key. */
+  verified?: "live" | "invalid" | "unknown";
   /** Set for git scans: the commit that added the line. */
   commit?: string;
   author?: string;
@@ -150,6 +152,11 @@ export function fingerprintOf(patternId: string, path: string | undefined, secre
 export interface ScanOptions {
   /** Also report random-looking values assigned to secret-like names (default true). */
   entropy?: boolean;
+  /**
+   * Called with each reported finding and its raw secret, for live
+   * verification. The raw value is never put on the finding itself.
+   */
+  onSecret?: (finding: Finding, secret: string) => void;
 }
 
 function locate(text: string, index: number): { line: number; column: number } {
@@ -194,7 +201,7 @@ export function scanText(
       // Only a reported match hides the value from the entropy check: a rule that
       // dropped it (allowlist, placeholder) has not covered it
       spans.push([m.index, m.index + matchStr.length]);
-      findings.push({
+      const finding: Finding = {
         patternId: sp.id,
         patternName: sp.name,
         severity,
@@ -205,7 +212,9 @@ export function scanText(
         context: redactedContext.trim().slice(0, 200),
         fingerprint: fingerprintOf(sp.id, fingerprintPath, matchStr),
         valueHash: fingerprintOf(sp.id, undefined, matchStr),
-      });
+      };
+      findings.push(finding);
+      options.onSecret?.(finding, matchStr);
     }
   }
 

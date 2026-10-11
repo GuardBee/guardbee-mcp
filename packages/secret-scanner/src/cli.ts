@@ -6,6 +6,7 @@ import { buildSarif } from "./sarif.js";
 import { applyBaseline, readBaseline, writeBaseline } from "./baseline.js";
 import { scanGit } from "./git.js";
 import { scanAgentHistory } from "./agent-history.js";
+import { verifyAll } from "./verify.js";
 import { loadConfig, configFilePath } from "./config.js";
 import { statSync, readFileSync } from "fs";
 import { resolve, dirname } from "path";
@@ -43,7 +44,8 @@ function printText(findings: Finding[], scannedFiles: number, durationMs: number
 
   for (const f of findings) {
     const icon = SEV_ICON[f.severity] ?? "⚪";
-    console.log(`${icon} [${f.severity.toUpperCase()}] ${f.patternName}`);
+    const badge = f.verified === "live" ? " — LIVE: the provider accepts this key, rotate it now" : f.verified === "invalid" ? " — no longer valid" : "";
+    console.log(`${icon} [${f.severity.toUpperCase()}] ${f.patternName}${badge}`);
     if (f.file) console.log(`   File    : ${f.file}:${f.line}:${f.column}`);
     if (f.commit) console.log(`   Commit  : ${f.commit.slice(0, 12)} ${f.date ?? ""} ${f.author ?? ""}`.trimEnd());
     console.log(`   Match   : ${f.match}`);
@@ -68,10 +70,11 @@ interface CliArgs {
   entropy: boolean;
   agentHistory: boolean;
   home?: string;
+  verify: boolean;
 }
 
 function parseArgs(args: string[]): CliArgs {
-  const parsed: CliArgs = { positionals: [], failOn: "any", format: "text", maxFiles: 5000, staged: false, entropy: true, agentHistory: false };
+  const parsed: CliArgs = { positionals: [], failOn: "any", format: "text", maxFiles: 5000, staged: false, entropy: true, agentHistory: false, verify: false };
   const value = (arg: string) => arg.slice(arg.indexOf("=") + 1);
   for (const arg of args) {
     if (arg.startsWith("--fail-on=")) parsed.failOn = value(arg) || "any";
@@ -80,6 +83,7 @@ function parseArgs(args: string[]): CliArgs {
     else if (arg === "--staged") parsed.staged = true;
     else if (arg === "--no-entropy") parsed.entropy = false;
     else if (arg === "--agent-history") parsed.agentHistory = true;
+    else if (arg === "--verify") parsed.verify = true;
     else if (arg === "--entropy") parsed.entropy = true;
     else if (arg.startsWith("--home=")) parsed.home = value(arg);
     else if (arg === "--history") parsed.history = "";
@@ -94,19 +98,50 @@ function parseArgs(args: string[]): CliArgs {
 
 function shouldFail(findings: Finding[], failOn: string): boolean {
   if (failOn === "none") return false;
+  if (failOn === "live") return findings.some((f) => f.verified === "live");
   if (failOn === "any") return findings.length > 0;
   const RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
   const threshold = RANK[failOn] ?? 1;
   return findings.some((f) => (RANK[f.severity] ?? 3) <= threshold);
 }
 
+/**
+ * --verify: raw secrets are collected in memory during the scan, each distinct
+ * one is asked of its own provider once, findings get `verified`, and the raw
+ * values are dropped. CLI only — the MCP tools never send a secret anywhere.
+ */
+function verification(enabled: boolean) {
+  const secrets = new Map<string, { patternId: string; secret: string }>();
+  return {
+    onSecret: enabled
+      ? (finding: Finding, secret: string) => {
+          if (!secrets.has(finding.valueHash)) secrets.set(finding.valueHash, { patternId: finding.patternId, secret });
+        }
+      : undefined,
+    async apply<T extends Finding>(findings: T[]): Promise<T[]> {
+      if (!enabled) return findings;
+      const wanted = new Set(findings.map((f) => f.valueHash));
+      for (const hash of [...secrets.keys()]) if (!wanted.has(hash)) secrets.delete(hash);
+      process.stderr.write(`[guardbee] Verifying ${secrets.size} secret(s) with their providers (read-only identity calls)\n`);
+      const verdicts = await verifyAll(secrets);
+      secrets.clear();
+      const rank = { live: 0, unknown: 1, invalid: 2 } as const;
+      return findings
+        .map((f) => (verdicts.has(f.valueHash) ? { ...f, verified: verdicts.get(f.valueHash)! } : f))
+        .sort((a, b) => (a.verified ? rank[a.verified] : 1) - (b.verified ? rank[b.verified] : 1));
+    },
+  };
+}
+
 /** Agent transcripts on this machine: summary per agent, each secret once with how often it appears. */
-function runAgentHistory(args: CliArgs, rawArgs: string[]): never {
+async function runAgentHistory(args: CliArgs, rawArgs: string[]): Promise<never> {
   // Off unless asked for: transcripts are full of code the agent read
   const entropy = rawArgs.includes("--entropy");
-  const result = scanAgentHistory({ ...(args.home ? { home: args.home } : {}), entropy });
+  const verify = verification(args.verify);
+  const result = scanAgentHistory({ ...(args.home ? { home: args.home } : {}), entropy, onSecret: verify.onSecret });
   let findings = result.findings;
   if (args.baseline) findings = applyBaseline(findings, readBaseline(args.baseline)).findings as typeof findings;
+  if (!args.writeBaseline) findings = await verify.apply(findings);
   if (args.writeBaseline) {
     writeBaseline(args.writeBaseline, findings);
     process.exit(0);
@@ -130,7 +165,8 @@ function runAgentHistory(args: CliArgs, rawArgs: string[]): never {
 
 async function runCli(rawArgs: string[]): Promise<void> {
   const args = parseArgs(rawArgs);
-  if (args.agentHistory) runAgentHistory(args, rawArgs);
+  if (args.agentHistory) await runAgentHistory(args, rawArgs);
+  const verify = verification(args.verify);
   const gitMode = args.staged ? "staged" : args.history !== undefined ? "history" : null;
   const target = args.positionals[0] ?? (gitMode ? "." : undefined);
   if (!target) {
@@ -169,6 +205,7 @@ async function runCli(rawArgs: string[]): Promise<void> {
         ...(args.history ? { range: args.history } : {}),
         ...(args.maxCommits ? { maxCommits: args.maxCommits } : {}),
         entropy: args.entropy,
+        onSecret: verify.onSecret,
       });
       findings = result.findings;
       scannedFiles = gitMode === "history" ? result.scannedCommits : result.scannedHunks;
@@ -179,13 +216,13 @@ async function runCli(rawArgs: string[]): Promise<void> {
       process.exit(2);
     }
   } else if (stat.isDirectory()) {
-    const result = scanDirectory(target, { maxFiles, exclude: cfg.exclude, entropy: args.entropy });
+    const result = scanDirectory(target, { maxFiles, exclude: cfg.exclude, entropy: args.entropy, onSecret: verify.onSecret });
     findings = result.findings;
     scannedFiles = result.scannedFiles;
     durationMs = result.durationMs;
   } else {
     const start = Date.now();
-    const result = scanFile(target, target, { entropy: args.entropy });
+    const result = scanFile(target, target, { entropy: args.entropy, onSecret: verify.onSecret });
     findings = result.findings;
     scannedFiles = result.skipped ? 0 : 1;
     durationMs = Date.now() - start;
@@ -214,6 +251,8 @@ async function runCli(rawArgs: string[]): Promise<void> {
     }
   }
 
+  findings = await verify.apply(findings);
+
   if (args.format === "json") {
     console.log(JSON.stringify({ findings, scannedFiles, durationMs }, null, 2));
   } else if (args.format === "sarif") {
@@ -240,7 +279,7 @@ Usage (CLI):
 
 Options:
   --fail-on=<level>        Exit 1 if secrets at this severity or above are found
-                           Levels: any (default) | critical | high | medium | low | none
+                           Levels: any (default) | critical | high | medium | low | none | live
   --format=<fmt>           Output format: text (default) | json | sarif
   --max-files=<n>          Max files to scan (default: 5000)
   --history=<range>        Limit history to a revision range, e.g. main..HEAD
@@ -250,6 +289,11 @@ Options:
   --no-entropy             Skip the high-entropy check (random values assigned to secret-like names)
   --entropy                With --agent-history: also run the high-entropy check (off there by default)
   --home=<dir>             With --agent-history: look under this folder instead of your home
+  --verify                 Ask each provider whether a found key still works (GitHub, GitLab, OpenAI,
+                           Anthropic, Slack, Stripe, Hugging Face, npm, SendGrid, Groq, OpenRouter,
+                           DigitalOcean). Sends each key only to its own provider's read-only
+                           identity endpoint. Not available in the MCP tools.
+  --fail-on=live           With --verify: exit 1 only when a key is live
 
 Exit codes:
   0  No secrets found (or none above --fail-on threshold)

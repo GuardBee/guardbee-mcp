@@ -21,10 +21,11 @@ An MCP server that scans your source files, directories, and environment configs
 - **High-Entropy Values** — a random-looking value assigned to a secret-like name (`WEBHOOK_SIGNING_SECRET=…` in `.env`, `client_secret:` in YAML, `"internalApiKey"` in JSON) is reported even when no provider rule knows its format. Randomness is measured as Shannon entropy (hex values need 32+ characters; values without digits need more bits, so a camel-case passphrase does not count); `public`/`publishable`, `*_hash`, `*_id` and `*_url` names, placeholders and `${VAR}` references are left alone, and a value a provider rule already reported is not reported twice. Medium severity, low in test files; `--no-entropy` (or `entropy: false` in the MCP tools) turns it off
 - **Agent Transcripts** — `scan --agent-history` (MCP: `scan_agent_history`) scans what coding agents keep on your machine: Claude Code (`~/.claude/projects`, `~/.claude.json`), Codex (`~/.codex`), Gemini CLI (`~/.gemini/tmp`) and Continue (`~/.continue/sessions`). A key pasted into a chat or printed by a command the agent ran stays there — and was already sent to the model provider, so rotate it. Each secret is reported once per agent with how often it appears; the entropy check is off here unless `--entropy`, since transcripts are full of code the agent read
 - **Large Line Files** — `.jsonl`, `.ndjson`, `.ipynb` and `.log` files over 1 MB (transcripts, notebooks with outputs, logs) are read line by line instead of being skipped
+- **Live Verification (CLI only)** — `--verify` asks each provider whether a found key still works, through a read-only identity endpoint (GitHub `/user`, OpenAI `/models`, Slack `auth.test`, …): GitHub, GitLab, OpenAI, Anthropic, Slack, Stripe, Hugging Face, npm, SendGrid, Groq, OpenRouter and DigitalOcean. Each key goes only to its own provider, once, and never appears in the output; findings are marked `live` / `invalid` / `unknown` and live ones are listed first. `--fail-on=live` fails CI only for keys that still work. The MCP tools never verify, so an agent cannot send your secrets anywhere on its own
 - **Smart Skipping** — directories like `node_modules`, `.git`, `dist`, `build`, `.next` are skipped automatically
 - **Safe Redaction** — matches are shown as first 4 + stars + last 4 characters
 - **Allowlist Support** — allowlist known test/fake values
-- **64 Unit Tests** — 100% passing test suite
+- **71 Unit Tests** — 100% passing test suite
 
 ---
 
@@ -113,6 +114,8 @@ npx @guardbee/mcp-secret-scanner scan . --fail-on=high
 npx @guardbee/mcp-secret-scanner scan . --format=json
 # Secrets pasted into Claude Code / Codex / Gemini CLI / Continue sessions on this machine
 npx @guardbee/mcp-secret-scanner scan --agent-history
+# Which of the found keys still work? (sends each key to its own provider)
+npx @guardbee/mcp-secret-scanner scan . --history --verify --fail-on=live
 # Pre-commit: only the lines you are about to commit
 npx @guardbee/mcp-secret-scanner scan --staged
 
@@ -169,7 +172,7 @@ npx @guardbee/mcp-secret-scanner scan --staged --fail-on=high || exit 1
 
 ```bash
 npm install
-npm test          # 64 unit tests
+npm test          # 71 unit tests
 npm run build     # TypeScript compile
 ```
 

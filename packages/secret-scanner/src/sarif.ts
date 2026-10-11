@@ -22,6 +22,7 @@ interface SarifResult {
   }>;
   /** Lets GitHub code scanning recognise the same secret across runs and line moves. */
   partialFingerprints?: Record<string, string>;
+  properties?: { verified?: string };
 }
 
 function severityToLevel(sev: string): "error" | "warning" | "note" {
@@ -53,6 +54,7 @@ export function buildSarif(toolVersion: string, findings: Finding[]): object {
       level: severityToLevel(f.severity),
       message: { text: `${f.patternName} detected (redacted: ${f.match})${f.commit ? ` in commit ${f.commit.slice(0, 12)}` : ""}` },
       partialFingerprints: { "guardbeeSecret/v1": f.fingerprint },
+      ...(f.verified ? { properties: { verified: f.verified } } : {}),
     };
 
     if (f.file) {
