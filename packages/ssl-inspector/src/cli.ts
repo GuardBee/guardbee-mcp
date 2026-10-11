@@ -32,20 +32,22 @@ function hasFailingFindings(results: TlsInspectResult[], failOn: string): boolea
 
 // ── Arg parsing ────────────────────────────────────────────────────────────────
 
-function parseArgs(args: string[]): { positionals: string[]; failOn: string; format: string; port: number } {
+function parseArgs(args: string[]): { positionals: string[]; failOn: string; format: string; port: number; probes: boolean } {
   const positionals: string[] = [];
   let failOn = "high";
   let format = "text";
   let port = 443;
+  let probes = true;
 
   for (const arg of args) {
     if (arg.startsWith("--fail-on=")) failOn = arg.split("=")[1] ?? "high";
     else if (arg.startsWith("--format=")) format = arg.split("=")[1] ?? "text";
     else if (arg.startsWith("--port=")) port = parseInt(arg.split("=")[1] ?? "443", 10);
+    else if (arg === "--no-probes") probes = false;
     else if (!arg.startsWith("--")) positionals.push(arg);
   }
 
-  return { positionals, failOn, format, port };
+  return { positionals, failOn, format, port, probes };
 }
 
 function parseHostPort(arg: string, defaultPort: number): { host: string; port: number } {
@@ -77,7 +79,7 @@ async function runInspect(rawArgs: string[]): Promise<void> {
   const results: TlsInspectResult[] = [];
   for (const arg of hosts) {
     const { host, port: p } = parseHostPort(arg, port);
-    const result = await inspectHost(host, p);
+    const result = await inspectHost(host, p, 10_000, { probes: parsed.probes });
     const hsts = await checkHsts(host, p);
     result.supportsHsts = hsts.enabled;
     result.hstsMaxAge = hsts.maxAge;
@@ -118,7 +120,7 @@ async function runExpiry(rawArgs: string[]): Promise<void> {
   const entries: Array<{ host: string; port: number; daysUntilExpiry?: number; error?: string }> = [];
   for (const arg of hosts) {
     const { host, port: p } = parseHostPort(arg, port);
-    const result = await inspectHost(host, p);
+    const result = await inspectHost(host, p, 10_000, { probes: false, caa: false });
     entries.push({ host, port: p, daysUntilExpiry: result.cert?.daysUntilExpiry, error: result.error });
   }
 
@@ -158,6 +160,7 @@ Options:
   --fail-on=<level>   Exit 1 if findings at this severity or above (default: high)
                       Levels: critical | high | medium | low
   --port=<n>          Default port when not specified in domain (default: 443)
+  --no-probes         Skip the extra handshakes (TLS 1.0/1.1, RSA key exchange, weak DH, weak ciphers)
   --format=<fmt>      Output format: text (default) | json
 
 Exit codes:

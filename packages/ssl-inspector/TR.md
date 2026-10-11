@@ -88,15 +88,28 @@ Claude'a şunu sorabilirsiniz:
 |-------|----------|----------|
 | `CERT_EXPIRED` | 🔴 Critical | Sertifika süresi dolmuş |
 | `CERT_EXPIRY_CRITICAL` | 🔴 Critical | < 7 gün kaldı |
-| `CERT_EXPIRY_SOON` | 🟠 High | < 30 gün kaldı |
-| `CERT_EXPIRY_WARN` | 🟡 Medium | < 90 gün kaldı |
-| `CERT_CHAIN_INVALID` | 🟠 High | Zincir doğrulama hatası |
+| `CERT_EXPIRY_SOON` | 🟠 High | < 21 gün kaldı (ACME istemcileri 30 günde yeniler: yenileme bozulmuş) |
+| `CERT_EXPIRY_WARN` | 🟡 Medium | < 30 gün kaldı |
+| `HOSTNAME_MISMATCH` | 🔴 Critical | Sertifika bu host için geçerli değil |
+| `CERT_REVOKED` | 🔴 Critical | Sertifika iptal edilmiş |
+| `CERT_SELF_SIGNED` | 🟠 High | Self-signed sertifika |
+| `CERT_CHAIN_INCOMPLETE` | 🟠 High | Sunucu ara sertifikasını göndermiyor |
+| `CERT_CHAIN_INVALID` | 🟠 High | Diğer zincir doğrulama hataları |
+| `WEAK_KEY` | 🟠 High / 🔴 Critical | 2048 bitten küçük RSA anahtarı (1024 altı critical), 256 bitten küçük EC anahtarı |
+| `WEAK_SIGNATURE` | 🟠 High | Sertifika ya da ara sertifika SHA-1 veya MD5 ile imzalı |
 | `CERT_NO_SAN` | 🟡 Medium | Subject Alternative Name yok |
-| `DEPRECATED_PROTOCOL` | 🟠 High | TLS 1.0 veya 1.1 |
+| `DEPRECATED_PROTOCOL` | 🟠 High | Sunucu hâlâ TLS 1.0 ya da 1.1 kabul ediyor (tarama) |
 | `OBSOLETE_PROTOCOL` | 🔴 Critical | SSLv2 veya SSLv3 |
-| `WEAK_CIPHER` | 🔴 Critical | NULL/EXPORT/RC4/anon cipher |
-| `NO_HSTS` | 🟡 Medium | HSTS başlığı bulunamadı |
+| `WEAK_CIPHER` | 🔴 Critical / 🟠 High | NULL/EXPORT/RC4 (critical) ya da 3DES (high) şifreleri kabul ediyor (tarama) |
+| `WEAK_DH` | 🟠 High / 🔴 Critical | 2048 bitten küçük Diffie-Hellman grubu (1024 altı critical) (tarama) |
+| `NO_FORWARD_SECRECY` | 🟡 Medium | RSA anahtar değişimli şifreleri kabul ediyor (tarama) |
+| `NO_HSTS` | 🟡 Medium | HSTS başlığı yok |
 | `HSTS_SHORT_MAX_AGE` | 🔵 Low | max-age < 15552000s |
+| `NO_TLS13` | 🔵 Low | TLS 1.3 desteklenmiyor (tarama) |
+| `NO_OCSP_STAPLING` | 🔵 Low | Stapled OCSP yanıtı yok |
+| `NO_CAA` | 🔵 Low | Alan adı ya da üst alan adları için CAA DNS kaydı yok |
+
+**Taramalar.** Tek bir varsayılan handshake, iki tarafın ortak olduğu en iyi protokol ve şifrede anlaşır; bu yüzden TLS 1.0 ya da RSA anahtar değişimini *de* kabul eden bir sunucu sorunsuz görünür. `inspect_ssl` ve CLI bu yüzden her biri yalnızca test edilen şeyi sunan birkaç ek handshake yapar (TLS 1.0, TLS 1.1, TLS 1.3, RSA anahtar değişimi, DHE, zayıf şifre aileleri). Çalışma ortamının kendi OpenSSL'inin sunamadığı zayıf aileler (Node 22 derlemelerinde 3DES/RC4/EXPORT yok) geçti sayılmaz, *test edilemedi* olarak listelenir. `--no-probes` / `probes: false` bunları atlar; `inspect_ssl_bulk` istenmedikçe çalıştırmaz.
 
 ---
 

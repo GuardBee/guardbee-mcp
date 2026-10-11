@@ -18,10 +18,14 @@ export async function startServer() {
       host: z.string().describe("Domain name or IP to inspect (e.g. example.com)"),
       port: z.number().optional().describe("Port to connect to (default: 443)"),
       checkHsts: z.boolean().optional().describe("Also check HSTS header via HTTP HEAD (default: true)"),
+      probes: z
+        .boolean()
+        .optional()
+        .describe("Extra handshakes to find what the server still accepts: TLS 1.0/1.1, RSA key exchange, weak DH, weak ciphers (default: true)"),
     },
-    async ({ host, port = 443, checkHsts: doHsts = true }) => {
+    async ({ host, port = 443, checkHsts: doHsts = true, probes = true }) => {
       const start = Date.now();
-      const result = await inspectHost(host, port);
+      const result = await inspectHost(host, port, 10_000, { probes });
 
       if (doHsts && result.reachable) {
         const hsts = await checkHsts(host, port);
@@ -48,10 +52,11 @@ export async function startServer() {
     {
       hosts: z.array(z.string()).describe("List of domain names to inspect"),
       port: z.number().optional().describe("Port to use for all domains (default: 443)"),
+      probes: z.boolean().optional().describe("Run the legacy-protocol and weak-cipher probes for each domain (default: false; 8 extra handshakes per domain)"),
     },
-    async ({ hosts, port = 443 }) => {
+    async ({ hosts, port = 443, probes = false }) => {
       const start = Date.now();
-      const results = await Promise.all(hosts.map((h) => inspectHost(h, port)));
+      const results = await Promise.all(hosts.map((h) => inspectHost(h, port, 10_000, { probes })));
 
       const totalIssues = results.reduce(
         (sum, r) => sum + r.findings.filter((f) => f.code !== "OK").length,
@@ -72,7 +77,7 @@ export async function startServer() {
       warnDays: z.number().optional().describe("Warn if expiring within this many days (default: 30)"),
     },
     async ({ hosts, warnDays = 30 }) => {
-      const results = await Promise.all(hosts.map((h) => inspectHost(h)));
+      const results = await Promise.all(hosts.map((h) => inspectHost(h, 443, 10_000, { probes: false, caa: false })));
       const lines: string[] = [`Certificate Expiry Report\n${"─".repeat(40)}`];
 
       for (const r of results) {
@@ -98,7 +103,7 @@ export async function startServer() {
       port: z.number().optional().describe("Port (default: 443)"),
     },
     async ({ host, port = 443 }) => {
-      const result = await inspectHost(host, port);
+      const result = await inspectHost(host, port, 10_000, { probes: false, caa: false });
 
       if (!result.reachable) {
         return { content: [{ type: "text", text: `Cannot reach ${host}:${port} — ${result.error ?? "unknown error"}` }] };
