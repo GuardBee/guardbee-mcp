@@ -1,5 +1,11 @@
 # @guardbee/mcp-ssl-inspector
 
+## 0.3.0
+
+### Minor Changes
+
+- [#72](https://github.com/GuardBee/guardbee-mcp/pull/72) [`5ff4334`](https://github.com/GuardBee/guardbee-mcp/commit/5ff4334d6037cfd1088bdda5807094400d09a25a) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Probes for what a server still accepts, not just what a modern client negotiates: TLS 1.0/1.1, TLS 1.3 support, RSA key exchange (no forward secrecy), Diffie-Hellman group size and weak cipher families (families this runtime's OpenSSL lacks are reported as not tested). Certificate checks gain key size, SHA-1/MD5 signatures in the chain, hostname mismatch, and chain errors told apart (self-signed, incomplete chain, revoked); plus OCSP stapling and CAA. A TLS-1.0-only server is now inspected instead of reported unreachable. Fixes ChaCha20 suites being flagged as 20-bit ciphers, and the expiry warning that fired on every 90-day (Let's Encrypt) certificate.
+
 ## 0.2.2
 
 ### Patch Changes

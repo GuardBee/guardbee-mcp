@@ -1,5 +1,12 @@
 # @guardbee/security-suite
 
+## 0.2.8
+
+### Patch Changes
+
+- Updated dependencies [[`5ff4334`](https://github.com/GuardBee/guardbee-mcp/commit/5ff4334d6037cfd1088bdda5807094400d09a25a)]:
+  - @guardbee/mcp-ssl-inspector@0.3.0
+
 ## 0.2.7
 
 ### Patch Changes
