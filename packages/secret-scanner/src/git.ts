@@ -1,7 +1,7 @@
 import { spawn } from "child_process";
 import { createInterface } from "readline";
 import { extname } from "path";
-import { scanText, SKIP_DIRS, SKIP_EXTENSIONS, type Finding } from "./scanner.js";
+import { scanText, SKIP_DIRS, SKIP_EXTENSIONS, type Finding, type ScanOptions } from "./scanner.js";
 
 export interface GitScanOptions {
   /** A directory inside the repository. */
@@ -13,6 +13,7 @@ export interface GitScanOptions {
   maxCommits?: number;
   /** Also run the high-entropy check (default true). */
   entropy?: boolean;
+  onSecret?: ScanOptions["onSecret"];
 }
 
 export interface GitScanResult {
@@ -87,7 +88,7 @@ export async function scanGit(options: GitScanOptions): Promise<GitScanResult> {
   const flush = () => {
     if (file && block.length > 0 && !skipped(file)) {
       scannedHunks++;
-      for (const finding of scanText(block.join("\n"), file, file, { entropy: options.entropy })) {
+      for (const finding of scanText(block.join("\n"), file, file, { entropy: options.entropy, onSecret: options.onSecret })) {
         const located: Finding = {
           ...finding,
           line: finding.line + blockStart - 1,
