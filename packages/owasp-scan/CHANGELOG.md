@@ -1,5 +1,12 @@
 # @guardbee/mcp-owasp-scan
 
+## 0.2.3
+
+### Patch Changes
+
+- Updated dependencies [[`1cb3991`](https://github.com/GuardBee/guardbee-mcp/commit/1cb39919ca7a9a944c40d8865f3987b43d908435), [`841d816`](https://github.com/GuardBee/guardbee-mcp/commit/841d81617c76fdfe9849336e5daeee2fe09a1c9d)]:
+  - @guardbee/mcp-secret-scanner@0.4.0
+
 ## 0.2.2
 
 ### Patch Changes
