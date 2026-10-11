@@ -11,7 +11,7 @@
 | 导出 | 使用方 | 用途 |
 |---|---|---|
 | `maskPiiInText`、`maskPiiInValue`、`PII_PATTERNS` | security-proxy | 对工具结果中的土耳其身份证号（TC Kimlik No）、税号（VKN）、IBAN、银行卡、电话、电子邮件、服务商 API 密钥、私钥、数据库连接串和 JWT 进行脱敏；可选的 replacer 可以把匹配项转换为令牌 |
-| `SECRET_RULES` | secret-scanner、security-proxy | 38 条密钥规则（服务商密钥和令牌、私钥、数据库连接串、JWT）。扫描器会报告全部规则；代理只对未标记 `broad` 的 32 条进行脱敏 |
+| `SECRET_RULES` | secret-scanner、security-proxy | 76 条密钥规则（服务商密钥和令牌——云、AI 服务商、开发工具、SaaS、土耳其支付和短信服务商——私钥、数据库连接串、JWT）。扫描器会报告全部规则；代理只对未标记 `broad` 的 66 条进行脱敏 |
 | `isValidTcKimlik`、`isValidVkn`、`isValidIban`、`isValidLuhn`、`isValidTrPhone` | security-proxy、prompt-leak-scanner | 正则匹配之后的校验 |
 | `INJECTION_RULES`、`findInjections` | prompt-injection-scanner、security-proxy | 27 条英文和土耳其语注入规则，包含 base64 解码；扫描器使用其中 17 条精确规则 |
 | `scanForPromptInjection`、`scanToolResult` | security-proxy | 命中精确的 high/critical 规则时拦截，其余情况只警告 |

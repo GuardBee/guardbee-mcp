@@ -14,7 +14,7 @@ An MCP server that scans your source files, directories, and environment configs
 
 ## Features
 
-- **38 Secret Patterns** — AWS, GitHub, GitLab, Stripe, OpenAI, Anthropic, HuggingFace, Slack, Twilio, SendGrid, and more. The rules live in [`@guardbee/guard-core`](../guard-core/README.md), so `@guardbee/mcp-security-proxy` masks the same formats in tool results at runtime
+- **76 Secret Patterns** — AWS, Azure, GCP, GitHub, GitLab, Stripe, OpenAI, Anthropic, OpenRouter, Groq, Hugging Face, Slack, Twilio, SendGrid, DigitalOcean, Cloudflare, Supabase, Vault, PyPI, Shopify, Linear, Notion, Atlassian and more — plus the Turkish providers iyzico, PayTR, Netgsm and İleti Merkezi, matched on their variable names since their keys have no prefix. The rules live in [`@guardbee/guard-core`](../guard-core/README.md), so `@guardbee/mcp-security-proxy` masks the same formats in tool results at runtime
 - **File & Directory Scanning** — a single file or an entire project tree
 - **Git History & Staged Scanning** — `--history` scans every line any commit added, so a key deleted from the files but still in the repository is found, reported once at the commit that added it (with author and date); `--staged` scans only what you are about to commit
 - **Baseline** — `--write-baseline` records today's findings as hashes (never the secrets, safe to commit); `--baseline` then reports only new ones, so an existing repo can adopt the scanner in CI without fixing everything first. SARIF results carry a stable `partialFingerprints` value

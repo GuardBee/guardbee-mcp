@@ -14,7 +14,7 @@
 
 ## 功能
 
-- **38 种密钥模式** —— AWS、GitHub、GitLab、Stripe、OpenAI、Anthropic、HuggingFace、Slack、Twilio、SendGrid 等。规则位于 [`@guardbee/guard-core`](../guard-core/ZH.md)，因此 `@guardbee/mcp-security-proxy` 会在运行时对工具结果中的相同格式进行脱敏
+- **76 种密钥模式** —— AWS、Azure、GCP、GitHub、GitLab、Stripe、OpenAI、Anthropic、OpenRouter、Groq、Hugging Face、Slack、Twilio、SendGrid、DigitalOcean、Cloudflare、Supabase、Vault、PyPI、Shopify、Linear、Notion、Atlassian 等——以及土耳其服务商 iyzico、PayTR、Netgsm 和 İleti Merkezi（其密钥没有前缀，因此按变量名匹配）。规则位于 [`@guardbee/guard-core`](../guard-core/ZH.md)，因此 `@guardbee/mcp-security-proxy` 会在运行时对工具结果中的相同格式进行脱敏
 - **文件和目录扫描** —— 单个文件或整个项目目录树
 - **Git 历史与暂存区扫描** —— `--history` 扫描每次提交新增的每一行，因此能找到已从文件中删除但仍留在仓库中的密钥，并在引入它的提交处（附作者和日期）只报告一次；`--staged` 只扫描你即将提交的内容
 - **基线（Baseline）** —— `--write-baseline` 以哈希形式记录当前发现（从不保存密钥本身，可安全提交）；之后 `--baseline` 只报告新发现，让现有仓库无需先全部修复即可在 CI 中启用扫描。SARIF 结果带有稳定的 `partialFingerprints` 值
