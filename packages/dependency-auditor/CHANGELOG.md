@@ -1,5 +1,22 @@
 # @guardbee/mcp-dependency-auditor
 
+## 0.5.0
+
+### Minor Changes
+
+- [#86](https://github.com/GuardBee/guardbee-mcp/pull/86) [`98f6c7d`](https://github.com/GuardBee/guardbee-mcp/commit/98f6c7d95faf1c23ea679a116ec2e78d4d6e4661) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - feat: correct fix versions and a one-upgrade-per-package fix plan
+  
+  - **Branch-aware fix versions:** The fix version came from the first `fixed` event in an advisory, whatever the installed version. `next-auth@5.0.0-beta.31` was told to "upgrade" to `4.24.15`. Fix versions now follow the installed release line, and versions are ordered per ecosystem: SemVer for npm, crates.io and Go; PEP 440 for PyPI; Maven/RubyGems-style otherwise.
+  - **Fix plan:** The report and MCP output start with a fix plan that names, for each vulnerable package, the smallest listed version clearing every advisory. Examples: `log4j-core 2.14.1 → 2.25.4 (fixes 7/7)`, where 2.15.0 alone would leave six open. The plan also lists advisories that stay open and flags major-version jumps.
+  - **JSON:** Output adds `guardbee.upgrade` per package.
+  - **API:** `planUpgrade`, `isAffected` and `compareVersions` are exported. `getFixedVersion(vuln, name)` keeps its old behaviour; pass `version` and `ecosystem` for the branch-aware result.
+
+- [#87](https://github.com/GuardBee/guardbee-mcp/pull/87) [`649ecae`](https://github.com/GuardBee/guardbee-mcp/commit/649ecaed08bdefd60c75732be44158c37e53ef22) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - feat: show how each vulnerable package gets installed; stop double-counting duplicated releases
+  
+  - **Dependency paths:** Findings now carry the shortest dependency path from a direct dependency, for example `Path : express@4.21.2 › proxy-addr@2.0.7`. Each fix-plan line names the direct dependency to bump (`← via express@4.21.2`). Paths are read from `package-lock.json` v2/v3 (using Node's `node_modules` resolution), pnpm v5/v6/v9, yarn v1/Berry, bun and uv lockfiles. SARIF messages and JSON (`path`) include them too.
+  - **Duplicate releases:** When a lockfile lists one release at several install paths, it is now queried and reported once. On a real 1,054-package project, 14 releases were listed more than once and `nanoid@3.3.16` was reported twice.
+  - **Mixed dev/prod copies:** A release with both a dev copy and a production copy is classified as production; before, the first copy seen decided.
+
 ## 0.4.0
 
 ### Minor Changes
