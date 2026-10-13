@@ -45,8 +45,9 @@ function printText(results: AuditResult[], label: string, durationMs: number): v
     }
   }
 
-  console.log(`⚠️  Found vulnerabilities in ${vulnerable.length}/${total} ${label} packages (${durationMs}ms)`);
-  console.log(`   Critical: ${counts.critical}  High: ${counts.high}  Medium: ${counts.medium}  Low: ${counts.low}`);
+  const found = vulnerable.reduce((s, r) => s + r.vulns.length, 0);
+  console.log(`⚠️  Found ${found} vulnerabilit${found === 1 ? "y" : "ies"} in ${vulnerable.length}/${total} ${label} packages (${durationMs}ms)`);
+  console.log(`   Critical: ${counts.critical}  High: ${counts.high}  Medium: ${counts.medium}  Low: ${counts.low}  Unknown: ${counts.unknown}`);
   console.log("");
 
   for (const r of vulnerable) {
