@@ -1,6 +1,6 @@
 import { parse as parseToml } from "smol-toml";
 import type { Dependency } from "./npm.js";
-import { devOnly, type GraphNode } from "./graph.js";
+import { devOnly, shortestPaths, pathLabels, type GraphNode } from "./graph.js";
 
 /** PEP 503 normalized name, used to match dependency references to packages. */
 function normalize(name: string): string {
@@ -84,9 +84,11 @@ export function parseUvLock(content: string): Dependency[] {
   }
 
   const dev = devOnly(nodes, prodRoots, devRoots);
+  const paths = shortestPaths(nodes, [...prodRoots, ...devRoots]);
   return [...audited].map((id) => {
     const n = nodes.get(id)!;
-    return { name: n.name, version: n.version, isDev: dev.has(id), source: "lockfile" as const };
+    const path = pathLabels(nodes, paths.get(id));
+    return { name: n.name, version: n.version, isDev: dev.has(id), source: "lockfile" as const, ...(path ? { path } : {}) };
   });
 }
 

@@ -7,6 +7,8 @@ import { parsePipRequirements } from "./parsers/pip.js";
 import { queryOsvBatch, type Ecosystem, type AuditResult } from "./osv.js";
 import { formatReport } from "./report.js";
 import { enrichExploitability } from "./exploit.js";
+import { auditDependencies } from "./audit.js";
+import type { Dependency } from "./parsers/npm.js";
 
 const exploitDataParam = z
   .boolean()
@@ -15,10 +17,13 @@ const exploitDataParam = z
 
 /** Query OSV, optionally add KEV/EPSS, and return the report notes. */
 async function audit(
-  packages: Array<{ name: string; version: string; ecosystem: Ecosystem }>,
-  exploitData: boolean
+  packages: Dependency[] | Array<{ name: string; version: string; ecosystem: Ecosystem }>,
+  exploitData: boolean,
+  ecosystem?: Ecosystem
 ): Promise<{ results: AuditResult[]; notes: string[] }> {
-  const results = await queryOsvBatch(packages);
+  const results = ecosystem
+    ? await auditDependencies(packages as Dependency[], ecosystem)
+    : await queryOsvBatch(packages as Array<{ name: string; version: string; ecosystem: Ecosystem }>);
   const notes: string[] = [];
   if (exploitData) {
     const unavailable = await enrichExploitability(results);
@@ -59,8 +64,7 @@ export async function startServer() {
 
       if (!includeDevDeps) deps = deps.filter((d) => !d.isDev);
 
-      const packages = deps.map((d) => ({ name: d.name, version: d.version, ecosystem: "npm" as Ecosystem }));
-      const { results, notes } = await audit(packages, exploitData);
+      const { results, notes } = await audit(deps, exploitData, "npm");
       const report = formatReport(results, "npm", Date.now() - start, notes);
 
       return { content: [{ type: "text", text: report }] };
@@ -89,8 +93,7 @@ export async function startServer() {
         };
       }
 
-      const packages = deps.map((d) => ({ name: d.name, version: d.version, ecosystem: "PyPI" as Ecosystem }));
-      const { results, notes } = await audit(packages, exploitData);
+      const { results, notes } = await audit(deps, exploitData, "PyPI");
       const report = formatReport(results, "pip", Date.now() - start, notes);
 
       return { content: [{ type: "text", text: report }] };
@@ -132,8 +135,7 @@ export async function startServer() {
       let npmDeps = parseNpmManifest(directory);
       if (npmDeps.length > 0) {
         if (!includeDevDeps) npmDeps = npmDeps.filter((d) => !d.isDev);
-        const npmPkgs = npmDeps.map((d) => ({ name: d.name, version: d.version, ecosystem: "npm" as Ecosystem }));
-        const { results, notes } = await audit(npmPkgs, exploitData);
+        const { results, notes } = await audit(npmDeps, exploitData, "npm");
         lines.push("── npm ─────────────────────────────────────────");
         lines.push(formatReport(results, "npm", 0, notes));
       }
@@ -142,8 +144,7 @@ export async function startServer() {
       let pipDeps = parsePipRequirements(directory);
       if (!includeDevDeps) pipDeps = pipDeps.filter((d) => !d.isDev);
       if (pipDeps.length > 0) {
-        const pipPkgs = pipDeps.map((d) => ({ name: d.name, version: d.version, ecosystem: "PyPI" as Ecosystem }));
-        const { results, notes } = await audit(pipPkgs, exploitData);
+        const { results, notes } = await audit(pipDeps, exploitData, "PyPI");
         lines.push("── pip ─────────────────────────────────────────");
         lines.push(formatReport(results, "pip", 0, notes));
       }

@@ -1,6 +1,6 @@
 import { parse as parseYaml } from "yaml";
 import type { Dependency } from "./npm.js";
-import { devOnly, splitNameVersion, type GraphNode } from "./graph.js";
+import { devOnly, shortestPaths, pathLabels, splitNameVersion, type GraphNode } from "./graph.js";
 
 type Manifest = Record<string, unknown>;
 
@@ -19,16 +19,39 @@ function manifestRoots(manifest: Manifest): { prod: Array<[string, string]>; dev
   };
 }
 
-function toDeps(nodes: Map<string, GraphNode>, dev: Set<string>): Dependency[] {
-  const out: Dependency[] = [];
-  const seen = new Set<string>();
+/**
+ * One Dependency per name@version. A copy reachable from production makes it
+ * production; the path is the shortest chain from a direct dependency,
+ * preferring production roots.
+ */
+export function toDeps(
+  nodes: Map<string, GraphNode>,
+  prodRoots: string[],
+  devRoots: string[],
+  /** Dev flags recorded by the lockfile itself; when given, they win over the graph walk. */
+  devFlag?: Map<string, boolean>
+): Dependency[] {
+  const dev = devFlag
+    ? new Set([...devFlag].filter(([, d]) => d).map(([id]) => id))
+    : devOnly(nodes, prodRoots, devRoots);
+  const paths = shortestPaths(nodes, [...prodRoots, ...devRoots]);
+  const byKey = new Map<string, Dependency>();
   for (const [id, n] of nodes) {
     const key = `${n.name}@${n.version}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push({ name: n.name, version: n.version, isDev: dev.has(id), source: "lockfile" });
+    const path = pathLabels(nodes, paths.get(id));
+    const prev = byKey.get(key);
+    if (!prev) {
+      byKey.set(key, { name: n.name, version: n.version, isDev: dev.has(id), source: "lockfile", ...(path ? { path } : {}) });
+      continue;
+    }
+    if (!dev.has(id) && prev.isDev) {
+      prev.isDev = false;
+      if (path) prev.path = path; // a production path explains more than a dev one
+    } else if (path && prev.isDev === dev.has(id) && (!prev.path || path.length < prev.path.length)) {
+      prev.path = path;
+    }
   }
-  return out;
+  return [...byKey.values()];
 }
 
 const LOCAL_PROTOCOL = /^(link|file|workspace|portal|git|github|git\+[a-z]+|https?):/;
@@ -84,15 +107,41 @@ export function parsePnpmLock(content: string): Dependency[] {
   const version = String(lock.lockfileVersion ?? "");
   const v5 = version.startsWith("5");
 
-  // v5/v6 mark dev packages directly.
+  // v5/v6 mark dev packages directly; the graph is only used for paths.
   if (!lock.snapshots) {
-    const out: Dependency[] = [];
+    const legacyId = (name: string, v: string): string | null => {
+      if (LOCAL_PROTOCOL.test(v)) return null;
+      if (v.startsWith("/")) return v; // alias: "/real@1.0.0" or "/real/1.0.0"
+      return v5 ? `/${name}/${v}` : `/${name}@${v}`;
+    };
+    const nodes = new Map<string, GraphNode>();
+    const devFlag = new Map<string, boolean>();
     for (const [key, info] of Object.entries(lock.packages ?? {})) {
       const nv = pnpmKey(key, v5);
       if (!nv) continue;
-      out.push({ name: nv[0], version: pnpmBareVersion(nv[1]), isDev: info?.dev === true, source: "lockfile" });
+      const deps = Object.entries({ ...info?.dependencies, ...info?.optionalDependencies })
+        .map(([n, v]) => legacyId(n, String(v)))
+        .filter((d): d is string => d !== null);
+      nodes.set(key, { name: nv[0], version: pnpmBareVersion(nv[1]), deps });
+      devFlag.set(key, info?.dev === true);
     }
-    return out;
+    const prodRoots: string[] = [];
+    const devRoots: string[] = [];
+    const importers = lock.importers ?? { ".": lock as unknown as Record<string, PnpmDepMap> };
+    for (const imp of Object.values(importers)) {
+      for (const [section, roots] of [
+        ["dependencies", prodRoots],
+        ["optionalDependencies", prodRoots],
+        ["devDependencies", devRoots],
+      ] as const) {
+        for (const [n, spec] of Object.entries(imp?.[section] ?? {})) {
+          const v = typeof spec === "string" ? spec : spec?.version;
+          const id = v ? legacyId(n, v) : null;
+          if (id) roots.push(id);
+        }
+      }
+    }
+    return toDeps(nodes, prodRoots, devRoots, devFlag);
   }
 
   // v9: walk importers → snapshots.
@@ -127,7 +176,7 @@ export function parsePnpmLock(content: string): Dependency[] {
     }
   }
 
-  return toDeps(nodes, devOnly(nodes, prodRoots, devRoots));
+  return toDeps(nodes, prodRoots, devRoots);
 }
 
 // ── yarn.lock (v1 and berry) ──────────────────────────────────────────────────
@@ -233,7 +282,7 @@ export function parseYarnLock(content: string, manifest: Manifest): Dependency[]
   const roots = manifestRoots(manifest);
   const prodRoots = roots.prod.flatMap(([n, r]) => resolve(n, r));
   const devRoots = roots.dev.flatMap(([n, r]) => resolve(n, r));
-  return toDeps(nodes, devOnly(nodes, prodRoots, devRoots));
+  return toDeps(nodes, prodRoots, devRoots);
 }
 
 // ── bun.lock (text format, bun ≥ 1.2) ─────────────────────────────────────────
@@ -320,5 +369,5 @@ export function parseBunLock(content: string): Dependency[] {
     }
   }
 
-  return toDeps(nodes, devOnly(nodes, prodRoots, devRoots));
+  return toDeps(nodes, prodRoots, devRoots);
 }

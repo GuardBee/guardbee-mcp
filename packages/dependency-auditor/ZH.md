@@ -22,6 +22,7 @@
 - **严重程度评分** —— 基于 CVSS 分数或文本启发式的 Critical / High / Medium / Low
 - **修复计划** —— 每个包一次升级：能修复*全部*公告的最小已列出版本（如 `log4j-core 2.14.1 → 2.25.4 (fixes 7/7)`），并标注仍未修复的公告和主版本跨越。单条发现的修复版本沿用已安装的版本线（`next-auth 5.0.0-beta.31 → 5.0.0-beta.32`，而非 4.24.15），使用 SemVer、PEP 440 或 Maven 风格的版本排序
 - **CVE 链接** —— 直达 NVD 或 osv.dev 的链接
+- **依赖路径** —— 每条发现都会显示该包的安装链（`express@4.21.2 › proxy-addr@2.0.7`），修复计划会指出需要升级的直接依赖（`← via express@4.21.2`）。适用于 `package-lock.json` v2/v3、pnpm、yarn、bun 和 uv 锁文件
 - **去重的发现** —— 互为别名的公告（GHSA + PYSEC、GHSA + MAL）合并为一条；忽略列表可匹配其中任一 ID
 - **测试** —— 使用真实包管理器生成的锁文件和模拟 OSV API 的单元测试
 
