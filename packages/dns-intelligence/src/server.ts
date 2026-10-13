@@ -4,10 +4,11 @@ import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
 import {
   enumerateDomain,
-  enumerateSubdomains,
+  enumerateSubdomainsDetailed,
   formatDnsReport,
   formatSubdomainReport,
 } from "./dns.js";
+import { normalizeDomain } from "./resolver.js";
 import * as dns from "dns/promises";
 
 export async function startServer() {
@@ -25,7 +26,7 @@ export async function startServer() {
     },
     async ({ domain }) => {
       const start = Date.now();
-      const result = await enumerateDomain(domain.toLowerCase().trim());
+      const result = await enumerateDomain(domain);
       const report = formatDnsReport(result);
       return { content: [{ type: "text", text: `${report}\n\nCompleted in ${Date.now() - start}ms` }] };
     }
@@ -39,8 +40,9 @@ export async function startServer() {
     },
     async ({ domain }) => {
       const start = Date.now();
-      const results = await enumerateSubdomains(domain.toLowerCase().trim());
-      const report = formatSubdomainReport(domain, results);
+      const name = normalizeDomain(domain);
+      const { results, wildcard } = await enumerateSubdomainsDetailed(name);
+      const report = formatSubdomainReport(name, results, wildcard);
       return { content: [{ type: "text", text: `${report}\n\nCompleted in ${Date.now() - start}ms` }] };
     }
   );
@@ -55,9 +57,13 @@ export async function startServer() {
         .optional()
         .describe("Additional DKIM selectors to check (default: common selectors)"),
     },
-    async ({ domain, dkimSelectors: extraSelectors }) => {
+    async ({ domain: input, dkimSelectors: extraSelectors }) => {
       const start = Date.now();
-      const result = await enumerateDomain(domain.toLowerCase().trim());
+      const domain = normalizeDomain(input);
+      const result = await enumerateDomain(domain);
+      if (result.exists === false) {
+        return { content: [{ type: "text", text: `${domain} does not exist (NXDOMAIN); there is nothing to check.` }] };
+      }
 
       const lines: string[] = [`Email Security Check: ${domain}`, "─".repeat(50)];
 
@@ -68,16 +74,20 @@ export async function startServer() {
         lines.push("  Add:  v=spf1 include:<your-mail-provider> -all");
       } else {
         lines.push(`✓ ${result.spf.raw}`);
+        if (result.spf.totalLookups !== undefined) {
+          lines.push(`  DNS lookups: ${result.spf.totalLookups}/10 including nested includes`);
+        }
         for (const f of result.spf.issues) lines.push(`  [${f.severity.toUpperCase()}] ${f.message}`);
       }
 
       // DMARC
       lines.push("\n── DMARC ───────────────────────────────────────");
       if (!result.dmarc) {
-        lines.push("✗ No DMARC record found at _dmarc." + domain);
+        for (const f of result.findings.filter((x) => x.code === "DMARC_MULTIPLE")) lines.push(`✗ ${f.message}`);
+        lines.push("✗ No usable DMARC record found at _dmarc." + domain);
         lines.push("  Add:  v=DMARC1; p=quarantine; rua=mailto:dmarc@" + domain);
       } else {
-        lines.push(`✓ ${result.dmarc.raw}`);
+        lines.push(`✓ ${result.dmarc.raw}${result.dmarc.inheritedFrom ? `  (inherited from ${result.dmarc.inheritedFrom})` : ""}`);
         for (const f of result.dmarc.issues) lines.push(`  [${f.severity.toUpperCase()}] ${f.message}`);
       }
 
@@ -108,7 +118,7 @@ export async function startServer() {
         lines.push(`✓ Found DKIM selectors: ${foundDkim.join(", ")}`);
       }
 
-      const totalIssues = (result.spf?.issues.length ?? 0) + (result.dmarc?.issues.length ?? 0);
+      const totalIssues = result.findings.filter((f) => /^(SPF|DMARC|DKIM)_/.test(f.code) && f.severity !== "info").length;
       lines.push(`\n${totalIssues === 0 ? "✅ Email security looks good!" : `⚠️  ${totalIssues} issue(s) need attention`}`);
       lines.push(`\nCompleted in ${Date.now() - start}ms`);
 
@@ -125,8 +135,9 @@ export async function startServer() {
         .enum(["A", "AAAA", "MX", "NS", "TXT", "CNAME", "SOA"])
         .describe("DNS record type to look up"),
     },
-    async ({ domain, type }) => {
+    async ({ domain: input, type }) => {
       try {
+        const domain = normalizeDomain(input);
         let result: string;
         switch (type) {
           case "A": {
@@ -168,7 +179,7 @@ export async function startServer() {
         return { content: [{ type: "text", text: `${type} records for ${domain}:\n${result}` }] };
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        return { content: [{ type: "text", text: `No ${type} records found for ${domain}: ${msg}` }] };
+        return { content: [{ type: "text", text: `No ${type} records found for ${input}: ${msg}` }] };
       }
     }
   );
