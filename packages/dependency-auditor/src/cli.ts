@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 import { startServer } from "./server.js";
-import { parseNpmManifest } from "./parsers/npm.js";
+import { parseNpmManifest, type Dependency } from "./parsers/npm.js";
 import { parsePipRequirements } from "./parsers/pip.js";
-import { queryOsvBatch, getSeverity, getFixedVersion, type Ecosystem } from "./osv.js";
+import { queryOsvBatch, getSeverity, getFixedVersion, isMalicious, type Ecosystem } from "./osv.js";
+import { formatReport } from "./report.js";
 import type { AuditResult } from "./osv.js";
 import { buildSarif } from "./sarif.js";
 import { loadConfig, configFilePath } from "./config.js";
@@ -29,47 +30,32 @@ function meetsThreshold(sev: string, threshold: string): boolean {
 // ── Output ─────────────────────────────────────────────────────────────────────
 
 function printText(results: AuditResult[], label: string, durationMs: number): void {
-  const vulnerable = results.filter((r) => r.vulns.length > 0);
-  const total = results.length;
+  console.log(formatReport(results, label, durationMs));
+}
 
-  if (vulnerable.length === 0) {
-    console.log(`✅ No vulnerabilities found in ${total} ${label} packages (${durationMs}ms)`);
-    return;
-  }
-
-  const counts = { critical: 0, high: 0, medium: 0, low: 0, unknown: 0 };
-  for (const r of vulnerable) {
-    for (const v of r.vulns) {
-      const s = getSeverity(v);
-      counts[s] = (counts[s] ?? 0) + 1;
-    }
-  }
-
-  const found = vulnerable.reduce((s, r) => s + r.vulns.length, 0);
-  console.log(`⚠️  Found ${found} vulnerabilit${found === 1 ? "y" : "ies"} in ${vulnerable.length}/${total} ${label} packages (${durationMs}ms)`);
-  console.log(`   Critical: ${counts.critical}  High: ${counts.high}  Medium: ${counts.medium}  Low: ${counts.low}  Unknown: ${counts.unknown}`);
-  console.log("");
-
-  for (const r of vulnerable) {
-    for (const v of r.vulns) {
-      const sev = getSeverity(v);
-      const fixed = getFixedVersion(v, r.name);
-      const cveIds = (v.aliases ?? []).filter((a) => a.startsWith("CVE-")).join(", ");
-      const url = cveIds
-        ? `https://nvd.nist.gov/vuln/detail/${cveIds.split(", ")[0]}`
-        : `https://osv.dev/vulnerability/${v.id}`;
-
-      console.log(`[${sev.toUpperCase()}] ${r.name}@${r.version}`);
-      console.log(`  ID      : ${v.id}${cveIds ? ` (${cveIds})` : ""}`);
-      console.log(`  Summary : ${v.summary ?? "No summary available"}`);
-      if (fixed) console.log(`  Fix     : upgrade to ${r.name}@${fixed}`);
-      console.log(`  Details : ${url}`);
-      console.log("");
-    }
-  }
+/** JSON output: raw OSV records plus the verdict the CLI acted on. */
+function annotate(results: AuditResult[]): unknown[] {
+  return results.map((r) => ({
+    ...r,
+    vulns: r.vulns.map((v) => ({
+      ...v,
+      guardbee: {
+        severity: getSeverity(v),
+        malicious: isMalicious(v),
+        fixedVersion: getFixedVersion(v, r.name),
+      },
+    })),
+  }));
 }
 
 // ── CLI ────────────────────────────────────────────────────────────────────────
+
+/** `[guardbee] npm: pnpm-lock.yaml (4 packages)` — shows whether versions are exact. */
+function reportSource(label: string, deps: Dependency[], format: string): void {
+  if (format !== "text" || deps.length === 0) return;
+  const files = [...new Set(deps.map((d) => d.file ?? "manifest"))].join(", ");
+  process.stderr.write(`[guardbee] ${label}: ${files} (${deps.length} packages)\n`);
+}
 
 function parseArgs(args: string[]): { positionals: string[]; failOn: string; includeDev: boolean; format: string } {
   const positionals: string[] = [];
@@ -125,13 +111,15 @@ async function runCli(cmd: string, rawArgs: string[]): Promise<void> {
     }
     const results = await queryOsvBatch([{ name, version, ecosystem: ecosystem as Ecosystem }]);
     if (format === "json") {
-      console.log(JSON.stringify(results, null, 2));
+      console.log(JSON.stringify(annotate(results), null, 2));
     } else if (format === "sarif") {
       console.log(JSON.stringify(buildSarif(getVersion(), results), null, 2));
     } else {
       printText(results, ecosystem, 0);
     }
-    process.exit(exitCode(results, failOn));
+    // Not process.exit(): it can drop the tail of a large report written to a pipe.
+    process.exitCode = exitCode(results, failOn);
+    return;
   }
 
   // ── audit / audit-npm / audit-pip ─────────────────────────────────────────
@@ -146,6 +134,7 @@ async function runCli(cmd: string, rawArgs: string[]): Promise<void> {
   if (cmd !== "audit-pip") {
     let deps = parseNpmManifest(dir);
     if (!includeDev) deps = deps.filter((d) => !d.isDev);
+    reportSource("npm", deps, format);
     if (deps.length > 0) {
       const pkgs = deps.map((d) => ({ name: d.name, version: d.version, ecosystem: "npm" as Ecosystem }));
       allResults.push(...(await queryOsvBatch(pkgs)));
@@ -153,7 +142,9 @@ async function runCli(cmd: string, rawArgs: string[]): Promise<void> {
   }
 
   if (cmd !== "audit-npm") {
-    const deps = parsePipRequirements(dir);
+    let deps = parsePipRequirements(dir);
+    if (!includeDev) deps = deps.filter((d) => !d.isDev);
+    reportSource("pip", deps, format);
     if (deps.length > 0) {
       const pkgs = deps.map((d) => ({ name: d.name, version: d.version, ecosystem: "PyPI" as Ecosystem }));
       allResults.push(...(await queryOsvBatch(pkgs)));
@@ -175,14 +166,14 @@ async function runCli(cmd: string, rawArgs: string[]): Promise<void> {
   }
 
   if (format === "json") {
-    console.log(JSON.stringify({ results: allResults, durationMs: Date.now() - start }, null, 2));
+    console.log(JSON.stringify({ results: annotate(allResults), durationMs: Date.now() - start }, null, 2));
   } else if (format === "sarif") {
     console.log(JSON.stringify(buildSarif(getVersion(), allResults), null, 2));
   } else {
     printText(allResults, cmd === "audit-npm" ? "npm" : cmd === "audit-pip" ? "pip" : "total", Date.now() - start);
   }
 
-  process.exit(exitCode(allResults, failOn));
+  process.exitCode = exitCode(allResults, failOn);
 }
 
 function printHelp(): void {
@@ -200,8 +191,8 @@ Usage (CLI):
 Options:
   --fail-on=<level>   Exit 1 if findings at this severity or above (default: high)
                       Levels: critical | high | medium | low
-  --include-dev       Include devDependencies (npm only)
-  --format=<fmt>      Output format: text (default) | json
+  --include-dev       Include dev dependencies (npm devDependencies, Poetry/uv/Pipenv dev groups)
+  --format=<fmt>      Output format: text (default) | json | sarif
 
 Exit codes:
   0  No findings at or above --fail-on threshold

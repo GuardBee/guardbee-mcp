@@ -12,7 +12,7 @@ export interface OsvVuln {
   }>;
   references?: Array<{ type: string; url: string }>;
   aliases?: string[];
-  database_specific?: { severity?: string };
+  database_specific?: { severity?: string; cwe_ids?: string[] };
 }
 
 export interface AuditResult {
@@ -127,8 +127,62 @@ export async function queryOsvBatch(packages: PackageQuery[]): Promise<AuditResu
     name: p.name,
     version: p.version,
     ecosystem: p.ecosystem,
-    vulns: [...new Set(idsPerPackage[i])].map((id) => records.get(id)!),
+    vulns: mergeAliases([...new Set(idsPerPackage[i])].map((id) => records.get(id)!)),
   }));
+}
+
+/** Records with severity data first, then GHSA, then anything else. */
+function representativeRank(v: OsvVuln): number {
+  const scored = (v.severity?.length ?? 0) > 0 || !!v.database_specific?.severity;
+  return (scored ? 0 : 2) + (v.id.startsWith("GHSA-") ? 0 : 1);
+}
+
+/**
+ * OSV often returns one issue under several IDs that alias each other
+ * (GHSA + PYSEC for PyPI, GHSA + MAL for malware). Merge each alias group
+ * into one record so a finding is counted once. The merged record keeps every
+ * ID in `aliases`, so ignore lists and malware detection still match on any of them.
+ */
+export function mergeAliases(vulns: OsvVuln[]): OsvVuln[] {
+  const parent = vulns.map((_, i) => i);
+  const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i]!)));
+  const owner = new Map<string, number>();
+  vulns.forEach((v, i) => {
+    for (const id of [v.id, ...(v.aliases ?? [])]) {
+      const j = owner.get(id);
+      if (j === undefined) owner.set(id, i);
+      else parent[find(i)] = find(j);
+    }
+  });
+
+  const groups = new Map<number, OsvVuln[]>();
+  vulns.forEach((v, i) => {
+    const root = find(i);
+    groups.set(root, [...(groups.get(root) ?? []), v]);
+  });
+
+  return [...groups.values()].map((group) => {
+    if (group.length === 1) return group[0]!;
+    const [rep, ...rest] = [...group].sort((a, b) => representativeRank(a) - representativeRank(b));
+    const ids = new Set(group.flatMap((v) => [v.id, ...(v.aliases ?? [])]));
+    ids.delete(rep!.id);
+    return {
+      ...rep!,
+      summary: rep!.summary ?? rest.find((v) => v.summary)?.summary,
+      affected: rep!.affected ?? rest.find((v) => v.affected)?.affected,
+      aliases: [...ids].sort(),
+    };
+  });
+}
+
+/**
+ * A known-malicious release: an OpenSSF malicious-packages entry (MAL-*),
+ * or an advisory classified CWE-506 (embedded malicious code), such as
+ * GitHub's malware advisories for hijacked packages.
+ */
+export function isMalicious(vuln: OsvVuln): boolean {
+  if ([vuln.id, ...(vuln.aliases ?? [])].some((id) => id.startsWith("MAL-"))) return true;
+  return vuln.database_specific?.cwe_ids?.includes("CWE-506") ?? false;
 }
 
 /** Test hook: forget hydrated records between tests. */
@@ -239,6 +293,9 @@ function ratedSeverity(label: string | undefined): Severity | null {
 }
 
 export function getSeverity(vuln: OsvVuln): Severity {
+  // MAL-* records carry no score; installing malware is always critical.
+  if (isMalicious(vuln)) return "critical";
+
   for (const s of vuln.severity ?? []) {
     if (s.type === "CVSS_V3" || s.type === "CVSS_V2" || s.type === "CVSS_V4") {
       const score = numericCvss(s.score);

@@ -1,6 +1,7 @@
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import type { Dependency } from "./npm.js";
+import { parsePoetryLock, parseUvLock, parsePipfileLock } from "./pip-locks.js";
 
 /**
  * Version sent to OSV. Prefer an exact pin (`==`). Otherwise use the lower
@@ -96,7 +97,25 @@ function parsePyproject(content: string, deps: Dependency[]): void {
   }
 }
 
+const PIP_LOCKFILES: Array<[string, (content: string) => Dependency[]]> = [
+  ["uv.lock", parseUvLock],
+  ["poetry.lock", parsePoetryLock],
+  ["Pipfile.lock", parsePipfileLock],
+];
+
 export function parsePipRequirements(dir: string): Dependency[] {
+  // Locked versions are exact; requirement ranges only give a lower bound.
+  for (const [file, parse] of PIP_LOCKFILES) {
+    const p = join(dir, file);
+    if (!existsSync(p)) continue;
+    try {
+      const deps = parse(readFileSync(p, "utf8"));
+      if (deps.length > 0) return deps.map((d) => ({ ...d, file }));
+    } catch {
+      // unreadable or unknown format: try the next lockfile, then requirements
+    }
+  }
+
   const candidates = [
     "requirements.txt",
     "requirements/base.txt",
@@ -110,7 +129,9 @@ export function parsePipRequirements(dir: string): Dependency[] {
     const filePath = join(dir, candidate);
     if (!existsSync(filePath)) continue;
     try {
-      parseRequirementsFile(filePath, deps);
+      const found: Dependency[] = [];
+      parseRequirementsFile(filePath, found);
+      deps.push(...found.map((d) => ({ ...d, file: candidate })));
     } catch {
       continue;
     }
@@ -119,7 +140,9 @@ export function parsePipRequirements(dir: string): Dependency[] {
   const pyprojectPath = join(dir, "pyproject.toml");
   if (existsSync(pyprojectPath)) {
     try {
-      parsePyproject(readFileSync(pyprojectPath, "utf8"), deps);
+      const found: Dependency[] = [];
+      parsePyproject(readFileSync(pyprojectPath, "utf8"), found);
+      deps.push(...found.map((d) => ({ ...d, file: "pyproject.toml" })));
     } catch {
       // ignore
     }

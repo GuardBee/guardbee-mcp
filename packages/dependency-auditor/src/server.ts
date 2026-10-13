@@ -4,54 +4,8 @@ import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
 import { parseNpmManifest } from "./parsers/npm.js";
 import { parsePipRequirements } from "./parsers/pip.js";
-import { queryOsvBatch, getSeverity, getFixedVersion, type Ecosystem } from "./osv.js";
-import type { AuditResult } from "./osv.js";
-
-function formatReport(
-  results: AuditResult[],
-  ecosystem: string,
-  durationMs: number
-): string {
-  const vulnerable = results.filter((r) => r.vulns.length > 0);
-  const totalVulns = results.reduce((s, r) => s + r.vulns.length, 0);
-
-  if (totalVulns === 0) {
-    return `✅ No known vulnerabilities found in ${results.length} ${ecosystem} packages (${durationMs}ms).`;
-  }
-
-  const counts = { critical: 0, high: 0, medium: 0, low: 0, unknown: 0 };
-  for (const r of vulnerable) {
-    for (const v of r.vulns) {
-      counts[getSeverity(v)]++;
-    }
-  }
-
-  const lines: string[] = [
-    `⚠️  Found ${totalVulns} vulnerabilit${totalVulns === 1 ? "y" : "ies"} in ${vulnerable.length}/${results.length} ${ecosystem} packages (${durationMs}ms)`,
-    `   Critical: ${counts.critical}  High: ${counts.high}  Medium: ${counts.medium}  Low: ${counts.low}  Unknown: ${counts.unknown}`,
-    "",
-  ];
-
-  for (const result of vulnerable) {
-    for (const vuln of result.vulns) {
-      const sev = getSeverity(vuln);
-      const fixed = getFixedVersion(vuln, result.name);
-      const cveIds = (vuln.aliases ?? []).filter((a) => a.startsWith("CVE-")).join(", ");
-      const nvdUrl = cveIds
-        ? `https://nvd.nist.gov/vuln/detail/${cveIds.split(", ")[0]}`
-        : `https://osv.dev/vulnerability/${vuln.id}`;
-
-      lines.push(`[${sev.toUpperCase()}] ${result.name}@${result.version}`);
-      lines.push(`  ID      : ${vuln.id}${cveIds ? ` (${cveIds})` : ""}`);
-      lines.push(`  Summary : ${vuln.summary ?? "No summary available"}`);
-      if (fixed) lines.push(`  Fix     : upgrade to ${result.name}@${fixed}`);
-      lines.push(`  Details : ${nvdUrl}`);
-      lines.push("");
-    }
-  }
-
-  return lines.join("\n");
-}
+import { queryOsvBatch, type Ecosystem } from "./osv.js";
+import { formatReport } from "./report.js";
 
 export async function startServer() {
   const server = new McpServer({
@@ -62,7 +16,7 @@ export async function startServer() {
 
   server.tool(
     "audit_npm",
-    "Audit npm dependencies from a package.json (and optionally package-lock.json) for known CVEs using the OSV database",
+    "Audit npm dependencies for known CVEs using the OSV database. Reads exact versions from package-lock.json, npm-shrinkwrap.json, pnpm-lock.yaml, yarn.lock (v1 and berry) or bun.lock, falling back to package.json ranges",
     {
       directory: z.string().describe("Path to the directory containing package.json"),
       includeDevDeps: z
@@ -92,13 +46,18 @@ export async function startServer() {
 
   server.tool(
     "audit_pip",
-    "Audit Python dependencies from requirements.txt or pyproject.toml for known CVEs using the OSV database",
+    "Audit Python dependencies for known CVEs using the OSV database. Reads exact versions from uv.lock, poetry.lock or Pipfile.lock, falling back to requirements.txt / pyproject.toml",
     {
       directory: z.string().describe("Path to the directory containing requirements.txt or pyproject.toml"),
+      includeDevDeps: z
+        .boolean()
+        .optional()
+        .describe("Include dev groups from poetry.lock, uv.lock or Pipfile.lock (default: false)"),
     },
-    async ({ directory }) => {
+    async ({ directory, includeDevDeps = false }) => {
       const start = Date.now();
-      const deps = parsePipRequirements(directory);
+      let deps = parsePipRequirements(directory);
+      if (!includeDevDeps) deps = deps.filter((d) => !d.isDev);
 
       if (deps.length === 0) {
         return {
@@ -137,7 +96,7 @@ export async function startServer() {
     "Auto-detect and audit npm and pip manifests (package.json, requirements.txt, pyproject.toml) in a directory",
     {
       directory: z.string().describe("Path to the project root directory"),
-      includeDevDeps: z.boolean().optional().describe("Include dev dependencies for npm (default: false)"),
+      includeDevDeps: z.boolean().optional().describe("Include dev dependencies (default: false)"),
     },
     async ({ directory, includeDevDeps = false }) => {
       const start = Date.now();
@@ -154,7 +113,8 @@ export async function startServer() {
       }
 
       // pip
-      const pipDeps = parsePipRequirements(directory);
+      let pipDeps = parsePipRequirements(directory);
+      if (!includeDevDeps) pipDeps = pipDeps.filter((d) => !d.isDev);
       if (pipDeps.length > 0) {
         const pipPkgs = pipDeps.map((d) => ({ name: d.name, version: d.version, ecosystem: "PyPI" as Ecosystem }));
         const pipResults = await queryOsvBatch(pipPkgs);

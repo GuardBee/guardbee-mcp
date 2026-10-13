@@ -15,12 +15,14 @@
 ## 功能
 
 - **OSV API 集成** —— Google 的开源漏洞数据库（免费，无需身份验证）
-- **npm 支持** —— 读取 `package.json` 与 `package-lock.json`（v1/v2/v3）；优先使用锁定版本
-- **pip 支持** —— `requirements.txt`、`requirements/base.txt`、`requirements/prod.txt` 与 `pyproject.toml`
+- **npm 支持** —— 从 `package-lock.json` / `npm-shrinkwrap.json`（v1/v2/v3）、`pnpm-lock.yaml`（v5/v6/v9）、`yarn.lock`（v1 与 Berry）和 `bun.lock` 读取精确版本，否则回退到 `package.json` 的版本范围。包含传递依赖；即使锁文件未标记（pnpm v9、yarn、bun），也能区分仅开发用的包
+- **pip 支持** —— 从 `uv.lock`、`poetry.lock` 和 `Pipfile.lock` 读取精确版本（区分开发依赖组），否则回退到 `requirements.txt`、`requirements/base.txt`、`requirements/prod.txt` 与 `pyproject.toml`
+- **恶意包检测** —— 已知恶意版本（OpenSSF `MAL-*` 条目及归类为 CWE-506 的公告，例如 2025 年 9 月被劫持的 `chalk@5.6.1` / `debug@4.4.2`）以 critical 级别列在报告最前面，并附带删除与凭据轮换建议；在任何 `--fail-on` 阈值下都会使构建失败
 - **严重程度评分** —— 基于 CVSS 分数或文本启发式的 Critical / High / Medium / Low
 - **修复版本** —— 在可用时给出 `upgrade to X@Y.Z.Z` 建议
 - **CVE 链接** —— 直达 NVD 或 osv.dev 的链接
-- **24 个单元测试** —— 100% 通过的测试套件
+- **去重的发现** —— 互为别名的公告（GHSA + PYSEC、GHSA + MAL）合并为一条；忽略列表可匹配其中任一 ID
+- **测试** —— 使用真实包管理器生成的锁文件和模拟 OSV API 的单元测试
 
 ---
 
@@ -49,8 +51,8 @@ npm install -g @guardbee/mcp-dependency-auditor
 
 | 工具 | 说明 |
 |------|----------|
-| `audit_npm` | 审计 `package.json` / `package-lock.json` 中的 npm 依赖 |
-| `audit_pip` | 审计 `requirements.txt` / `pyproject.toml` 中的 Python 依赖 |
+| `audit_npm` | 审计 npm 依赖（package-lock、pnpm、yarn、bun 锁文件或 `package.json`） |
+| `audit_pip` | 审计 Python 依赖（uv、Poetry、Pipenv 锁文件或 `requirements.txt` / `pyproject.toml`） |
 | `audit_package` | 按名称、版本与生态系统审计单个包 |
 | `audit_directory` | 自动检测并审计所有受支持的清单文件 |
 
