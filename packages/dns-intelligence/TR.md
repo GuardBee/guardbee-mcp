@@ -15,7 +15,7 @@ DNS kayıtlarını sıralayan, SPF / DMARC / DKIM yapılandırma hatalarını te
 ## Özellikler
 
 - **Tam DNS Sıralaması** — A, AAAA, MX, NS, TXT, CNAME, SOA kayıtları
-- **SPF Analizi** — `+all`, `?all`, fazla DNS sorgusu, yinelenen kayıt tespiti
+- **SPF Analizi** — `+all`, `?all`, yinelenen kayıtlar ve alıcı sunucuların saydığı biçimde RFC 7208 sınırları: iç içe `include`/`redirect` dahil DNS sorguları (en fazla 10), boş sorgular (en fazla 2), include döngüleri ve eksik include'lar
 - **DMARC Analizi** — Politika (`none`/`quarantine`/`reject`), `pct`, `rua` adresi eksikliği
 - **DKIM Kontrolü** — 9 yaygın seçici probu (`default`, `google`, `selector1`, `mail`, vb.)
 - **Subdomain Sıralaması** — 60+ yaygın alt alan; asılı CNAME tespiti (14 bulut sağlayıcısı)
@@ -95,6 +95,12 @@ Email Security Check: example.com
 | `SPF_NO_ALL` | 🟡 Medium | `all` mekanizması yok |
 | `SPF_TOO_MANY_LOOKUPS` | 🟠 High | > 10 DNS sorgusu — SPF hatasına yol açar |
 | `SPF_DUPLICATE` | 🟠 High | Birden fazla SPF kaydı |
+| `SPF_AT_LOOKUP_LIMIT` | 🔵 Low | Tam 10 sorgu — bir include daha SPF'yi bozar |
+| `SPF_TOO_MANY_VOID_LOOKUPS` | 🟠 High | 2'den fazla include kayıt döndürmüyor |
+| `SPF_INCLUDE_MISSING` | 🟠 High | Bir `include`/`redirect` hedefinde SPF kaydı yok (permerror) |
+| `SPF_INCLUDE_DUPLICATE` | 🟠 High | Dahil edilen alan adı birden fazla SPF kaydı yayınlıyor |
+| `SPF_INCLUDE_LOOP` | 🟠 High | Include'lar değerlendirilen kayda geri dönüyor |
+| `SPF_PTR` | 🔵 Low | Kullanımdan kalkmış `ptr` mekanizması |
 
 ## DMARC Bulguları
 
@@ -105,6 +111,12 @@ Email Security Check: example.com
 | `DMARC_POLICY_NONE` | 🟡 Medium | `p=none` — izleme modu, engelleme yok |
 | `DMARC_PCT_LOW` | 🔵 Low | `pct` < 100 — kısmi uygulama |
 | `DMARC_NO_RUA` | 🔵 Low | Toplu rapor adresi (`rua`) yok |
+| `DMARC_MULTIPLE` | 🟠 High | Birden fazla DMARC kaydı — alıcılar hepsini yok sayar |
+| `DMARC_INVALID_POLICY` | 🟠 High | `p=` değeri none, quarantine veya reject değil |
+| `DMARC_SUBDOMAINS_NONE` | 🟡 Medium | `sp=none` alt alan adlarını taklide açık bırakır |
+| `DOMAIN_NOT_FOUND` | 🟠 High | Alan adı yok (NXDOMAIN) |
+
+Kendi DMARC kaydı olmayan alt alan adları, alıcıların yaptığı gibi üst alan adının kaydını (`sp=` politikasıyla) devralır. Alt alan adı taraması wildcard DNS'i tespit eder ve yalnızca wildcard'ın yanıtladığı adları listelemez.
 
 ## Asılı Subdomain Tespiti
 

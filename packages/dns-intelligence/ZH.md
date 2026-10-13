@@ -15,7 +15,7 @@
 ## 功能
 
 - **完整 DNS 枚举** —— A、AAAA、MX、NS、TXT、CNAME、SOA 记录
-- **SPF 分析** —— `+all`、`?all`、过多 DNS 查询、重复记录检测
+- **SPF 分析** —— `+all`、`?all`、重复记录，并按接收方的方式计算 RFC 7208 限制：包含嵌套 `include`/`redirect` 的 DNS 查询（最多 10 次）、空查询（最多 2 次）、include 循环和缺失的 include
 - **DMARC 分析** —— 策略（`none`/`quarantine`/`reject`）、`pct`、缺失的 `rua` 地址
 - **DKIM 检查** —— 探测 9 个常见选择器（`default`、`google`、`selector1`、`mail` 等）
 - **子域名枚举** —— 60+ 常见子域名；悬空 CNAME 检测（14 家云服务商）
@@ -95,6 +95,12 @@ Email Security Check: example.com
 | `SPF_NO_ALL` | 🟡 Medium | 没有 `all` 机制 |
 | `SPF_TOO_MANY_LOOKUPS` | 🟠 High | > 10 次 DNS 查询 —— 会导致 SPF 失败 |
 | `SPF_DUPLICATE` | 🟠 High | 多条 SPF 记录 |
+| `SPF_AT_LOOKUP_LIMIT` | 🔵 Low | 恰好 10 次查询 —— 再加一个 include 就会失效 |
+| `SPF_TOO_MANY_VOID_LOOKUPS` | 🟠 High | 超过 2 个 include 没有返回记录 |
+| `SPF_INCLUDE_MISSING` | 🟠 High | `include`/`redirect` 目标没有 SPF 记录（permerror） |
+| `SPF_INCLUDE_DUPLICATE` | 🟠 High | 被包含的域名发布了多条 SPF 记录 |
+| `SPF_INCLUDE_LOOP` | 🟠 High | include 循环回到正在评估的记录 |
+| `SPF_PTR` | 🔵 Low | 使用已弃用的 `ptr` 机制 |
 
 ## DMARC 发现项
 
@@ -105,6 +111,12 @@ Email Security Check: example.com
 | `DMARC_POLICY_NONE` | 🟡 Medium | `p=none` —— 监控模式，无强制执行 |
 | `DMARC_PCT_LOW` | 🔵 Low | `pct` < 100 —— 部分强制执行 |
 | `DMARC_NO_RUA` | 🔵 Low | 没有聚合报告地址（`rua`） |
+| `DMARC_MULTIPLE` | 🟠 High | 多条 DMARC 记录 —— 接收方会全部忽略 |
+| `DMARC_INVALID_POLICY` | 🟠 High | `p=` 不是 none、quarantine 或 reject |
+| `DMARC_SUBDOMAINS_NONE` | 🟡 Medium | `sp=none` 使子域名可被仿冒 |
+| `DOMAIN_NOT_FOUND` | 🟠 High | 域名不存在（NXDOMAIN） |
+
+没有自己 DMARC 记录的子域名会像接收方一样继承父域名的记录（`sp=` 策略）。子域名枚举会检测通配符 DNS，并排除仅由通配符应答的名称。
 
 ## 悬空子域名检测
 

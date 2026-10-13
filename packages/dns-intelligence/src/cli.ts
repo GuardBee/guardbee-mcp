@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { startServer } from "./server.js";
-import { enumerateDomain, enumerateSubdomains, formatDnsReport, formatSubdomainReport } from "./dns.js";
+import { enumerateDomain, enumerateSubdomainsDetailed, formatDnsReport, formatSubdomainReport } from "./dns.js";
+import { normalizeDomain } from "./resolver.js";
 import type { Finding } from "./dns.js";
 import { buildSarif } from "./sarif.js";
 import { loadConfig } from "./config.js";
@@ -30,20 +31,30 @@ function hasFailingFindings(findings: Finding[], failOn: string): boolean {
 
 // ── Arg parsing ────────────────────────────────────────────────────────────────
 
-function parseArgs(args: string[]): { positionals: string[]; failOn: string; format: string; concurrency: number } {
-  const positionals: string[] = [];
-  let failOn = "high";
-  let format = "text";
-  let concurrency = 20;
+interface CliArgs {
+  positionals: string[];
+  format: string;
+  /** Undefined when not given, so guardbee.yml keeps its value. */
+  failOn?: string;
+  concurrency?: number;
+}
 
+function parseArgs(args: string[]): CliArgs {
+  const out: CliArgs = { positionals: [], format: "text" };
   for (const arg of args) {
-    if (arg.startsWith("--fail-on=")) failOn = arg.split("=")[1] ?? "high";
-    else if (arg.startsWith("--format=")) format = arg.split("=")[1] ?? "text";
-    else if (arg.startsWith("--concurrency=")) concurrency = parseInt(arg.split("=")[1] ?? "20", 10);
-    else if (!arg.startsWith("--")) positionals.push(arg);
+    const value = arg.slice(arg.indexOf("=") + 1);
+    if (arg.startsWith("--fail-on=")) out.failOn = value;
+    else if (arg.startsWith("--format=")) out.format = value;
+    else if (arg.startsWith("--concurrency=")) out.concurrency = Number.parseInt(value, 10);
+    else if (!arg.startsWith("--")) out.positionals.push(arg);
   }
-
-  return { positionals, failOn, format, concurrency };
+  if (out.failOn !== undefined && !(out.failOn in SEVERITY_RANK)) {
+    throw new Error(`--fail-on must be critical, high, medium, low or info, got "${out.failOn}"`);
+  }
+  if (out.concurrency !== undefined && !(out.concurrency >= 1 && out.concurrency <= 200)) {
+    throw new Error(`--concurrency must be between 1 and 200`);
+  }
+  return out;
 }
 
 // ── CLI commands ───────────────────────────────────────────────────────────────
@@ -51,16 +62,17 @@ function parseArgs(args: string[]): { positionals: string[]; failOn: string; for
 async function runCheck(rawArgs: string[]): Promise<void> {
   const parsed = parseArgs(rawArgs);
   const cfg = loadConfig(process.cwd(), {
-    ...(parsed.failOn !== "high" ? { failOn: parsed.failOn } : {}),
+    ...(parsed.failOn !== undefined ? { failOn: parsed.failOn } : {}),
   });
-  const domain = parsed.positionals[0] ?? cfg.domains[0];
+  const domainArg = parsed.positionals[0] ?? cfg.domains[0];
   const { failOn, format } = { failOn: cfg.failOn, format: parsed.format };
 
-  if (!domain) {
-    console.error("Usage: guardbee-dns-intelligence check <domain> [--fail-on=high] [--format=text|json]");
+  if (!domainArg) {
+    console.error("Usage: guardbee-dns-intelligence check <domain> [--fail-on=high] [--format=text|json|sarif]");
     console.error("       Or set domains in guardbee.yml under dns-intelligence.domains");
     process.exit(2);
   }
+  const domain = normalizeDomain(domainArg);
 
   const result = await enumerateDomain(domain);
 
@@ -72,33 +84,35 @@ async function runCheck(rawArgs: string[]): Promise<void> {
     console.log(formatDnsReport(result));
   }
 
-  process.exit(hasFailingFindings(result.findings, failOn) ? 1 : 0);
+  // Not process.exit(): it can drop the tail of a large report written to a pipe.
+  process.exitCode = hasFailingFindings(result.findings, failOn) ? 1 : 0;
 }
 
 async function runSubdomains(rawArgs: string[]): Promise<void> {
   const parsed = parseArgs(rawArgs);
   const cfg = loadConfig(process.cwd(), {
-    ...(parsed.concurrency !== 20 ? { concurrency: parsed.concurrency } : {}),
+    ...(parsed.concurrency !== undefined ? { concurrency: parsed.concurrency } : {}),
   });
-  const domain = parsed.positionals[0] ?? cfg.domains[0];
+  const domainArg = parsed.positionals[0] ?? cfg.domains[0];
   const { format, concurrency } = { format: parsed.format, concurrency: cfg.concurrency };
 
-  if (!domain) {
+  if (!domainArg) {
     console.error("Usage: guardbee-dns-intelligence subdomains <domain> [--format=text|json] [--concurrency=20]");
     console.error("       Or set domains in guardbee.yml under dns-intelligence.domains");
     process.exit(2);
   }
+  const domain = normalizeDomain(domainArg);
 
-  const results = await enumerateSubdomains(domain, concurrency);
+  const { results, wildcard } = await enumerateSubdomainsDetailed(domain, concurrency);
   const dangling = results.filter((r) => r.dangling);
 
   if (format === "json") {
-    console.log(JSON.stringify({ domain, total: results.length, dangling: dangling.length, results }, null, 2));
+    console.log(JSON.stringify({ domain, total: results.length, dangling: dangling.length, wildcard: wildcard ?? null, results }, null, 2));
   } else {
-    console.log(formatSubdomainReport(domain, results));
+    console.log(formatSubdomainReport(domain, results, wildcard));
   }
 
-  process.exit(dangling.length > 0 ? 1 : 0);
+  process.exitCode = dangling.length > 0 ? 1 : 0;
 }
 
 function printHelp(): void {
@@ -113,8 +127,8 @@ Usage (CLI):
 
 Options:
   --fail-on=<level>     Exit 1 if findings at this severity or above (default: high)
-                        Levels: critical | high | medium | low
-  --format=<fmt>        Output format: text (default) | json
+                        Levels: critical | high | medium | low | info
+  --format=<fmt>        Output format: text (default) | json | sarif (check only)
   --concurrency=<n>     Parallel subdomain probes (default: 20, subdomains only)
 
 Exit codes:

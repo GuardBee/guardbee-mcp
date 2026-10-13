@@ -2,6 +2,7 @@ export { startServer } from "./server.js";
 export {
   enumerateDomain,
   enumerateSubdomains,
+  enumerateSubdomainsDetailed,
   analyzeSpf,
   analyzeDmarc,
   formatDnsReport,
@@ -14,4 +15,10 @@ export type {
   Finding,
   DnsEnumerationResult,
   SubdomainResult,
+  SubdomainEnumeration,
+  EnumerateOptions,
 } from "./dns.js";
+export { evaluateSpf, countLookupTerms, isSpfRecord, SPF_LOOKUP_LIMIT, SPF_VOID_LIMIT } from "./spf.js";
+export type { SpfEvaluation } from "./spf.js";
+export { normalizeDomain, systemResolver } from "./resolver.js";
+export type { DnsResolver } from "./resolver.js";

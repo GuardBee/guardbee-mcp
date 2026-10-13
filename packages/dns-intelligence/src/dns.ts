@@ -1,5 +1,5 @@
-import * as dns from "dns/promises";
-import * as net from "net";
+import { lookup, valueOf, normalizeDomain, systemResolver, type DnsResolver } from "./resolver.js";
+import { evaluateSpf, isSpfRecord, countLookupTerms } from "./spf.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -14,7 +14,12 @@ export interface SpfAnalysis {
   valid: boolean;
   mechanisms: string[];
   allMechanism: string | null; // "+all", "-all", "~all", "?all"
+  /** DNS-querying terms in this record alone. */
   lookupCount: number;
+  /** Including nested include/redirect records (what receivers count); set by enumerateDomain. */
+  totalLookups?: number;
+  voidLookups?: number;
+  included?: string[];
   issues: Finding[];
 }
 
@@ -25,6 +30,10 @@ export interface DmarcAnalysis {
   pct: number;
   rua: string[];
   ruf: string[];
+  /** Policy for subdomains (`sp`), defaulting to `p`. */
+  subdomainPolicy: string | null;
+  /** Where the record was found when inherited from a parent domain (e.g. "_dmarc.example.com"). */
+  inheritedFrom?: string;
   issues: Finding[];
 }
 
@@ -40,8 +49,15 @@ export interface DnsEnumerationResult {
   spf?: SpfAnalysis;
   dmarc?: DmarcAnalysis;
   dkimSelectors?: Record<string, boolean>; // selector → found
+  /** Not checked yet (requires AXFR over TCP); always undefined in this version. */
   zoneTransferVulnerable?: boolean;
+  /** False when the domain does not exist (NXDOMAIN). */
+  exists?: boolean;
   findings: Finding[];
+}
+
+export interface EnumerateOptions {
+  resolver?: DnsResolver;
 }
 
 export interface SubdomainResult {
@@ -94,69 +110,59 @@ const DANGLING_CNAME_PATTERNS: Array<{ pattern: RegExp; provider: string }> = [
 
 // ── DNS helpers ───────────────────────────────────────────────────────────────
 
-async function safeResolve<T>(fn: () => Promise<T>): Promise<T | null> {
-  try {
-    return await fn();
-  } catch {
-    return null;
-  }
-}
-
-async function resolveAll(domain: string): Promise<Record<string, DnsRecord[]>> {
+async function resolveAll(domain: string, r: DnsResolver): Promise<{ records: Record<string, DnsRecord[]>; exists: boolean }> {
   const records: Record<string, DnsRecord[]> = {};
 
   const [a, aaaa, mx, ns, txt, cname, soa] = await Promise.all([
-    safeResolve(() => dns.resolve4(domain, { ttl: true })),
-    safeResolve(() => dns.resolve6(domain, { ttl: true })),
-    safeResolve(() => dns.resolveMx(domain)),
-    safeResolve(() => dns.resolveNs(domain)),
-    safeResolve(() => dns.resolveTxt(domain)),
-    safeResolve(() => dns.resolveCname(domain)),
-    safeResolve(() => dns.resolveSoa(domain)),
+    lookup(() => r.resolve4(domain, { ttl: true })),
+    lookup(() => r.resolve6(domain, { ttl: true })),
+    lookup(() => r.resolveMx(domain)),
+    lookup(() => r.resolveNs(domain)),
+    lookup(() => r.resolveTxt(domain)),
+    lookup(() => r.resolveCname(domain)),
+    lookup(() => r.resolveSoa(domain)),
   ]);
+  // Every query answered "no such name": the domain does not exist.
+  const exists = ![a, aaaa, mx, ns, txt, soa].every((x) => x.status === "nxdomain");
 
-  if (a?.length) {
-    records["A"] = a.map((r) => ({ type: "A", value: typeof r === "string" ? r : r.address, ttl: typeof r === "object" ? r.ttl : undefined }));
+  const A = valueOf(a);
+  if (A?.length) records["A"] = A.map((x) => ({ type: "A", value: x.address, ttl: x.ttl }));
+  const AAAA = valueOf(aaaa);
+  if (AAAA?.length) records["AAAA"] = AAAA.map((x) => ({ type: "AAAA", value: x.address, ttl: x.ttl }));
+  const MX = valueOf(mx);
+  if (MX?.length) {
+    records["MX"] = [...MX].sort((x, y) => x.priority - y.priority).map((x) => ({ type: "MX", value: `${x.priority} ${x.exchange}` }));
   }
-  if (aaaa?.length) {
-    records["AAAA"] = (aaaa as Array<{ address: string; ttl: number }>).map((r) => ({ type: "AAAA", value: r.address, ttl: r.ttl }));
-  }
-  if (mx?.length) {
-    records["MX"] = mx.sort((a, b) => a.priority - b.priority).map((r) => ({ type: "MX", value: `${r.priority} ${r.exchange}` }));
-  }
-  if (ns?.length) {
-    records["NS"] = ns.map((r) => ({ type: "NS", value: r }));
-  }
-  if (txt?.length) {
-    records["TXT"] = txt.map((chunks) => ({ type: "TXT", value: chunks.join("") }));
-  }
-  if (cname?.length) {
-    records["CNAME"] = cname.map((r) => ({ type: "CNAME", value: r }));
-  }
-  if (soa) {
+  const NS = valueOf(ns);
+  if (NS?.length) records["NS"] = NS.map((x) => ({ type: "NS", value: x }));
+  const TXT = valueOf(txt);
+  if (TXT?.length) records["TXT"] = TXT.map((chunks) => ({ type: "TXT", value: chunks.join("") }));
+  const CNAME = valueOf(cname);
+  if (CNAME?.length) records["CNAME"] = CNAME.map((x) => ({ type: "CNAME", value: x }));
+  const SOA = valueOf(soa);
+  if (SOA) {
     records["SOA"] = [{
       type: "SOA",
-      value: `${soa.nsname} ${soa.hostmaster} ${soa.serial} ${soa.refresh} ${soa.retry} ${soa.expire} ${soa.minttl}`,
+      value: `${SOA.nsname} ${SOA.hostmaster} ${SOA.serial} ${SOA.refresh} ${SOA.retry} ${SOA.expire} ${SOA.minttl}`,
     }];
   }
 
-  return records;
+  return { records, exists };
 }
 
 // ── SPF analysis ──────────────────────────────────────────────────────────────
 
 export function analyzeSpf(txtRecords: DnsRecord[]): SpfAnalysis | null {
-  const spfRec = txtRecords.find((r) => r.value.startsWith("v=spf1"));
+  const spfRecs = txtRecords.filter((r) => isSpfRecord(r.value));
+  const spfRec = spfRecs[0];
   if (!spfRec) return null;
 
   const raw = spfRec.value;
   const parts = raw.split(/\s+/).filter(Boolean);
   const mechanisms = parts.slice(1); // skip "v=spf1"
 
-  const allMech = mechanisms.find((m) => /^[+\-~?]?all$/i.test(m)) ?? null;
-  const lookupCount = mechanisms.filter((m) =>
-    /^[+\-~?]?(include|a|mx|ptr|exists|redirect)/i.test(m)
-  ).length;
+  const allMech = mechanisms.find((m) => /^[+\-~?]?all$/i.test(m))?.toLowerCase() ?? null;
+  const lookupCount = countLookupTerms(raw);
 
   const issues: Finding[] = [];
 
@@ -172,9 +178,8 @@ export function analyzeSpf(txtRecords: DnsRecord[]): SpfAnalysis | null {
     issues.push({ severity: "high", code: "SPF_TOO_MANY_LOOKUPS", message: `SPF has ${lookupCount} DNS lookups (max 10); excess lookups cause SPF failure` });
   }
 
-  const duplicateSpf = txtRecords.filter((r) => r.value.startsWith("v=spf1")).length;
-  if (duplicateSpf > 1) {
-    issues.push({ severity: "high", code: "SPF_DUPLICATE", message: `Found ${duplicateSpf} SPF records; only one is allowed` });
+  if (spfRecs.length > 1) {
+    issues.push({ severity: "high", code: "SPF_DUPLICATE", message: `Found ${spfRecs.length} SPF records; only one is allowed (permerror)` });
   }
 
   return { raw, valid: true, mechanisms, allMechanism: allMech, lookupCount, issues };
@@ -182,117 +187,210 @@ export function analyzeSpf(txtRecords: DnsRecord[]): SpfAnalysis | null {
 
 // ── DMARC analysis ────────────────────────────────────────────────────────────
 
+/** `v=DMARC1; p=reject; rua=mailto:a@b.c?x=y` → { v, p, rua }. Keys are case-insensitive; values may contain "=". */
+function dmarcTags(raw: string): Record<string, string> {
+  const tags: Record<string, string> = {};
+  for (const part of raw.split(";")) {
+    const eq = part.indexOf("=");
+    if (eq <= 0) continue;
+    const key = part.slice(0, eq).trim().toLowerCase();
+    if (!(key in tags)) tags[key] = part.slice(eq + 1).trim();
+  }
+  return tags;
+}
+
+const DMARC_POLICIES = new Set(["none", "quarantine", "reject"]);
+
 export function analyzeDmarc(dmarcTxt: string | null): DmarcAnalysis | null {
   if (!dmarcTxt) return null;
 
   const raw = dmarcTxt;
   const issues: Finding[] = [];
-  const pairs = Object.fromEntries(
-    raw.split(";").map((s) => s.trim().split("=").map((x) => x.trim()))
-      .filter((p) => p.length === 2) as [string, string][]
-  );
+  const tags = dmarcTags(raw);
 
-  const policy = pairs["p"] ?? null;
-  const pct = parseInt(pairs["pct"] ?? "100", 10);
-  const rua = (pairs["rua"] ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-  const ruf = (pairs["ruf"] ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  const rawPolicy = tags["p"]?.toLowerCase() ?? null;
+  const policy = rawPolicy && DMARC_POLICIES.has(rawPolicy) ? rawPolicy : null;
+  const rawSp = tags["sp"]?.toLowerCase();
+  const subdomainPolicy = rawSp && DMARC_POLICIES.has(rawSp) ? rawSp : policy;
+  const pctParsed = Number.parseInt(tags["pct"] ?? "100", 10);
+  const pct = Number.isFinite(pctParsed) ? Math.min(Math.max(pctParsed, 0), 100) : 100;
+  const rua = (tags["rua"] ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  const ruf = (tags["ruf"] ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 
-  if (!policy) {
+  if (!rawPolicy) {
     issues.push({ severity: "high", code: "DMARC_NO_POLICY", message: "DMARC record missing 'p' policy tag" });
+  } else if (!policy) {
+    issues.push({ severity: "high", code: "DMARC_INVALID_POLICY", message: `DMARC policy 'p=${tags["p"]}' is not none, quarantine or reject; receivers ignore the record` });
   } else if (policy === "none") {
     issues.push({ severity: "medium", code: "DMARC_POLICY_NONE", message: "DMARC policy is 'none' — emails are not rejected or quarantined" });
-  } else if (policy === "quarantine" && pct < 100) {
-    issues.push({ severity: "low", code: "DMARC_PCT_LOW", message: `DMARC policy applies to only ${pct}% of messages` });
+  } else if (pct < 100) {
+    issues.push({ severity: "low", code: "DMARC_PCT_LOW", message: `DMARC policy '${policy}' applies to only ${pct}% of messages` });
+  }
+
+  if (policy && policy !== "none" && subdomainPolicy === "none") {
+    issues.push({ severity: "medium", code: "DMARC_SUBDOMAINS_NONE", message: "DMARC 'sp=none' leaves subdomains spoofable even though the domain itself is protected" });
   }
 
   if (rua.length === 0) {
     issues.push({ severity: "low", code: "DMARC_NO_RUA", message: "No DMARC aggregate report address (rua) configured" });
   }
 
-  return { raw, valid: true, policy, pct, rua, ruf, issues };
+  return { raw, valid: !!policy, policy, pct, rua, ruf, subdomainPolicy, issues };
 }
 
-// ── Zone transfer check ───────────────────────────────────────────────────────
-
-async function checkZoneTransfer(domain: string, nameservers: string[]): Promise<boolean> {
-  // Attempt AXFR against each nameserver using raw DNS; just check if the
-  // TCP connection to port 53 and an AXFR query succeeds with >1 record.
-  // We use a simple heuristic: if the NS responds to our AXFR with data
-  // beyond the SOA record, it's vulnerable.
-  // Node.js dns module doesn't support AXFR; we check by trying resolve on
-  // a crafted subdomain — real check requires a raw DNS library.
-  // We return false conservatively; a real implementation would use raw TCP DNS.
-  return false;
+/**
+ * The DMARC record that applies to `domain`: its own `_dmarc` record, or the
+ * nearest parent's (receivers use the organizational domain's record, with
+ * `sp`, for subdomains). Walks up while at least two labels remain.
+ */
+async function findDmarc(
+  domain: string,
+  r: DnsResolver
+): Promise<{ raw: string | null; at: string; count: number } | { raw: null; at: null; count: 0 }> {
+  const labels = domain.split(".");
+  for (let i = 0; labels.length - i >= 2; i++) {
+    const at = `_dmarc.${labels.slice(i).join(".")}`;
+    const txt = valueOf(await lookup(() => r.resolveTxt(at)));
+    const records = (txt ?? []).map((c) => c.join("")).filter((v) => /^v=DMARC1\s*(;|$)/i.test(v));
+    if (records.length > 0) return { raw: records.length === 1 ? records[0]! : null, at, count: records.length };
+  }
+  return { raw: null, at: null, count: 0 };
 }
 
 // ── Subdomain enumeration ─────────────────────────────────────────────────────
 
-export async function enumerateSubdomains(
-  domain: string,
-  concurrency: number = 20
-): Promise<SubdomainResult[]> {
+export interface SubdomainEnumeration {
+  results: SubdomainResult[];
+  /** Set when *.domain resolves: names answered only by the wildcard are left out of `results`. */
+  wildcard?: { addresses: string[]; cname?: string; hidden: number };
+}
+
+function randomLabel(): string {
+  return `gb-wildcard-probe-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+async function probe(sub: string, r: DnsResolver): Promise<SubdomainResult> {
+  // CNAME first: a name with a CNAME also "has" the target's A records.
+  const cname = valueOf(await lookup(() => r.resolveCname(sub)))?.[0];
+  const addrs = valueOf(await lookup(() => r.resolve4(sub, { ttl: true })))?.map((a) => a.address);
+  if (cname) {
+    const danglingMatch = DANGLING_CNAME_PATTERNS.find((p) => p.pattern.test(cname));
+    if (danglingMatch && !addrs?.length) {
+      return {
+        subdomain: sub, resolves: true, cname,
+        dangling: true, danglingReason: `CNAME points to unclaimed ${danglingMatch.provider} resource`,
+      };
+    }
+    return { subdomain: sub, resolves: true, cname, ...(addrs?.length ? { addresses: addrs } : {}) };
+  }
+  if (addrs?.length) return { subdomain: sub, resolves: true, addresses: addrs };
+  return { subdomain: sub, resolves: false };
+}
+
+/** Wordlist enumeration with wildcard DNS detection (two random labels are probed first). */
+export async function enumerateSubdomainsDetailed(
+  input: string,
+  concurrency: number = 20,
+  options: EnumerateOptions = {}
+): Promise<SubdomainEnumeration> {
+  const r = options.resolver ?? systemResolver;
+  const domain = normalizeDomain(input);
+
+  const probes = await Promise.all([probe(`${randomLabel()}.${domain}`, r), probe(`${randomLabel()}.${domain}`, r)]);
+  const wildcardHits = probes.filter((p) => p.resolves);
+  const wildcardAddrs = new Set(wildcardHits.flatMap((p) => p.addresses ?? []));
+  const wildcardCnames = new Set(wildcardHits.map((p) => p.cname).filter((c): c is string => !!c));
+  const isWildcardAnswer = (res: SubdomainResult): boolean =>
+    wildcardHits.length > 0 &&
+    (res.cname ? wildcardCnames.has(res.cname) : (res.addresses ?? []).every((a) => wildcardAddrs.has(a)));
+
   const results: SubdomainResult[] = [];
-  const queue = [...COMMON_SUBDOMAINS.map((s) => `${s}.${domain}`)];
-
-  for (let i = 0; i < queue.length; i += concurrency) {
-    const batch = queue.slice(i, i + concurrency);
-    const settled = await Promise.all(
-      batch.map(async (sub): Promise<SubdomainResult> => {
-        // Try A record
-        const addrs = await safeResolve(() => dns.resolve4(sub));
-        if (addrs?.length) {
-          return { subdomain: sub, resolves: true, addresses: addrs };
-        }
-
-        // Try CNAME
-        const cnames = await safeResolve(() => dns.resolveCname(sub));
-        if (cnames?.length) {
-          const cname = cnames[0]!;
-          // Check if CNAME points to a cloud provider that could be dangling
-          const danglingMatch = DANGLING_CNAME_PATTERNS.find((p) => p.pattern.test(cname));
-          // Verify the CNAME target itself resolves
-          const cnameResolves = await safeResolve(() => dns.resolve4(cname));
-          if (danglingMatch && !cnameResolves) {
-            return {
-              subdomain: sub, resolves: true, cname,
-              dangling: true, danglingReason: `CNAME points to unclaimed ${danglingMatch.provider} resource`,
-            };
-          }
-          return { subdomain: sub, resolves: true, cname };
-        }
-
-        return { subdomain: sub, resolves: false };
-      })
-    );
-    results.push(...settled.filter((r) => r.resolves));
+  let hidden = 0;
+  const queue = COMMON_SUBDOMAINS.map((s) => `${s}.${domain}`);
+  const step = Math.max(1, Math.floor(concurrency));
+  for (let i = 0; i < queue.length; i += step) {
+    const settled = await Promise.all(queue.slice(i, i + step).map((sub) => probe(sub, r)));
+    for (const res of settled) {
+      if (!res.resolves) continue;
+      if (isWildcardAnswer(res)) hidden++;
+      else results.push(res);
+    }
   }
 
-  return results;
+  return {
+    results,
+    ...(wildcardHits.length > 0
+      ? { wildcard: { addresses: [...wildcardAddrs], ...(wildcardCnames.size ? { cname: [...wildcardCnames][0] } : {}), hidden } }
+      : {}),
+  };
+}
+
+export async function enumerateSubdomains(
+  domain: string,
+  concurrency: number = 20,
+  options: EnumerateOptions = {}
+): Promise<SubdomainResult[]> {
+  return (await enumerateSubdomainsDetailed(domain, concurrency, options)).results;
 }
 
 // ── Main enumeration ──────────────────────────────────────────────────────────
 
-export async function enumerateDomain(domain: string): Promise<DnsEnumerationResult> {
+export async function enumerateDomain(input: string, options: EnumerateOptions = {}): Promise<DnsEnumerationResult> {
+  const r = options.resolver ?? systemResolver;
+  const domain = normalizeDomain(input);
   const findings: Finding[] = [];
-  const records = await resolveAll(domain);
+  const { records, exists } = await resolveAll(domain, r);
 
-  // SPF
+  if (!exists) {
+    // Email checks on a name that does not exist would only add noise.
+    return {
+      domain,
+      records,
+      exists: false,
+      findings: [{ severity: "high", code: "DOMAIN_NOT_FOUND", message: `${domain} does not exist (NXDOMAIN)` }],
+    };
+  }
+
+  // SPF: the record alone, then the full include tree as receivers count it.
   const txtRecords = records["TXT"] ?? [];
   const spf = analyzeSpf(txtRecords);
   if (!spf) {
     findings.push({ severity: "medium", code: "SPF_MISSING", message: `No SPF record found for ${domain}` });
   } else {
+    const evaluation = await evaluateSpf(domain, spf.raw, r);
+    spf.totalLookups = evaluation.lookups;
+    spf.voidLookups = evaluation.voidLookups;
+    spf.included = evaluation.included;
+    // The single-record count is superseded by the nested one.
+    spf.issues = [...spf.issues.filter((f) => f.code !== "SPF_TOO_MANY_LOOKUPS"), ...evaluation.issues];
     findings.push(...spf.issues);
   }
 
-  // DMARC
-  const dmarcDomain = `_dmarc.${domain}`;
-  const dmarcTxtRaw = await safeResolve(() => dns.resolveTxt(dmarcDomain));
-  const dmarcRaw = dmarcTxtRaw?.flat().find((v) => v.startsWith("v=DMARC1")) ?? null;
-  const dmarc = analyzeDmarc(dmarcRaw);
-  if (!dmarc) {
-    findings.push({ severity: "high", code: "DMARC_MISSING", message: `No DMARC record found at _dmarc.${domain}` });
+  // DMARC (inherited from the parent domain for subdomains)
+  const found = await findDmarc(domain, r);
+  const dmarc = analyzeDmarc(found.raw);
+  if (found.count > 1) {
+    findings.push({
+      severity: "high",
+      code: "DMARC_MULTIPLE",
+      message: `${found.at} publishes ${found.count} DMARC records; receivers ignore all of them`,
+    });
+  } else if (!dmarc) {
+    findings.push({ severity: "high", code: "DMARC_MISSING", message: `No DMARC record found at _dmarc.${domain} or a parent domain` });
   } else {
+    if (found.at && found.at !== `_dmarc.${domain}`) {
+      dmarc.inheritedFrom = found.at;
+      // For a subdomain, the parent's `sp` is the policy that applies.
+      dmarc.policy = dmarc.subdomainPolicy;
+      dmarc.issues = dmarc.issues.filter((f) => f.code !== "DMARC_POLICY_NONE" && f.code !== "DMARC_SUBDOMAINS_NONE");
+      if (dmarc.policy === "none") {
+        dmarc.issues.push({
+          severity: "medium",
+          code: "DMARC_POLICY_NONE",
+          message: `DMARC inherited from ${found.at} has subdomain policy 'none' — emails are not rejected or quarantined`,
+        });
+      }
+    }
     findings.push(...dmarc.issues);
   }
 
@@ -301,13 +399,12 @@ export async function enumerateDomain(domain: string): Promise<DnsEnumerationRes
   const commonSelectors = ["default", "google", "k1", "mail", "dkim", "selector1", "selector2", "s1", "s2"];
   const dkimChecks = await Promise.all(
     commonSelectors.map(async (sel) => {
-      const dkimDomain = `${sel}._domainkey.${domain}`;
-      const result = await safeResolve(() => dns.resolveTxt(dkimDomain));
+      const result = valueOf(await lookup(() => r.resolveTxt(`${sel}._domainkey.${domain}`)));
       return { sel, found: !!result?.length };
     })
   );
-  for (const { sel, found } of dkimChecks) {
-    dkimSelectors[sel] = found;
+  for (const { sel, found: ok } of dkimChecks) {
+    dkimSelectors[sel] = ok;
   }
   const anyDkim = Object.values(dkimSelectors).some(Boolean);
   if (!anyDkim) {
@@ -317,19 +414,17 @@ export async function enumerateDomain(domain: string): Promise<DnsEnumerationRes
   // Nameservers — check for single point of failure
   const nsRecords = records["NS"] ?? [];
   if (nsRecords.length === 0) {
-    findings.push({ severity: "high", code: "NS_MISSING", message: "No NS records found" });
+    // Subdomains usually have no NS of their own; only flag zone apexes (they have an SOA).
+    if (records["SOA"]) findings.push({ severity: "high", code: "NS_MISSING", message: "No NS records found" });
   } else if (nsRecords.length < 2) {
     findings.push({ severity: "medium", code: "NS_SINGLE", message: "Only one NS record found; consider adding a secondary nameserver" });
   }
-
-  // Zone transfer (conservative check)
-  const zoneTransferVulnerable = false;
 
   if (findings.length === 0) {
     findings.push({ severity: "info", code: "OK", message: "No DNS misconfigurations found" });
   }
 
-  return { domain, records, spf: spf ?? undefined, dmarc: dmarc ?? undefined, dkimSelectors, zoneTransferVulnerable, findings };
+  return { domain, records, exists: true, spf: spf ?? undefined, dmarc: dmarc ?? undefined, dkimSelectors, findings };
 }
 
 // ── Report formatter ──────────────────────────────────────────────────────────
@@ -343,15 +438,24 @@ export function formatDnsReport(result: DnsEnumerationResult): string {
     for (const r of recs) lines.push(`  ${r.value}${r.ttl !== undefined ? `  (TTL ${r.ttl}s)` : ""}`);
   }
 
+  if (result.exists === false) {
+    lines.push(`\n❌ ${result.domain} does not exist (NXDOMAIN)`);
+    return lines.join("\n");
+  }
+
   // SPF
   if (result.spf) {
     lines.push(`\nSPF: ${result.spf.raw}`);
-    lines.push(`  all-mechanism: ${result.spf.allMechanism ?? "none"} | DNS lookups: ${result.spf.lookupCount}`);
+    const lookups =
+      result.spf.totalLookups !== undefined
+        ? `${result.spf.totalLookups}/10 including nested includes`
+        : `${result.spf.lookupCount}`;
+    lines.push(`  all-mechanism: ${result.spf.allMechanism ?? "none"} | DNS lookups: ${lookups}`);
   }
 
   // DMARC
   if (result.dmarc) {
-    lines.push(`\nDMARC: ${result.dmarc.raw}`);
+    lines.push(`\nDMARC: ${result.dmarc.raw}${result.dmarc.inheritedFrom ? `  (inherited from ${result.dmarc.inheritedFrom})` : ""}`);
     lines.push(`  policy: ${result.dmarc.policy ?? "none"} | pct: ${result.dmarc.pct}%`);
     if (result.dmarc.rua.length) lines.push(`  rua: ${result.dmarc.rua.join(", ")}`);
   }
@@ -376,14 +480,24 @@ export function formatDnsReport(result: DnsEnumerationResult): string {
   return lines.join("\n");
 }
 
-export function formatSubdomainReport(domain: string, results: SubdomainResult[]): string {
+export function formatSubdomainReport(
+  domain: string,
+  results: SubdomainResult[],
+  wildcard?: SubdomainEnumeration["wildcard"]
+): string {
   const dangling = results.filter((r) => r.dangling);
   const lines = [
     `Subdomain Enumeration: ${domain}`,
     `─────────────────────────────────────────`,
     `Found ${results.length} live subdomain(s)${dangling.length ? `, ${dangling.length} potentially dangling` : ""}`,
-    "",
   ];
+  if (wildcard) {
+    const target = wildcard.cname ? `CNAME ${wildcard.cname}` : wildcard.addresses.join(", ");
+    lines.push(
+      `ℹ️  Wildcard DNS: *.${domain} → ${target}. ${wildcard.hidden} name(s) answered only by the wildcard are not listed.`
+    );
+  }
+  lines.push("");
 
   for (const r of results) {
     const flag = r.dangling ? "⚠️  DANGLING" : "✅";

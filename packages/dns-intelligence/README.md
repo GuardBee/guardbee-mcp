@@ -15,7 +15,7 @@ An MCP server that enumerates DNS records, detects SPF / DMARC / DKIM misconfigu
 ## Features
 
 - **Full DNS Enumeration** — A, AAAA, MX, NS, TXT, CNAME, SOA records
-- **SPF Analysis** — `+all`, `?all`, excessive DNS lookups, duplicate record detection
+- **SPF Analysis** — `+all`, `?all`, duplicate records, and the RFC 7208 limits counted the way receivers do: DNS lookups across nested `include`/`redirect` (max 10), void lookups (max 2), include loops and missing includes
 - **DMARC Analysis** — policy (`none`/`quarantine`/`reject`), `pct`, missing `rua` address
 - **DKIM Check** — probes 9 common selectors (`default`, `google`, `selector1`, `mail`, etc.)
 - **Subdomain Enumeration** — 60+ common subdomains; dangling CNAME detection (14 cloud providers)
@@ -95,6 +95,12 @@ Email Security Check: example.com
 | `SPF_NO_ALL` | 🟡 Medium | No `all` mechanism |
 | `SPF_TOO_MANY_LOOKUPS` | 🟠 High | > 10 DNS lookups — causes SPF to fail |
 | `SPF_DUPLICATE` | 🟠 High | Multiple SPF records |
+| `SPF_AT_LOOKUP_LIMIT` | 🔵 Low | Exactly 10 lookups — one more include breaks SPF |
+| `SPF_TOO_MANY_VOID_LOOKUPS` | 🟠 High | More than 2 includes return no record |
+| `SPF_INCLUDE_MISSING` | 🟠 High | An `include`/`redirect` target has no SPF record (permerror) |
+| `SPF_INCLUDE_DUPLICATE` | 🟠 High | An included domain publishes several SPF records |
+| `SPF_INCLUDE_LOOP` | 🟠 High | Includes loop back to a record being evaluated |
+| `SPF_PTR` | 🔵 Low | Uses the deprecated `ptr` mechanism |
 
 ## DMARC Findings
 
@@ -105,6 +111,12 @@ Email Security Check: example.com
 | `DMARC_POLICY_NONE` | 🟡 Medium | `p=none` — monitoring mode, no enforcement |
 | `DMARC_PCT_LOW` | 🔵 Low | `pct` < 100 — partial enforcement |
 | `DMARC_NO_RUA` | 🔵 Low | No aggregate report address (`rua`) |
+| `DMARC_MULTIPLE` | 🟠 High | Several DMARC records — receivers ignore all of them |
+| `DMARC_INVALID_POLICY` | 🟠 High | `p=` is not none, quarantine or reject |
+| `DMARC_SUBDOMAINS_NONE` | 🟡 Medium | `sp=none` leaves subdomains spoofable |
+| `DOMAIN_NOT_FOUND` | 🟠 High | The domain does not exist (NXDOMAIN) |
+
+Subdomains without their own DMARC record inherit the parent domain's (`sp=` policy), as receivers do. Subdomain enumeration detects wildcard DNS and leaves out names answered only by the wildcard.
 
 ## Dangling Subdomain Detection
 
