@@ -1,6 +1,6 @@
 import type { Exploitability } from "./exploit.js";
 
-export type Ecosystem = "npm" | "PyPI" | "crates.io" | "Maven" | "Go" | "RubyGems";
+export type Ecosystem = "npm" | "PyPI" | "crates.io" | "Maven" | "Go" | "RubyGems" | "Packagist";
 
 export interface OsvVuln {
   id: string;
@@ -26,6 +26,8 @@ export interface AuditResult {
   vulns: OsvVuln[];
   /** `name@version` chain from a direct dependency to this package, when the lockfile records it. */
   path?: string[];
+  /** Manifest or lockfile the version was read from. */
+  file?: string;
 }
 
 const OSV_API = "https://api.osv.dev/v1";

@@ -15,7 +15,7 @@ export async function auditDependencies(deps: Dependency[], ecosystem: Ecosystem
   const list = [...unique.values()];
   const results = await queryOsvBatch(list.map((d) => ({ name: d.name, version: d.version, ecosystem })));
   return results.map((r, i) => {
-    const path = list[i]!.path;
-    return path ? { ...r, path } : r;
+    const { path, file } = list[i]!;
+    return { ...r, ...(path ? { path } : {}), ...(file ? { file } : {}) };
   });
 }

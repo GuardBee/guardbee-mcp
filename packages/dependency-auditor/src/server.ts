@@ -8,6 +8,7 @@ import { queryOsvBatch, type Ecosystem, type AuditResult } from "./osv.js";
 import { formatReport } from "./report.js";
 import { enrichExploitability } from "./exploit.js";
 import { auditDependencies } from "./audit.js";
+import { parseOtherEcosystems } from "./parsers/other-locks.js";
 import type { Dependency } from "./parsers/npm.js";
 
 const exploitDataParam = z
@@ -107,7 +108,7 @@ export async function startServer() {
       name: z.string().describe("Package name"),
       version: z.string().describe("Package version (e.g. 1.2.3)"),
       ecosystem: z
-        .enum(["npm", "PyPI", "crates.io", "Maven", "Go", "RubyGems"])
+        .enum(["npm", "PyPI", "crates.io", "Maven", "Go", "RubyGems", "Packagist"])
         .describe("Package ecosystem"),
       exploitData: exploitDataParam,
     },
@@ -121,7 +122,7 @@ export async function startServer() {
 
   server.tool(
     "audit_directory",
-    "Auto-detect and audit npm and pip manifests (package.json, requirements.txt, pyproject.toml) in a directory",
+    "Auto-detect and audit every supported project in a directory: npm (package-lock, pnpm, yarn, bun), Python (uv, Poetry, Pipenv, requirements), Rust (Cargo.lock), Go (go.mod), Ruby (Gemfile.lock) and PHP (composer.lock)",
     {
       directory: z.string().describe("Path to the project root directory"),
       includeDevDeps: z.boolean().optional().describe("Include dev dependencies (default: false)"),
@@ -147,6 +148,15 @@ export async function startServer() {
         const { results, notes } = await audit(pipDeps, exploitData, "PyPI");
         lines.push("── pip ─────────────────────────────────────────");
         lines.push(formatReport(results, "pip", 0, notes));
+      }
+
+      // Cargo, Go, RubyGems, Composer
+      for (const { ecosystem, label, deps: found } of parseOtherEcosystems(directory)) {
+        const deps = includeDevDeps ? found : found.filter((d) => !d.isDev);
+        if (deps.length === 0) continue;
+        const { results, notes } = await audit(deps, exploitData, ecosystem);
+        lines.push(`── ${label} ${"─".repeat(Math.max(3, 44 - label.length))}`);
+        lines.push(formatReport(results, ecosystem, 0, notes));
       }
 
       if (lines.length === 0) {
