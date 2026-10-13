@@ -1,5 +1,6 @@
 import { lookup, valueOf, normalizeDomain, systemResolver, type DnsResolver } from "./resolver.js";
 import { evaluateSpf, isSpfRecord, countLookupTerms } from "./spf.js";
+import { checkTakeover, type TakeoverFinding } from "./takeover.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -58,6 +59,9 @@ export interface DnsEnumerationResult {
 
 export interface EnumerateOptions {
   resolver?: DnsResolver;
+  /** Fetch pages to match takeover fingerprints (default true). DNS-only checks still run when false. */
+  http?: boolean;
+  fetch?: typeof fetch;
 }
 
 export interface SubdomainResult {
@@ -65,8 +69,10 @@ export interface SubdomainResult {
   resolves: boolean;
   addresses?: string[];
   cname?: string;
+  /** True when a takeover was detected (see `takeover`). */
   dangling?: boolean;
   danglingReason?: string;
+  takeover?: TakeoverFinding;
 }
 
 // ── Common subdomain wordlist ─────────────────────────────────────────────────
@@ -88,24 +94,6 @@ const COMMON_SUBDOMAINS = [
   "monitoring", "grafana", "kibana", "elastic",
   "s3", "storage", "backup",
   "_dmarc", "_domainkey",
-];
-
-// Known cloud/hosting services that are common dangling targets
-const DANGLING_CNAME_PATTERNS: Array<{ pattern: RegExp; provider: string }> = [
-  { pattern: /\.s3\.amazonaws\.com$/i, provider: "AWS S3" },
-  { pattern: /\.azurewebsites\.net$/i, provider: "Azure App Service" },
-  { pattern: /\.github\.io$/i, provider: "GitHub Pages" },
-  { pattern: /\.herokuapp\.com$/i, provider: "Heroku" },
-  { pattern: /\.netlify\.app$/i, provider: "Netlify" },
-  { pattern: /\.vercel\.app$/i, provider: "Vercel" },
-  { pattern: /\.pages\.dev$/i, provider: "Cloudflare Pages" },
-  { pattern: /\.surge\.sh$/i, provider: "Surge" },
-  { pattern: /\.pantheonsite\.io$/i, provider: "Pantheon" },
-  { pattern: /\.wpengine\.com$/i, provider: "WP Engine" },
-  { pattern: /\.ghost\.io$/i, provider: "Ghost" },
-  { pattern: /\.myshopify\.com$/i, provider: "Shopify" },
-  { pattern: /\.fastly\.net$/i, provider: "Fastly" },
-  { pattern: /\.cloudfront\.net$/i, provider: "AWS CloudFront" },
 ];
 
 // ── DNS helpers ───────────────────────────────────────────────────────────────
@@ -262,7 +250,22 @@ async function findDmarc(
 export interface SubdomainEnumeration {
   results: SubdomainResult[];
   /** Set when *.domain resolves: names answered only by the wildcard are left out of `results`. */
-  wildcard?: { addresses: string[]; cname?: string; hidden: number };
+  wildcard?: { addresses: string[]; cname?: string; hidden: number; takeover?: TakeoverFinding };
+}
+
+export const TAKEOVER_LABEL: Record<TakeoverFinding["risk"], string> = {
+  vulnerable: "takeover possible",
+  edge: "possible takeover — the provider may require domain verification; check manually",
+  stale: "stale CNAME, not a takeover",
+};
+
+function withTakeover(res: SubdomainResult, takeover: TakeoverFinding | null): SubdomainResult {
+  if (!takeover) return res;
+  const reason = `${takeover.provider}: ${TAKEOVER_LABEL[takeover.risk]} — ${takeover.evidence}`;
+  // Stale records are reported but do not count as dangling (no takeover).
+  return takeover.risk === "stale"
+    ? { ...res, danglingReason: reason, takeover }
+    : { ...res, dangling: true, danglingReason: reason, takeover };
 }
 
 function randomLabel(): string {
@@ -274,13 +277,6 @@ async function probe(sub: string, r: DnsResolver): Promise<SubdomainResult> {
   const cname = valueOf(await lookup(() => r.resolveCname(sub)))?.[0];
   const addrs = valueOf(await lookup(() => r.resolve4(sub, { ttl: true })))?.map((a) => a.address);
   if (cname) {
-    const danglingMatch = DANGLING_CNAME_PATTERNS.find((p) => p.pattern.test(cname));
-    if (danglingMatch && !addrs?.length) {
-      return {
-        subdomain: sub, resolves: true, cname,
-        dangling: true, danglingReason: `CNAME points to unclaimed ${danglingMatch.provider} resource`,
-      };
-    }
     return { subdomain: sub, resolves: true, cname, ...(addrs?.length ? { addresses: addrs } : {}) };
   }
   if (addrs?.length) return { subdomain: sub, resolves: true, addresses: addrs };
@@ -317,10 +313,25 @@ export async function enumerateSubdomainsDetailed(
     }
   }
 
+  // Takeover checks on names with a CNAME (few), and on the wildcard itself.
+  const takeoverOpts = { http: options.http, fetch: options.fetch };
+  const checked = await Promise.all(
+    results.map(async (res) => (res.cname ? withTakeover(res, await checkTakeover(res.subdomain, r, takeoverOpts)) : res))
+  );
+  const wildcardProbe = wildcardHits.find((p) => p.cname);
+  const wildcardTakeover = wildcardProbe ? await checkTakeover(wildcardProbe.subdomain, r, takeoverOpts) : null;
+
   return {
-    results,
+    results: checked,
     ...(wildcardHits.length > 0
-      ? { wildcard: { addresses: [...wildcardAddrs], ...(wildcardCnames.size ? { cname: [...wildcardCnames][0] } : {}), hidden } }
+      ? {
+          wildcard: {
+            addresses: [...wildcardAddrs],
+            ...(wildcardCnames.size ? { cname: [...wildcardCnames][0] } : {}),
+            hidden,
+            ...(wildcardTakeover ? { takeover: wildcardTakeover } : {}),
+          },
+        }
       : {}),
   };
 }
@@ -496,15 +507,21 @@ export function formatSubdomainReport(
     lines.push(
       `ℹ️  Wildcard DNS: *.${domain} → ${target}. ${wildcard.hidden} name(s) answered only by the wildcard are not listed.`
     );
+    if (wildcard.takeover && wildcard.takeover.risk !== "stale") {
+      lines.push(
+        `⚠️  WILDCARD TAKEOVER (${wildcard.takeover.provider}): ${wildcard.takeover.evidence} — every name under ${domain} without its own record can be served by whoever claims it.`
+      );
+    }
   }
   lines.push("");
 
   for (const r of results) {
-    const flag = r.dangling ? "⚠️  DANGLING" : "✅";
+    const flag = r.dangling ? "⚠️  DANGLING" : r.takeover?.risk === "stale" ? "🧹 STALE   " : "✅";
     const target = r.cname ? `→ CNAME ${r.cname}` : (r.addresses?.join(", ") ?? "");
     lines.push(`${flag}  ${r.subdomain.padEnd(45)} ${target}`);
-    if (r.dangling && r.danglingReason) {
+    if (r.danglingReason) {
       lines.push(`      └─ ${r.danglingReason}`);
+      if (r.dangling && r.takeover) lines.push(`      └─ Fix: delete the CNAME record, or reclaim the ${r.takeover.provider} resource it points to.`);
     }
   }
 

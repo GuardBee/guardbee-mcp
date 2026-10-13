@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { startServer } from "./server.js";
-import { enumerateDomain, enumerateSubdomainsDetailed, formatDnsReport, formatSubdomainReport } from "./dns.js";
-import { normalizeDomain } from "./resolver.js";
+import { enumerateDomain, enumerateSubdomainsDetailed, formatDnsReport, formatSubdomainReport, TAKEOVER_LABEL } from "./dns.js";
+import { normalizeDomain, systemResolver } from "./resolver.js";
+import { checkTakeover } from "./takeover.js";
 import type { Finding } from "./dns.js";
 import { buildSarif } from "./sarif.js";
 import { loadConfig } from "./config.js";
@@ -34,6 +35,7 @@ function hasFailingFindings(findings: Finding[], failOn: string): boolean {
 interface CliArgs {
   positionals: string[];
   format: string;
+  http?: boolean;
   /** Undefined when not given, so guardbee.yml keeps its value. */
   failOn?: string;
   concurrency?: number;
@@ -46,6 +48,7 @@ function parseArgs(args: string[]): CliArgs {
     if (arg.startsWith("--fail-on=")) out.failOn = value;
     else if (arg.startsWith("--format=")) out.format = value;
     else if (arg.startsWith("--concurrency=")) out.concurrency = Number.parseInt(value, 10);
+    else if (arg === "--no-http") out.http = false;
     else if (!arg.startsWith("--")) out.positionals.push(arg);
   }
   if (out.failOn !== undefined && !(out.failOn in SEVERITY_RANK)) {
@@ -103,7 +106,7 @@ async function runSubdomains(rawArgs: string[]): Promise<void> {
   }
   const domain = normalizeDomain(domainArg);
 
-  const { results, wildcard } = await enumerateSubdomainsDetailed(domain, concurrency);
+  const { results, wildcard } = await enumerateSubdomainsDetailed(domain, concurrency, { http: parsed.http });
   const dangling = results.filter((r) => r.dangling);
 
   if (format === "json") {
@@ -112,7 +115,32 @@ async function runSubdomains(rawArgs: string[]): Promise<void> {
     console.log(formatSubdomainReport(domain, results, wildcard));
   }
 
-  process.exitCode = dangling.length > 0 ? 1 : 0;
+  process.exitCode = dangling.length > 0 || (wildcard?.takeover && wildcard.takeover.risk !== "stale") ? 1 : 0;
+}
+
+async function runTakeover(rawArgs: string[]): Promise<void> {
+  const parsed = parseArgs(rawArgs);
+  if (parsed.positionals.length === 0) {
+    console.error("Usage: guardbee-dns-intelligence takeover <host> [host…] [--no-http] [--format=text|json]");
+    process.exit(2);
+  }
+  const hosts = parsed.positionals.map(normalizeDomain);
+  const results = await Promise.all(
+    hosts.map(async (host) => ({ host, takeover: await checkTakeover(host, systemResolver, { http: parsed.http }) }))
+  );
+  if (parsed.format === "json") {
+    console.log(JSON.stringify(results, null, 2));
+  } else {
+    for (const { host, takeover } of results) {
+      if (!takeover) console.log(`✅  ${host}  no takeover indicators`);
+      else {
+        console.log(`⚠️  ${host}  ${takeover.provider} (${TAKEOVER_LABEL[takeover.risk]})`);
+        console.log(`      └─ ${takeover.evidence}`);
+        console.log(`      └─ CNAME chain: ${[host, ...takeover.chain].join(" → ")}`);
+      }
+    }
+  }
+  process.exitCode = results.some((x) => x.takeover && x.takeover.risk !== "stale") ? 1 : 0;
 }
 
 function printHelp(): void {
@@ -123,13 +151,15 @@ Usage (MCP server):
 
 Usage (CLI):
   guardbee-dns-intelligence check <domain>       Full DNS check (records + SPF/DMARC/DKIM)
-  guardbee-dns-intelligence subdomains <domain>  Enumerate subdomains, detect dangling CNAMEs
+  guardbee-dns-intelligence subdomains <domain>  Enumerate subdomains, detect subdomain takeovers
+  guardbee-dns-intelligence takeover <host…>     Check given hostnames for subdomain takeover
 
 Options:
   --fail-on=<level>     Exit 1 if findings at this severity or above (default: high)
                         Levels: critical | high | medium | low | info
   --format=<fmt>        Output format: text (default) | json | sarif (check only)
   --concurrency=<n>     Parallel subdomain probes (default: 20, subdomains only)
+  --no-http             Skip HTTP fingerprinting; only DNS-based takeover checks run
 
 Exit codes:
   0  No issues at or above --fail-on threshold (check) / no dangling subdomains (subdomains)
@@ -157,6 +187,11 @@ if (!firstArg || firstArg === "serve") {
   process.exit(0);
 } else if (firstArg === "check") {
   runCheck(rest).catch((err) => {
+    console.error("Error:", (err as Error).message);
+    process.exit(2);
+  });
+} else if (firstArg === "takeover") {
+  runTakeover(rest).catch((err) => {
     console.error("Error:", (err as Error).message);
     process.exit(2);
   });

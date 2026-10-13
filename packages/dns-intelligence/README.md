@@ -50,7 +50,8 @@ Add to `claude_desktop_config.json`:
 | Tool | Description |
 |------|----------|
 | `enumerate_dns` | Enumerates all DNS records for a domain and runs SPF/DMARC/DKIM analysis |
-| `enumerate_subdomains` | Probes common subdomains; flags dangling CNAMEs |
+| `enumerate_subdomains` | Probes common subdomains (wildcard-aware); detects subdomain takeovers |
+| `check_takeover` | Checks given hostnames for subdomain takeover |
 | `check_email_security` | Combined SPF + DMARC + DKIM audit with fix recommendations |
 | `lookup_dns` | Targeted DNS lookup for a specific record type (A/MX/TXT/etc.) |
 
@@ -118,11 +119,17 @@ Email Security Check: example.com
 
 Subdomains without their own DMARC record inherit the parent domain's (`sp=` policy), as receivers do. Subdomain enumeration detects wildcard DNS and leaves out names answered only by the wildcard.
 
-## Dangling Subdomain Detection
+## Subdomain Takeover Detection
 
-Subdomains whose CNAME points to one of the following providers but doesn't resolve are flagged as **dangling** and carry a subdomain-takeover risk:
+Each live subdomain with a CNAME is checked, following the CNAME chain (up to 5 hops). The wildcard record is checked too: a dangling `*.domain` makes every unlisted name claimable.
 
-AWS S3, Azure App Service, GitHub Pages, Heroku, Netlify, Vercel, Cloudflare Pages, Surge, Pantheon, WP Engine, Ghost, Shopify, Fastly, AWS CloudFront
+| Risk | When | Providers |
+|---|---|---|
+| ⚠️ **takeover possible** | The provider lets anyone claim the name | AWS S3 (`NoSuchBucket` page), Microsoft Azure and AWS Elastic Beanstalk (CNAME target NXDOMAIN), Surge.sh (`project not found`), and any CNAME into a domain that is **not registered** |
+| ⚠️ **verify manually** | The resource is gone, but the provider can require domain verification | GitHub Pages, Heroku, Netlify, Vercel, Ghost, Pantheon, WordPress.com, Help Scout, Tumblr, ngrok |
+| 🧹 **stale** | The target is gone but sits under a registered domain only its owner controls — delete the record; not a takeover, does not fail CI | any other provider |
+
+Each page fingerprint was checked against a random unclaimed name on the provider. Providers whose "not found" page no longer carries a stable marker are not listed. HTTP checks send one `GET /` to the subdomain (HTTPS, then HTTP); turn them off with `--no-http` / `httpProbe: false`. Use `check_takeover` / `takeover <host…>` for hostnames you already know.
 
 ---
 

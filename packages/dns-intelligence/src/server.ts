@@ -7,8 +7,10 @@ import {
   enumerateSubdomainsDetailed,
   formatDnsReport,
   formatSubdomainReport,
+  TAKEOVER_LABEL,
 } from "./dns.js";
-import { normalizeDomain } from "./resolver.js";
+import { normalizeDomain, systemResolver } from "./resolver.js";
+import { checkTakeover } from "./takeover.js";
 import * as dns from "dns/promises";
 
 export async function startServer() {
@@ -34,16 +36,51 @@ export async function startServer() {
 
   server.tool(
     "enumerate_subdomains",
-    "Enumerate common subdomains for a domain and detect dangling subdomain takeover candidates",
+    "Enumerate common subdomains for a domain and detect subdomain takeovers: CNAMEs to S3, GitHub Pages, Azure, Heroku, Netlify and other providers whose resource is gone (verified fingerprints), or to targets that no longer exist",
     {
       domain: z.string().describe("Root domain to enumerate subdomains for (e.g. example.com)"),
+      httpProbe: z
+        .boolean()
+        .optional()
+        .describe("Fetch pages behind provider CNAMEs to match takeover fingerprints (default: true)"),
     },
-    async ({ domain }) => {
+    async ({ domain, httpProbe }) => {
       const start = Date.now();
       const name = normalizeDomain(domain);
-      const { results, wildcard } = await enumerateSubdomainsDetailed(name);
+      const { results, wildcard } = await enumerateSubdomainsDetailed(name, 20, { http: httpProbe });
       const report = formatSubdomainReport(name, results, wildcard);
       return { content: [{ type: "text", text: `${report}\n\nCompleted in ${Date.now() - start}ms` }] };
+    }
+  );
+
+  server.tool(
+    "check_takeover",
+    "Check specific hostnames (e.g. from your DNS zone or certificate logs) for subdomain takeover",
+    {
+      hosts: z.array(z.string()).min(1).max(200).describe("Hostnames to check, e.g. [\"blog.example.com\"]"),
+      httpProbe: z.boolean().optional().describe("Fetch pages to match takeover fingerprints (default: true)"),
+    },
+    async ({ hosts, httpProbe }) => {
+      const lines: string[] = [];
+      const found = await Promise.all(
+        hosts.map(async (h) => {
+          const host = normalizeDomain(h);
+          return { host, takeover: await checkTakeover(host, systemResolver, { http: httpProbe }) };
+        })
+      );
+      for (const { host, takeover } of found) {
+        if (!takeover) {
+          lines.push(`✅  ${host}  no takeover indicators`);
+          continue;
+        }
+        lines.push(`⚠️  ${host}  ${takeover.provider} (${TAKEOVER_LABEL[takeover.risk]})`);
+        lines.push(`      └─ ${takeover.evidence}`);
+        lines.push(`      └─ CNAME chain: ${[host, ...takeover.chain].join(" → ")}`);
+        if (takeover.risk !== "stale") lines.push(`      └─ Fix: delete the CNAME record, or reclaim the ${takeover.provider} resource it points to.`);
+      }
+      const n = found.filter((x) => x.takeover && x.takeover.risk !== "stale").length;
+      lines.unshift(`Subdomain takeover check: ${found.length} host(s), ${n} with indicators`, "");
+      return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );
 

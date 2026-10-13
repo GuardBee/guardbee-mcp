@@ -50,7 +50,8 @@ npm install -g @guardbee/mcp-dns-intelligence
 | 工具 | 说明 |
 |------|----------|
 | `enumerate_dns` | 枚举域名的全部 DNS 记录，并运行 SPF/DMARC/DKIM 分析 |
-| `enumerate_subdomains` | 探测常见子域名；标记悬空 CNAME |
+| `enumerate_subdomains` | 探测常见子域名（识别通配符）；检测子域名接管 |
+| `check_takeover` | 检查给定主机名是否存在子域名接管 |
 | `check_email_security` | SPF + DMARC + DKIM 综合审计，附修复建议 |
 | `lookup_dns` | 针对特定记录类型（A/MX/TXT 等）的定向 DNS 查询 |
 
@@ -118,11 +119,17 @@ Email Security Check: example.com
 
 没有自己 DMARC 记录的子域名会像接收方一样继承父域名的记录（`sp=` 策略）。子域名枚举会检测通配符 DNS，并排除仅由通配符应答的名称。
 
-## 悬空子域名检测
+## 子域名接管检测
 
-CNAME 指向下列服务商之一但无法解析的子域名会被标记为**悬空**，并带有子域名接管风险：
+每个带 CNAME 的存活子域名都会沿 CNAME 链（最多 5 跳）进行检查。通配符记录也会检查：悬空的 `*.domain` 会让所有未列出的名称都可被接管。
 
-AWS S3、Azure App Service、GitHub Pages、Heroku、Netlify、Vercel、Cloudflare Pages、Surge、Pantheon、WP Engine、Ghost、Shopify、Fastly、AWS CloudFront
+| 风险 | 条件 | 服务商 |
+|---|---|---|
+| ⚠️ **可被接管** | 服务商允许任何人认领该名称 | AWS S3（`NoSuchBucket` 页面）、Microsoft Azure 与 AWS Elastic Beanstalk（CNAME 目标 NXDOMAIN）、Surge.sh（`project not found`），以及指向**未注册**域名的任何 CNAME |
+| ⚠️ **需人工确认** | 资源已删除，但服务商可能要求域名验证 | GitHub Pages、Heroku、Netlify、Vercel、Ghost、Pantheon、WordPress.com、Help Scout、Tumblr、ngrok |
+| 🧹 **过期** | 目标已删除，但位于仅其所有者可控的已注册域名下 —— 删除该记录；不属于接管，不会让 CI 失败 | 其他服务商 |
+
+每个页面指纹都已用服务商上一个随机的未认领名称验证；"未找到"页面已不再带有稳定标记的服务商未列入。HTTP 检查会向子域名发送一次 `GET /`（先 HTTPS 再 HTTP）；可用 `--no-http` / `httpProbe: false` 关闭。对已知主机名请使用 `check_takeover` / `takeover <host…>`。
 
 ---
 
