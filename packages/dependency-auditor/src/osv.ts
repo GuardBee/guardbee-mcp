@@ -24,6 +24,8 @@ export interface AuditResult {
   version: string;
   ecosystem: Ecosystem;
   vulns: OsvVuln[];
+  /** `name@version` chain from a direct dependency to this package, when the lockfile records it. */
+  path?: string[];
 }
 
 const OSV_API = "https://api.osv.dev/v1";

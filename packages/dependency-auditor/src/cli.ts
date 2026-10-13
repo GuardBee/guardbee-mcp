@@ -9,6 +9,7 @@ import { buildSarif } from "./sarif.js";
 import { loadConfig, configFilePath, type DependencyAuditorConfig } from "./config.js";
 import { enrichExploitability } from "./exploit.js";
 import { gateExitCode } from "./gate.js";
+import { auditDependencies } from "./audit.js";
 import { planUpgrade } from "./fix.js";
 import { readFileSync } from "fs";
 import { resolve, dirname } from "path";
@@ -100,8 +101,7 @@ async function collect(cmd: string, dir: string, cfg: DependencyAuditorConfig, f
     if (!cfg.includeDev) deps = deps.filter((d) => !d.isDev);
     reportSource("npm", deps, format);
     if (deps.length > 0) {
-      const pkgs = deps.map((d) => ({ name: d.name, version: d.version, ecosystem: "npm" as Ecosystem }));
-      results.push(...(await queryOsvBatch(pkgs)));
+      results.push(...(await auditDependencies(deps, "npm")));
     }
   }
 
@@ -110,8 +110,7 @@ async function collect(cmd: string, dir: string, cfg: DependencyAuditorConfig, f
     if (!cfg.includeDev) deps = deps.filter((d) => !d.isDev);
     reportSource("pip", deps, format);
     if (deps.length > 0) {
-      const pkgs = deps.map((d) => ({ name: d.name, version: d.version, ecosystem: "PyPI" as Ecosystem }));
-      results.push(...(await queryOsvBatch(pkgs)));
+      results.push(...(await auditDependencies(deps, "PyPI")));
     }
   }
 

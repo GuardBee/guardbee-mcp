@@ -22,6 +22,7 @@ npm ve pip manifestlerini bilinen CVE'ler için [OSV](https://osv.dev) veritaban
 - **Severity Skorlaması** — CVSS puanına veya metin buluşsal yöntemine göre Critical / High / Medium / Low
 - **Düzeltme Planı** — paket başına tek yükseltme: *tüm* tavsiyeleri kapatan listelenmiş en küçük sürüm (ör. `log4j-core 2.14.1 → 2.25.4 (fixes 7/7)`); açık kalan tavsiyeler ve ana sürüm atlamaları belirtilir. Bulgu başına düzeltmeler kurulu sürüm hattını izler (`next-auth 5.0.0-beta.31 → 5.0.0-beta.32`, 4.24.15 değil); SemVer, PEP 440 veya Maven tarzı sürüm sıralaması kullanılır
 - **CVE Bağlantıları** — NVD veya osv.dev'e doğrudan link
+- **Bağımlılık Yolları** — her bulgu paketin nasıl kurulduğunu gösterir (`express@4.21.2 › proxy-addr@2.0.7`); düzeltme planı yükseltilmesi gereken doğrudan bağımlılığı belirtir (`← via express@4.21.2`). `package-lock.json` v2/v3, pnpm, yarn, bun ve uv lock dosyalarında mevcuttur
 - **Tekilleştirilmiş Bulgular** — birbirinin takma adı olan tavsiyeler (GHSA + PYSEC, GHSA + MAL) tek bulguda birleşir; ignore listeleri bunların herhangi bir kimliğiyle eşleşir
 - **Testler** — gerçek paket yöneticileriyle üretilmiş lock dosyaları ve sahte bir OSV API ile birim testleri
 

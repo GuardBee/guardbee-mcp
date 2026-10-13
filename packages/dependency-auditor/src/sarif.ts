@@ -79,6 +79,7 @@ export function buildSarif(toolVersion: string, results: AuditResult[]): object 
         vuln.exploit?.kev ? `Exploited in the wild: CISA KEV since ${vuln.exploit.kev.dateAdded}.` : "",
         vuln.exploit?.epss ? `EPSS: ${(vuln.exploit.epss.score * 100).toFixed(1)}%.` : "",
         fixed ? `Fix: upgrade to ${pkg.name}@${fixed}` : "",
+        pkg.path && pkg.path.length > 1 ? `Installed via: ${pkg.path.join(" > ")}` : "",
       ]
         .filter(Boolean)
         .join(" ");

@@ -33,6 +33,7 @@ function finding(result: AuditResult, vuln: OsvVuln): string[] {
   }
   if (epss) lines.push(`  EPSS    : ${formatEpss(epss.score, epss.percentile)}`);
   if (fixed) lines.push(`  Fix     : upgrade to ${result.name}@${fixed}`);
+  if (result.path) lines.push(`  Path    : ${formatPath(result.path)}`);
   lines.push(`  Details : ${detailsUrl(vuln)}`, "");
   return lines;
 }
@@ -64,6 +65,11 @@ function compare(a: number[], b: number[]): number {
   return 0;
 }
 
+/** `express@4.21.2 › body-parser@1.20.3 › qs@6.13.0`, or "direct dependency". */
+export function formatPath(path: string[]): string {
+  return path.length <= 1 ? "direct dependency" : path.join(" › ");
+}
+
 /** `log4j-core 2.14.1 → 2.17.1 (fixes 7/7)` — one line per vulnerable package, most urgent first. */
 export function fixPlan(results: AuditResult[]): string[] {
   const vulnerable = results.filter((r) => r.vulns.length > 0);
@@ -71,22 +77,24 @@ export function fixPlan(results: AuditResult[]): string[] {
   const urgency = (r: AuditResult) => r.vulns.map(priority).sort(compare)[0]!;
   const lines = [...vulnerable]
     .sort((a, b) => compare(urgency(a), urgency(b)))
-    .map((r) => {
-      const plan = planUpgrade(r);
-      const head = `   ${r.name} ${r.version} → `;
-      if (r.vulns.some(isMalicious)) {
-        return plan.version
-          ? `${head}remove now (known-malicious), then pin ${plan.version} or later`
-          : `${head}remove now (known-malicious; no clean version listed)`;
-      }
-      if (!plan.version) {
-        return `${head}no fixed version listed (${r.vulns.length} advisor${r.vulns.length === 1 ? "y" : "ies"})`;
-      }
-      const open = plan.unfixed.length > 0 ? `; still open: ${plan.unfixed.join(", ")}` : "";
-      const major = plan.major ? ", major upgrade: check for breaking changes" : "";
-      return `${head}${plan.version}  (fixes ${plan.fixes}/${plan.total}${major}${open})`;
-    });
+    .map((r) => planLine(r) + (r.path && r.path.length > 1 ? `  ← via ${r.path[0]}` : ""));
   return ["🛠  Fix plan — one upgrade per package:", ...lines, ""];
+}
+
+function planLine(r: AuditResult): string {
+  const plan = planUpgrade(r);
+  const head = `   ${r.name} ${r.version} → `;
+  if (r.vulns.some(isMalicious)) {
+    return plan.version
+      ? `${head}remove now (known-malicious), then pin ${plan.version} or later`
+      : `${head}remove now (known-malicious; no clean version listed)`;
+  }
+  if (!plan.version) {
+    return `${head}no fixed version listed (${r.vulns.length} advisor${r.vulns.length === 1 ? "y" : "ies"})`;
+  }
+  const open = plan.unfixed.length > 0 ? `; still open: ${plan.unfixed.join(", ")}` : "";
+  const major = plan.major ? ", major upgrade: check for breaking changes" : "";
+  return `${head}${plan.version}  (fixes ${plan.fixes}/${plan.total}${major}${open})`;
 }
 
 /** Human-readable audit report shared by the CLI and the MCP tools. */
