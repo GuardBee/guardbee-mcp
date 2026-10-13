@@ -18,6 +18,7 @@ npm ve pip manifestlerini bilinen CVE'ler için [OSV](https://osv.dev) veritaban
 - **npm Desteği** — kesin sürümler `package-lock.json` / `npm-shrinkwrap.json` (v1/v2/v3), `pnpm-lock.yaml` (v5/v6/v9), `yarn.lock` (v1 ve Berry) ve `bun.lock` dosyalarından okunur; yoksa `package.json` aralıkları kullanılır. Geçişli paketler dahildir; lock dosyası işaretlemese bile (pnpm v9, yarn, bun) yalnızca geliştirme amaçlı paketler ayırt edilir
 - **pip Desteği** — kesin sürümler `uv.lock`, `poetry.lock` ve `Pipfile.lock` dosyalarından okunur (dev grupları ayrılır); yoksa `requirements.txt`, `requirements/base.txt`, `requirements/prod.txt` ve `pyproject.toml`
 - **Zararlı Paket Tespiti** — bilinen zararlı sürümler (OpenSSF `MAL-*` kayıtları ve CWE-506 olarak sınıflanan tavsiyeler; örneğin Eylül 2025'te ele geçirilen `chalk@5.6.1` / `debug@4.4.2`) kritik olarak ve raporun en başında gösterilir, kaldırma ve kimlik bilgisi yenileme önerisiyle birlikte; her `--fail-on` eşiğinde build'i kırar
+- **Sömürü Önceliklendirmesi** — bulgular [CISA KEV](https://www.cisa.gov/known-exploited-vulnerabilities-catalog) (sahada aktif sömürü, fidye yazılımı kullanımı) ve [FIRST EPSS](https://www.first.org/epss/) (30 gün içinde sömürülme olasılığı) ile zenginleştirilir ve zararlı → KEV → önem → EPSS sırasıyla listelenir. CI kapısı için `--fail-on-kev` / `--fail-on-epss=<0-1>` (`--fail-on=none` önem kapısını kapatır). Yalnızca CVE kimlikleri gönderilir; `--no-exploit-data` veya `guardbee.yml` içinde `exploit-data: false` ile kapatılır
 - **Severity Skorlaması** — CVSS puanına veya metin buluşsal yöntemine göre Critical / High / Medium / Low
 - **Düzeltme Sürümü** — Mevcut olduğunda `upgrade to X@Y.Z.Z` önerisi
 - **CVE Bağlantıları** — NVD veya osv.dev'e doğrudan link
@@ -115,6 +116,9 @@ npx @guardbee/mcp-dependency-auditor audit-pkg lodash 4.17.20 npm
 
 # JSON çıktı
 npx @guardbee/mcp-dependency-auditor audit . --format=json
+
+# Yalnızca saldırganların gerçekten kullandıklarında kır: CISA KEV veya EPSS ≥ %10
+npx @guardbee/mcp-dependency-auditor audit . --fail-on=none --fail-on-kev --fail-on-epss=0.1
 ```
 
 **Exit kodları:** `0` = temiz · `1` = threshold üstü bulgu · `2` = hata

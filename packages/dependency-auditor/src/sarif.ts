@@ -55,9 +55,13 @@ export function buildSarif(toolVersion: string, results: AuditResult[]): object 
           helpUri: cveUrl(vuln),
           properties: {
             "problem.severity": getSeverity(vuln),
-            tags: isMalicious(vuln)
-              ? ["security", "supply-chain", "dependency", "malicious"]
-              : ["security", "supply-chain", "dependency"],
+            tags: [
+              "security",
+              "supply-chain",
+              "dependency",
+              ...(isMalicious(vuln) ? ["malicious"] : []),
+              ...(vuln.exploit?.kev ? ["known-exploited"] : []),
+            ],
           },
         });
       }
@@ -72,6 +76,8 @@ export function buildSarif(toolVersion: string, results: AuditResult[]): object 
           : `${pkg.name}@${pkg.version} has a known vulnerability.`,
         vuln.summary ? `Summary: ${vuln.summary}` : "",
         cveIds ? `CVE: ${cveIds}` : "",
+        vuln.exploit?.kev ? `Exploited in the wild: CISA KEV since ${vuln.exploit.kev.dateAdded}.` : "",
+        vuln.exploit?.epss ? `EPSS: ${(vuln.exploit.epss.score * 100).toFixed(1)}%.` : "",
         fixed ? `Fix: upgrade to ${pkg.name}@${fixed}` : "",
       ]
         .filter(Boolean)

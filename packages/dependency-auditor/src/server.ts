@@ -4,8 +4,30 @@ import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
 import { parseNpmManifest } from "./parsers/npm.js";
 import { parsePipRequirements } from "./parsers/pip.js";
-import { queryOsvBatch, type Ecosystem } from "./osv.js";
+import { queryOsvBatch, type Ecosystem, type AuditResult } from "./osv.js";
 import { formatReport } from "./report.js";
+import { enrichExploitability } from "./exploit.js";
+
+const exploitDataParam = z
+  .boolean()
+  .optional()
+  .describe("Add CISA KEV (exploited in the wild) and FIRST EPSS data and order findings by it (default: true; sends CVE IDs only)");
+
+/** Query OSV, optionally add KEV/EPSS, and return the report notes. */
+async function audit(
+  packages: Array<{ name: string; version: string; ecosystem: Ecosystem }>,
+  exploitData: boolean
+): Promise<{ results: AuditResult[]; notes: string[] }> {
+  const results = await queryOsvBatch(packages);
+  const notes: string[] = [];
+  if (exploitData) {
+    const unavailable = await enrichExploitability(results);
+    if (unavailable.length > 0) {
+      notes.push(`ℹ️  Exploit data unavailable from ${unavailable.join(" and ")}; findings are ordered by severity only.`);
+    }
+  }
+  return { results, notes };
+}
 
 export async function startServer() {
   const server = new McpServer({
@@ -23,8 +45,9 @@ export async function startServer() {
         .boolean()
         .optional()
         .describe("Include devDependencies in the audit (default: false)"),
+      exploitData: exploitDataParam,
     },
-    async ({ directory, includeDevDeps = false }) => {
+    async ({ directory, includeDevDeps = false, exploitData = true }) => {
       const start = Date.now();
       let deps = parseNpmManifest(directory);
 
@@ -37,8 +60,8 @@ export async function startServer() {
       if (!includeDevDeps) deps = deps.filter((d) => !d.isDev);
 
       const packages = deps.map((d) => ({ name: d.name, version: d.version, ecosystem: "npm" as Ecosystem }));
-      const results = await queryOsvBatch(packages);
-      const report = formatReport(results, "npm", Date.now() - start);
+      const { results, notes } = await audit(packages, exploitData);
+      const report = formatReport(results, "npm", Date.now() - start, notes);
 
       return { content: [{ type: "text", text: report }] };
     }
@@ -53,8 +76,9 @@ export async function startServer() {
         .boolean()
         .optional()
         .describe("Include dev groups from poetry.lock, uv.lock or Pipfile.lock (default: false)"),
+      exploitData: exploitDataParam,
     },
-    async ({ directory, includeDevDeps = false }) => {
+    async ({ directory, includeDevDeps = false, exploitData = true }) => {
       const start = Date.now();
       let deps = parsePipRequirements(directory);
       if (!includeDevDeps) deps = deps.filter((d) => !d.isDev);
@@ -66,8 +90,8 @@ export async function startServer() {
       }
 
       const packages = deps.map((d) => ({ name: d.name, version: d.version, ecosystem: "PyPI" as Ecosystem }));
-      const results = await queryOsvBatch(packages);
-      const report = formatReport(results, "pip", Date.now() - start);
+      const { results, notes } = await audit(packages, exploitData);
+      const report = formatReport(results, "pip", Date.now() - start, notes);
 
       return { content: [{ type: "text", text: report }] };
     }
@@ -82,11 +106,12 @@ export async function startServer() {
       ecosystem: z
         .enum(["npm", "PyPI", "crates.io", "Maven", "Go", "RubyGems"])
         .describe("Package ecosystem"),
+      exploitData: exploitDataParam,
     },
-    async ({ name, version, ecosystem }) => {
+    async ({ name, version, ecosystem, exploitData = true }) => {
       const start = Date.now();
-      const results = await queryOsvBatch([{ name, version, ecosystem: ecosystem as Ecosystem }]);
-      const report = formatReport(results, ecosystem, Date.now() - start);
+      const { results, notes } = await audit([{ name, version, ecosystem: ecosystem as Ecosystem }], exploitData);
+      const report = formatReport(results, ecosystem, Date.now() - start, notes);
       return { content: [{ type: "text", text: report }] };
     }
   );
@@ -97,8 +122,9 @@ export async function startServer() {
     {
       directory: z.string().describe("Path to the project root directory"),
       includeDevDeps: z.boolean().optional().describe("Include dev dependencies (default: false)"),
+      exploitData: exploitDataParam,
     },
-    async ({ directory, includeDevDeps = false }) => {
+    async ({ directory, includeDevDeps = false, exploitData = true }) => {
       const start = Date.now();
       const lines: string[] = [];
 
@@ -107,9 +133,9 @@ export async function startServer() {
       if (npmDeps.length > 0) {
         if (!includeDevDeps) npmDeps = npmDeps.filter((d) => !d.isDev);
         const npmPkgs = npmDeps.map((d) => ({ name: d.name, version: d.version, ecosystem: "npm" as Ecosystem }));
-        const npmResults = await queryOsvBatch(npmPkgs);
+        const { results, notes } = await audit(npmPkgs, exploitData);
         lines.push("── npm ─────────────────────────────────────────");
-        lines.push(formatReport(npmResults, "npm", 0));
+        lines.push(formatReport(results, "npm", 0, notes));
       }
 
       // pip
@@ -117,9 +143,9 @@ export async function startServer() {
       if (!includeDevDeps) pipDeps = pipDeps.filter((d) => !d.isDev);
       if (pipDeps.length > 0) {
         const pipPkgs = pipDeps.map((d) => ({ name: d.name, version: d.version, ecosystem: "PyPI" as Ecosystem }));
-        const pipResults = await queryOsvBatch(pipPkgs);
+        const { results, notes } = await audit(pipPkgs, exploitData);
         lines.push("── pip ─────────────────────────────────────────");
-        lines.push(formatReport(pipResults, "pip", 0));
+        lines.push(formatReport(results, "pip", 0, notes));
       }
 
       if (lines.length === 0) {
