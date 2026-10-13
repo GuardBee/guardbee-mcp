@@ -50,7 +50,8 @@ npm install -g @guardbee/mcp-dns-intelligence
 | Tool | Açıklama |
 |------|----------|
 | `enumerate_dns` | Domain için tüm DNS kayıtlarını sıralar ve SPF/DMARC/DKIM analizi yapar |
-| `enumerate_subdomains` | Yaygın subdomain'leri dener; asılı CNAME'leri işaretler |
+| `enumerate_subdomains` | Yaygın subdomain'leri dener (wildcard'ı ayırt eder); subdomain ele geçirmelerini tespit eder |
+| `check_takeover` | Verilen host adlarını subdomain ele geçirmeye karşı kontrol eder |
 | `check_email_security` | SPF + DMARC + DKIM birleşik denetimi ve düzeltme önerileri |
 | `lookup_dns` | Belirli bir kayıt türü için hedefli DNS sorgusu (A/MX/TXT/vb.) |
 
@@ -118,11 +119,17 @@ Email Security Check: example.com
 
 Kendi DMARC kaydı olmayan alt alan adları, alıcıların yaptığı gibi üst alan adının kaydını (`sp=` politikasıyla) devralır. Alt alan adı taraması wildcard DNS'i tespit eder ve yalnızca wildcard'ın yanıtladığı adları listelemez.
 
-## Asılı Subdomain Tespiti
+## Subdomain Ele Geçirme Tespiti
 
-CNAME'i aşağıdaki sağlayıcılardan birine işaret edip çözümlenemeyen subdomain'ler **asılı (dangling)** olarak işaretlenir ve subdomain ele geçirme riski taşır:
+CNAME'i olan her canlı subdomain, CNAME zinciri (en fazla 5 adım) izlenerek kontrol edilir. Wildcard kaydı da kontrol edilir: asılı bir `*.alanadi`, listelenmeyen her adı ele geçirilebilir yapar.
 
-AWS S3, Azure App Service, GitHub Pages, Heroku, Netlify, Vercel, Cloudflare Pages, Surge, Pantheon, WP Engine, Ghost, Shopify, Fastly, AWS CloudFront
+| Risk | Ne zaman | Sağlayıcılar |
+|---|---|---|
+| ⚠️ **ele geçirilebilir** | Sağlayıcı adı herkesin almasına izin verir | AWS S3 (`NoSuchBucket` sayfası), Microsoft Azure ve AWS Elastic Beanstalk (CNAME hedefi NXDOMAIN), Surge.sh (`project not found`) ve **kayıtsız** bir alan adına giden her CNAME |
+| ⚠️ **elle doğrula** | Kaynak silinmiş ama sağlayıcı alan adı doğrulaması isteyebilir | GitHub Pages, Heroku, Netlify, Vercel, Ghost, Pantheon, WordPress.com, Help Scout, Tumblr, ngrok |
+| 🧹 **bayat** | Hedef silinmiş ama yalnızca sahibinin kontrol ettiği kayıtlı bir alan adı altında — kaydı silin; ele geçirme değildir, CI'ı kırmaz | diğer sağlayıcılar |
+
+Her sayfa parmak izi, sağlayıcıdaki rastgele sahiplenilmemiş bir adla doğrulandı; "bulunamadı" sayfası artık sabit bir işaret taşımayan sağlayıcılar listede yok. HTTP kontrolleri subdomain'e tek bir `GET /` gönderir (önce HTTPS, sonra HTTP); `--no-http` / `httpProbe: false` ile kapatılır. Bildiğiniz host adları için `check_takeover` / `takeover <host…>` kullanın.
 
 ---
 

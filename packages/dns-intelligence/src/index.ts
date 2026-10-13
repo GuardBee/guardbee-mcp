@@ -22,3 +22,5 @@ export { evaluateSpf, countLookupTerms, isSpfRecord, SPF_LOOKUP_LIMIT, SPF_VOID_
 export type { SpfEvaluation } from "./spf.js";
 export { normalizeDomain, systemResolver } from "./resolver.js";
 export type { DnsResolver } from "./resolver.js";
+export { checkTakeover, FINGERPRINTS } from "./takeover.js";
+export type { TakeoverFinding, Fingerprint, TakeoverOptions } from "./takeover.js";
