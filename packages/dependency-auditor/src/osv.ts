@@ -321,14 +321,5 @@ export function getSeverity(vuln: OsvVuln): Severity {
   return "unknown";
 }
 
-export function getFixedVersion(vuln: OsvVuln, pkgName: string): string | null {
-  for (const affected of vuln.affected ?? []) {
-    if (affected.package.name.toLowerCase() !== pkgName.toLowerCase()) continue;
-    for (const range of affected.ranges ?? []) {
-      for (const event of range.events) {
-        if (event.fixed) return event.fixed;
-      }
-    }
-  }
-  return null;
-}
+// Moved to fix.ts (needs version ordering); re-exported for the public API.
+export { getFixedVersion } from "./fix.js";

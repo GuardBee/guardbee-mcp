@@ -67,7 +67,7 @@ export function buildSarif(toolVersion: string, results: AuditResult[]): object 
       }
 
       const sev = getSeverity(vuln);
-      const fixed = getFixedVersion(vuln, pkg.name);
+      const fixed = getFixedVersion(vuln, pkg.name, pkg.version, pkg.ecosystem);
       const cveIds = (vuln.aliases ?? []).filter((a) => a.startsWith("CVE-")).join(", ");
 
       const msg = [

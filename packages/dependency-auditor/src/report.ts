@@ -1,4 +1,5 @@
 import { getSeverity, getFixedVersion, isMalicious } from "./osv.js";
+import { planUpgrade } from "./fix.js";
 import type { AuditResult, OsvVuln } from "./osv.js";
 
 const MALWARE_ACTION =
@@ -14,7 +15,7 @@ function detailsUrl(vuln: OsvVuln): string {
 
 function finding(result: AuditResult, vuln: OsvVuln): string[] {
   const malicious = isMalicious(vuln);
-  const fixed = getFixedVersion(vuln, result.name);
+  const fixed = getFixedVersion(vuln, result.name, result.version, result.ecosystem);
   const otherIds = (vuln.aliases ?? []).filter((a) => /^(CVE|GHSA|MAL|PYSEC)-/.test(a)).join(", ");
   const lines = [
     malicious
@@ -63,6 +64,31 @@ function compare(a: number[], b: number[]): number {
   return 0;
 }
 
+/** `log4j-core 2.14.1 → 2.17.1 (fixes 7/7)` — one line per vulnerable package, most urgent first. */
+export function fixPlan(results: AuditResult[]): string[] {
+  const vulnerable = results.filter((r) => r.vulns.length > 0);
+  if (vulnerable.length === 0) return [];
+  const urgency = (r: AuditResult) => r.vulns.map(priority).sort(compare)[0]!;
+  const lines = [...vulnerable]
+    .sort((a, b) => compare(urgency(a), urgency(b)))
+    .map((r) => {
+      const plan = planUpgrade(r);
+      const head = `   ${r.name} ${r.version} → `;
+      if (r.vulns.some(isMalicious)) {
+        return plan.version
+          ? `${head}remove now (known-malicious), then pin ${plan.version} or later`
+          : `${head}remove now (known-malicious; no clean version listed)`;
+      }
+      if (!plan.version) {
+        return `${head}no fixed version listed (${r.vulns.length} advisor${r.vulns.length === 1 ? "y" : "ies"})`;
+      }
+      const open = plan.unfixed.length > 0 ? `; still open: ${plan.unfixed.join(", ")}` : "";
+      const major = plan.major ? ", major upgrade: check for breaking changes" : "";
+      return `${head}${plan.version}  (fixes ${plan.fixes}/${plan.total}${major}${open})`;
+    });
+  return ["🛠  Fix plan — one upgrade per package:", ...lines, ""];
+}
+
 /** Human-readable audit report shared by the CLI and the MCP tools. */
 export function formatReport(
   results: AuditResult[],
@@ -105,6 +131,8 @@ export function formatReport(
       (malicious > 0 ? `  (Malicious: ${malicious})` : ""),
     ""
   );
+
+  lines.push(...fixPlan(results));
 
   const ordered = vulnerable
     .flatMap((r) => r.vulns.map((v) => ({ r, v })))

@@ -84,7 +84,7 @@ describe("queryOsvBatch", () => {
     expect(crit.summary).toBe("Prototype pollution");
     expect(crit.aliases).toContain("CVE-2020-0001");
     expect(getSeverity(crit)).toBe("critical");
-    expect(getFixedVersion(crit, "lodash")).toBe("4.17.21");
+    expect(getFixedVersion(crit, "lodash", "4.17.15", "npm")).toBe("4.17.21");
     expect(getSeverity(res!.vulns[1]!)).toBe("medium");
   });
 
