@@ -36,6 +36,7 @@ interface CliArgs {
   positionals: string[];
   format: string;
   http?: boolean;
+  ct?: boolean;
   /** Undefined when not given, so guardbee.yml keeps its value. */
   failOn?: string;
   concurrency?: number;
@@ -49,6 +50,7 @@ function parseArgs(args: string[]): CliArgs {
     else if (arg.startsWith("--format=")) out.format = value;
     else if (arg.startsWith("--concurrency=")) out.concurrency = Number.parseInt(value, 10);
     else if (arg === "--no-http") out.http = false;
+    else if (arg === "--no-ct") out.ct = false;
     else if (!arg.startsWith("--")) out.positionals.push(arg);
   }
   if (out.failOn !== undefined && !(out.failOn in SEVERITY_RANK)) {
@@ -106,13 +108,18 @@ async function runSubdomains(rawArgs: string[]): Promise<void> {
   }
   const domain = normalizeDomain(domainArg);
 
-  const { results, wildcard } = await enumerateSubdomainsDetailed(domain, concurrency, { http: parsed.http });
+  const { results, wildcard, ct } = await enumerateSubdomainsDetailed(domain, concurrency, {
+    http: parsed.http,
+    ct: parsed.ct !== false,
+  });
   const dangling = results.filter((r) => r.dangling);
 
   if (format === "json") {
-    console.log(JSON.stringify({ domain, total: results.length, dangling: dangling.length, wildcard: wildcard ?? null, results }, null, 2));
+    console.log(
+      JSON.stringify({ domain, total: results.length, dangling: dangling.length, wildcard: wildcard ?? null, ct: ct ?? null, results }, null, 2)
+    );
   } else {
-    console.log(formatSubdomainReport(domain, results, wildcard));
+    console.log(formatSubdomainReport(domain, results, wildcard, ct));
   }
 
   process.exitCode = dangling.length > 0 || (wildcard?.takeover && wildcard.takeover.risk !== "stale") ? 1 : 0;
@@ -151,7 +158,7 @@ Usage (MCP server):
 
 Usage (CLI):
   guardbee-dns-intelligence check <domain>       Full DNS check (records + SPF/DMARC/DKIM)
-  guardbee-dns-intelligence subdomains <domain>  Enumerate subdomains, detect subdomain takeovers
+  guardbee-dns-intelligence subdomains <domain>  Find subdomains (CT logs + wordlist), detect takeovers
   guardbee-dns-intelligence takeover <host…>     Check given hostnames for subdomain takeover
 
 Options:
@@ -160,6 +167,7 @@ Options:
   --format=<fmt>        Output format: text (default) | json | sarif (check only)
   --concurrency=<n>     Parallel subdomain probes (default: 20, subdomains only)
   --no-http             Skip HTTP fingerprinting; only DNS-based takeover checks run
+  --no-ct               Skip Certificate Transparency (crt.sh, Cert Spotter); wordlist only
 
 Exit codes:
   0  No issues at or above --fail-on threshold (check) / no dangling subdomains (subdomains)

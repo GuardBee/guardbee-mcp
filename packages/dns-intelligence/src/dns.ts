@@ -1,6 +1,7 @@
 import { lookup, valueOf, normalizeDomain, systemResolver, type DnsResolver } from "./resolver.js";
 import { evaluateSpf, isSpfRecord, countLookupTerms } from "./spf.js";
 import { checkTakeover, type TakeoverFinding } from "./takeover.js";
+import { discoverFromCT, type CtDiscovery, type CtOptions } from "./ct.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -62,6 +63,8 @@ export interface EnumerateOptions {
   /** Fetch pages to match takeover fingerprints (default true). DNS-only checks still run when false. */
   http?: boolean;
   fetch?: typeof fetch;
+  /** Add names from Certificate Transparency logs (crt.sh, Cert Spotter). Off unless set. */
+  ct?: boolean | CtOptions;
 }
 
 export interface SubdomainResult {
@@ -73,6 +76,8 @@ export interface SubdomainResult {
   dangling?: boolean;
   danglingReason?: string;
   takeover?: TakeoverFinding;
+  /** Where the name came from: the built-in wordlist and/or Certificate Transparency logs. */
+  sources?: Array<"wordlist" | "ct">;
 }
 
 // ── Common subdomain wordlist ─────────────────────────────────────────────────
@@ -251,6 +256,8 @@ export interface SubdomainEnumeration {
   results: SubdomainResult[];
   /** Set when *.domain resolves: names answered only by the wildcard are left out of `results`. */
   wildcard?: { addresses: string[]; cname?: string; hidden: number; takeover?: TakeoverFinding };
+  /** Set when Certificate Transparency was queried. `resolving` counts CT names that are live now. */
+  ct?: CtDiscovery & { resolving: number };
 }
 
 export const TAKEOVER_LABEL: Record<TakeoverFinding["risk"], string> = {
@@ -300,16 +307,27 @@ export async function enumerateSubdomainsDetailed(
     wildcardHits.length > 0 &&
     (res.cname ? wildcardCnames.has(res.cname) : (res.addresses ?? []).every((a) => wildcardAddrs.has(a)));
 
+  const ct = options.ct
+    ? await discoverFromCT(domain, { fetch: options.fetch, ...(typeof options.ct === "object" ? options.ct : {}) })
+    : undefined;
+
+  const sourcesOf = new Map<string, Array<"wordlist" | "ct">>();
+  for (const s of COMMON_SUBDOMAINS) sourcesOf.set(`${s}.${domain}`, ["wordlist"]);
+  for (const n of ct?.names ?? []) sourcesOf.set(n, [...(sourcesOf.get(n) ?? []), "ct"]);
+
   const results: SubdomainResult[] = [];
   let hidden = 0;
-  const queue = COMMON_SUBDOMAINS.map((s) => `${s}.${domain}`);
+  let ctResolving = 0;
+  const queue = [...sourcesOf.keys()];
   const step = Math.max(1, Math.floor(concurrency));
   for (let i = 0; i < queue.length; i += step) {
     const settled = await Promise.all(queue.slice(i, i + step).map((sub) => probe(sub, r)));
     for (const res of settled) {
       if (!res.resolves) continue;
+      const sources = sourcesOf.get(res.subdomain)!;
+      if (sources.includes("ct")) ctResolving++;
       if (isWildcardAnswer(res)) hidden++;
-      else results.push(res);
+      else results.push(ct ? { ...res, sources } : res);
     }
   }
 
@@ -323,6 +341,7 @@ export async function enumerateSubdomainsDetailed(
 
   return {
     results: checked,
+    ...(ct ? { ct: { ...ct, resolving: ctResolving } } : {}),
     ...(wildcardHits.length > 0
       ? {
           wildcard: {
@@ -494,7 +513,8 @@ export function formatDnsReport(result: DnsEnumerationResult): string {
 export function formatSubdomainReport(
   domain: string,
   results: SubdomainResult[],
-  wildcard?: SubdomainEnumeration["wildcard"]
+  wildcard?: SubdomainEnumeration["wildcard"],
+  ct?: SubdomainEnumeration["ct"]
 ): string {
   const dangling = results.filter((r) => r.dangling);
   const lines = [
@@ -502,6 +522,16 @@ export function formatSubdomainReport(
     `─────────────────────────────────────────`,
     `Found ${results.length} live subdomain(s)${dangling.length ? `, ${dangling.length} potentially dangling` : ""}`,
   ];
+  if (ct) {
+    const used = ct.sources.filter((s) => s.ok).map((s) => `${s.source} ${s.count}`);
+    const failed = ct.sources.filter((s) => !s.ok).map((s) => `${s.source}: ${s.error}`);
+    lines.push(
+      `🔎 Certificate Transparency: ${ct.names.length} name(s)${used.length ? ` (${used.join(", ")})` : ""}, ${ct.resolving} resolve now` +
+        (ct.truncated ? "; list capped" : "") +
+        (failed.length ? ` — unavailable: ${failed.join("; ")}` : "")
+    );
+    if (used.length === 0) lines.push("   Only the built-in wordlist was used; run again later for CT results.");
+  }
   if (wildcard) {
     const target = wildcard.cname ? `CNAME ${wildcard.cname}` : wildcard.addresses.join(", ");
     lines.push(
@@ -518,7 +548,8 @@ export function formatSubdomainReport(
   for (const r of results) {
     const flag = r.dangling ? "⚠️  DANGLING" : r.takeover?.risk === "stale" ? "🧹 STALE   " : "✅";
     const target = r.cname ? `→ CNAME ${r.cname}` : (r.addresses?.join(", ") ?? "");
-    lines.push(`${flag}  ${r.subdomain.padEnd(45)} ${target}`);
+    const via = r.sources && !r.sources.includes("wordlist") ? "  [CT]" : "";
+    lines.push(`${flag}  ${r.subdomain.padEnd(45)} ${target}${via}`);
     if (r.danglingReason) {
       lines.push(`      └─ ${r.danglingReason}`);
       if (r.dangling && r.takeover) lines.push(`      └─ Fix: delete the CNAME record, or reclaim the ${r.takeover.provider} resource it points to.`);

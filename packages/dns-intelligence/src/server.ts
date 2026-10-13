@@ -36,19 +36,26 @@ export async function startServer() {
 
   server.tool(
     "enumerate_subdomains",
-    "Enumerate common subdomains for a domain and detect subdomain takeovers: CNAMEs to S3, GitHub Pages, Azure, Heroku, Netlify and other providers whose resource is gone (verified fingerprints), or to targets that no longer exist",
+    "Find subdomains from Certificate Transparency logs and a common-name wordlist, and detect subdomain takeovers: CNAMEs to S3, GitHub Pages, Azure, Heroku, Netlify and other providers whose resource is gone (verified fingerprints), or to targets that no longer exist",
     {
       domain: z.string().describe("Root domain to enumerate subdomains for (e.g. example.com)"),
       httpProbe: z
         .boolean()
         .optional()
         .describe("Fetch pages behind provider CNAMEs to match takeover fingerprints (default: true)"),
+      certificateTransparency: z
+        .boolean()
+        .optional()
+        .describe("Add names found in Certificate Transparency logs via crt.sh and Cert Spotter (default: true; sends only the domain name)"),
     },
-    async ({ domain, httpProbe }) => {
+    async ({ domain, httpProbe, certificateTransparency }) => {
       const start = Date.now();
       const name = normalizeDomain(domain);
-      const { results, wildcard } = await enumerateSubdomainsDetailed(name, 20, { http: httpProbe });
-      const report = formatSubdomainReport(name, results, wildcard);
+      const { results, wildcard, ct } = await enumerateSubdomainsDetailed(name, 20, {
+        http: httpProbe,
+        ct: certificateTransparency !== false,
+      });
+      const report = formatSubdomainReport(name, results, wildcard, ct);
       return { content: [{ type: "text", text: `${report}\n\nCompleted in ${Date.now() - start}ms` }] };
     }
   );
