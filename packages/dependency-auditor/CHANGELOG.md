@@ -1,5 +1,13 @@
 # @guardbee/mcp-dependency-auditor
 
+## 0.2.6
+
+### Patch Changes
+
+- [#79](https://github.com/GuardBee/guardbee-mcp/pull/79) [`8a02c59`](https://github.com/GuardBee/guardbee-mcp/commit/8a02c59258eb7a92b40036b7692aa506c17a39d0) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - fix: fetch full OSV advisories so findings have real severity, summary, CVE aliases and fix versions
+  
+  OSV's `querybatch` endpoint returns only `{ id, modified }` for each vulnerability. Every finding was therefore reported as UNKNOWN with no summary or fix, `--fail-on` never failed a build, and `ignore` entries given as CVE IDs never matched. The auditor now fetches each advisory from `/v1/vulns/{id}`. Fetches are de-duplicated, run in parallel, cached and retried on 429/5xx. The auditor also follows `next_page_token`, and it fails with an error instead of passing when an advisory cannot be fetched.
+
 ## 0.2.5
 
 ### Patch Changes
