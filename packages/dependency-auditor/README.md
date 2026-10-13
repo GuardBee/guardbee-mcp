@@ -18,6 +18,7 @@ An MCP server that audits npm and pip manifests against the [OSV](https://osv.de
 - **npm Support** — reads exact versions from `package-lock.json` / `npm-shrinkwrap.json` (v1/v2/v3), `pnpm-lock.yaml` (v5/v6/v9), `yarn.lock` (v1 and Berry) and `bun.lock`, falling back to `package.json` ranges. Transitive packages are included, and dev-only packages are told apart even when the lockfile does not mark them (pnpm v9, yarn, bun)
 - **pip Support** — reads exact versions from `uv.lock`, `poetry.lock` and `Pipfile.lock` (dev groups separated), falling back to `requirements.txt`, `requirements/base.txt`, `requirements/prod.txt`, and `pyproject.toml`
 - **Malicious Package Detection** — known-malicious releases (OpenSSF `MAL-*` entries and advisories classified CWE-506, e.g. the hijacked `chalk@5.6.1` / `debug@4.4.2` of September 2025) are reported first as critical, with a removal and credential-rotation action, and fail any `--fail-on` threshold
+- **Exploit Prioritization** — findings are enriched with [CISA KEV](https://www.cisa.gov/known-exploited-vulnerabilities-catalog) (exploited in the wild, ransomware use) and [FIRST EPSS](https://www.first.org/epss/) (probability of exploitation in 30 days) and ordered malware → KEV → severity → EPSS. Gate CI on them with `--fail-on-kev` / `--fail-on-epss=<0-1>` (`--fail-on=none` turns the severity gate off). Only CVE IDs are sent; `--no-exploit-data` or `exploit-data: false` in `guardbee.yml` turns it off
 - **Severity Scoring** — Critical / High / Medium / Low based on CVSS score or a text heuristic
 - **Fix Version** — an `upgrade to X@Y.Z.Z` recommendation when available
 - **CVE Links** — direct links to NVD or osv.dev
@@ -115,6 +116,9 @@ npx @guardbee/mcp-dependency-auditor audit-pkg lodash 4.17.20 npm
 
 # JSON output
 npx @guardbee/mcp-dependency-auditor audit . --format=json
+
+# Fail only on what attackers actually use: CISA KEV, or EPSS ≥ 10%
+npx @guardbee/mcp-dependency-auditor audit . --fail-on=none --fail-on-kev --fail-on-epss=0.1
 ```
 
 **Exit codes:** `0` = clean · `1` = findings above threshold · `2` = error

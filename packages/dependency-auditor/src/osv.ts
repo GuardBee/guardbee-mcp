@@ -1,3 +1,5 @@
+import type { Exploitability } from "./exploit.js";
+
 export type Ecosystem = "npm" | "PyPI" | "crates.io" | "Maven" | "Go" | "RubyGems";
 
 export interface OsvVuln {
@@ -13,6 +15,8 @@ export interface OsvVuln {
   references?: Array<{ type: string; url: string }>;
   aliases?: string[];
   database_specific?: { severity?: string; cwe_ids?: string[] };
+  /** Not from OSV: KEV / EPSS data added by enrichExploitability(). */
+  exploit?: Exploitability;
 }
 
 export interface AuditResult {
@@ -127,7 +131,8 @@ export async function queryOsvBatch(packages: PackageQuery[]): Promise<AuditResu
     name: p.name,
     version: p.version,
     ecosystem: p.ecosystem,
-    vulns: mergeAliases([...new Set(idsPerPackage[i])].map((id) => records.get(id)!)),
+    // Copies: callers annotate findings (e.g. `exploit`) and must not touch the cache.
+    vulns: mergeAliases([...new Set(idsPerPackage[i])].map((id) => ({ ...records.get(id)! }))),
   }));
 }
 

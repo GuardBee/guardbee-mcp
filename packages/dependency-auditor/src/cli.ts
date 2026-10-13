@@ -6,7 +6,9 @@ import { queryOsvBatch, getSeverity, getFixedVersion, isMalicious, type Ecosyste
 import { formatReport } from "./report.js";
 import type { AuditResult } from "./osv.js";
 import { buildSarif } from "./sarif.js";
-import { loadConfig, configFilePath } from "./config.js";
+import { loadConfig, configFilePath, type DependencyAuditorConfig } from "./config.js";
+import { enrichExploitability } from "./exploit.js";
+import { gateExitCode } from "./gate.js";
 import { readFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -19,30 +21,20 @@ function getVersion(): string {
   } catch { return "0.0.0"; }
 }
 
-// ── Severity helpers ───────────────────────────────────────────────────────────
-
-const SEVERITY_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, unknown: 4 };
-
-function meetsThreshold(sev: string, threshold: string): boolean {
-  return (SEVERITY_RANK[sev] ?? 4) <= (SEVERITY_RANK[threshold] ?? 1);
-}
-
 // ── Output ─────────────────────────────────────────────────────────────────────
-
-function printText(results: AuditResult[], label: string, durationMs: number): void {
-  console.log(formatReport(results, label, durationMs));
-}
 
 /** JSON output: raw OSV records plus the verdict the CLI acted on. */
 function annotate(results: AuditResult[]): unknown[] {
   return results.map((r) => ({
     ...r,
-    vulns: r.vulns.map((v) => ({
+    vulns: r.vulns.map(({ exploit, ...v }) => ({
       ...v,
       guardbee: {
         severity: getSeverity(v),
         malicious: isMalicious(v),
         fixedVersion: getFixedVersion(v, r.name),
+        kev: exploit?.kev ?? null,
+        epss: exploit?.epss ?? null,
       },
     })),
   }));
@@ -57,123 +49,135 @@ function reportSource(label: string, deps: Dependency[], format: string): void {
   process.stderr.write(`[guardbee] ${label}: ${files} (${deps.length} packages)\n`);
 }
 
-function parseArgs(args: string[]): { positionals: string[]; failOn: string; includeDev: boolean; format: string } {
-  const positionals: string[] = [];
-  let failOn = "high";
-  let includeDev = false;
-  let format = "text";
+interface CliArgs {
+  positionals: string[];
+  format: string;
+  failOn?: string;
+  failOnKev?: boolean;
+  failOnEpss?: number;
+  includeDev?: boolean;
+  exploitData?: boolean;
+}
 
+function parseArgs(args: string[]): CliArgs {
+  const out: CliArgs = { positionals: [], format: "text" };
   for (const arg of args) {
-    if (arg.startsWith("--fail-on=")) failOn = arg.split("=")[1] ?? "high";
-    else if (arg.startsWith("--format=")) format = arg.split("=")[1] ?? "text";
-    else if (arg === "--include-dev") includeDev = true;
-    else if (!arg.startsWith("--")) positionals.push(arg);
+    const value = arg.slice(arg.indexOf("=") + 1);
+    if (arg.startsWith("--fail-on=")) out.failOn = value;
+    else if (arg === "--fail-on-kev") out.failOnKev = true;
+    else if (arg.startsWith("--fail-on-epss=")) out.failOnEpss = Number(value);
+    else if (arg.startsWith("--format=")) out.format = value;
+    else if (arg === "--include-dev") out.includeDev = true;
+    else if (arg === "--no-exploit-data") out.exploitData = false;
+    else if (!arg.startsWith("--")) out.positionals.push(arg);
   }
-
-  return { positionals, failOn, includeDev, format };
+  return out;
 }
 
-function exitCode(results: AuditResult[], failOn: string): number {
-  for (const r of results) {
-    for (const v of r.vulns) {
-      if (meetsThreshold(getSeverity(v), failOn)) return 1;
-    }
-  }
-  return 0;
+/** Explicit CLI flags win over guardbee.yml; unset flags leave the file's value. */
+function overrides(args: CliArgs): Partial<DependencyAuditorConfig> {
+  const o: Partial<DependencyAuditorConfig> = {};
+  if (args.failOn !== undefined) o.failOn = args.failOn;
+  if (args.failOnKev !== undefined) o.failOnKev = args.failOnKev;
+  if (args.failOnEpss !== undefined) o.failOnEpss = args.failOnEpss;
+  if (args.includeDev !== undefined) o.includeDev = args.includeDev;
+  if (args.exploitData !== undefined) o.exploitData = args.exploitData;
+  return o;
 }
 
-async function runCli(cmd: string, rawArgs: string[]): Promise<void> {
-  const { positionals, failOn: cliFail, includeDev: cliDev, format } = parseArgs(rawArgs);
+function fail(message: string): never {
+  console.error(message);
+  process.exit(2);
+}
 
-  // Resolve directory early to load config
-  const dir = cmd !== "audit-pkg" ? positionals[0] : undefined;
-  const cfg = dir ? loadConfig(dir, {
-    ...(cliFail !== "high" ? { failOn: cliFail } : {}),
-    ...(cliDev ? { includeDev: true } : {}),
-  }) : { failOn: cliFail, includeDev: cliDev, ignore: [] };
-
-  const failOn = cfg.failOn;
-  const includeDev = cfg.includeDev;
-
-  if (dir) {
-    const cfgPath = configFilePath(dir);
-    if (cfgPath && format === "text") process.stderr.write(`[guardbee] Using config: ${cfgPath}\n`);
-  }
-
-  // ── audit-pkg ──────────────────────────────────────────────────────────────
-  if (cmd === "audit-pkg") {
-    const [name, version, ecosystem] = positionals;
-    const ecosystems: Ecosystem[] = ["npm", "PyPI", "crates.io", "Maven", "Go", "RubyGems"];
-    if (!name || !version || !ecosystem || !ecosystems.includes(ecosystem as Ecosystem)) {
-      console.error("Usage: guardbee-dependency-auditor audit-pkg <name> <version> <ecosystem>");
-      console.error(`  ecosystems: ${ecosystems.join(", ")}`);
-      process.exit(2);
-    }
-    const results = await queryOsvBatch([{ name, version, ecosystem: ecosystem as Ecosystem }]);
-    if (format === "json") {
-      console.log(JSON.stringify(annotate(results), null, 2));
-    } else if (format === "sarif") {
-      console.log(JSON.stringify(buildSarif(getVersion(), results), null, 2));
-    } else {
-      printText(results, ecosystem, 0);
-    }
-    // Not process.exit(): it can drop the tail of a large report written to a pipe.
-    process.exitCode = exitCode(results, failOn);
-    return;
-  }
-
-  // ── audit / audit-npm / audit-pip ─────────────────────────────────────────
-  if (!dir) {
-    console.error(`Usage: guardbee-dependency-auditor ${cmd} <directory> [--fail-on=high] [--include-dev] [--format=text|json]`);
-    process.exit(2);
-  }
-
-  const start = Date.now();
-  const allResults: AuditResult[] = [];
+async function collect(cmd: string, dir: string, cfg: DependencyAuditorConfig, format: string): Promise<AuditResult[]> {
+  const results: AuditResult[] = [];
 
   if (cmd !== "audit-pip") {
     let deps = parseNpmManifest(dir);
-    if (!includeDev) deps = deps.filter((d) => !d.isDev);
+    if (!cfg.includeDev) deps = deps.filter((d) => !d.isDev);
     reportSource("npm", deps, format);
     if (deps.length > 0) {
       const pkgs = deps.map((d) => ({ name: d.name, version: d.version, ecosystem: "npm" as Ecosystem }));
-      allResults.push(...(await queryOsvBatch(pkgs)));
+      results.push(...(await queryOsvBatch(pkgs)));
     }
   }
 
   if (cmd !== "audit-npm") {
     let deps = parsePipRequirements(dir);
-    if (!includeDev) deps = deps.filter((d) => !d.isDev);
+    if (!cfg.includeDev) deps = deps.filter((d) => !d.isDev);
     reportSource("pip", deps, format);
     if (deps.length > 0) {
       const pkgs = deps.map((d) => ({ name: d.name, version: d.version, ecosystem: "PyPI" as Ecosystem }));
-      allResults.push(...(await queryOsvBatch(pkgs)));
+      results.push(...(await queryOsvBatch(pkgs)));
     }
   }
 
-  if (allResults.length === 0) {
-    console.error(`No supported manifest files found in: ${dir}`);
-    process.exit(2);
+  return results;
+}
+
+async function runCli(cmd: string, rawArgs: string[]): Promise<void> {
+  const args = parseArgs(rawArgs);
+  const { positionals, format } = args;
+  const start = Date.now();
+
+  let results: AuditResult[];
+  let cfg: DependencyAuditorConfig;
+  let label: string;
+
+  if (cmd === "audit-pkg") {
+    const [name, version, ecosystem] = positionals;
+    const ecosystems: Ecosystem[] = ["npm", "PyPI", "crates.io", "Maven", "Go", "RubyGems"];
+    if (!name || !version || !ecosystem || !ecosystems.includes(ecosystem as Ecosystem)) {
+      fail(`Usage: guardbee-dependency-auditor audit-pkg <name> <version> <ecosystem>\n  ecosystems: ${ecosystems.join(", ")}`);
+    }
+    cfg = loadConfig(null, overrides(args));
+    results = await queryOsvBatch([{ name, version, ecosystem: ecosystem as Ecosystem }]);
+    label = ecosystem;
+  } else {
+    const dir = positionals[0];
+    if (!dir) {
+      fail(`Usage: guardbee-dependency-auditor ${cmd} <directory> [--fail-on=high] [--include-dev] [--format=text|json|sarif]`);
+    }
+    cfg = loadConfig(dir, overrides(args));
+    const cfgPath = configFilePath(dir);
+    if (cfgPath && format === "text") process.stderr.write(`[guardbee] Using config: ${cfgPath}\n`);
+
+    results = await collect(cmd, dir, cfg, format);
+    if (results.length === 0) fail(`No supported manifest files found in: ${dir}`);
+    label = cmd === "audit-npm" ? "npm" : cmd === "audit-pip" ? "pip" : "total";
+
+    if (cfg.ignore.length > 0) {
+      for (const r of results) {
+        r.vulns = r.vulns.filter((v) => !cfg.ignore.some((id) => v.id === id || (v.aliases ?? []).includes(id)));
+      }
+    }
   }
 
-  // Apply ignore list from config
-  if (cfg.ignore?.length > 0) {
-    for (const r of allResults) {
-      r.vulns = r.vulns.filter((v) =>
-        !cfg.ignore.some((id) => v.id === id || (v.aliases ?? []).includes(id))
-      );
+  const notes: string[] = [];
+  if (cfg.exploitData) {
+    const unavailable = await enrichExploitability(results);
+    if (unavailable.length > 0) {
+      // A gate on missing data would silently pass: fail instead.
+      if ((cfg.failOnKev && unavailable.includes("CISA KEV")) || (cfg.failOnEpss !== null && unavailable.includes("FIRST EPSS"))) {
+        fail(`Could not fetch ${unavailable.join(" and ")} data required by --fail-on-kev / --fail-on-epss.`);
+      }
+      notes.push(`ℹ️  Exploit data unavailable from ${unavailable.join(" and ")}; findings are ordered by severity only.`);
     }
+  } else if (cfg.failOnKev || cfg.failOnEpss !== null) {
+    fail("--fail-on-kev / --fail-on-epss need exploit data; remove --no-exploit-data.");
   }
 
   if (format === "json") {
-    console.log(JSON.stringify({ results: annotate(allResults), durationMs: Date.now() - start }, null, 2));
+    console.log(JSON.stringify({ results: annotate(results), durationMs: Date.now() - start }, null, 2));
   } else if (format === "sarif") {
-    console.log(JSON.stringify(buildSarif(getVersion(), allResults), null, 2));
+    console.log(JSON.stringify(buildSarif(getVersion(), results), null, 2));
   } else {
-    printText(allResults, cmd === "audit-npm" ? "npm" : cmd === "audit-pip" ? "pip" : "total", Date.now() - start);
+    console.log(formatReport(results, label, Date.now() - start, notes));
   }
 
-  process.exitCode = exitCode(allResults, failOn);
+  // Not process.exit(): it can drop the tail of a large report written to a pipe.
+  process.exitCode = gateExitCode(results, cfg);
 }
 
 function printHelp(): void {
@@ -190,7 +194,10 @@ Usage (CLI):
 
 Options:
   --fail-on=<level>   Exit 1 if findings at this severity or above (default: high)
-                      Levels: critical | high | medium | low
+                      Levels: critical | high | medium | low | none
+  --fail-on-kev       Exit 1 if a finding is exploited in the wild (CISA KEV)
+  --fail-on-epss=<p>  Exit 1 if a finding's EPSS score is at least p (0–1)
+  --no-exploit-data   Do not fetch CISA KEV / FIRST EPSS data (only CVE IDs are sent)
   --include-dev       Include dev dependencies (npm devDependencies, Poetry/uv/Pipenv dev groups)
   --format=<fmt>      Output format: text (default) | json | sarif
 
