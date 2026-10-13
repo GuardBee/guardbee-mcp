@@ -17,10 +17,12 @@ npm ve pip manifestlerini bilinen CVE'ler için [OSV](https://osv.dev) veritaban
 - **OSV API Entegrasyonu** — Google'ın açık kaynak güvenlik açığı veri tabanı (ücretsiz, kimlik doğrulaması gerektirmez)
 - **npm Desteği** — kesin sürümler `package-lock.json` / `npm-shrinkwrap.json` (v1/v2/v3), `pnpm-lock.yaml` (v5/v6/v9), `yarn.lock` (v1 ve Berry) ve `bun.lock` dosyalarından okunur; yoksa `package.json` aralıkları kullanılır. Geçişli paketler dahildir; lock dosyası işaretlemese bile (pnpm v9, yarn, bun) yalnızca geliştirme amaçlı paketler ayırt edilir
 - **pip Desteği** — kesin sürümler `uv.lock`, `poetry.lock` ve `Pipfile.lock` dosyalarından okunur (dev grupları ayrılır); yoksa `requirements.txt`, `requirements/base.txt`, `requirements/prod.txt` ve `pyproject.toml`
+- **Zararlı Paket Tespiti** — bilinen zararlı sürümler (OpenSSF `MAL-*` kayıtları ve CWE-506 olarak sınıflanan tavsiyeler; örneğin Eylül 2025'te ele geçirilen `chalk@5.6.1` / `debug@4.4.2`) kritik olarak ve raporun en başında gösterilir, kaldırma ve kimlik bilgisi yenileme önerisiyle birlikte; her `--fail-on` eşiğinde build'i kırar
 - **Severity Skorlaması** — CVSS puanına veya metin buluşsal yöntemine göre Critical / High / Medium / Low
 - **Düzeltme Sürümü** — Mevcut olduğunda `upgrade to X@Y.Z.Z` önerisi
 - **CVE Bağlantıları** — NVD veya osv.dev'e doğrudan link
-- **24 Unit Test** — %100 geçen test paketi
+- **Tekilleştirilmiş Bulgular** — birbirinin takma adı olan tavsiyeler (GHSA + PYSEC, GHSA + MAL) tek bulguda birleşir; ignore listeleri bunların herhangi bir kimliğiyle eşleşir
+- **Testler** — gerçek paket yöneticileriyle üretilmiş lock dosyaları ve sahte bir OSV API ile birim testleri
 
 ---
 

@@ -1,4 +1,4 @@
-import { getSeverity, getFixedVersion } from "./osv.js";
+import { getSeverity, getFixedVersion, isMalicious } from "./osv.js";
 import type { AuditResult, OsvVuln } from "./osv.js";
 
 // ── SARIF 2.1.0 types (minimal) ───────────────────────────────────────────────
@@ -55,7 +55,9 @@ export function buildSarif(toolVersion: string, results: AuditResult[]): object 
           helpUri: cveUrl(vuln),
           properties: {
             "problem.severity": getSeverity(vuln),
-            tags: ["security", "supply-chain", "dependency"],
+            tags: isMalicious(vuln)
+              ? ["security", "supply-chain", "dependency", "malicious"]
+              : ["security", "supply-chain", "dependency"],
           },
         });
       }
@@ -65,7 +67,9 @@ export function buildSarif(toolVersion: string, results: AuditResult[]): object 
       const cveIds = (vuln.aliases ?? []).filter((a) => a.startsWith("CVE-")).join(", ");
 
       const msg = [
-        `${pkg.name}@${pkg.version} has a known vulnerability.`,
+        isMalicious(vuln)
+          ? `${pkg.name}@${pkg.version} is a known-malicious release. Remove it and rotate credentials on every machine that installed it.`
+          : `${pkg.name}@${pkg.version} has a known vulnerability.`,
         vuln.summary ? `Summary: ${vuln.summary}` : "",
         cveIds ? `CVE: ${cveIds}` : "",
         fixed ? `Fix: upgrade to ${pkg.name}@${fixed}` : "",

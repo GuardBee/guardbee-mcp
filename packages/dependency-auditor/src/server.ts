@@ -4,54 +4,8 @@ import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
 import { parseNpmManifest } from "./parsers/npm.js";
 import { parsePipRequirements } from "./parsers/pip.js";
-import { queryOsvBatch, getSeverity, getFixedVersion, type Ecosystem } from "./osv.js";
-import type { AuditResult } from "./osv.js";
-
-function formatReport(
-  results: AuditResult[],
-  ecosystem: string,
-  durationMs: number
-): string {
-  const vulnerable = results.filter((r) => r.vulns.length > 0);
-  const totalVulns = results.reduce((s, r) => s + r.vulns.length, 0);
-
-  if (totalVulns === 0) {
-    return `✅ No known vulnerabilities found in ${results.length} ${ecosystem} packages (${durationMs}ms).`;
-  }
-
-  const counts = { critical: 0, high: 0, medium: 0, low: 0, unknown: 0 };
-  for (const r of vulnerable) {
-    for (const v of r.vulns) {
-      counts[getSeverity(v)]++;
-    }
-  }
-
-  const lines: string[] = [
-    `⚠️  Found ${totalVulns} vulnerabilit${totalVulns === 1 ? "y" : "ies"} in ${vulnerable.length}/${results.length} ${ecosystem} packages (${durationMs}ms)`,
-    `   Critical: ${counts.critical}  High: ${counts.high}  Medium: ${counts.medium}  Low: ${counts.low}  Unknown: ${counts.unknown}`,
-    "",
-  ];
-
-  for (const result of vulnerable) {
-    for (const vuln of result.vulns) {
-      const sev = getSeverity(vuln);
-      const fixed = getFixedVersion(vuln, result.name);
-      const cveIds = (vuln.aliases ?? []).filter((a) => a.startsWith("CVE-")).join(", ");
-      const nvdUrl = cveIds
-        ? `https://nvd.nist.gov/vuln/detail/${cveIds.split(", ")[0]}`
-        : `https://osv.dev/vulnerability/${vuln.id}`;
-
-      lines.push(`[${sev.toUpperCase()}] ${result.name}@${result.version}`);
-      lines.push(`  ID      : ${vuln.id}${cveIds ? ` (${cveIds})` : ""}`);
-      lines.push(`  Summary : ${vuln.summary ?? "No summary available"}`);
-      if (fixed) lines.push(`  Fix     : upgrade to ${result.name}@${fixed}`);
-      lines.push(`  Details : ${nvdUrl}`);
-      lines.push("");
-    }
-  }
-
-  return lines.join("\n");
-}
+import { queryOsvBatch, type Ecosystem } from "./osv.js";
+import { formatReport } from "./report.js";
 
 export async function startServer() {
   const server = new McpServer({
