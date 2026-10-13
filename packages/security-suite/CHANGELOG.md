@@ -1,5 +1,12 @@
 # @guardbee/security-suite
 
+## 0.2.10
+
+### Patch Changes
+
+- Updated dependencies [[`7f87277`](https://github.com/GuardBee/guardbee-mcp/commit/7f872776b62f37f39b60bc35aa0022a61b97b66f), [`fb28be0`](https://github.com/GuardBee/guardbee-mcp/commit/fb28be0bf134ba6334d82a4cdef31484ed93a080)]:
+  - @guardbee/mcp-dependency-auditor@0.3.0
+
 ## 0.2.9
 
 ### Patch Changes

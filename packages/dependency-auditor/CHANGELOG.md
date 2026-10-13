@@ -1,5 +1,22 @@
 # @guardbee/mcp-dependency-auditor
 
+## 0.3.0
+
+### Minor Changes
+
+- [#82](https://github.com/GuardBee/guardbee-mcp/pull/82) [`7f87277`](https://github.com/GuardBee/guardbee-mcp/commit/7f872776b62f37f39b60bc35aa0022a61b97b66f) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - feat: read exact versions from pnpm, yarn, bun, uv, Poetry and Pipenv lockfiles
+  
+  The auditor now reads `pnpm-lock.yaml` (v5/v6/v9), `yarn.lock` (v1 and Berry), `bun.lock` and `npm-shrinkwrap.json` alongside `package-lock.json`, and `uv.lock`, `poetry.lock` and `Pipfile.lock` for Python. Projects using these package managers were previously audited only on the direct dependencies in `package.json` or `requirements.txt`, with versions guessed from ranges. They are now audited on every locked package, including transitive ones.
+  
+  When the lockfile does not mark dev packages (pnpm v9, yarn, bun, uv), they are told apart by walking the dependency graph from the project's production and dev roots. `--include-dev` / `includeDevDeps` now also applies to Python dev groups. Workspace members in `package-lock.json` are no longer sent to OSV as registry packages. In text mode the CLI prints which file each ecosystem was read from.
+
+- [#82](https://github.com/GuardBee/guardbee-mcp/pull/82) [`fb28be0`](https://github.com/GuardBee/guardbee-mcp/commit/fb28be0bf134ba6334d82a4cdef31484ed93a080) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - feat: flag known-malicious package versions; merge duplicate advisories; stop truncating piped JSON/SARIF output
+  
+  - **Malware:** OpenSSF `MAL-*` records carry no severity score, so they were reported as UNKNOWN and passed `--fail-on`. The hijacked `chalk@5.6.1` from September 2025 exited 0. Releases with a `MAL-*` ID or alias, or an advisory classified CWE-506, are now critical. They are listed first with a removal and credential-rotation action, tagged `malicious` in SARIF, and marked `guardbee.malicious` in JSON.
+  - **Duplicates:** OSV often returns one issue under several IDs that alias each other (GHSA + PYSEC for PyPI, GHSA + MAL for malware). They are now merged into one finding. `requests@2.19.0` reports 5 vulnerabilities instead of 10. The merged record keeps every ID, so `ignore` entries still match any of them.
+  - **Truncated output:** The CLI called `process.exit()` right after writing the report, which cut piped output at 64 KB and left `--format=json | jq` with invalid JSON on larger projects. It now sets `process.exitCode` and lets stdout drain.
+  - **JSON annotations:** Each finding in JSON output now carries `guardbee: { severity, malicious, fixedVersion }`, the verdict the CLI acted on.
+
 ## 0.2.6
 
 ### Patch Changes
