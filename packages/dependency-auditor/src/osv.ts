@@ -24,43 +24,116 @@ export interface AuditResult {
 
 const OSV_API = "https://api.osv.dev/v1";
 const BATCH_SIZE = 1000;
+const HYDRATE_CONCURRENCY = 8;
+const MAX_ATTEMPTS = 3;
 
-export async function queryOsvBatch(
-  packages: Array<{ name: string; version: string; ecosystem: Ecosystem }>
-): Promise<AuditResult[]> {
-  const results: AuditResult[] = [];
+type PackageQuery = { name: string; version: string; ecosystem: Ecosystem };
+type BatchResult = { vulns?: Array<{ id: string }>; next_page_token?: string };
+
+// Full records keyed by ID. Advisories are immutable enough within one process lifetime.
+const vulnCache = new Map<string, OsvVuln>();
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/** fetch with retries on network errors, 429 and 5xx. Other statuses are returned as-is. */
+async function fetchWithRetry(url: string, init?: RequestInit): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const res = await fetch(url, init);
+      if (res.status !== 429 && res.status < 500) return res;
+      lastError = new Error(`OSV API error: ${res.status}`);
+    } catch (err) {
+      lastError = err;
+    }
+    if (attempt < MAX_ATTEMPTS) await sleep(250 * 2 ** (attempt - 1));
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
+async function postBatch(
+  queries: Array<PackageQuery & { pageToken?: string }>
+): Promise<BatchResult[]> {
+  const body = {
+    queries: queries.map((p) => ({
+      version: p.version,
+      package: { name: p.name, ecosystem: p.ecosystem },
+      ...(p.pageToken ? { page_token: p.pageToken } : {}),
+    })),
+  };
+  const res = await fetchWithRetry(`${OSV_API}/querybatch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(`OSV API error: ${res.status} ${await res.text()}`);
+  }
+  const data = (await res.json()) as { results?: BatchResult[] };
+  return data.results ?? [];
+}
+
+/**
+ * The querybatch endpoint returns only `{ id, modified }` per vulnerability.
+ * Severity, summary, aliases and affected ranges come from GET /vulns/{id}.
+ * Throws if any record cannot be fetched: an audit that silently drops
+ * severity would let a CI gate pass on unknown findings.
+ */
+async function hydrate(ids: string[]): Promise<Map<string, OsvVuln>> {
+  const missing = [...new Set(ids)].filter((id) => !vulnCache.has(id));
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    while (next < missing.length) {
+      const id = missing[next++]!;
+      const res = await fetchWithRetry(`${OSV_API}/vulns/${encodeURIComponent(id)}`);
+      if (!res.ok) {
+        throw new Error(`OSV API error fetching ${id}: ${res.status}`);
+      }
+      vulnCache.set(id, (await res.json()) as OsvVuln);
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(HYDRATE_CONCURRENCY, missing.length) }, worker)
+  );
+  return vulnCache;
+}
+
+export async function queryOsvBatch(packages: PackageQuery[]): Promise<AuditResult[]> {
+  const idsPerPackage: string[][] = packages.map(() => []);
 
   for (let i = 0; i < packages.length; i += BATCH_SIZE) {
-    const batch = packages.slice(i, i + BATCH_SIZE);
-    const body = {
-      queries: batch.map((p) => ({
-        version: p.version,
-        package: { name: p.name, ecosystem: p.ecosystem },
-      })),
-    };
+    let pending = packages
+      .slice(i, i + BATCH_SIZE)
+      .map((p, j) => ({ ...p, index: i + j, pageToken: undefined as string | undefined }));
 
-    const res = await fetch(`${OSV_API}/querybatch`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      throw new Error(`OSV API error: ${res.status} ${await res.text()}`);
-    }
-
-    const data = (await res.json()) as { results: Array<{ vulns?: OsvVuln[] }> };
-
-    for (let j = 0; j < batch.length; j++) {
-      const pkg = batch[j];
-      const vulns = data.results[j]?.vulns ?? [];
-      if (pkg) {
-        results.push({ name: pkg.name, version: pkg.version, ecosystem: pkg.ecosystem, vulns });
-      }
+    // A query with many advisories is paginated; re-ask only those with a token.
+    while (pending.length > 0) {
+      const results = await postBatch(pending);
+      const again: typeof pending = [];
+      pending.forEach((q, j) => {
+        const r = results[j];
+        for (const v of r?.vulns ?? []) idsPerPackage[q.index]!.push(v.id);
+        if (r?.next_page_token) again.push({ ...q, pageToken: r.next_page_token });
+      });
+      pending = again;
     }
   }
 
-  return results;
+  const records = await hydrate(idsPerPackage.flat());
+
+  return packages.map((p, i) => ({
+    name: p.name,
+    version: p.version,
+    ecosystem: p.ecosystem,
+    vulns: [...new Set(idsPerPackage[i])].map((id) => records.get(id)!),
+  }));
+}
+
+/** Test hook: forget hydrated records between tests. */
+export function clearOsvCache(): void {
+  vulnCache.clear();
 }
 
 type Severity = "critical" | "high" | "medium" | "low" | "unknown";
