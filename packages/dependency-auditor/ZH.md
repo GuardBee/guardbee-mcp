@@ -20,7 +20,7 @@
 - **恶意包检测** —— 已知恶意版本（OpenSSF `MAL-*` 条目及归类为 CWE-506 的公告，例如 2025 年 9 月被劫持的 `chalk@5.6.1` / `debug@4.4.2`）以 critical 级别列在报告最前面，并附带删除与凭据轮换建议；在任何 `--fail-on` 阈值下都会使构建失败
 - **利用优先级** —— 使用 [CISA KEV](https://www.cisa.gov/known-exploited-vulnerabilities-catalog)（在野利用、勒索软件使用）和 [FIRST EPSS](https://www.first.org/epss/)（30 天内被利用的概率）丰富发现，并按 恶意包 → KEV → 严重程度 → EPSS 排序。可用 `--fail-on-kev` / `--fail-on-epss=<0-1>` 作为 CI 门禁（`--fail-on=none` 关闭严重程度门禁）。仅发送 CVE ID；使用 `--no-exploit-data` 或在 `guardbee.yml` 中设置 `exploit-data: false` 关闭
 - **严重程度评分** —— 基于 CVSS 分数或文本启发式的 Critical / High / Medium / Low
-- **修复版本** —— 在可用时给出 `upgrade to X@Y.Z.Z` 建议
+- **修复计划** —— 每个包一次升级：能修复*全部*公告的最小已列出版本（如 `log4j-core 2.14.1 → 2.25.4 (fixes 7/7)`），并标注仍未修复的公告和主版本跨越。单条发现的修复版本沿用已安装的版本线（`next-auth 5.0.0-beta.31 → 5.0.0-beta.32`，而非 4.24.15），使用 SemVer、PEP 440 或 Maven 风格的版本排序
 - **CVE 链接** —— 直达 NVD 或 osv.dev 的链接
 - **去重的发现** —— 互为别名的公告（GHSA + PYSEC、GHSA + MAL）合并为一条；忽略列表可匹配其中任一 ID
 - **测试** —— 使用真实包管理器生成的锁文件和模拟 OSV API 的单元测试

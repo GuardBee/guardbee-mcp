@@ -9,6 +9,7 @@ import { buildSarif } from "./sarif.js";
 import { loadConfig, configFilePath, type DependencyAuditorConfig } from "./config.js";
 import { enrichExploitability } from "./exploit.js";
 import { gateExitCode } from "./gate.js";
+import { planUpgrade } from "./fix.js";
 import { readFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -27,12 +28,13 @@ function getVersion(): string {
 function annotate(results: AuditResult[]): unknown[] {
   return results.map((r) => ({
     ...r,
+    ...(r.vulns.length > 0 ? { guardbee: { upgrade: planUpgrade(r) } } : {}),
     vulns: r.vulns.map(({ exploit, ...v }) => ({
       ...v,
       guardbee: {
         severity: getSeverity(v),
         malicious: isMalicious(v),
-        fixedVersion: getFixedVersion(v, r.name),
+        fixedVersion: getFixedVersion(v, r.name, r.version, r.ecosystem),
         kev: exploit?.kev ?? null,
         epss: exploit?.epss ?? null,
       },
