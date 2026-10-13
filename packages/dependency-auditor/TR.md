@@ -15,8 +15,8 @@ npm ve pip manifestlerini bilinen CVE'ler için [OSV](https://osv.dev) veritaban
 ## Özellikler
 
 - **OSV API Entegrasyonu** — Google'ın açık kaynak güvenlik açığı veri tabanı (ücretsiz, kimlik doğrulaması gerektirmez)
-- **npm Desteği** — `package.json` ve `package-lock.json` (v1/v2/v3) okunur; kilitli sürümler tercih edilir
-- **pip Desteği** — `requirements.txt`, `requirements/base.txt`, `requirements/prod.txt` ve `pyproject.toml`
+- **npm Desteği** — kesin sürümler `package-lock.json` / `npm-shrinkwrap.json` (v1/v2/v3), `pnpm-lock.yaml` (v5/v6/v9), `yarn.lock` (v1 ve Berry) ve `bun.lock` dosyalarından okunur; yoksa `package.json` aralıkları kullanılır. Geçişli paketler dahildir; lock dosyası işaretlemese bile (pnpm v9, yarn, bun) yalnızca geliştirme amaçlı paketler ayırt edilir
+- **pip Desteği** — kesin sürümler `uv.lock`, `poetry.lock` ve `Pipfile.lock` dosyalarından okunur (dev grupları ayrılır); yoksa `requirements.txt`, `requirements/base.txt`, `requirements/prod.txt` ve `pyproject.toml`
 - **Severity Skorlaması** — CVSS puanına veya metin buluşsal yöntemine göre Critical / High / Medium / Low
 - **Düzeltme Sürümü** — Mevcut olduğunda `upgrade to X@Y.Z.Z` önerisi
 - **CVE Bağlantıları** — NVD veya osv.dev'e doğrudan link
@@ -49,8 +49,8 @@ npm install -g @guardbee/mcp-dependency-auditor
 
 | Tool | Açıklama |
 |------|----------|
-| `audit_npm` | `package.json` / `package-lock.json` içindeki npm bağımlılıklarını denetler |
-| `audit_pip` | `requirements.txt` / `pyproject.toml` içindeki Python bağımlılıklarını denetler |
+| `audit_npm` | npm bağımlılıklarını denetler (package-lock, pnpm, yarn, bun lock dosyaları veya `package.json`) |
+| `audit_pip` | Python bağımlılıklarını denetler (uv, Poetry, Pipenv lock dosyaları veya `requirements.txt` / `pyproject.toml`) |
 | `audit_package` | Tek bir paketi ad, sürüm ve ekosisteme göre denetler |
 | `audit_directory` | Desteklenen tüm manifest dosyalarını otomatik tespit ederek denetler |
 

@@ -15,8 +15,8 @@
 ## 功能
 
 - **OSV API 集成** —— Google 的开源漏洞数据库（免费，无需身份验证）
-- **npm 支持** —— 读取 `package.json` 与 `package-lock.json`（v1/v2/v3）；优先使用锁定版本
-- **pip 支持** —— `requirements.txt`、`requirements/base.txt`、`requirements/prod.txt` 与 `pyproject.toml`
+- **npm 支持** —— 从 `package-lock.json` / `npm-shrinkwrap.json`（v1/v2/v3）、`pnpm-lock.yaml`（v5/v6/v9）、`yarn.lock`（v1 与 Berry）和 `bun.lock` 读取精确版本，否则回退到 `package.json` 的版本范围。包含传递依赖；即使锁文件未标记（pnpm v9、yarn、bun），也能区分仅开发用的包
+- **pip 支持** —— 从 `uv.lock`、`poetry.lock` 和 `Pipfile.lock` 读取精确版本（区分开发依赖组），否则回退到 `requirements.txt`、`requirements/base.txt`、`requirements/prod.txt` 与 `pyproject.toml`
 - **严重程度评分** —— 基于 CVSS 分数或文本启发式的 Critical / High / Medium / Low
 - **修复版本** —— 在可用时给出 `upgrade to X@Y.Z.Z` 建议
 - **CVE 链接** —— 直达 NVD 或 osv.dev 的链接
@@ -49,8 +49,8 @@ npm install -g @guardbee/mcp-dependency-auditor
 
 | 工具 | 说明 |
 |------|----------|
-| `audit_npm` | 审计 `package.json` / `package-lock.json` 中的 npm 依赖 |
-| `audit_pip` | 审计 `requirements.txt` / `pyproject.toml` 中的 Python 依赖 |
+| `audit_npm` | 审计 npm 依赖（package-lock、pnpm、yarn、bun 锁文件或 `package.json`） |
+| `audit_pip` | 审计 Python 依赖（uv、Poetry、Pipenv 锁文件或 `requirements.txt` / `pyproject.toml`） |
 | `audit_package` | 按名称、版本与生态系统审计单个包 |
 | `audit_directory` | 自动检测并审计所有受支持的清单文件 |
 

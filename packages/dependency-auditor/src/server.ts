@@ -62,7 +62,7 @@ export async function startServer() {
 
   server.tool(
     "audit_npm",
-    "Audit npm dependencies from a package.json (and optionally package-lock.json) for known CVEs using the OSV database",
+    "Audit npm dependencies for known CVEs using the OSV database. Reads exact versions from package-lock.json, npm-shrinkwrap.json, pnpm-lock.yaml, yarn.lock (v1 and berry) or bun.lock, falling back to package.json ranges",
     {
       directory: z.string().describe("Path to the directory containing package.json"),
       includeDevDeps: z
@@ -92,13 +92,18 @@ export async function startServer() {
 
   server.tool(
     "audit_pip",
-    "Audit Python dependencies from requirements.txt or pyproject.toml for known CVEs using the OSV database",
+    "Audit Python dependencies for known CVEs using the OSV database. Reads exact versions from uv.lock, poetry.lock or Pipfile.lock, falling back to requirements.txt / pyproject.toml",
     {
       directory: z.string().describe("Path to the directory containing requirements.txt or pyproject.toml"),
+      includeDevDeps: z
+        .boolean()
+        .optional()
+        .describe("Include dev groups from poetry.lock, uv.lock or Pipfile.lock (default: false)"),
     },
-    async ({ directory }) => {
+    async ({ directory, includeDevDeps = false }) => {
       const start = Date.now();
-      const deps = parsePipRequirements(directory);
+      let deps = parsePipRequirements(directory);
+      if (!includeDevDeps) deps = deps.filter((d) => !d.isDev);
 
       if (deps.length === 0) {
         return {
@@ -137,7 +142,7 @@ export async function startServer() {
     "Auto-detect and audit npm and pip manifests (package.json, requirements.txt, pyproject.toml) in a directory",
     {
       directory: z.string().describe("Path to the project root directory"),
-      includeDevDeps: z.boolean().optional().describe("Include dev dependencies for npm (default: false)"),
+      includeDevDeps: z.boolean().optional().describe("Include dev dependencies (default: false)"),
     },
     async ({ directory, includeDevDeps = false }) => {
       const start = Date.now();
@@ -154,7 +159,8 @@ export async function startServer() {
       }
 
       // pip
-      const pipDeps = parsePipRequirements(directory);
+      let pipDeps = parsePipRequirements(directory);
+      if (!includeDevDeps) pipDeps = pipDeps.filter((d) => !d.isDev);
       if (pipDeps.length > 0) {
         const pipPkgs = pipDeps.map((d) => ({ name: d.name, version: d.version, ecosystem: "PyPI" as Ecosystem }));
         const pipResults = await queryOsvBatch(pipPkgs);

@@ -15,8 +15,8 @@ An MCP server that audits npm and pip manifests against the [OSV](https://osv.de
 ## Features
 
 - **OSV API Integration** — Google's open-source vulnerability database (free, no authentication required)
-- **npm Support** — reads `package.json` and `package-lock.json` (v1/v2/v3); locked versions preferred
-- **pip Support** — `requirements.txt`, `requirements/base.txt`, `requirements/prod.txt`, and `pyproject.toml`
+- **npm Support** — reads exact versions from `package-lock.json` / `npm-shrinkwrap.json` (v1/v2/v3), `pnpm-lock.yaml` (v5/v6/v9), `yarn.lock` (v1 and Berry) and `bun.lock`, falling back to `package.json` ranges. Transitive packages are included, and dev-only packages are told apart even when the lockfile does not mark them (pnpm v9, yarn, bun)
+- **pip Support** — reads exact versions from `uv.lock`, `poetry.lock` and `Pipfile.lock` (dev groups separated), falling back to `requirements.txt`, `requirements/base.txt`, `requirements/prod.txt`, and `pyproject.toml`
 - **Severity Scoring** — Critical / High / Medium / Low based on CVSS score or a text heuristic
 - **Fix Version** — an `upgrade to X@Y.Z.Z` recommendation when available
 - **CVE Links** — direct links to NVD or osv.dev
@@ -49,8 +49,8 @@ Add to `claude_desktop_config.json`:
 
 | Tool | Description |
 |------|----------|
-| `audit_npm` | Audits npm dependencies in `package.json` / `package-lock.json` |
-| `audit_pip` | Audits Python dependencies in `requirements.txt` / `pyproject.toml` |
+| `audit_npm` | Audits npm dependencies (package-lock, pnpm, yarn, bun lockfiles or `package.json`) |
+| `audit_pip` | Audits Python dependencies (uv, Poetry, Pipenv lockfiles or `requirements.txt` / `pyproject.toml`) |
 | `audit_package` | Audits a single package by name, version, and ecosystem |
 | `audit_directory` | Auto-detects and audits all supported manifest files |
 

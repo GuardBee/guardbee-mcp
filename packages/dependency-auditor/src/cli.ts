@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { startServer } from "./server.js";
-import { parseNpmManifest } from "./parsers/npm.js";
+import { parseNpmManifest, type Dependency } from "./parsers/npm.js";
 import { parsePipRequirements } from "./parsers/pip.js";
 import { queryOsvBatch, getSeverity, getFixedVersion, type Ecosystem } from "./osv.js";
 import type { AuditResult } from "./osv.js";
@@ -70,6 +70,13 @@ function printText(results: AuditResult[], label: string, durationMs: number): v
 }
 
 // ── CLI ────────────────────────────────────────────────────────────────────────
+
+/** `[guardbee] npm: pnpm-lock.yaml (4 packages)` — shows whether versions are exact. */
+function reportSource(label: string, deps: Dependency[], format: string): void {
+  if (format !== "text" || deps.length === 0) return;
+  const files = [...new Set(deps.map((d) => d.file ?? "manifest"))].join(", ");
+  process.stderr.write(`[guardbee] ${label}: ${files} (${deps.length} packages)\n`);
+}
 
 function parseArgs(args: string[]): { positionals: string[]; failOn: string; includeDev: boolean; format: string } {
   const positionals: string[] = [];
@@ -146,6 +153,7 @@ async function runCli(cmd: string, rawArgs: string[]): Promise<void> {
   if (cmd !== "audit-pip") {
     let deps = parseNpmManifest(dir);
     if (!includeDev) deps = deps.filter((d) => !d.isDev);
+    reportSource("npm", deps, format);
     if (deps.length > 0) {
       const pkgs = deps.map((d) => ({ name: d.name, version: d.version, ecosystem: "npm" as Ecosystem }));
       allResults.push(...(await queryOsvBatch(pkgs)));
@@ -153,7 +161,9 @@ async function runCli(cmd: string, rawArgs: string[]): Promise<void> {
   }
 
   if (cmd !== "audit-npm") {
-    const deps = parsePipRequirements(dir);
+    let deps = parsePipRequirements(dir);
+    if (!includeDev) deps = deps.filter((d) => !d.isDev);
+    reportSource("pip", deps, format);
     if (deps.length > 0) {
       const pkgs = deps.map((d) => ({ name: d.name, version: d.version, ecosystem: "PyPI" as Ecosystem }));
       allResults.push(...(await queryOsvBatch(pkgs)));
@@ -200,7 +210,7 @@ Usage (CLI):
 Options:
   --fail-on=<level>   Exit 1 if findings at this severity or above (default: high)
                       Levels: critical | high | medium | low
-  --include-dev       Include devDependencies (npm only)
+  --include-dev       Include dev dependencies (npm devDependencies, Poetry/uv/Pipenv dev groups)
   --format=<fmt>      Output format: text (default) | json
 
 Exit codes:
