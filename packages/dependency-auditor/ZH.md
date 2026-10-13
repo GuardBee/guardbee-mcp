@@ -16,6 +16,7 @@
 
 - **OSV API 集成** —— Google 的开源漏洞数据库（免费，无需身份验证）
 - **npm 支持** —— 从 `package-lock.json` / `npm-shrinkwrap.json`（v1/v2/v3）、`pnpm-lock.yaml`（v5/v6/v9）、`yarn.lock`（v1 与 Berry）和 `bun.lock` 读取精确版本，否则回退到 `package.json` 的版本范围。包含传递依赖；即使锁文件未标记（pnpm v9、yarn、bun），也能区分仅开发用的包
+- **Rust、Go、Ruby、PHP** —— `Cargo.lock`（从 `Cargo.toml` 识别开发依赖）、`go.mod`（支持 `// indirect` 与 `replace`）、`Gemfile.lock`（合并平台构建，从 `Gemfile` 读取开发组）和 `composer.lock`（`packages-dev`），由 `audit` 命令和 `audit_directory` 工具审计
 - **pip 支持** —— 从 `uv.lock`、`poetry.lock` 和 `Pipfile.lock` 读取精确版本（区分开发依赖组），否则回退到 `requirements.txt`、`requirements/base.txt`、`requirements/prod.txt` 与 `pyproject.toml`
 - **恶意包检测** —— 已知恶意版本（OpenSSF `MAL-*` 条目及归类为 CWE-506 的公告，例如 2025 年 9 月被劫持的 `chalk@5.6.1` / `debug@4.4.2`）以 critical 级别列在报告最前面，并附带删除与凭据轮换建议；在任何 `--fail-on` 阈值下都会使构建失败
 - **利用优先级** —— 使用 [CISA KEV](https://www.cisa.gov/known-exploited-vulnerabilities-catalog)（在野利用、勒索软件使用）和 [FIRST EPSS](https://www.first.org/epss/)（30 天内被利用的概率）丰富发现，并按 恶意包 → KEV → 严重程度 → EPSS 排序。可用 `--fail-on-kev` / `--fail-on-epss=<0-1>` 作为 CI 门禁（`--fail-on=none` 关闭严重程度门禁）。仅发送 CVE ID；使用 `--no-exploit-data` 或在 `guardbee.yml` 中设置 `exploit-data: false` 关闭

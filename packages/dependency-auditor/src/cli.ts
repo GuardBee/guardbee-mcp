@@ -10,6 +10,7 @@ import { loadConfig, configFilePath, type DependencyAuditorConfig } from "./conf
 import { enrichExploitability } from "./exploit.js";
 import { gateExitCode } from "./gate.js";
 import { auditDependencies } from "./audit.js";
+import { parseOtherEcosystems } from "./parsers/other-locks.js";
 import { planUpgrade } from "./fix.js";
 import { readFileSync } from "fs";
 import { resolve, dirname } from "path";
@@ -114,6 +115,14 @@ async function collect(cmd: string, dir: string, cfg: DependencyAuditorConfig, f
     }
   }
 
+  if (cmd === "audit") {
+    for (const { ecosystem, label, deps: found } of parseOtherEcosystems(dir)) {
+      const deps = cfg.includeDev ? found : found.filter((d) => !d.isDev);
+      reportSource(label, deps, format);
+      if (deps.length > 0) results.push(...(await auditDependencies(deps, ecosystem)));
+    }
+  }
+
   return results;
 }
 
@@ -128,7 +137,7 @@ async function runCli(cmd: string, rawArgs: string[]): Promise<void> {
 
   if (cmd === "audit-pkg") {
     const [name, version, ecosystem] = positionals;
-    const ecosystems: Ecosystem[] = ["npm", "PyPI", "crates.io", "Maven", "Go", "RubyGems"];
+    const ecosystems: Ecosystem[] = ["npm", "PyPI", "crates.io", "Maven", "Go", "RubyGems", "Packagist"];
     if (!name || !version || !ecosystem || !ecosystems.includes(ecosystem as Ecosystem)) {
       fail(`Usage: guardbee-dependency-auditor audit-pkg <name> <version> <ecosystem>\n  ecosystems: ${ecosystems.join(", ")}`);
     }
@@ -188,7 +197,7 @@ Usage (MCP server):
   guardbee-dependency-auditor [serve]
 
 Usage (CLI):
-  guardbee-dependency-auditor audit <dir>      Auto-detect npm/pip manifests
+  guardbee-dependency-auditor audit <dir>      Auto-detect npm, pip, Cargo, Go, Ruby and Composer projects
   guardbee-dependency-auditor audit-npm <dir>  Audit npm only
   guardbee-dependency-auditor audit-pip <dir>  Audit pip only
   guardbee-dependency-auditor audit-pkg <name> <version> <ecosystem>

@@ -35,11 +35,15 @@ function cveUrl(vuln: OsvVuln): string {
     : `https://osv.dev/vulnerability/${vuln.id}`;
 }
 
-function manifestUri(ecosystem: string): string {
-  if (ecosystem === "npm") return "package.json";
-  if (ecosystem === "PyPI") return "requirements.txt";
-  return "pom.xml";
-}
+const DEFAULT_MANIFEST: Record<string, string> = {
+  npm: "package.json",
+  PyPI: "requirements.txt",
+  "crates.io": "Cargo.lock",
+  Go: "go.mod",
+  RubyGems: "Gemfile.lock",
+  Packagist: "composer.lock",
+  Maven: "pom.xml",
+};
 
 export function buildSarif(toolVersion: string, results: AuditResult[]): object {
   const rulesMap = new Map<string, SarifRule>();
@@ -92,7 +96,7 @@ export function buildSarif(toolVersion: string, results: AuditResult[]): object 
           {
             physicalLocation: {
               artifactLocation: {
-                uri: manifestUri(pkg.ecosystem),
+                uri: pkg.file ?? DEFAULT_MANIFEST[pkg.ecosystem] ?? "pom.xml",
                 uriBaseId: "%SRCROOT%",
               },
             },

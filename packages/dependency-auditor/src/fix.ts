@@ -55,10 +55,17 @@ export function isAffected(vuln: OsvVuln, name: string, version: string, ecosyst
   );
 }
 
+/** Write a fix the way the installed version is written: Go and Composer use a "v" prefix (v0.10.0), OSV often does not. */
+function styleLike(installed: string, fixed: string): string {
+  return /^v\d/.test(installed) && /^\d/.test(fixed) ? `v${fixed}` : fixed;
+}
+
 function fixedEventsAbove(vuln: OsvVuln, name: string, version: string, ecosystem: string): string[] {
   return rangesFor(vuln, name, ecosystem)
     .flatMap((a) => a.ranges.flat())
-    .flatMap((e) => (e.fixed !== undefined && compareVersions(e.fixed, version, ecosystem) > 0 ? [e.fixed] : []));
+    .flatMap((e) =>
+      e.fixed !== undefined && compareVersions(e.fixed, version, ecosystem) > 0 ? [styleLike(version, e.fixed)] : []
+    );
 }
 
 /**

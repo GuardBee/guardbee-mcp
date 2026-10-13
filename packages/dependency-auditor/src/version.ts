@@ -127,7 +127,9 @@ const QUALIFIER_RANK: Record<string, number> = {
 };
 
 function tokens(v: string): Array<number | string> {
-  return (v.toLowerCase().match(/\d+|[a-z]+/g) ?? []).map((t) => (/^\d+$/.test(t) ? Number(t) : t));
+  // A leading "v" (Composer's v4.4.0) is a tag prefix, not a qualifier.
+  const bare = v.toLowerCase().replace(/^v(?=\d)/, "");
+  return (bare.match(/\d+|[a-z]+/g) ?? []).map((t) => (/^\d+$/.test(t) ? Number(t) : t));
 }
 
 function compareGeneric(a: string, b: string): number {
