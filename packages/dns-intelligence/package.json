@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-dns-intelligence",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "mcpName": "io.github.GuardBee/dns-intelligence",
   "description": "MCP server that enumerates DNS records, detects misconfigurations, and identifies dangling subdomains",
   "type": "module",
