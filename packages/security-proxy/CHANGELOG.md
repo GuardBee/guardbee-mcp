@@ -1,5 +1,11 @@
 # @guardbee/mcp-security-proxy
 
+## 1.14.0
+
+### Minor Changes
+
+- [#110](https://github.com/GuardBee/guardbee-mcp/pull/110) [`630c6ed`](https://github.com/GuardBee/guardbee-mcp/commit/630c6eda8ef1c0c5ce3995ed95228cfb59315a50) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - LLM API gateway: OpenAI- and Anthropic-compatible endpoints (`/v1/chat/completions`, `/v1/messages`, `/v1/models`) in HTTP mode. Apps use gateway keys instead of provider keys; prompts get injection, credential and PII checks (masking or tokenize, with tokens put back in the answer); request, token and USD budgets per user or gateway; token usage and cost in the audit log. Streaming is supported for both APIs.
+
 ## 1.13.2
 
 ### Patch Changes

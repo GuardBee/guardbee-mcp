@@ -1,5 +1,66 @@
 # @guardbee/mcp-dns-intelligence
 
+## 0.6.0
+
+### Minor Changes
+
+- [#109](https://github.com/GuardBee/guardbee-mcp/pull/109) [`43fa7d2`](https://github.com/GuardBee/guardbee-mcp/commit/43fa7d25161b9279431636bd32465fe82baf3d33) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - feat: DNSSEC and CAA checks
+  
+  **DNSSEC**
+  - Read through DNS-over-HTTPS (dns.google), because Node's resolver cannot see DS/DNSKEY records or the AD flag. Only the domain name is sent.
+  - A validating query is compared with a `cd=1` (checking disabled) one. SERVFAIL only when validating is `DNSSEC_BROKEN` (critical): validating resolvers cannot resolve the domain at all. SERVFAIL both ways is reported as unchecked, not as a DNSSEC verdict.
+  - At zone apexes:
+    - unsigned → `DNSSEC_DISABLED` (low)
+    - DNSKEY without DS → `DNSSEC_NO_DS` (medium)
+    - deprecated algorithms (RFC 8624) → `DNSSEC_WEAK_ALGORITHM`
+    - a SHA-1-only DS → `DNSSEC_DS_SHA1`
+  - The apex is recognised from the SOA owner, so a CNAME'd host does not repeat its target's findings.
+  
+  **CAA**
+  - The relevant set is found per RFC 8659 (nearest ancestor).
+  - No CAA → `CAA_MISSING` (low).
+  - An unknown critical tag → `CAA_UNKNOWN_CRITICAL` (high).
+  - The issuer of the certificate served on :443 is compared with the `issue` set. If that CA is not allowed, `CAA_BLOCKS_CURRENT_CA` (medium) warns that its renewal will fail.
+  
+  **Report and API**
+  - Both checks appear in `check` / `enumerate_dns` and are skipped with `http: false`.
+  - New exports: `checkDnssec`, `checkCaa`, `findCaa`, `fetchIssuer`.
+
+- [#97](https://github.com/GuardBee/guardbee-mcp/pull/97) [`237926d`](https://github.com/GuardBee/guardbee-mcp/commit/237926d457146f239cbc2d3243e0294ebc8f7176) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - feat: complete email security checks — DKIM key strength, MTA-STS, TLS-RPT, MX
+  
+  **DKIM**
+  - ~35 selectors are probed (Microsoft, Google Workspace date selectors, SendGrid, Mailchimp, Resend, Zoho, Proton, Fastmail, …), and the RSA size is read from each published key.
+  - New findings:
+    - `DKIM_KEY_WEAK` (under 1024 bits)
+    - `DKIM_KEY_1024` (rotate to 2048, RFC 8301)
+    - `DKIM_KEY_INVALID`
+    - `DKIM_TESTING` (`t=y`)
+    - `DKIM_KEY_REVOKED` (info)
+  - Extra `dkimSelectors` now also go through key analysis.
+  - `DKIM_NOT_FOUND` is no longer reported for domains that neither receive nor send mail.
+  
+  **MTA-STS (RFC 8461)**
+  - The `_mta-sts` record is checked: present, single, and with `id=`.
+  - The policy file is fetched over HTTPS without following redirects.
+  - The policy's `mx:` patterns (one-label wildcards) are matched against the live MX hosts. An enforce policy that omits a live MX is `MTA_STS_MX_MISMATCH` (high), because compliant senders would refuse to deliver.
+  - Also flagged: testing or none mode, `max_age` under a day, and an unreachable or invalid policy.
+  
+  **TLS-RPT**
+  - Expected alongside MTA-STS, with a `mailto:` or `https:` rua.
+  
+  **MX**
+  - `MX_UNRESOLVABLE` when an MX host has no A/AAAA record (a SERVFAIL is not flagged).
+  - Null MX (`0 .`) is recognised.
+  
+  **SPF severity change**
+  - A domain *with MX records* and no SPF is now **high**: anyone can send as it, and its own mail relies on DKIM alone. The finding includes a starting record for Google Workspace / Microsoft 365 MX hosts.
+  - A domain without MX gets **medium**, with a `v=spf1 -all` suggestion.
+  - **This can make `check` exit 1 where it exited 0 before**, at the default `--fail-on=high`.
+  
+  **Report and tool**
+  - `check_email_security` now covers MX, SPF, DMARC, DKIM keys and MTA-STS/TLS-RPT.
+  - The CLI report shows DKIM key sizes and the MTA-STS/TLS-RPT state.
+
 ## 0.5.0
 
 ### Minor Changes
