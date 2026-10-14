@@ -1,5 +1,27 @@
 # @guardbee/mcp-security-proxy
 
+## 1.18.0
+
+### Minor Changes
+
+- [#132](https://github.com/GuardBee/guardbee-mcp/pull/132) [`1084c93`](https://github.com/GuardBee/guardbee-mcp/commit/1084c930bd7218c04adf981e4f34139015beec21) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - `guardbee-hook`: the proxy's policy for coding agents' own tools. `guardbee-hook install --claude-code|--cursor` adds PreToolUse/PostToolUse (Claude Code) or shell/MCP/file-read hooks (Cursor). Built-in tools are labelled (secret files and env dumps `sensitive`, curl/git push/publish `egress`, rm -rf/force push `destructive`, web tools `untrusted` + `egress`); credentials on their way out, policy rules (`upstream: claude-code|cursor`) and the lethal-trifecta check run before each call, with the session's taint kept on disk; PII, injected instructions and topic rules are checked on the output. `uninstall` removes only GuardBee's entries.
+
+- [#123](https://github.com/GuardBee/guardbee-mcp/pull/123) [`945ed3c`](https://github.com/GuardBee/guardbee-mcp/commit/945ed3c817660b0cf479c2ce1777c1a4cc4ea5c1) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - `interceptors.documents` (off by default): images, embedded PDFs and resource blobs in tool results and resource reads are scanned for PII and credentials with the new `@guardbee/mcp-document-scanner` (PDF text layer, optional OCR) and withheld (`block`) or logged (`warn`). The shared policy schema accepts the new interceptor.
+
+- [#135](https://github.com/GuardBee/guardbee-mcp/pull/135) [`30d63ce`](https://github.com/GuardBee/guardbee-mcp/commit/30d63ceb2e5e6ef28a42ccc3d85c1c8d25bb9e36) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - `listen.ldap`: add LDAP / Active Directory groups to a known caller (OIDC user or LLM gateway key user) for rules, quotas, `llm.access` and budgets — `memberOf` or a group search, CN or DN names, cached, filter values escaped (RFC 4515), bind password from the environment; an unreachable directory answers 503 unless `onError: token-groups`.
+
+- [#122](https://github.com/GuardBee/guardbee-mcp/pull/122) [`30b68a8`](https://github.com/GuardBee/guardbee-mcp/commit/30b68a81311a982b6d6269946a5efe14f58d710a) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - LLM gateway: model access control (`llm.access`, `llm.accessDefault`) per user glob or group, with `/models` listing only the caller's models; and sensitive-data routing (`llm.sensitive`) that sends prompts holding personal data or listed topics to a model you run instead, unmasked by default, failing closed when that model has no route for the request's API. Routed requests are audited with `ruleId: llm:route:sensitive` and `llm.routedFrom`.
+
+- [#133](https://github.com/GuardBee/guardbee-mcp/pull/133) [`0a102ab`](https://github.com/GuardBee/guardbee-mcp/commit/0a102ab28827c4fbdc014d947f6887e0a1078c84) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - SIEM export: `audit.exporters` sends every audit event, batched and off the request path, to Splunk HEC, Elasticsearch/OpenSearch (`_bulk` create, event hash as `_id`) or syslog (RFC 5424 over UDP, TCP or TLS; CEF or JSON). Credentials come from environment variables; each destination has its own bounded retry queue. The dashboard sink now shares the same queue.
+
+- [#136](https://github.com/GuardBee/guardbee-mcp/pull/136) [`b3ea8b8`](https://github.com/GuardBee/guardbee-mcp/commit/b3ea8b8cac409b80d9d8fdab5527871509c45232) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Security reports: `guardbee-proxy report` builds a periodic report from the audit log (Markdown, HTML or JSON; English or Turkish) with findings mapped to OWASP Top 10 for LLM Applications (2025) and MITRE ATLAS, tied to the audit hash chain and optionally Ed25519-signed; `guardbee-proxy verify-report` checks it. The mapping (`classifyEvent`, `THREAT_CATEGORIES`) lives in guard-core and is shown by threat-rules' new `framework_map` tool.
+
+### Patch Changes
+
+- Updated dependencies [[`945ed3c`](https://github.com/GuardBee/guardbee-mcp/commit/945ed3c817660b0cf479c2ce1777c1a4cc4ea5c1), [`b3ea8b8`](https://github.com/GuardBee/guardbee-mcp/commit/b3ea8b8cac409b80d9d8fdab5527871509c45232)]:
+  - @guardbee/guard-core@0.15.0
+  - @guardbee/mcp-document-scanner@0.1.1
+
 ## 1.17.0
 
 ### Minor Changes
