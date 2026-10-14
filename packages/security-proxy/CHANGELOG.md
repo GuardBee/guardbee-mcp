@@ -1,5 +1,11 @@
 # @guardbee/mcp-security-proxy
 
+## 1.17.0
+
+### Minor Changes
+
+- [#120](https://github.com/GuardBee/guardbee-mcp/pull/120) [`32cc61a`](https://github.com/GuardBee/guardbee-mcp/commit/32cc61ac0ba6c5d76c5225849b1cc725253f2c69) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - LLM gateway: a streamed answer that must be rewritten (PII tokens put back, `maskResponses`) now streams incrementally instead of being fetched whole and replayed. Text is held only until a safe cut and rewritten with the text already sent as context, so values split across events are still masked or restored.
+
 ## 1.16.0
 
 ### Minor Changes
