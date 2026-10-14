@@ -1,5 +1,11 @@
 # @guardbee/guard-core
 
+## 0.13.0
+
+### Minor Changes
+
+- [#116](https://github.com/GuardBee/guardbee-mcp/pull/116) [`13c4c8f`](https://github.com/GuardBee/guardbee-mcp/commit/13c4c8f7afb29c7c373f83b1f64ae518edc08a46) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Topic-based policy rules: a `topics` list (terms in Turkish or English, case- and Turkish-letter-insensitive, suffix-tolerant) and a `match.topic` rule field. The proxy checks topic rules on tool arguments and again on tool results, resources and prompts (`deny` withholds, `mask` forces PII masking, `warn` logs, `approve` asks), and on LLM gateway prompts with `tool: llm:<model>`. guard-core exports `detectTopics`, `topicSchema` and `checkTopicReferences`; dashboard policies validate topics too.
+
 ## 0.12.1
 
 ### Patch Changes
