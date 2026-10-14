@@ -1,5 +1,7 @@
 # @guardbee/mcp-toxic-flow-auditor
 
+[![Redthread scan](https://trust.redthreadsec.com/badge/mcp/io.github.GuardBee/toxic-flow-auditor.svg)](https://trust.redthreadsec.com/v/mcp/io.github.GuardBee/toxic-flow-auditor)
+
 [🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文** | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 一个 MCP 服务器，用于审计 MCP **工具目录**中的**有毒数据流**——即 Simon Willison 所说的 *lethal trifecta*（致命三要素）：
