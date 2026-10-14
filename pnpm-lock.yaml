@@ -460,6 +460,9 @@ importers:
 
   packages/threat-rules:
     dependencies:
+      '@guardbee/guard-core':
+        specifier: workspace:^
+        version: link:../guard-core
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry

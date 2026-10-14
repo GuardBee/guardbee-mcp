@@ -21,3 +21,5 @@ export { DESCRIPTION_INJECTION_PATTERNS, MISMATCH_SINK_RULES, READ_ONLY_HINT } f
 export type { DescriptionInjectionPattern, MismatchSinkRule, ToolPoisoningCategory } from "./tool-poisoning.js";
 export { annotationContradicts, matchSurface, scanToolCatalog } from "./tool-catalog.js";
 export type { CatalogFinding, CatalogTool, SurfaceHit } from "./tool-catalog.js";
+export { OWASP_LLM, MITRE_ATLAS, THREAT_CATEGORIES, classifyEvent } from "./frameworks.js";
+export type { FrameworkRef, ThreatCategory, ThreatCategoryKey, ClassifiableEvent } from "./frameworks.js";
