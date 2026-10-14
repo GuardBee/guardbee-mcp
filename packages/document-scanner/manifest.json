@@ -1,0 +1,51 @@
+{
+  "manifest_version": "0.3",
+  "name": "@guardbee/mcp-document-scanner",
+  "display_name": "GuardBee Document Scanner",
+  "version": "0.1.0",
+  "description": "Finds PII and credentials inside PDFs, screenshots and scanned documents before they reach an LLM",
+  "long_description": "Reads documents the way a text DLP cannot: the PDF text layer, and OCR (Turkish and English, via the optional tesseract.js and @napi-rs/canvas packages) for images and scanned pages. Runs the GuardBee detectors on the text — checksum-validated TC Kimlik No, VKN, IBAN and card numbers, passport, SGK, MERSİS, date of birth, address, e-mail, KEP, phone and 22+ credential formats — and reports each finding with its page and how the text was read, showing only the first and last characters. Tools: scan_document (file or folder), scan_base64, list_detectors. The CLI writes text, JSON or SARIF 2.1.0.",
+  "author": {
+    "name": "GuardBee",
+    "email": "hello@guardbee.ai",
+    "url": "https://guardbee.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git"
+  },
+  "homepage": "https://guardbee.ai",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "ai-security",
+    "pii",
+    "ocr",
+    "pdf",
+    "dlp",
+    "kvkk",
+    "gdpr"
+  ],
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "node": ">=18"
+    }
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/dist/cli.js"
+      ]
+    }
+  },
+  "user_config": {},
+  "tools_generated": true
+}

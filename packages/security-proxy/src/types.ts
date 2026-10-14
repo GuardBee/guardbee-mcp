@@ -111,6 +111,19 @@ export type ProxyConfig = {
       /** Put real values back even when the tool can send data out. Off by default. */
       detokenizeForEgress?: boolean;
     };
+    /**
+     * Scan images, PDFs and other blobs in tool results and resources for PII
+     * and credentials. `block` withholds a document that holds any; `warn` logs.
+     * Off unless enabled.
+     */
+    documents?: {
+      enabled: boolean;
+      action: "block" | "warn";
+      /** OCR images and scanned PDF pages (default true; needs tesseract.js). */
+      ocr?: boolean;
+      /** Larger documents are not read (default 25 MB). */
+      maxBytes?: number;
+    };
     /** Session behaviour checks; see gateway/anomaly.ts. Off unless configured. */
     anomaly?: AnomalyConfig;
   };

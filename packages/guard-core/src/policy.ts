@@ -146,6 +146,13 @@ export const policyShape = {
         })
         .strict()
         .optional(),
+      /**
+       * PII and credentials inside images, PDFs and other blobs in tool results
+       * and resources (text layer, OCR when tesseract.js is installed). Off by default.
+       */
+      documents: interceptorSchema
+        .extend({ ocr: z.boolean().optional(), maxBytes: z.number().int().positive().max(100 * 1024 * 1024).optional() })
+        .optional(),
       /** Behaviour over a session: call bursts, sweeps of sensitive reads, bulk destructive calls, repeated blocks. */
       anomaly: interceptorSchema
         .extend({
