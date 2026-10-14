@@ -5,6 +5,8 @@ import { discoverFromCT, type CtDiscovery, type CtOptions } from "./ct.js";
 import { checkDkim, checkMx, checkMtaSts, checkTlsRpt, suggestSpf, type DkimKeyInfo, type MtaStsCheck } from "./email.js";
 import { checkDnssec, type DnssecStatus } from "./dnssec.js";
 import { checkCaa, type CaaCheck, type CaaResolver } from "./caa.js";
+import { checkNameservers, type NameserverReport } from "./nameservers.js";
+import type { DnsTransport } from "./wire.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -54,8 +56,10 @@ export interface DnsEnumerationResult {
   spf?: SpfAnalysis;
   dmarc?: DmarcAnalysis;
   dkimSelectors?: Record<string, boolean>; // selector → found
-  /** Not checked yet (requires AXFR over TCP); always undefined in this version. */
+  /** True when a nameserver allowed an anonymous AXFR; undefined when not probed. */
   zoneTransferVulnerable?: boolean;
+  /** Per-nameserver results of the direct probes (zone apexes only). */
+  nameservers?: NameserverReport["servers"];
   /** False when the domain does not exist (NXDOMAIN). */
   exists?: boolean;
   /** DKIM keys found under the probed selectors, with size and flags. */
@@ -82,6 +86,10 @@ export interface EnumerateOptions {
   caaResolver?: CaaResolver;
   /** Issuer of the certificate served on :443 (tests); defaults to a TLS handshake. */
   certificateIssuer?: (host: string) => Promise<string | undefined>;
+  /** Query each nameserver directly: delegation, serials, AXFR, open recursion (default true). */
+  nsProbe?: boolean;
+  /** DNS sockets for the nameserver probes (tests). */
+  dnsTransport?: DnsTransport;
 }
 
 export interface SubdomainResult {
@@ -482,6 +490,11 @@ export async function enumerateDomain(input: string, options: EnumerateOptions =
 
   // Nameservers — check for single point of failure
   const nsRecords = records["NS"] ?? [];
+  let nsReport: NameserverReport | undefined;
+  if (options.nsProbe !== false && nsRecords.length > 0) {
+    nsReport = await checkNameservers(domain, nsRecords.map((n) => n.value), r, { transport: options.dnsTransport });
+    findings.push(...nsReport.findings);
+  }
   if (nsRecords.length === 0) {
     // Subdomains usually have no NS of their own; only flag zone apexes (they have an SOA).
     if (records["SOA"]) findings.push({ severity: "high", code: "NS_MISSING", message: "No NS records found" });
@@ -506,6 +519,9 @@ export async function enumerateDomain(input: string, options: EnumerateOptions =
     tlsRpt: tlsRpt.record ? { record: tlsRpt.record } : {},
     ...(dnssec ? { dnssec } : {}),
     ...(caa ? { caa } : {}),
+    ...(nsReport
+      ? { nameservers: nsReport.servers, zoneTransferVulnerable: nsReport.servers.some((s) => s.axfr === "allowed") }
+      : {}),
     findings,
   };
 }
@@ -552,6 +568,21 @@ export function formatDnsReport(result: DnsEnumerationResult): string {
   } else if (result.dkimSelectors) {
     const found = Object.entries(result.dkimSelectors).filter(([, v]) => v).map(([k]) => k);
     lines.push(`\nDKIM selectors found: ${found.length ? found.join(", ") : "none"}`);
+  }
+
+  // Nameserver probes
+  if (result.nameservers) {
+    lines.push("\nNameserver checks:");
+    for (const s of result.nameservers) {
+      const state = !s.ip
+        ? s.error
+        : [
+            s.authoritative ? `authoritative, serial ${s.serial}` : `NOT authoritative (${s.error})`,
+            `AXFR ${s.axfr}`,
+            s.openResolver ? "OPEN RESOLVER" : "no open recursion",
+          ].join(" | ");
+      lines.push(`  ${s.host}${s.ip ? ` (${s.ip})` : ""}: ${state}`);
+    }
   }
 
   // DNSSEC and CAA

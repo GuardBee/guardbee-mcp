@@ -137,6 +137,18 @@ Email Security Check: example.com
 
 域名有 MX 记录时 `SPF_MISSING` 为 🟠 High（并给出起始记录，例如 Google Workspace 的 `v=spf1 include:_spf.google.com ~all`），否则为 🟡 Medium（建议 `v=spf1 -all`）。
 
+## 域名服务器发现项
+
+会通过 DNS（UDP/TCP 53）直接查询区域的每个域名服务器：一次不递归的 SOA 查询、一次 AXFR 请求（只读取最前面的消息 —— 从不下载整个区域），以及一次针对其未托管名称的递归查询。可用 `--no-ns-probe` / `nameserverProbe: false` 跳过。
+
+| 代码 | 严重程度 | 说明 |
+|-----|----------|----------|
+| `NS_AXFR_ALLOWED` | 🟠 High | 任何人都能下载整个区域（区域传送） |
+| `NS_LAME` | 🟠 High | 列出的域名服务器没有给出权威应答（REFUSED、SERVFAIL、无 AA 或无应答） |
+| `NS_UNRESOLVABLE` | 🟠 High | 域名服务器自身的名称没有地址 |
+| `NS_OPEN_RESOLVER` | 🟡 Medium | 域名服务器为任何人应答递归查询（放大攻击、缓存投毒） |
+| `NS_SOA_SERIAL_MISMATCH` | 🔵 Low | 同一主服务器下的服务器返回不同序列号（多服务商部署按主服务器分别比较） |
+
 ## DNSSEC 与 CAA 发现项
 
 | 代码 | 严重程度 | 说明 |

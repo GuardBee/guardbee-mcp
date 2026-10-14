@@ -137,6 +137,18 @@ Subdomains without their own DMARC record inherit the parent domain's (`sp=` pol
 
 `SPF_MISSING` is 🟠 High when the domain has MX records (with a starting record, e.g. `v=spf1 include:_spf.google.com ~all` for Google Workspace) and 🟡 Medium otherwise (suggests `v=spf1 -all`).
 
+## Nameserver Findings
+
+Each nameserver of a zone is queried directly over DNS (UDP/TCP 53): an SOA query without recursion, an AXFR request (only the first messages are read — the zone is never downloaded), and a recursive query for a name it does not host. Skip with `--no-ns-probe` / `nameserverProbe: false`.
+
+| Code | Severity | Description |
+|-----|----------|----------|
+| `NS_AXFR_ALLOWED` | 🟠 High | Anyone can download the whole zone (zone transfer) |
+| `NS_LAME` | 🟠 High | A listed nameserver does not answer authoritatively (REFUSED, SERVFAIL, no AA, or no answer) |
+| `NS_UNRESOLVABLE` | 🟠 High | A nameserver's own name has no address |
+| `NS_OPEN_RESOLVER` | 🟡 Medium | The nameserver answers recursive queries for anyone (amplification, cache poisoning) |
+| `NS_SOA_SERIAL_MISMATCH` | 🔵 Low | Servers of the same primary return different serials (multi-provider setups are compared per primary) |
+
 ## DNSSEC and CAA Findings
 
 | Code | Severity | Description |

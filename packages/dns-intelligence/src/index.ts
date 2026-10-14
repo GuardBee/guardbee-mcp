@@ -32,3 +32,7 @@ export { checkDnssec, dohQuery, DNSSEC_ALGORITHMS } from "./dnssec.js";
 export type { DnssecStatus } from "./dnssec.js";
 export { checkCaa, findCaa, fetchIssuer, CA_IDENTIFIERS } from "./caa.js";
 export type { CaaCheck, CaaRecord, CaaResolver } from "./caa.js";
+export { checkNameservers } from "./nameservers.js";
+export type { NameserverReport, NameserverStatus, NameserverOptions } from "./nameservers.js";
+export { encodeQuery, decodeMessage, readName, soaFields, socketTransport, socketTransportOn } from "./wire.js";
+export type { DnsMessage, DnsTransport } from "./wire.js";
