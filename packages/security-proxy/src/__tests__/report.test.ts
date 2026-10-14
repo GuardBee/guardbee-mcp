@@ -103,5 +103,5 @@ describe("CLI", () => {
     const tampered = spawnSync(process.execPath, [bin, "verify-report", out, "--pubkey", path.join(dir, "pub.pem")]);
     expect(tampered.status).toBe(1);
     expect(tampered.stdout.toString()).toContain("FAILED");
-  });
+  }, 30_000); // three node processes; CI runners are slower than a laptop
 });
