@@ -1,5 +1,11 @@
 # @guardbee/mcp-config-auditor
 
+## 0.5.0
+
+### Minor Changes
+
+- [#137](https://github.com/GuardBee/guardbee-mcp/pull/137) [`29b478f`](https://github.com/GuardBee/guardbee-mcp/commit/29b478f7106d6001cf113e8c2ed112a9d83ad7c9) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Shadow MCP discovery: also reads Gemini CLI, Cline and Zed configs (JSON with comments, `context_servers`) and Claude Code's per-project servers; `discover --format=json` adds a secret-free inventory (env and header names only, redacted arguments and URLs, package version and pinning, findings per server); `--upload` sends it to the GuardBee dashboard with a workspace API key.
+
 ## 0.4.1
 
 ### Patch Changes

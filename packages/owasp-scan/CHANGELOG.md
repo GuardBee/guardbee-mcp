@@ -1,5 +1,15 @@
 # @guardbee/mcp-owasp-scan
 
+## 0.2.7
+
+### Patch Changes
+
+- Updated dependencies [[`29b478f`](https://github.com/GuardBee/guardbee-mcp/commit/29b478f7106d6001cf113e8c2ed112a9d83ad7c9)]:
+  - @guardbee/mcp-config-auditor@0.5.0
+  - @guardbee/mcp-secret-scanner@0.6.4
+  - @guardbee/mcp-tool-poisoning-scanner@0.2.11
+  - @guardbee/mcp-toxic-flow-auditor@0.1.19
+
 ## 0.2.6
 
 ### Patch Changes
