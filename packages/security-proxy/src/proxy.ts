@@ -102,6 +102,7 @@ export async function startGateway(config: GatewayConfig): Promise<void> {
     const { startHttpGateway } = await import("./http-server.js");
     const http = await startHttpGateway(upstreams, config, audit, config.listen);
     process.stderr.write(`[guardbee-proxy] listening on ${http.url}\n`);
+    if (http.llmUrl) process.stderr.write(`[guardbee-proxy] LLM gateway on ${http.llmUrl} (chat/completions, messages, models)\n`);
     const shutdown = async () => {
       await http.close();
       await audit.close();

@@ -32,6 +32,7 @@ Claude ──► MCP Security Proxy ──► Any MCP Server
 - **Audit Log** — configurable log written to console or a file
 - **Gateway mode** — several MCP servers behind one proxy, one YAML policy (allow / deny / mask / warn)
 - **Toxic-flow blocking** — tracks the lethal trifecta across servers and blocks the egress call that would complete it
+- **LLM API gateway** — OpenAI- and Anthropic-compatible endpoints: gateway keys instead of provider keys, PII masking and injection checks on prompts, token and spend budgets, usage and cost in the audit log
 - **Zero Code Changes** — attaches in front of any existing MCP server
 
 ---
@@ -214,6 +215,64 @@ docker build -t guardbee/mcp-security-proxy packages/security-proxy
 docker run -p 8787:8787 -e GUARDBEE_PROXY_KEY=... -e GUARDBEE_API_KEY=... \
   -v "$PWD/guardbee-proxy.yaml:/etc/guardbee/guardbee-proxy.yaml:ro" guardbee/mcp-security-proxy
 ```
+
+---
+
+## LLM API Gateway
+
+In HTTP mode the proxy can also stand between your apps and the model providers. Apps point their SDK's base URL at the proxy and use a gateway key; the real provider keys stay in the proxy's environment and never reach code, laptops or CI.
+
+```yaml
+version: 1
+listen: { transport: http, host: 0.0.0.0, port: 8787 }
+upstreams: {}                    # MCP servers are optional when llm is set
+llm:
+  path: /v1                      # POST /v1/chat/completions, POST /v1/messages, GET /v1/models
+  providers:
+    openai:    { api: openai,    baseUrl: https://api.openai.com/v1, apiKeyEnv: OPENAI_API_KEY }
+    anthropic: { api: anthropic, baseUrl: https://api.anthropic.com, apiKeyEnv: ANTHROPIC_API_KEY }
+    local:     { api: openai,    baseUrl: http://ollama:11434/v1,    apiKeyEnv: OLLAMA_KEY }
+  routes:                        # first match wins; a request only goes to a provider of its own API
+    - { model: "gpt-*",    provider: openai }
+    - { model: "claude-*", provider: anthropic }
+    - { model: "llama*",   provider: local }
+  keys:                          # gateway keys, one per person or app (values from the environment)
+    - { keyEnv: GB_KEY_ALICE,   user: alice@acme.com, groups: [eng] }
+    - { keyEnv: GB_KEY_BILLING, user: billing-svc,    groups: [apps] }
+  pricing:                       # USD per 1M tokens, for cost in the audit log and costUsd budgets
+    "gpt-4o":   { input: 2.5, output: 10 }
+    "claude-*": { input: 3,   output: 15 }
+  budgets:
+    - { id: per-user-daily, per: user,    windowSeconds: 86400, costUsd: 20 }
+    - { id: contractors,    per: user,    windowSeconds: 3600,  requests: 100, match: { group: contractors } }
+    - { id: team-tokens,    per: gateway, windowSeconds: 86400, tokens: 5000000, match: { model: "gpt-*" } }
+  maskResponses: false           # also mask PII the model writes (prompts are always checked)
+  timeoutSeconds: 120
+interceptors:
+  piiMasking: { enabled: true, mode: tokenize }
+```
+
+```python
+from openai import OpenAI
+client = OpenAI(base_url="https://guardbee.acme.internal/v1", api_key=os.environ["GB_KEY"])
+```
+
+```ts
+import Anthropic from "@anthropic-ai/sdk";
+const client = new Anthropic({ baseURL: "https://guardbee.acme.internal", apiKey: process.env.GB_KEY });
+```
+
+What every request goes through, in order:
+
+1. **Key.** `Authorization: Bearer` (OpenAI SDKs) or `x-api-key` (Anthropic SDKs). A gateway key from `llm.keys` gives the user and groups; otherwise `listen.apiKeys` and `listen.oidc` tokens are accepted too. When `llm.keys` is set and `listen` has no keys, an unknown key is always refused — even on loopback.
+2. **Route.** The model name picks the provider; a model no route serves gets `404`.
+3. **Prompt injection** (`interceptors.promptInjection`) in user and tool messages. The app's own system prompt and the model's earlier turns are not scanned.
+4. **Credentials** (`interceptors.egressSecrets`) anywhere in the prompt: provider keys, private keys and connection strings are blocked (`403`) before they reach the provider.
+5. **Budgets.** Requests, tokens and USD per user (or per key) or for the whole gateway, over fixed windows. A request is admitted while every matching budget has room; tokens and cost are known only after the answer, so the call that crosses a limit completes and the next one gets `429` with `Retry-After`.
+6. **PII** (`interceptors.piiMasking`) in message text, tool-call arguments and tool results is masked, or with `mode: tokenize` replaced by tokens the proxy turns back into real values in the answer — the provider never sees them, the user does. Image data, ids and tool names are left alone.
+7. **Audit.** A `tool_call` event (`tool: llm:<model>`, `upstream: <provider>`, `labels: [llm]`, `user`, `piiHits`) and a `tool_response` event with `llm: { model, inputTokens, outputTokens, costUsd }`. Refusals are `blocked` events with `ruleId` `llm:injection`, `llm:credential` or the budget id.
+
+Streaming works for both APIs. A plain stream is relayed event by event; for OpenAI the proxy adds `stream_options.include_usage` to count tokens and drops that extra chunk if the client did not ask for it. When the answer has to be rewritten (PII tokens to put back, or `maskResponses`), the proxy fetches the answer whole and replays it to the client as a valid stream in one go. Provider errors are passed through unchanged, so SDK retries and error types keep working.
 
 ---
 

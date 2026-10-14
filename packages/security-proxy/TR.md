@@ -217,6 +217,21 @@ docker run -p 8787:8787 -e GUARDBEE_PROXY_KEY=... -e GUARDBEE_API_KEY=... \
 
 ---
 
+## LLM API Gateway
+
+HTTP modunda proxy, uygulamalarınızla model sağlayıcıları (OpenAI, Anthropic, OpenAI uyumlu yerel modeller) arasında da durabilir. Uygulamalar SDK'nın base URL'ini proxy'ye çevirip bir gateway anahtarı kullanır; gerçek sağlayıcı anahtarları proxy'nin ortam değişkenlerinde kalır.
+
+- **Uç noktalar:** `POST /v1/chat/completions` (OpenAI), `POST /v1/messages` (Anthropic), `GET /v1/models`
+- **Anahtarlar:** `llm.keys` ile kişi/uygulama başına gateway anahtarı (kullanıcı ve grup bilgisiyle); `listen.apiKeys` ve OIDC token'ları da kabul edilir
+- **Kontroller:** kullanıcı ve tool mesajlarında prompt injection, prompt'ta credential (403), mesaj metninde PII maskeleme veya `tokenize` (sağlayıcı gerçek değeri görmez, kullanıcı yanıtta görür)
+- **Bütçeler:** kullanıcı veya gateway başına istek, token ve USD limitleri; dolunca `429` + `Retry-After`
+- **Audit:** her çağrı `llm: { model, inputTokens, outputTokens, costUsd }` ile loglanır
+- **Streaming:** iki API'de de çalışır; yanıtın yeniden yazılması gerektiğinde (token geri koyma, `maskResponses`) yanıt bütün alınıp geçerli bir stream olarak tek seferde iletilir
+
+Tam yapılandırma örneği için [README](README.md#llm-api-gateway) dosyasına bakın.
+
+---
+
 ## MCP Tools
 
 Proxy kendi tool'unu kaydetmez. Hedef sunucunun tool'larını iletir ve her çağrıda interceptor zincirini uygular.
