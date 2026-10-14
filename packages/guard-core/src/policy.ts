@@ -140,6 +140,8 @@ export const policyShape = {
           enabled: z.boolean(),
           patterns: z.array(z.string()).optional(),
           mode: z.enum(["redact", "tokenize"]).optional(),
+          /** Opt-in detectors: network identifiers and plates are off unless listed. */
+          include: z.array(z.enum(["ip_address", "mac_address", "plate_tr"])).optional(),
           detokenizeForEgress: z.boolean().optional(),
         })
         .strict()
