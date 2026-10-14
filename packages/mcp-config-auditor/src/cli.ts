@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import { configFilePath, loadConfig } from "./config.js";
 import { buildSarif } from "./sarif.js";
 import { discoverHostMcp, loadAllowlistFile, scanConfigFile, scanDirectory, scanInventory } from "./scanner.js";
+import { buildInventory, uploadInventory } from "./inventory.js";
 import type { ConfigFinding, InventoryServer } from "./types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -58,6 +59,9 @@ function parseArgs(args: string[]): {
   allowlist?: string;
   home?: string;
   includeContentAudit: boolean;
+  upload: boolean;
+  uploadUrl?: string;
+  includeUser: boolean;
 } {
   const positionals: string[] = [];
   let failOn = "any";
@@ -66,6 +70,9 @@ function parseArgs(args: string[]): {
   let allowlist: string | undefined;
   let home: string | undefined;
   let includeContentAudit = false;
+  let upload = false;
+  let uploadUrl: string | undefined;
+  let includeUser = true;
   for (const arg of args) {
     if (arg.startsWith("--fail-on=")) failOn = arg.split("=")[1] ?? "any";
     else if (arg.startsWith("--format=")) format = arg.split("=")[1] ?? "text";
@@ -73,9 +80,14 @@ function parseArgs(args: string[]): {
     else if (arg.startsWith("--allowlist=")) allowlist = arg.slice("--allowlist=".length);
     else if (arg.startsWith("--home=")) home = arg.slice("--home=".length);
     else if (arg === "--include-content-audit") includeContentAudit = true;
+    else if (arg === "--upload") upload = true;
+    else if (arg.startsWith("--upload-url=")) {
+      upload = true;
+      uploadUrl = arg.slice("--upload-url=".length);
+    } else if (arg === "--no-user") includeUser = false;
     else if (!arg.startsWith("--")) positionals.push(arg);
   }
-  return { positionals, failOn, format, maxFiles, allowlist, home, includeContentAudit };
+  return { positionals, failOn, format, maxFiles, allowlist, home, includeContentAudit, upload, ...(uploadUrl ? { uploadUrl } : {}), includeUser };
 }
 
 function emit(findings: ConfigFinding[], scannedFiles: number, durationMs: number, format: string, failOn: string): void {
@@ -142,8 +154,8 @@ function runInventory(rawArgs: string[]): void {
   emit(findings, 1, 0, format, failOn);
 }
 
-function runDiscover(rawArgs: string[]): void {
-  const { failOn, format, allowlist: allowlistPath, home, includeContentAudit } = parseArgs(rawArgs);
+async function runDiscover(rawArgs: string[]): Promise<void> {
+  const { failOn, format, allowlist: allowlistPath, home, includeContentAudit, upload, uploadUrl, includeUser } = parseArgs(rawArgs);
   let allowlist = null;
   if (allowlistPath) {
     try {
@@ -154,29 +166,39 @@ function runDiscover(rawArgs: string[]): void {
     }
   }
   const result = discoverHostMcp({ home, allowlist, includeContentAudit });
-  if (format === "text") {
-    console.log(`Discovered ${result.scannedFiles} config(s); ${result.missingPaths} well-known path(s) absent.`);
-    console.log("");
-  } else if (format === "json") {
+  const inventory = buildInventory(result, { includeUser });
+
+  if (upload) {
+    const apiKey = process.env["GUARDBEE_API_KEY"];
+    if (!apiKey) {
+      console.error("--upload needs GUARDBEE_API_KEY (a workspace API key with the gateway.write scope)");
+      process.exit(2);
+    }
+    const sent = await uploadInventory(inventory, { apiKey, ...(uploadUrl ? { url: uploadUrl } : {}) });
+    const line = sent.ok ? `Uploaded the inventory (${inventory.servers.length} server(s)) to the GuardBee dashboard.` : `Upload failed: HTTP ${sent.status} ${sent.message}`;
+    process.stderr.write(line + "\n");
+    if (!sent.ok) process.exitCode = 2;
+  }
+
+  if (format === "json") {
     console.log(
       JSON.stringify(
-        {
-          findings: result.findings,
-          scannedFiles: result.scannedFiles,
-          missingPaths: result.missingPaths,
-          durationMs: result.durationMs,
-          discovered: result.discovered.map((d) => ({
-            client: d.client,
-            path: d.path,
-            servers: d.servers.map((s) => s.name),
-          })),
-        },
+        { findings: result.findings, scannedFiles: result.scannedFiles, missingPaths: result.missingPaths, durationMs: result.durationMs, inventory },
         null,
         2
       )
     );
-    process.exit(shouldFail(result.findings, failOn) ? 1 : 0);
+    process.exit(process.exitCode ?? (shouldFail(result.findings, failOn) ? 1 : 0));
     return;
+  }
+  if (format === "text") {
+    console.log(`Discovered ${result.scannedFiles} config(s); ${result.missingPaths} well-known path(s) absent.`);
+    for (const server of inventory.servers) {
+      const what = server.package ? `${server.package.name}@${server.package.version ?? "latest"}` : (server.url ?? server.command ?? "?");
+      const env = server.envKeys.length ? ` env: ${server.envKeys.join(", ")}` : "";
+      console.log(`  ${server.client.padEnd(14)} ${server.name.padEnd(24)} ${server.transport.padEnd(5)} ${what}${env}`);
+    }
+    console.log("");
   }
   emit(result.findings, result.scannedFiles, result.durationMs, format, failOn);
 }
@@ -206,6 +228,9 @@ Options:
   --allowlist=<file>  Allowlist JSON or line file (discover)
   --home=<dir>        Override home for well-known paths (discover)
   --include-content-audit  Also run content checks on discovered configs (discover)
+  --upload            Send the inventory to the GuardBee dashboard (GUARDBEE_API_KEY, scope gateway.write)
+  --upload-url=<url>  Another dashboard endpoint (implies --upload)
+  --no-user           Leave the OS user name out of the inventory
 `);
 }
 
@@ -233,12 +258,10 @@ if (!firstArg || firstArg === "serve") {
     process.exit(2);
   }
 } else if (firstArg === "discover") {
-  try {
-    runDiscover(rest);
-  } catch (err) {
+  runDiscover(rest).catch((err) => {
     console.error("Error:", (err as Error).message);
     process.exit(2);
-  }
+  });
 } else {
   console.error(`Unknown command: ${firstArg}`);
   console.error("Run with --help for usage.");
