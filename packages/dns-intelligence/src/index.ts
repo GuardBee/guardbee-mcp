@@ -36,3 +36,7 @@ export { checkNameservers } from "./nameservers.js";
 export type { NameserverReport, NameserverStatus, NameserverOptions } from "./nameservers.js";
 export { encodeQuery, decodeMessage, readName, soaFields, socketTransport, socketTransportOn } from "./wire.js";
 export type { DnsMessage, DnsTransport } from "./wire.js";
+export { gradeFindings, formatGrade, formatGradeTable } from "./grade.js";
+export type { Grade, DomainGrade } from "./grade.js";
+export { buildSarif, buildSarifMulti } from "./sarif.js";
+export { subdomainFindings } from "./dns.js";

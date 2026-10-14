@@ -12,6 +12,7 @@ import {
 import { normalizeDomain, systemResolver } from "./resolver.js";
 import { checkTakeover } from "./takeover.js";
 import { DKIM_SELECTORS, suggestSpf } from "./email.js";
+import { gradeFindings, formatGrade, formatGradeTable } from "./grade.js";
 import type { Finding } from "./dns.js";
 import * as dns from "dns/promises";
 
@@ -37,6 +38,37 @@ export async function startServer() {
       const result = await enumerateDomain(domain, { nsProbe: nameserverProbe });
       const report = formatDnsReport(result);
       return { content: [{ type: "text", text: `${report}\n\nCompleted in ${Date.now() - start}ms` }] };
+    }
+  );
+
+  server.tool(
+    "audit_domains",
+    "Audit several domains at once (e.g. every brand or country domain) and compare them: an A–F grade per domain from all DNS, email, DNSSEC, CAA and nameserver checks, plus each domain's most serious findings",
+    {
+      domains: z.array(z.string()).min(1).max(20).describe("Domains to audit, e.g. [\"example.com\", \"example.de\"]"),
+      nameserverProbe: z.boolean().optional().describe("Query nameservers directly (default: true)"),
+    },
+    async ({ domains, nameserverProbe }) => {
+      const start = Date.now();
+      const names = [...new Set(domains.map(normalizeDomain))];
+      const results = [];
+      for (const d of names) results.push(await enumerateDomain(d, { nsProbe: nameserverProbe }));
+
+      const order = { critical: 0, high: 1, medium: 2, low: 3, info: 4 } as const;
+      const lines = [`Domain audit: ${names.length} domain(s)`, "", formatGradeTable(results), ""];
+      for (const r of results) {
+        const top = r.findings
+          .filter((f) => f.severity !== "info")
+          .sort((a, b) => order[a.severity] - order[b.severity])
+          .slice(0, 5);
+        lines.push(`── ${r.domain}: ${formatGrade(gradeFindings(r.findings))}`);
+        for (const f of top) lines.push(`  [${f.severity.toUpperCase()}] ${f.message}`);
+        const more = r.findings.filter((f) => f.severity !== "info").length - top.length;
+        if (more > 0) lines.push(`  … ${more} more (run enumerate_dns on ${r.domain} for the full report)`);
+        lines.push("");
+      }
+      lines.push(`Completed in ${Date.now() - start}ms`);
+      return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );
 

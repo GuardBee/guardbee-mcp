@@ -49,7 +49,8 @@ Add to `claude_desktop_config.json`:
 
 | Tool | Description |
 |------|----------|
-| `enumerate_dns` | Enumerates all DNS records for a domain and runs SPF/DMARC/DKIM analysis |
+| `enumerate_dns` | Full DNS check with an A–F grade: records, SPF/DMARC/DKIM, MTA-STS, DNSSEC, CAA, nameservers |
+| `audit_domains` | Audits up to 20 domains and compares their grades and top findings |
 | `enumerate_subdomains` | Probes common subdomains (wildcard-aware); detects subdomain takeovers |
 | `check_takeover` | Checks given hostnames for subdomain takeover |
 | `check_email_security` | Combined SPF + DMARC + DKIM audit with fix recommendations |
@@ -197,7 +198,13 @@ npx @guardbee/mcp-dns-intelligence subdomains example.com --concurrency=50
 
 # JSON output
 npx @guardbee/mcp-dns-intelligence check example.com --format=json
+
+# Several domains with an A–F grade each and a summary table (or every domain in guardbee.yml when none is given)
+npx @guardbee/mcp-dns-intelligence check example.com example.de example.co.uk
+npx @guardbee/mcp-dns-intelligence check --format=sarif > dns.sarif
 ```
+
+Grades: each finding deducts points (critical 40, high 20, medium 8, low 2) and the worst finding caps the grade — any critical is F, any high at most C, any medium at most B.
 
 **Exit codes:** `0` = no issues · `1` = findings above threshold / dangling subdomain · `2` = error
 

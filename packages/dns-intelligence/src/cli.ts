@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import { startServer } from "./server.js";
-import { enumerateDomain, enumerateSubdomainsDetailed, formatDnsReport, formatSubdomainReport, TAKEOVER_LABEL } from "./dns.js";
+import { enumerateDomain, enumerateSubdomainsDetailed, formatDnsReport, formatSubdomainReport, subdomainFindings, TAKEOVER_LABEL } from "./dns.js";
 import { normalizeDomain, systemResolver } from "./resolver.js";
 import { checkTakeover } from "./takeover.js";
 import type { Finding } from "./dns.js";
-import { buildSarif } from "./sarif.js";
+import { buildSarif, buildSarifMulti } from "./sarif.js";
+import { gradeFindings, formatGradeTable } from "./grade.js";
 import { loadConfig } from "./config.js";
 import { readFileSync } from "fs";
 import { resolve, dirname } from "path";
@@ -71,28 +72,35 @@ async function runCheck(rawArgs: string[]): Promise<void> {
   const cfg = loadConfig(process.cwd(), {
     ...(parsed.failOn !== undefined ? { failOn: parsed.failOn } : {}),
   });
-  const domainArg = parsed.positionals[0] ?? cfg.domains[0];
+  // Every domain given on the command line, or every domain in guardbee.yml.
+  const domainArgs = parsed.positionals.length > 0 ? parsed.positionals : cfg.domains;
   const { failOn, format } = { failOn: cfg.failOn, format: parsed.format };
 
-  if (!domainArg) {
-    console.error("Usage: guardbee-dns-intelligence check <domain> [--fail-on=high] [--format=text|json|sarif]");
+  if (domainArgs.length === 0) {
+    console.error("Usage: guardbee-dns-intelligence check <domain> [domain…] [--fail-on=high] [--format=text|json|sarif]");
     console.error("       Or set domains in guardbee.yml under dns-intelligence.domains");
     process.exit(2);
   }
-  const domain = normalizeDomain(domainArg);
+  const domains = [...new Set(domainArgs.map(normalizeDomain))];
 
-  const result = await enumerateDomain(domain, { nsProbe: parsed.nsProbe, http: parsed.http });
+  // One domain at a time: each check already runs its own queries in parallel.
+  const results = [];
+  for (const domain of domains) {
+    results.push(await enumerateDomain(domain, { nsProbe: parsed.nsProbe, http: parsed.http }));
+  }
 
   if (format === "json") {
-    console.log(JSON.stringify(result, null, 2));
+    const withGrade = results.map((r) => ({ ...r, grade: gradeFindings(r.findings) }));
+    console.log(JSON.stringify(withGrade.length === 1 ? withGrade[0] : { domains: withGrade }, null, 2));
   } else if (format === "sarif") {
-    console.log(JSON.stringify(buildSarif(getVersion(), domain, result.findings), null, 2));
+    console.log(JSON.stringify(buildSarifMulti(getVersion(), results.map((r) => ({ domain: r.domain, findings: r.findings }))), null, 2));
   } else {
-    console.log(formatDnsReport(result));
+    console.log(results.map(formatDnsReport).join("\n\n" + "═".repeat(50) + "\n\n"));
+    if (results.length > 1) console.log("\n" + formatGradeTable(results));
   }
 
   // Not process.exit(): it can drop the tail of a large report written to a pipe.
-  process.exitCode = hasFailingFindings(result.findings, failOn) ? 1 : 0;
+  process.exitCode = results.some((r) => hasFailingFindings(r.findings, failOn)) ? 1 : 0;
 }
 
 async function runSubdomains(rawArgs: string[]): Promise<void> {
@@ -120,6 +128,8 @@ async function runSubdomains(rawArgs: string[]): Promise<void> {
     console.log(
       JSON.stringify({ domain, total: results.length, dangling: dangling.length, wildcard: wildcard ?? null, ct: ct ?? null, results }, null, 2)
     );
+  } else if (format === "sarif") {
+    console.log(JSON.stringify(buildSarif(getVersion(), domain, subdomainFindings({ results, wildcard })), null, 2));
   } else {
     console.log(formatSubdomainReport(domain, results, wildcard, ct));
   }
@@ -159,14 +169,15 @@ Usage (MCP server):
   guardbee-dns-intelligence [serve]
 
 Usage (CLI):
-  guardbee-dns-intelligence check <domain>       Full DNS check (records + SPF/DMARC/DKIM)
+  guardbee-dns-intelligence check <domain…>      Full DNS check with an A–F grade; several domains,
+                                                 or all of guardbee.yml's domains, give a summary table
   guardbee-dns-intelligence subdomains <domain>  Find subdomains (CT logs + wordlist), detect takeovers
   guardbee-dns-intelligence takeover <host…>     Check given hostnames for subdomain takeover
 
 Options:
   --fail-on=<level>     Exit 1 if findings at this severity or above (default: high)
                         Levels: critical | high | medium | low | info
-  --format=<fmt>        Output format: text (default) | json | sarif (check only)
+  --format=<fmt>        Output format: text (default) | json | sarif
   --concurrency=<n>     Parallel subdomain probes (default: 20, subdomains only)
   --no-http             Skip HTTP fingerprinting; only DNS-based takeover checks run
   --no-ct               Skip Certificate Transparency (crt.sh, Cert Spotter); wordlist only

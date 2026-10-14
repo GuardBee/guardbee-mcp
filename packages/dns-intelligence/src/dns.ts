@@ -7,6 +7,7 @@ import { checkDnssec, type DnssecStatus } from "./dnssec.js";
 import { checkCaa, type CaaCheck, type CaaResolver } from "./caa.js";
 import { checkNameservers, type NameserverReport } from "./nameservers.js";
 import type { DnsTransport } from "./wire.js";
+import { gradeFindings, formatGrade } from "./grade.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -383,6 +384,25 @@ export async function enumerateSubdomainsDetailed(
   };
 }
 
+/** Takeover results as findings, for SARIF, grades and CI gates. */
+export function subdomainFindings(e: SubdomainEnumeration): Finding[] {
+  const sev = (risk: TakeoverFinding["risk"]): Finding["severity"] =>
+    risk === "vulnerable" ? "high" : risk === "edge" ? "medium" : "low";
+  const out: Finding[] = [];
+  if (e.wildcard?.takeover && e.wildcard.takeover.risk !== "stale") {
+    out.push({ severity: sev(e.wildcard.takeover.risk), code: "WILDCARD_TAKEOVER", message: `Wildcard CNAME: ${e.wildcard.takeover.provider} — ${e.wildcard.takeover.evidence}` });
+  }
+  for (const r of e.results) {
+    if (!r.takeover) continue;
+    out.push({
+      severity: sev(r.takeover.risk),
+      code: r.takeover.risk === "stale" ? "SUBDOMAIN_STALE_CNAME" : "SUBDOMAIN_TAKEOVER",
+      message: `${r.subdomain}: ${r.danglingReason}`,
+    });
+  }
+  return out;
+}
+
 export async function enumerateSubdomains(
   domain: string,
   concurrency: number = 20,
@@ -529,7 +549,7 @@ export async function enumerateDomain(input: string, options: EnumerateOptions =
 // ── Report formatter ──────────────────────────────────────────────────────────
 
 export function formatDnsReport(result: DnsEnumerationResult): string {
-  const lines: string[] = [`DNS Intelligence Report: ${result.domain}`, "─".repeat(50)];
+  const lines: string[] = [`DNS Intelligence Report: ${result.domain}`, formatGrade(gradeFindings(result.findings)), "─".repeat(50)];
 
   // Records summary
   for (const [type, recs] of Object.entries(result.records)) {
