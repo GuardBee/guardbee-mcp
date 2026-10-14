@@ -156,6 +156,19 @@ Yukarıdaki tek sunuculu `--` kullanımı 0.x davranışını korur: tool adlar�
 
 ---
 
+## Güvenlik Raporları
+
+`guardbee-proxy report`, audit log'dan güvenlik ekibi veya denetçi için dönemsel bir rapor üretir: özet sayılar, **OWASP LLM Top 10 (2025)** ve **MITRE ATLAS** ile eşlenmiş bulgular, kişisel veri sayıları, en çok engelleyen kurallar ve hash zincirinin durumu. Payload asla rapora girmez.
+
+```bash
+openssl genpkey -algorithm ed25519 -out guardbee-report.key
+openssl pkey -in guardbee-report.key -pubout -out guardbee-report.pub
+guardbee-proxy report ./guardbee-audit.jsonl --days 30 --lang tr --key guardbee-report.key --out ekim.html
+guardbee-proxy verify-report ekim.html --pubkey guardbee-report.pub
+```
+
+Rapor, kanonik JSON'unun SHA-256'sını ve dönemdeki son audit olayının hash'ini taşır; `--key` ile Ed25519 imzalanır. `verify-report` `.json`, `.html` veya `.md` raporu doğrular; imzalayanı sabitlemek için `--pubkey` verin. Biçimler: Markdown, HTML, JSON; `--lang en|tr`. Eşleme tablosu için [README](README.md#security-reports).
+
 ## Gözlemlenebilirlik (OpenTelemetry)
 
 Her tool çağrısı `tools/call <tool>` adlı bir span'dır (kind SERVER) ve MCP semantik kurallarının özniteliklerini taşır — `mcp.method.name`, `gen_ai.tool.name`, `gen_ai.operation.name: execute_tool`, `mcp.session.id`, `enduser.id` (OIDC) — ayrıca `guardbee.upstream`, `guardbee.labels` ve `guardbee.pii_hits`. Upstream'e yapılan çağrı bir alt span'dır (kind CLIENT, `server.address` = upstream). Çağrının her audit olayı — engellemeler, toxic flow'lar, onaylar, uyarılar, sunucunun sampling istekleri — bir span event'idir (`guardbee.blocked`, … `guardbee.rule_id` ve `guardbee.reason` ile); engellenen çağrı `guardbee.blocked: true` taşır. Argümanlar ve sonuçlar span'lara asla yazılmaz.

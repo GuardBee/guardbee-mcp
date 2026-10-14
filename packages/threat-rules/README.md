@@ -32,6 +32,7 @@ Upstream ATR is MIT-licensed and already used across the industry. We depend on 
 | `list_rules` | List loaded rules (`source=atr\|guardbee`) |
 | `rule_stats` | Counts by category/source |
 | `explain_bridge` | How ATR maps onto GuardBee scanners |
+| `framework_map` | How GuardBee runtime findings map to OWASP LLM Top 10 (2025) and MITRE ATLAS — the mapping `guardbee-proxy report` uses |
 
 ## CLI
 

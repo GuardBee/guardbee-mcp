@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
+import { THREAT_CATEGORIES } from "@guardbee/guard-core";
 import {
   buildEvent,
   buildSarif,
@@ -239,6 +240,18 @@ export async function startServer() {
         "",
         "Upstream: https://github.com/Agent-Threat-Rule/agent-threat-rules (MIT)",
       ];
+      return { content: [{ type: "text", text: lines.join("\n") }] };
+    }
+  );
+
+  server.tool(
+    "framework_map",
+    "Show how GuardBee's runtime findings map to OWASP Top 10 for LLM Applications (2025) and MITRE ATLAS — the mapping guardbee-proxy report uses",
+    {},
+    async () => {
+      const lines = Object.values(THREAT_CATEGORIES).map(
+        (c) => `• ${c.title}\n    OWASP: ${c.owasp.map((o) => `${o.id} ${o.name}`).join("; ")}\n    ATLAS: ${c.atlas.map((a) => `${a.id} ${a.name}`).join("; ")}`,
+      );
       return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );

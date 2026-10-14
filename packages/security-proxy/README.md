@@ -171,6 +171,34 @@ The single-server `--` form above keeps its 0.x behavior: tool names are not pre
 
 ---
 
+## Security Reports
+
+`guardbee-proxy report` turns the audit log into a periodic report for a security team or an auditor: totals, the findings grouped and mapped to **OWASP Top 10 for LLM Applications (2025)** and **MITRE ATLAS**, personal-data counts, the rules and tools that blocked most, and the state of the hash chain. Payloads are never in it — only counts and the logged reasons.
+
+```bash
+openssl genpkey -algorithm ed25519 -out guardbee-report.key          # once; keep it private
+openssl pkey -in guardbee-report.key -pubout -out guardbee-report.pub
+guardbee-proxy report ./guardbee-audit.jsonl --days 30 --lang tr --key guardbee-report.key --out ekim.html
+guardbee-proxy report ./guardbee-audit.jsonl --from 2026-10-01 --to 2026-11-01 --format json --out october.json
+guardbee-proxy verify-report ekim.html --pubkey guardbee-report.pub
+```
+
+| Category | OWASP LLM Top 10 | MITRE ATLAS |
+|---|---|---|
+| Prompt injection in arguments and prompts | LLM01 | AML.T0051.000, AML.T0054 |
+| Instructions hidden in tool results, resources and prompts | LLM01, LLM05 | AML.T0051.001 |
+| Attempts to extract the system prompt | LLM07, LLM01 | AML.T0056 |
+| Poisoned tool definitions | LLM01, LLM03 | AML.T0051.001, AML.T0053 |
+| Tool definitions changed after approval (rug pull) | LLM03 | AML.T0010, AML.T0053 |
+| Sensitive data or credentials on their way out (toxic flows, credential egress, documents) | LLM02, LLM06 | AML.T0057 |
+| Calls refused or held by policy | LLM06 | AML.T0053 |
+| Bursts, quotas and budgets | LLM10 | AML.T0029, AML.T0034 |
+
+- Formats: Markdown (default), self-contained HTML (light and dark), JSON; `--lang en|tr`.
+- **Integrity**: the report carries the SHA-256 of its canonical JSON and the hash of the last audit event in the period, so it is tied to the hash chain. With `--key` (Ed25519, PEM) it is signed and carries the public key. `verify-report` checks a `.json`, `.html` or `.md` report; pass `--pubkey` to pin the signer — the embedded key alone only proves the report was not changed after signing, not who signed it.
+- A broken hash chain is reported in the report and on stderr.
+- The mapping lives in `@guardbee/guard-core` (`classifyEvent`, `THREAT_CATEGORIES`) and is shown by `@guardbee/mcp-threat-rules`' `framework_map` tool.
+
 ## Observability (OpenTelemetry)
 
 Every tool call is a span named `tools/call <tool>` (kind SERVER) with the MCP semantic-convention attributes — `mcp.method.name`, `gen_ai.tool.name`, `gen_ai.operation.name: execute_tool`, `mcp.session.id`, `enduser.id` (OIDC) — plus `guardbee.upstream`, `guardbee.labels` and `guardbee.pii_hits`. The call to the upstream is a child span (kind CLIENT, `server.address` = upstream). Every audit event of the call — blocks, toxic flows, approvals, warnings, a server's sampling requests — is a span event (`guardbee.blocked`, … with `guardbee.rule_id` and `guardbee.reason`), and a blocked call carries `guardbee.blocked: true`. Arguments and results are never put on spans.
