@@ -6,6 +6,7 @@ import { checkTopicReferences, policyShape, type TopicDefinition } from "@guardb
 import { loadProxyConfig } from "../config.js";
 import os from "os";
 import type { AuditConfig, McpServerConfig, ProxyConfig, UpstreamConfig } from "../types.js";
+import type { ExporterConfig } from "../audit/exporters.js";
 import type { Label } from "./labels.js";
 import type { PolicyAction, PolicyRule } from "./policy.js";
 import type { OidcConfig } from "../auth.js";
@@ -91,6 +92,70 @@ const upstreamSchema = z
 
 const LOOPBACK = new Set(["127.0.0.1", "::1", "localhost"]);
 
+const envVar = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable");
+const httpUrl = z.string().regex(/^https?:\/\//, "url must start with http:// or https://");
+const batching = { batchSize: z.number().int().positive().max(5000).optional(), flushIntervalMs: z.number().int().min(100).optional() };
+
+/** SIEM destinations; credentials come from the environment, never the file. */
+const exporterSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("splunk"), url: httpUrl, tokenEnv: envVar, index: z.string().optional(), sourcetype: z.string().optional(), ...batching }).strict(),
+  z
+    .object({
+      type: z.literal("elastic"),
+      url: httpUrl,
+      index: z.string().min(1),
+      apiKeyEnv: envVar.optional(),
+      usernameEnv: envVar.optional(),
+      passwordEnv: envVar.optional(),
+      ...batching,
+    })
+    .strict()
+    .refine((e) => !(e.apiKeyEnv && e.usernameEnv), "use apiKeyEnv or usernameEnv/passwordEnv, not both"),
+  z
+    .object({
+      type: z.literal("syslog"),
+      host: z.string().min(1),
+      port: z.number().int().min(1).max(65535).default(514),
+      protocol: z.enum(["udp", "tcp", "tls"]).default("tcp"),
+      format: z.enum(["cef", "json"]).default("cef"),
+      framing: z.enum(["octet", "newline"]).default("octet"),
+      facility: z.number().int().min(0).max(23).default(13),
+      appName: z.string().regex(/^[\x21-\x7e]{1,48}$/, "printable ASCII, no spaces, at most 48 characters").optional(),
+      caFile: z.string().optional(),
+      ...batching,
+    })
+    .strict(),
+]);
+
+type ExporterYaml = z.infer<typeof exporterSchema>;
+
+function resolveExporter(exporter: ExporterYaml, index: number): ExporterConfig {
+  const env = (name: string, field: string) => {
+    const value = process.env[name];
+    if (!value) throw new Error(`Environment variable ${name} (audit.exporters[${index}].${field}) is not set`);
+    return value;
+  };
+  const batching = { ...(exporter.batchSize ? { batchSize: exporter.batchSize } : {}), ...(exporter.flushIntervalMs ? { flushIntervalMs: exporter.flushIntervalMs } : {}) };
+  switch (exporter.type) {
+    case "splunk":
+      return { type: "splunk", url: exporter.url, token: env(exporter.tokenEnv, "tokenEnv"), ...(exporter.index ? { index: exporter.index } : {}), ...(exporter.sourcetype ? { sourcetype: exporter.sourcetype } : {}), ...batching };
+    case "elastic":
+      return {
+        type: "elastic",
+        url: exporter.url,
+        index: exporter.index,
+        ...(exporter.apiKeyEnv ? { apiKey: env(exporter.apiKeyEnv, "apiKeyEnv") } : {}),
+        ...(exporter.usernameEnv ? { username: env(exporter.usernameEnv, "usernameEnv") } : {}),
+        ...(exporter.passwordEnv ? { password: env(exporter.passwordEnv, "passwordEnv") } : {}),
+        ...batching,
+      };
+    case "syslog": {
+      const { type: _type, batchSize: _b, flushIntervalMs: _f, ...rest } = exporter;
+      return { type: "syslog", ...rest, ...batching };
+    }
+  }
+}
+
 const listenSchema = z
   .object({
     transport: z.enum(["stdio", "http"]).default("stdio"),
@@ -146,9 +211,10 @@ const yamlSchema = z
           })
           .strict()
           .optional(),
+        exporters: z.array(exporterSchema).default([]),
       })
       .strict()
-      .default({ enabled: true, sink: "console", includePayloads: false }),
+      .default({ enabled: true, sink: "console", includePayloads: false, exporters: [] }),
     policy: z
       .object({
         source: z.enum(["local", "dashboard"]).default("local"),
@@ -257,7 +323,7 @@ export function parseGatewayYaml(source: string, fileLabel = "guardbee-proxy.yam
     taint: cfg.taint,
     approval: cfg.approval,
     defaults: cfg.defaults,
-    audit: { ...cfg.audit, dashboard: resolveDashboard(cfg.audit.dashboard) },
+    audit: { ...cfg.audit, dashboard: resolveDashboard(cfg.audit.dashboard), exporters: cfg.audit.exporters.map(resolveExporter) },
     interceptors: cfg.interceptors,
     ...(cfg.llm ? { llm: resolveLlmConfig(cfg.llm) } : {}),
   };
