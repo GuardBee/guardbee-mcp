@@ -1,5 +1,12 @@
 # @guardbee/mcp-tool-poisoning-scanner
 
+## 0.2.9
+
+### Patch Changes
+
+- Updated dependencies [[`13c4c8f`](https://github.com/GuardBee/guardbee-mcp/commit/13c4c8f7afb29c7c373f83b1f64ae518edc08a46)]:
+  - @guardbee/guard-core@0.13.0
+
 ## 0.2.8
 
 ### Patch Changes
