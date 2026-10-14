@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
-import { policyShape } from "@guardbee/guard-core";
+import { checkTopicReferences, policyShape, type TopicDefinition } from "@guardbee/guard-core";
 import { loadProxyConfig } from "../config.js";
 import os from "os";
 import type { AuditConfig, McpServerConfig, ProxyConfig, UpstreamConfig } from "../types.js";
@@ -47,6 +47,8 @@ export interface GatewayConfig {
   namespaced: boolean;
   /** Label overrides by the tool name the agent sees; replaces the heuristic labels entirely. */
   labels: Record<string, Label[]>;
+  /** Subjects for `match.topic` rules; absent → none. */
+  topics?: TopicDefinition[];
   /** Which tools the agent sees (globs on the name it sees) and descriptions you wrote. */
   tools: ToolExposure;
   rules: PolicyRule[];
@@ -159,6 +161,7 @@ const yamlSchema = z
   })
   .strict()
   .superRefine((value, ctx) => {
+    checkTopicReferences(value, ctx);
     if (Object.keys(value.upstreams).length === 0 && !value.llm) {
       ctx.addIssue({ code: "custom", path: ["upstreams"], message: "at least one upstream is required (or an llm section)" });
     }
@@ -247,6 +250,7 @@ export function parseGatewayYaml(source: string, fileLabel = "guardbee-proxy.yam
         : { transport: "stdio" },
     namespaced: true,
     labels: cfg.labels,
+    topics: cfg.topics,
     tools: cfg.tools,
     rules: cfg.rules,
     quotas: cfg.quotas,

@@ -1,10 +1,10 @@
 import type http from "http";
 import { createHash, timingSafeEqual } from "crypto";
-import { PII_PATTERNS, maskPiiInText, scanForPromptInjection } from "@guardbee/guard-core";
+import { PII_PATTERNS, detectTopics, maskPiiInText, scanForPromptInjection } from "@guardbee/guard-core";
 import type { AuditLogger } from "../audit/logger.js";
 import type { Authenticate } from "../auth.js";
 import type { GatewayConfig } from "../gateway/config.js";
-import { globToRegExp } from "../gateway/policy.js";
+import { evaluateTopicRules, globToRegExp } from "../gateway/policy.js";
 import { PiiVault } from "../gateway/tokens.js";
 import type { AuditEvent } from "../types.js";
 import { BudgetStore, costOf, type LlmCaller, type LlmUsage } from "./budget.js";
@@ -18,6 +18,7 @@ const PERSONAL_DATA = new Set(["tc_kimlik", "vkn", "iban", "credit_card", "email
 const PLACEHOLDER = new Map(PII_PATTERNS.map((p) => [p.name, p.replacement]));
 /** Text from these roles is scanned for injection; the app's own system prompt and the model's turns are not. */
 const UNTRUSTED_ROLES = new Set(["user", "tool", "function"]);
+const ALL_ROLES = new Set(["system", "developer", "user", "assistant", "tool", "function"]);
 /** Client headers passed on to the provider; everything else (cookies, the client's key) stays here. */
 const FORWARDED_HEADERS = ["anthropic-version", "anthropic-beta", "openai-organization", "openai-project"];
 
@@ -168,6 +169,30 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
       }
     }
 
+    // 2b. Topic rules (match.topic, tool: llm:<model>) on everything sent to the provider
+    let forceMask = false;
+    const topics = options.config.topics ?? [];
+    if (topics.length > 0 && options.config.rules.some((rule) => rule.match.topic !== undefined)) {
+      const found = detectTopics(promptTexts(api, body, ALL_ROLES), topics).map((hit) => hit.id);
+      const decision = evaluateTopicRules(options.config.rules, {
+        tool: base.tool,
+        upstream: provider.name,
+        labels: [],
+        tainted: false,
+        topics: found,
+        ...(caller.user ? { user: caller.user } : {}),
+        groups: caller.groups,
+      });
+      if (decision) {
+        const reason = `the prompt is about ${found.join(", ")} (policy rule ${decision.ruleId})`;
+        if (decision.action === "deny") refuse(403, reason, decision.ruleId!);
+        // No one to ask in the middle of an API call: an approval rule refuses
+        if (decision.action === "approve") refuse(403, `${reason}; it needs approval, which API calls cannot ask for`, decision.ruleId!);
+        if (decision.action === "warn") log({ ...base, type: "warn", ruleId: decision.ruleId, reason });
+        if (decision.action === "mask") forceMask = true;
+      }
+    }
+
     // 3. Budgets: only a request that is about to go out counts
     const over = budgets.admit(llm.budgets, { ...caller, model });
     if (over) refuse(429, over.reason, over.ruleId, { "retry-after": String(over.retryAfter) });
@@ -176,7 +201,7 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     const vault = new PiiVault();
     const hits: Record<string, number> = {};
     const tokenize = interceptors.piiMasking?.mode === "tokenize";
-    const masking = interceptors.piiMasking?.enabled !== false;
+    const masking = interceptors.piiMasking?.enabled !== false || forceMask;
     let forward = mapPrompt(api, body, (text) => {
       const redacted = maskPiiInText(text, (name) => {
         const category = PERSONAL_DATA.has(name) ? name : "secret";
