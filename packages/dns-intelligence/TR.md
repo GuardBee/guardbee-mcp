@@ -137,6 +137,21 @@ Kendi DMARC kaydı olmayan alt alan adları, alıcıların yaptığı gibi üst 
 
 `SPF_MISSING`, alan adının MX kaydı varsa 🟠 High (başlangıç kaydıyla, örn. Google Workspace için `v=spf1 include:_spf.google.com ~all`), yoksa 🟡 Medium'dur (`v=spf1 -all` önerilir).
 
+## DNSSEC ve CAA Bulguları
+
+| Kod | Önem | Açıklama |
+|-----|----------|----------|
+| `DNSSEC_BROKEN` | 🔴 Critical | Doğrulama başarısız — doğrulayan resolver'lar (Google, Cloudflare, çoğu ISP) alan adını çözemez |
+| `DNSSEC_NO_DS` | 🟡 Medium | Zone imzalı ama üst zone'da DS yok; hiçbir şey doğrulanmıyor |
+| `DNSSEC_WEAK_ALGORITHM` | 🟡 Medium | Kullanımdan kalkmış imza algoritması (RSASHA1, RSAMD5, DSA, GOST; RFC 8624) |
+| `DNSSEC_DS_SHA1` | 🔵 Low | Tek DS özeti SHA-1 |
+| `DNSSEC_DISABLED` | 🔵 Low | Zone imzalı değil |
+| `CAA_BLOCKS_CURRENT_CA` | 🟡 Medium | CAA, canlı sertifikayı veren CA'ya izin vermiyor — yenileme başarısız olur |
+| `CAA_UNKNOWN_CRITICAL` | 🟠 High | CA'ların anlamadığı kritik bir CAA etiketi — her CA reddetmek zorunda |
+| `CAA_MISSING` | 🔵 Low | Ağaçta hiç CAA yok: herhangi bir CA sertifika verebilir |
+
+DNSSEC, Node'un resolver'ı DS/DNSKEY kayıtlarını ve AD bayrağını göremediği için DNS-over-HTTPS (dns.google) üzerinden, doğrulayan bir sorgu ile `cd=1` (doğrulama kapalı) sorgu karşılaştırılarak okunur. CAA, RFC 8659'a göre (en yakın üst alan adı) bulunur ve :443'teki sertifikanın vereni bununla karşılaştırılır. İki kontrol de `http: false` ile atlanır.
+
 ## Subdomain Ele Geçirme Tespiti
 
 CNAME'i olan her canlı subdomain, CNAME zinciri (en fazla 5 adım) izlenerek kontrol edilir. Wildcard kaydı da kontrol edilir: asılı bir `*.alanadi`, listelenmeyen her adı ele geçirilebilir yapar.

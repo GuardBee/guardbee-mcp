@@ -137,6 +137,21 @@ Email Security Check: example.com
 
 域名有 MX 记录时 `SPF_MISSING` 为 🟠 High（并给出起始记录，例如 Google Workspace 的 `v=spf1 include:_spf.google.com ~all`），否则为 🟡 Medium（建议 `v=spf1 -all`）。
 
+## DNSSEC 与 CAA 发现项
+
+| 代码 | 严重程度 | 说明 |
+|-----|----------|----------|
+| `DNSSEC_BROKEN` | 🔴 Critical | 验证失败 —— 执行验证的解析器（Google、Cloudflare、多数 ISP）无法解析该域名 |
+| `DNSSEC_NO_DS` | 🟡 Medium | 区域已签名但父区域没有 DS，因此不会被验证 |
+| `DNSSEC_WEAK_ALGORITHM` | 🟡 Medium | 已弃用的签名算法（RSASHA1、RSAMD5、DSA、GOST；RFC 8624） |
+| `DNSSEC_DS_SHA1` | 🔵 Low | 唯一的 DS 摘要是 SHA-1 |
+| `DNSSEC_DISABLED` | 🔵 Low | 区域未签名 |
+| `CAA_BLOCKS_CURRENT_CA` | 🟡 Medium | CAA 不允许签发当前证书的 CA —— 续期将失败 |
+| `CAA_UNKNOWN_CRITICAL` | 🟠 High | 存在 CA 无法理解的关键 CAA 标签 —— 所有 CA 都必须拒绝签发 |
+| `CAA_MISSING` | 🔵 Low | 整棵树上都没有 CAA：任何 CA 都可签发 |
+
+由于 Node 的解析器看不到 DS/DNSKEY 记录和 AD 标志，DNSSEC 通过 DNS-over-HTTPS（dns.google）读取，并对比执行验证的查询与 `cd=1`（关闭验证）的查询。CAA 按 RFC 8659（最近的上级域名）查找，并与 :443 上证书的签发者对比。两项检查都可用 `http: false` 跳过。
+
 ## 子域名接管检测
 
 每个带 CNAME 的存活子域名都会沿 CNAME 链（最多 5 跳）进行检查。通配符记录也会检查：悬空的 `*.domain` 会让所有未列出的名称都可被接管。

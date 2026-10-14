@@ -28,3 +28,7 @@ export { discoverFromCT, normalizeCtName } from "./ct.js";
 export type { CtDiscovery, CtOptions, CtSourceResult } from "./ct.js";
 export { analyzeDkimRecord, checkDkim, checkMx, checkMtaSts, checkTlsRpt, parseMtaStsPolicy, mxMatches, suggestSpf, DKIM_SELECTORS } from "./email.js";
 export type { DkimKeyInfo, MtaStsCheck, MtaStsPolicy, MxCheck } from "./email.js";
+export { checkDnssec, dohQuery, DNSSEC_ALGORITHMS } from "./dnssec.js";
+export type { DnssecStatus } from "./dnssec.js";
+export { checkCaa, findCaa, fetchIssuer, CA_IDENTIFIERS } from "./caa.js";
+export type { CaaCheck, CaaRecord, CaaResolver } from "./caa.js";

@@ -137,6 +137,21 @@ Subdomains without their own DMARC record inherit the parent domain's (`sp=` pol
 
 `SPF_MISSING` is 🟠 High when the domain has MX records (with a starting record, e.g. `v=spf1 include:_spf.google.com ~all` for Google Workspace) and 🟡 Medium otherwise (suggests `v=spf1 -all`).
 
+## DNSSEC and CAA Findings
+
+| Code | Severity | Description |
+|-----|----------|----------|
+| `DNSSEC_BROKEN` | 🔴 Critical | Validation fails — validating resolvers (Google, Cloudflare, most ISPs) cannot resolve the domain |
+| `DNSSEC_NO_DS` | 🟡 Medium | Zone is signed but the parent has no DS, so nothing is validated |
+| `DNSSEC_WEAK_ALGORITHM` | 🟡 Medium | Deprecated signing algorithm (RSASHA1, RSAMD5, DSA, GOST; RFC 8624) |
+| `DNSSEC_DS_SHA1` | 🔵 Low | The only DS digest is SHA-1 |
+| `DNSSEC_DISABLED` | 🔵 Low | Zone is not signed |
+| `CAA_BLOCKS_CURRENT_CA` | 🟡 Medium | CAA does not allow the CA that issued the live certificate — its renewal will fail |
+| `CAA_UNKNOWN_CRITICAL` | 🟠 High | A critical CAA tag CAs do not understand — every CA must refuse |
+| `CAA_MISSING` | 🔵 Low | No CAA anywhere up the tree: any CA may issue |
+
+DNSSEC is read through DNS-over-HTTPS (dns.google), comparing a validating query with a `cd=1` (checking disabled) one, because Node's resolver cannot see DS/DNSKEY records or the AD flag. CAA follows RFC 8659 (nearest ancestor), and the issuer of the certificate served on :443 is compared against it. Both checks are skipped with `http: false`.
+
 ## Subdomain Takeover Detection
 
 Each live subdomain with a CNAME is checked, following the CNAME chain (up to 5 hops). The wildcard record is checked too: a dangling `*.domain` makes every unlisted name claimable.

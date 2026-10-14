@@ -24,7 +24,7 @@ export async function startServer() {
 
   server.tool(
     "enumerate_dns",
-    "Enumerate all DNS records for a domain and detect SPF, DMARC, DKIM misconfigurations",
+    "Enumerate all DNS records for a domain and detect misconfigurations: SPF, DMARC, DKIM key strength, MTA-STS/TLS-RPT, MX, DNSSEC (signed / broken / weak algorithms) and CAA (including whether it blocks the CA of the live certificate)",
     {
       domain: z.string().describe("Domain to enumerate (e.g. example.com)"),
     },
