@@ -113,6 +113,46 @@ async function startLlm(
   return { base: gw.llmUrl!, events };
 }
 
+/** Streams `echo: <last user text>` three characters per event, so tokens and PII are split across events. */
+const pieces = (text: string) => text.match(/[\s\S]{1,3}/g) ?? [];
+
+const openAiStreamEcho: Reply = (seen, res) => {
+  const chunk = (choice: unknown) => `data: ${JSON.stringify({ id: "c", object: "chat.completion.chunk", created: 1, model: seen.body["model"], choices: [choice] })}\n\n`;
+  res.writeHead(200, { "content-type": "text/event-stream" });
+  res.write(chunk({ index: 0, delta: { role: "assistant", content: "" }, finish_reason: null }));
+  for (const piece of pieces(`echo: ${lastUserText(seen.body)}`)) res.write(chunk({ index: 0, delta: { content: piece }, finish_reason: null }));
+  res.write(chunk({ index: 0, delta: {}, finish_reason: "stop" }));
+  res.end("data: [DONE]\n\n");
+};
+
+const anthropicStreamEcho: Reply = (seen, res) => {
+  const ev = (type: string, data: Record<string, unknown>) => res.write(`event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`);
+  res.writeHead(200, { "content-type": "text/event-stream" });
+  ev("message_start", { message: { id: "m", type: "message", role: "assistant", model: seen.body["model"], content: [], usage: { input_tokens: 9, output_tokens: 1 } } });
+  ev("content_block_start", { index: 0, content_block: { type: "text", text: "" } });
+  for (const piece of pieces(`echo: ${lastUserText(seen.body)}`)) ev("content_block_delta", { index: 0, delta: { type: "text_delta", text: piece } });
+  ev("content_block_stop", { index: 0 });
+  ev("message_delta", { delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: 7 } });
+  ev("message_stop", {});
+  res.end();
+};
+
+/** The text a client assembles from a stream, and how many text deltas it got. */
+function assemble(sse: string): { text: string; deltas: number } {
+  let text = "";
+  let deltas = 0;
+  for (const line of sse.split("\n")) {
+    if (!line.startsWith("data: ") || line === "data: [DONE]") continue;
+    const data = JSON.parse(line.slice(6)) as { choices?: { delta?: { content?: string } }[]; delta?: { type?: string; text?: string } };
+    const piece = data.choices?.[0]?.delta?.content ?? (data.delta?.type === "text_delta" ? data.delta.text : undefined);
+    if (piece) {
+      text += piece;
+      deltas++;
+    }
+  }
+  return { text, deltas };
+}
+
 const chat = (base: string, key: string, body: unknown) =>
   fetch(`${base}/chat/completions`, { method: "POST", headers: { authorization: `Bearer ${key}`, "content-type": "application/json" }, body: JSON.stringify(body) });
 
@@ -250,11 +290,33 @@ describe("LLM gateway: OpenAI-compatible", () => {
     expect(JSON.stringify(provider.seen[0]!.body)).not.toContain(TCKN);
     expect(((await res.json()) as { choices: { message: { content: string } }[] }).choices[0]!.message.content).toBe(`echo: müşteri ${TCKN}`);
 
-    const streamed = await chat(base, "gb-alice", { model: "gpt-4o", stream: true, messages: [{ role: "user", content: `müşteri ${TCKN}` }] });
-    expect(provider.seen[1]!.body["stream"]).toBe(false);
-    const text = await streamed.text();
-    expect(text).toContain(`echo: müşteri ${TCKN}`);
-    expect(text.trim().endsWith("data: [DONE]")).toBe(true);
+  });
+
+  it("streams a rewritten answer as it comes, with tokens split across events put back", async () => {
+    const provider = await fakeProvider(openAiStreamEcho);
+    const { base } = await startLlm({ openai: provider.url }, {}, { piiMasking: { enabled: true, mode: "tokenize" } });
+    const prompt = `müşteri ${TCKN} için kısa bir özet yaz lütfen, teşekkürler`;
+    const streamed = await chat(base, "gb-alice", { model: "gpt-4o", stream: true, messages: [{ role: "user", content: prompt }] });
+    expect(provider.seen[0]!.body["stream"]).toBe(true);
+    const sse = await streamed.text();
+    const { text, deltas } = assemble(sse);
+    expect(text).toBe(`echo: ${prompt}`);
+    expect(sse).not.toContain("<pii:");
+    expect(deltas).toBeGreaterThan(3);
+    expect(sse.trim().endsWith("data: [DONE]")).toBe(true);
+  });
+
+  it("maskResponses masks PII the model streams, even split three characters at a time", async () => {
+    const provider = await fakeProvider(openAiStreamEcho);
+    const { base, events } = await startLlm({ openai: provider.url }, { maskResponses: true }, { piiMasking: { enabled: false } });
+    const prompt = `IBAN TR33 0006 1005 1978 6457 8413 26 ve Pasaport No: U12345678 ile TC ${TCKN} kayıtlı`;
+    const res = await chat(base, "gb-alice", { model: "gpt-4o", stream: true, messages: [{ role: "user", content: prompt }] });
+    const { text } = assemble(await res.text());
+    expect(text).not.toContain("6457");
+    expect(text).not.toContain("U12345678");
+    expect(text).not.toContain(TCKN);
+    expect(text).toContain("Pasaport No:");
+    expect(events.find((e) => e.type === "tool_response")?.piiHits).toEqual({ iban: 1, passport: 1, tc_kimlik: 1 });
   });
 
   it("applies topic rules to the whole prompt, scoped by tool: llm:<model>", async () => {
@@ -309,17 +371,28 @@ describe("LLM gateway: Anthropic-compatible", () => {
     expect(events.find((e) => e.type === "tool_response")!.llm).toEqual({ model: "claude-sonnet-5", inputTokens: 50, outputTokens: 10 });
   });
 
-  it("refuses in the Anthropic error shape and replays a rewritten answer as Anthropic events", async () => {
+  it("refuses in the Anthropic error shape", async () => {
     const provider = await fakeProvider(anthropicEcho);
     const { base } = await startLlm({ anthropic: provider.url }, {}, { piiMasking: { enabled: true, mode: "tokenize" } });
     const denied = await messages(base, "wrong", { model: "claude-sonnet-5", max_tokens: 10, messages: [{ role: "user", content: "hi" }] });
     expect(await denied.json()).toMatchObject({ type: "error", error: { type: "authentication_error" } });
 
-    const res = await messages(base, "gb-bob", { model: "claude-sonnet-5", max_tokens: 10, stream: true, messages: [{ role: "user", content: `no ${TCKN}` }] });
-    const text = await res.text();
-    expect(text).toContain("event: message_start");
-    expect(text).toContain(`echo: no ${TCKN}`);
-    expect(text).toContain("event: message_stop");
+    expect(provider.seen).toHaveLength(0);
+  });
+
+  it("streams a rewritten Anthropic answer event by event", async () => {
+    const provider = await fakeProvider(anthropicStreamEcho);
+    const { base, events } = await startLlm({ anthropic: provider.url }, {}, { piiMasking: { enabled: true, mode: "tokenize" } });
+    const prompt = `kayıt ${TCKN} için durum nedir acaba`;
+    const res = await messages(base, "gb-bob", { model: "claude-sonnet-5", max_tokens: 10, stream: true, messages: [{ role: "user", content: prompt }] });
+    const sse = await res.text();
+    expect(sse).toContain("event: message_start");
+    expect(sse).toContain("event: message_stop");
+    expect(sse.indexOf("event: content_block_stop")).toBeGreaterThan(sse.lastIndexOf("event: content_block_delta"));
+    const { text, deltas } = assemble(sse);
+    expect(text).toBe(`echo: ${prompt}`);
+    expect(deltas).toBeGreaterThan(2);
+    expect(events.find((e) => e.type === "tool_response")?.llm).toMatchObject({ inputTokens: 9, outputTokens: 7 });
   });
 });
 

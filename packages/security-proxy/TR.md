@@ -227,7 +227,7 @@ HTTP modunda proxy, uygulamalarınızla model sağlayıcıları (OpenAI, Anthrop
 - **Kontroller:** kullanıcı ve tool mesajlarında prompt injection, prompt'ta credential (403), mesaj metninde PII maskeleme veya `tokenize` (sağlayıcı gerçek değeri görmez, kullanıcı yanıtta görür)
 - **Bütçeler:** kullanıcı veya gateway başına istek, token ve USD limitleri; dolunca `429` + `Retry-After`
 - **Audit:** her çağrı `llm: { model, inputTokens, outputTokens, costUsd }` ile loglanır
-- **Streaming:** iki API'de de çalışır; yanıtın yeniden yazılması gerektiğinde (token geri koyma, `maskResponses`) yanıt bütün alınıp geçerli bir stream olarak tek seferde iletilir
+- **Streaming:** iki API'de de çalışır; yanıtın yeniden yazılması gerektiğinde (token geri koyma, `maskResponses`) metin akarken yeniden yazılır: yalnızca güvenli bir kesme noktasına kadar (iki yanında rakam olmayan boşluk; IBAN, kart gibi gruplu sayılar bölünmez) bekletilir ve daha önce gönderilen son 300 karakterle birlikte işlenir, böylece `Pasaport No:` gibi bir etiket sonraki olaydaki değere yine uygulanır
 
 Tam yapılandırma örneği için [README](README.md#llm-api-gateway) dosyasına bakın.
 
