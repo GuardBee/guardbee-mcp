@@ -1,6 +1,6 @@
 # @guardbee/mcp-model-scanner
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe**
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
 
 MCP (Model Context Protocol) sunucusu — ML model dosyalarını **tedarik zinciri** riskleri için tarar: dosyayı yükleyen kodu değil, dosyanın kendisini.
 

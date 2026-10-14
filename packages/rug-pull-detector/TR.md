@@ -1,6 +1,6 @@
 # @guardbee/mcp-rug-pull-detector
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe**
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
 
 MCP (Model Context Protocol) sunucusu — başka bir MCP server'a **canlı** bağlanıp bir **MCP rug pull**'u tespit eder: bir server'ın onayladığınızda bir tool tanımı sunup sonradan sessizce farklı birini sunması.
 

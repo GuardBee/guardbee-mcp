@@ -1,6 +1,6 @@
 # @guardbee/mcp-server-auditor
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe**
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
 
 MCP (Model Context Protocol) sunucusu — **başka MCP server'ların** tool tanımlarını güvensiz kalıplar için tarar.
 

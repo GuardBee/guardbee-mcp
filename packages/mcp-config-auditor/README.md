@@ -1,6 +1,6 @@
 # @guardbee/mcp-config-auditor
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
 
 An MCP server that audits the MCP client config on a machine: Cursor `mcp.json`, Claude Desktop `claude_desktop_config.json`, Windsurf `mcp_config.json`, and VS Code `mcp.json`.
 

@@ -1,6 +1,6 @@
 # @guardbee/security-suite
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe**
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/security-suite.svg)](https://www.npmjs.com/package/@guardbee/security-suite)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)

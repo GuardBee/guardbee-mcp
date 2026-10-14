@@ -1,6 +1,6 @@
 # @guardbee/mcp-telemetry
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe**
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
 
 Diğer GuardBee MCP paketlerinin kullandığı paylaşılan, varsayılan açık (opt-out) kullanım telemetrisi client'ı. Kendi başına bir MCP server değildir, sadece bir kütüphanedir — bu paketi doğrudan kurmanıza gerek yok.
 

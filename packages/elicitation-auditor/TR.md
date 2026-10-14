@@ -1,6 +1,6 @@
 # @guardbee/mcp-elicitation-auditor
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe**
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
 
 MCP server kaynağını **2026-07-28 spesifikasyonundaki elicitation anti-pattern'leri** için tarayan bir MCP server.
 

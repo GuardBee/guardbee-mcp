@@ -1,6 +1,6 @@
 # @guardbee/mcp-server-auditor
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
 
 An MCP (Model Context Protocol) server that scans **other MCP servers'** tool definitions for insecure patterns.
 

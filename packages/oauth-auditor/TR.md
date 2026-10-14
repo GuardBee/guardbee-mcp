@@ -1,6 +1,6 @@
 # @guardbee/mcp-oauth-auditor
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe**
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
 
 MCP (Model Context Protocol) sunucusu — bir MCP server'ın kendi authorization kodunu **MCP spesifikasyonunun kendi Security Considerations bölümünde adlandırılan OAuth 2.1 anti-pattern'leri** için tarar.
 

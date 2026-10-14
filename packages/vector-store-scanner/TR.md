@@ -1,6 +1,6 @@
 # @guardbee/mcp-vector-store-scanner
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe**
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
 
 MCP (Model Context Protocol) sunucusu — bir vektör veritabanı (ya da vektör-index yeteneği olan) endpoint'ini **auth'suz erişilebilirlik** için prob'lar. Bu, açık Elasticsearch/MongoDB/Redis instance'larının veri sızdırdığı tekrarlayan gerçek dünya olaylarının arkasındaki aynı yanlış yapılandırma sınıfı — şimdi RAG-çağı stack'ine yönelmiş: Weaviate, Qdrant, Chroma, Elasticsearch/OpenSearch, Redis ve Postgres/pgvector.
 

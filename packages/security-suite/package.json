@@ -12,7 +12,8 @@
   "files": [
     "dist",
     "README.md",
-    "TR.md"
+    "TR.md",
+    "ZH.md"
   ],
   "scripts": {
     "build": "tsc",

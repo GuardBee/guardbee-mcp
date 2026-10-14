@@ -1,6 +1,6 @@
 # @guardbee/mcp-unbounded-consumption-auditor
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe**
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
 
 LLM/agent uygulama kodunu **Unbounded Consumption** ("sınırsız tüketim") için tarayan bir MCP (Model Context Protocol) sunucusu — OWASP LLM Top 10 2026'nın #6 kategorisi, "denial of wallet" (cüzdan hizmet reddi) olarak da bilinir: uygulamanın sınırsız sayıda faturalanabilir çağrı yapmasını hiçbir şey durdurmuyor.
 

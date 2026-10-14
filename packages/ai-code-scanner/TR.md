@@ -1,6 +1,6 @@
 # @guardbee/mcp-ai-code-scanner
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe**
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
 
 MCP (Model Context Protocol) sunucusu — kod tabanınızı, LLM/AI entegrasyonlarında sık görülen güvenlik kalıpları için tarar.
 

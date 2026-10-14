@@ -1,6 +1,6 @@
 # @guardbee/mcp-llm-redteam
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
 
 An MCP (Model Context Protocol) server that **actively** red-teams a live LLM endpoint or chatbot — not static analysis like GuardBee's other scanners, but real probe requests sent to a real target you control.
 

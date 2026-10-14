@@ -1,6 +1,6 @@
 # @guardbee/mcp-ai-code-scanner
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
 
 An MCP (Model Context Protocol) server that scans your codebase for security patterns commonly found in LLM/AI integrations.
 

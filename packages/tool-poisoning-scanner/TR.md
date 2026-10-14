@@ -1,6 +1,6 @@
 # @guardbee/mcp-tool-poisoning-scanner
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe**
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
 
 MCP (Model Context Protocol) sunucusu — başka MCP sunucularının tool tanımlarını **tool poisoning** ve **confused-deputy** tool'lar için tarar: bir MCP server'ın kendi `server.tool(...)` kaydının, hiçbir güvensiz satır hiç çalışmadan tehlikeli olabileceği iki farklı yol.
 

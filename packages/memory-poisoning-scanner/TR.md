@@ -1,6 +1,6 @@
 # @guardbee/mcp-memory-poisoning-scanner
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe**
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
 
 MCP (Model Context Protocol) sunucusu — agent kodunu **memory poisoning** için tarar: bir agent'ın *kalıcı, oturumlar-arası* hafızasına yazılan güvenilmeyen girdinin, sonradan geri çağrılıp modele güvenilir context olarak beslenmesi, muhtemelen tamamen ilgisiz bir gelecek oturumda.
 
