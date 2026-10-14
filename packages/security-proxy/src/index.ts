@@ -29,3 +29,7 @@ export type { HttpGateway } from "./http-server.js";
 export { DashboardSink } from "./audit/dashboard-sink.js";
 export { PolicySync } from "./gateway/policy-sync.js";
 export type { RefreshResult } from "./gateway/policy-sync.js";
+export { createLlmHandler } from "./llm/gateway.js";
+export type { LlmGatewayOptions, LlmHandler } from "./llm/gateway.js";
+export { BudgetStore, costOf } from "./llm/budget.js";
+export type { LlmConfig, LlmProvider, LlmRoute, LlmVirtualKey, LlmBudget, LlmPrice, LlmApi } from "./llm/config.js";

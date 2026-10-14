@@ -12,6 +12,7 @@ import type { OidcConfig } from "../auth.js";
 import type { QuotaRule } from "./quota.js";
 import type { TaintBasis, TaintMode } from "./taint.js";
 import type { ApprovalChannel } from "./approval.js";
+import { llmSchema, resolveLlmConfig, type LlmConfig } from "../llm/config.js";
 
 /** How the agent reaches the proxy. */
 export type ListenConfig =
@@ -61,6 +62,8 @@ export interface GatewayConfig {
   defaults: { action: PolicyAction };
   audit: AuditConfig;
   interceptors: NonNullable<ProxyConfig["interceptors"]>;
+  /** OpenAI/Anthropic-compatible endpoints next to /mcp (HTTP mode only). */
+  llm?: LlmConfig;
 }
 
 
@@ -106,23 +109,13 @@ const listenSchema = z
       .optional(),
     maxSessions: z.number().int().positive().default(100),
   })
-  .strict()
-  .superRefine((value, ctx) => {
-    if (value.transport === "http" && !LOOPBACK.has(value.host) && value.apiKeys.length === 0 && !value.oidc) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["apiKeys"],
-        message: `listening on ${value.host} needs at least one API key or listen.oidc; without one anyone on the network can drive your MCP servers`,
-      });
-    }
-  });
+  .strict();
 
 const yamlSchema = z
   .object({
     version: z.literal(1),
-    upstreams: z.record(z.string(), upstreamSchema).superRefine((upstreams, ctx) => {
+    upstreams: z.record(z.string(), upstreamSchema).default({}).superRefine((upstreams, ctx) => {
       const names = Object.keys(upstreams);
-      if (names.length === 0) ctx.addIssue({ code: "custom", message: "at least one upstream is required" });
       for (const name of names) {
         // Checked here, not as the record's key schema: zod replaces a key schema's message with "Invalid key in record".
         if (!/^[A-Za-z0-9-]+(?:_[A-Za-z0-9-]+)*$/.test(name)) {
@@ -162,8 +155,32 @@ const yamlSchema = z
       .strict()
       .default({ source: "local", refreshSeconds: 60 }),
     listen: listenSchema.default({ transport: "stdio", host: "127.0.0.1", port: 8787, path: "/mcp", apiKeys: [], maxSessions: 100 }),
+    llm: llmSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    if (Object.keys(value.upstreams).length === 0 && !value.llm) {
+      ctx.addIssue({ code: "custom", path: ["upstreams"], message: "at least one upstream is required (or an llm section)" });
+    }
+    const { listen, llm } = value;
+    if (llm && listen.transport !== "http") {
+      ctx.addIssue({ code: "custom", path: ["llm"], message: "the llm endpoints need listen.transport: http" });
+    }
+    if (llm && llm.path === listen.path) {
+      ctx.addIssue({ code: "custom", path: ["llm", "path"], message: `llm.path and listen.path are both ${listen.path}` });
+    }
+    const keyed = listen.apiKeys.length > 0 || listen.oidc !== undefined;
+    if (listen.transport === "http" && !LOOPBACK.has(listen.host) && !keyed && !(llm && llm.keys.length > 0 && Object.keys(value.upstreams).length === 0)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["listen", "apiKeys"],
+        message: `listening on ${listen.host} needs at least one API key or listen.oidc; without one anyone on the network can drive your MCP servers`,
+      });
+    }
+    if (llm && listen.transport === "http" && !LOOPBACK.has(listen.host) && !keyed && llm.keys.length === 0) {
+      ctx.addIssue({ code: "custom", path: ["llm", "keys"], message: `listening on ${listen.host} needs llm.keys, listen.apiKeys or listen.oidc; without one anyone on the network can spend your provider keys` });
+    }
+  });
 
 /** Replace `${VAR}` with the environment value; config files never hold the secret itself. */
 function interpolate(value: string, where: string): string {
@@ -238,6 +255,7 @@ export function parseGatewayYaml(source: string, fileLabel = "guardbee-proxy.yam
     defaults: cfg.defaults,
     audit: { ...cfg.audit, dashboard: resolveDashboard(cfg.audit.dashboard) },
     interceptors: cfg.interceptors,
+    ...(cfg.llm ? { llm: resolveLlmConfig(cfg.llm) } : {}),
   };
 }
 
