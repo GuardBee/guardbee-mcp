@@ -137,6 +137,18 @@ Kendi DMARC kaydı olmayan alt alan adları, alıcıların yaptığı gibi üst 
 
 `SPF_MISSING`, alan adının MX kaydı varsa 🟠 High (başlangıç kaydıyla, örn. Google Workspace için `v=spf1 include:_spf.google.com ~all`), yoksa 🟡 Medium'dur (`v=spf1 -all` önerilir).
 
+## Nameserver Bulguları
+
+Zone'un her nameserver'ı doğrudan DNS üzerinden (UDP/TCP 53) sorgulanır: özyinelemesiz bir SOA sorgusu, bir AXFR isteği (yalnızca ilk mesajlar okunur — zone asla indirilmez) ve sunucunun barındırmadığı bir ad için özyinelemeli bir sorgu. `--no-ns-probe` / `nameserverProbe: false` ile atlanır.
+
+| Kod | Önem | Açıklama |
+|-----|----------|----------|
+| `NS_AXFR_ALLOWED` | 🟠 High | Herkes zone'un tamamını indirebilir (zone transferi) |
+| `NS_LAME` | 🟠 High | Listelenen bir nameserver yetkili yanıt vermiyor (REFUSED, SERVFAIL, AA yok veya yanıt yok) |
+| `NS_UNRESOLVABLE` | 🟠 High | Bir nameserver'ın kendi adının adresi yok |
+| `NS_OPEN_RESOLVER` | 🟡 Medium | Nameserver herkese özyinelemeli yanıt veriyor (amplifikasyon, önbellek zehirleme) |
+| `NS_SOA_SERIAL_MISMATCH` | 🔵 Low | Aynı birincil sunucuya bağlı sunucular farklı serial döndürüyor (çoklu sağlayıcı kurulumları birincile göre karşılaştırılır) |
+
 ## DNSSEC ve CAA Bulguları
 
 | Kod | Önem | Açıklama |

@@ -37,6 +37,7 @@ interface CliArgs {
   format: string;
   http?: boolean;
   ct?: boolean;
+  nsProbe?: boolean;
   /** Undefined when not given, so guardbee.yml keeps its value. */
   failOn?: string;
   concurrency?: number;
@@ -51,6 +52,7 @@ function parseArgs(args: string[]): CliArgs {
     else if (arg.startsWith("--concurrency=")) out.concurrency = Number.parseInt(value, 10);
     else if (arg === "--no-http") out.http = false;
     else if (arg === "--no-ct") out.ct = false;
+    else if (arg === "--no-ns-probe") out.nsProbe = false;
     else if (!arg.startsWith("--")) out.positionals.push(arg);
   }
   if (out.failOn !== undefined && !(out.failOn in SEVERITY_RANK)) {
@@ -79,7 +81,7 @@ async function runCheck(rawArgs: string[]): Promise<void> {
   }
   const domain = normalizeDomain(domainArg);
 
-  const result = await enumerateDomain(domain);
+  const result = await enumerateDomain(domain, { nsProbe: parsed.nsProbe, http: parsed.http });
 
   if (format === "json") {
     console.log(JSON.stringify(result, null, 2));
@@ -168,6 +170,7 @@ Options:
   --concurrency=<n>     Parallel subdomain probes (default: 20, subdomains only)
   --no-http             Skip HTTP fingerprinting; only DNS-based takeover checks run
   --no-ct               Skip Certificate Transparency (crt.sh, Cert Spotter); wordlist only
+  --no-ns-probe         Do not query nameservers directly (AXFR, lame delegation, open resolver)
 
 Exit codes:
   0  No issues at or above --fail-on threshold (check) / no dangling subdomains (subdomains)

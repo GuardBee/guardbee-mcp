@@ -173,12 +173,12 @@ describe("enumerateDomain email checks", () => {
       "_dmarc.example.com": { TXT: ["v=DMARC1; p=reject; rua=mailto:d@example.com"] },
       "google._domainkey.example.com": { TXT: [`v=DKIM1; k=rsa; p=${RSA_2048}`] },
     });
-    const a = await enumerateDomain("example.com", { resolver: withMx, http: false });
+    const a = await enumerateDomain("example.com", { resolver: withMx, http: false, nsProbe: false });
     expect(a.findings.find((f) => f.code === "SPF_MISSING")!.severity).toBe("high");
     expect(a.dkimKeys).toEqual([expect.objectContaining({ selector: "google", bits: 2048 })]);
 
     const noMx = fakeResolver({ "example.org": { SOA, NS: ["a", "b"] } });
-    const b = await enumerateDomain("example.org", { resolver: noMx, http: false });
+    const b = await enumerateDomain("example.org", { resolver: noMx, http: false, nsProbe: false });
     const spf = b.findings.find((f) => f.code === "SPF_MISSING")!;
     expect(spf.severity).toBe("medium");
     expect(spf.message).toContain("v=spf1 -all");

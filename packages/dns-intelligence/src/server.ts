@@ -24,13 +24,17 @@ export async function startServer() {
 
   server.tool(
     "enumerate_dns",
-    "Enumerate all DNS records for a domain and detect misconfigurations: SPF, DMARC, DKIM key strength, MTA-STS/TLS-RPT, MX, DNSSEC (signed / broken / weak algorithms) and CAA (including whether it blocks the CA of the live certificate)",
+    "Enumerate all DNS records for a domain and detect misconfigurations: SPF, DMARC, DKIM key strength, MTA-STS/TLS-RPT, MX, DNSSEC (signed / broken / weak algorithms) and CAA (including whether it blocks the CA of the live certificate) and nameservers (lame delegation, anonymous zone transfer, open recursion)",
     {
       domain: z.string().describe("Domain to enumerate (e.g. example.com)"),
+      nameserverProbe: z
+        .boolean()
+        .optional()
+        .describe("Query each nameserver directly for lame delegation, SOA serial drift, anonymous zone transfer (AXFR) and open recursion (default: true)"),
     },
-    async ({ domain }) => {
+    async ({ domain, nameserverProbe }) => {
       const start = Date.now();
-      const result = await enumerateDomain(domain);
+      const result = await enumerateDomain(domain, { nsProbe: nameserverProbe });
       const report = formatDnsReport(result);
       return { content: [{ type: "text", text: `${report}\n\nCompleted in ${Date.now() - start}ms` }] };
     }
