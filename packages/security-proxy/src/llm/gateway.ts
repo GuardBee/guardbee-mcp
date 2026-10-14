@@ -123,24 +123,41 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     return { ...(identity.user ? { user: identity.user } : {}), groups: identity.groups, anonymousId };
   };
 
-  const route = (api: LlmApi, model: string): LlmProvider => {
+  const routeOf = (api: LlmApi, model: string): LlmProvider | null => {
     for (const r of llm.routes) {
       const provider = llm.providers[r.provider];
       if (provider && provider.api === api && globToRegExp(r.model).test(model)) return provider;
     }
-    throw new HttpError(404, `model "${model}" is not served by this gateway`);
+    return null;
+  };
+  const route = (api: LlmApi, model: string): LlmProvider => {
+    const provider = routeOf(api, model);
+    if (!provider) throw new HttpError(404, `model "${model}" is not served by this gateway`);
+    return provider;
+  };
+
+  /** Every access entry that matches the caller adds its globs; none matching → accessDefault. */
+  const mayUse = (caller: Omit<LlmCaller, "model">, model: string): boolean => {
+    const entries = llm.access.filter(
+      (rule) =>
+        (rule.user === undefined || (caller.user !== undefined && globToRegExp(rule.user).test(caller.user))) &&
+        (rule.group === undefined || caller.groups.includes(rule.group)),
+    );
+    if (entries.length === 0) return llm.accessDefault === "allow";
+    return entries.some((rule) => rule.allow.some((glob) => globToRegExp(glob).test(model)));
   };
 
   const log = (event: Omit<AuditEvent, "ts">) => audit.log({ ts: new Date().toISOString(), ...event });
 
   const handle = async (req: http.IncomingMessage, res: http.ServerResponse, api: LlmApi): Promise<void> => {
     const caller = await identify(req);
-    const body = await readBody(req);
-    const model = body["model"];
-    if (typeof model !== "string" || model === "") throw new HttpError(400, "model is required");
-    const provider = route(api, model);
+    let body = await readBody(req);
+    const requested = body["model"];
+    if (typeof requested !== "string" || requested === "") throw new HttpError(400, "model is required");
+    let model = requested;
+    let provider = route(api, model);
     const interceptors = options.config.interceptors;
-    const base = {
+    let base = {
       tool: `llm:${model}`,
       upstream: provider.name,
       labels: ["llm"],
@@ -150,6 +167,11 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
       log({ ...base, type: "blocked", ruleId, reason });
       throw new HttpError(status, `[GuardBee] ${reason}`, headers);
     };
+
+    // 0. Model access: which models this caller may ask for
+    if (!mayUse(caller, model)) {
+      refuse(403, `model "${model}" is not allowed for ${caller.user ? `user "${caller.user}"` : "this key"} (llm.access)`, "llm:access");
+    }
 
     // 1. Prompt injection in what people and tools wrote
     if (interceptors.promptInjection?.enabled !== false) {
@@ -194,6 +216,34 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
       }
     }
 
+    // 2c. Sensitive data goes to your own model instead of the one asked for
+    const include = interceptors.piiMasking?.include?.length ? new Set(interceptors.piiMasking.include) : undefined;
+    let routedFrom: string | undefined;
+    const sensitive = llm.sensitive;
+    if (sensitive && model !== sensitive.model) {
+      const why: string[] = [];
+      if (sensitive.on.pii) {
+        const found = new Set<string>();
+        mapPrompt(api, body, (text) => (maskPiiInText(text, (name, match) => (PERSONAL_DATA.has(name) && found.add(name), match), include), text));
+        why.push(...[...found].filter((category) => !sensitive.on.categories || sensitive.on.categories.includes(category)));
+      }
+      if (sensitive.on.topics) {
+        const wanted = topics.filter((topic) => sensitive.on.topics!.includes(topic.id));
+        why.push(...detectTopics(promptTexts(api, body, ALL_ROLES), wanted).map((hit) => `topic ${hit.id}`));
+      }
+      if (why.length > 0) {
+        const target = routeOf(api, sensitive.model);
+        // Fail closed: sensitive data is never sent on to the model it was meant to avoid
+        if (!target) refuse(403, `the prompt holds ${why.join(", ")}, and "${sensitive.model}" has no ${api} route (llm.sensitive)`, "llm:route:sensitive");
+        routedFrom = model;
+        model = sensitive.model;
+        provider = target!;
+        body = { ...body, model };
+        base = { ...base, tool: `llm:${model}`, upstream: provider.name };
+        log({ ...base, type: "warn", ruleId: "llm:route:sensitive", reason: `routed from ${routedFrom} to ${model}: the prompt holds ${why.join(", ")}` });
+      }
+    }
+
     // 3. Budgets: only a request that is about to go out counts
     const over = budgets.admit(llm.budgets, { ...caller, model });
     if (over) refuse(429, over.reason, over.ruleId, { "retry-after": String(over.retryAfter) });
@@ -202,8 +252,8 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     const vault = new PiiVault();
     const hits: Record<string, number> = {};
     const tokenize = interceptors.piiMasking?.mode === "tokenize";
-    const masking = interceptors.piiMasking?.enabled !== false || forceMask;
-    const include = interceptors.piiMasking?.include?.length ? new Set(interceptors.piiMasking.include) : undefined;
+    // Routed in-house: the data stays inside, unless llm.sensitive.mask keeps masking on
+    const masking = forceMask || (interceptors.piiMasking?.enabled !== false && !(routedFrom && !sensitive?.mask));
     let forward = mapPrompt(api, body, (text) => {
       const redacted = maskPiiInText(text, (name) => {
         const category = PERSONAL_DATA.has(name) ? name : "secret";
@@ -214,7 +264,7 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
       return tokenize ? vault.tokenize(text, include) : redacted;
     });
     const piiHits = Object.keys(hits).length > 0 ? { piiHits: hits } : {};
-    log({ ...base, type: "tool_call", input: forward, ...piiHits });
+    log({ ...base, type: "tool_call", input: forward, ...piiHits, ...(routedFrom ? { llm: { model, routedFrom } } : {}) });
 
     // 5. To the provider. The answer is rewritten when tokens must go back or
     //    responses are masked — a stream too, as it passes (llm/stream.ts).
@@ -274,7 +324,16 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
       log({
         ...base,
         type: "tool_response",
-        ...(usage ? { llm: { model, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, ...(cost !== null ? { costUsd: cost } : {}) } } : {}),
+        ...(usage || routedFrom
+          ? {
+              llm: {
+                model,
+                ...(routedFrom ? { routedFrom } : {}),
+                ...(usage ? { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens } : {}),
+                ...(usage && cost !== null ? { costUsd: cost } : {}),
+              },
+            }
+          : {}),
         ...extra,
       });
     };
@@ -322,8 +381,8 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
   };
 
   const listModels = async (req: http.IncomingMessage, res: http.ServerResponse): Promise<void> => {
-    await identify(req);
-    const literal = llm.routes.filter((r) => !/[*?]/.test(r.model));
+    const caller = await identify(req);
+    const literal = llm.routes.filter((r) => !/[*?]/.test(r.model) && mayUse(caller, r.model));
     sendJson(res, 200, { object: "list", data: literal.map((r) => ({ id: r.model, object: "model", created: 0, owned_by: r.provider })) });
   };
 
