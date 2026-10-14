@@ -18,7 +18,7 @@
 - **SPF 分析** —— `+all`、`?all`、重复记录，并按接收方的方式计算 RFC 7208 限制：包含嵌套 `include`/`redirect` 的 DNS 查询（最多 10 次）、空查询（最多 2 次）、include 循环和缺失的 include
 - **DMARC 分析** —— 策略（`none`/`quarantine`/`reject`）、`pct`、缺失的 `rua` 地址
 - **DKIM 检查** —— 探测 9 个常见选择器（`default`、`google`、`selector1`、`mail` 等）
-- **子域名枚举** —— 60+ 常见子域名；悬空 CNAME 检测（14 家云服务商）
+- **子域名发现** —— 来自证书透明度日志的名称（并行查询 crt.sh 与 Cert Spotter；只发送域名）加上 75 个常见名称的词表，过滤通配符 DNS；每个存活名称都会检查子域名接管
 - **邮件安全摘要** —— SPF + DMARC + DKIM 综合分析，附可复制粘贴的修复建议
 - **23 个单元测试** —— 纯逻辑测试，无需网络连接
 

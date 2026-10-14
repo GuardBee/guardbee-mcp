@@ -18,7 +18,7 @@ DNS kayıtlarını sıralayan, SPF / DMARC / DKIM yapılandırma hatalarını te
 - **SPF Analizi** — `+all`, `?all`, yinelenen kayıtlar ve alıcı sunucuların saydığı biçimde RFC 7208 sınırları: iç içe `include`/`redirect` dahil DNS sorguları (en fazla 10), boş sorgular (en fazla 2), include döngüleri ve eksik include'lar
 - **DMARC Analizi** — Politika (`none`/`quarantine`/`reject`), `pct`, `rua` adresi eksikliği
 - **DKIM Kontrolü** — 9 yaygın seçici probu (`default`, `google`, `selector1`, `mail`, vb.)
-- **Subdomain Sıralaması** — 60+ yaygın alt alan; asılı CNAME tespiti (14 bulut sağlayıcısı)
+- **Subdomain Keşfi** — Certificate Transparency kayıtlarından adlar (crt.sh ve Cert Spotter paralel sorgulanır; yalnızca alan adı gönderilir) ve 75 adlık kelime listesi; wildcard DNS ayıklanır; her canlı ad subdomain ele geçirmeye karşı kontrol edilir
 - **E-posta Güvenliği Özeti** — SPF + DMARC + DKIM birleşik analizi ve kopyalanabilir düzeltme önerileri
 - **23 Unit Test** — Ağ bağlantısı gerektirmeyen saf mantık testleri
 

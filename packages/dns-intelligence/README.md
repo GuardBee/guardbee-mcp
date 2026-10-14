@@ -6,7 +6,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-dns-intelligence.svg)](https://www.npmjs.com/package/@guardbee/mcp-dns-intelligence)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-An MCP server that enumerates DNS records, detects SPF / DMARC / DKIM misconfigurations, and finds dangling subdomains. Uses Node.js's built-in `dns/promises` — no external dependencies.
+An MCP server that enumerates DNS records, detects SPF / DMARC / DKIM misconfigurations, and finds subdomains (Certificate Transparency + wordlist) that can be taken over. Uses Node.js's built-in `dns/promises` — no external dependencies.
 
 > This package sends usage telemetry by default (tool name + short parameters — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
 
@@ -18,7 +18,7 @@ An MCP server that enumerates DNS records, detects SPF / DMARC / DKIM misconfigu
 - **SPF Analysis** — `+all`, `?all`, duplicate records, and the RFC 7208 limits counted the way receivers do: DNS lookups across nested `include`/`redirect` (max 10), void lookups (max 2), include loops and missing includes
 - **DMARC Analysis** — policy (`none`/`quarantine`/`reject`), `pct`, missing `rua` address
 - **DKIM Check** — probes 9 common selectors (`default`, `google`, `selector1`, `mail`, etc.)
-- **Subdomain Enumeration** — 60+ common subdomains; dangling CNAME detection (14 cloud providers)
+- **Subdomain Discovery** — names from Certificate Transparency logs (crt.sh and Cert Spotter, queried in parallel; only the domain name is sent) plus a 75-name wordlist, with wildcard DNS filtered out; every live name is checked for subdomain takeover
 - **Email Security Summary** — combined SPF + DMARC + DKIM analysis with copy-pasteable fix recommendations
 - **23 Unit Tests** — pure logic tests, no network connection required
 
