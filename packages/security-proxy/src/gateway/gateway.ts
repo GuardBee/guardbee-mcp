@@ -10,6 +10,7 @@ import type {
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 import {
+  detectTopics,
   maskPiiInValue,
   PII_PATTERNS,
   scanForPromptInjection,
@@ -29,7 +30,7 @@ import type { GatewayConfig } from "./config.js";
 import { maskFields } from "./fields.js";
 import { labelTool, type Label } from "./labels.js";
 import { DataFingerprints } from "./fingerprints.js";
-import { evaluatePolicy, globToRegExp } from "./policy.js";
+import { evaluatePolicy, evaluateTopicRules, globToRegExp } from "./policy.js";
 import { QuotaStore } from "./quota.js";
 import { TaintTracker } from "./taint.js";
 import { PiiVault } from "./tokens.js";
@@ -244,6 +245,60 @@ export class Gateway {
    * Find PII in a value (it taints the session either way) and hide it unless
    * masking is off. `force` comes from a `mask` rule and overrides "off".
    */
+  /** Ids of the topics a value is about; skipped while no rule names a topic. */
+  private topicsOf(value: unknown): string[] {
+    const topics = this.config.topics ?? [];
+    if (topics.length === 0 || !this.config.rules.some((rule) => rule.match.topic !== undefined)) return [];
+    return detectTopics(value, topics).map((hit) => hit.id);
+  }
+
+  /**
+   * Topic rules on what came back (a tool result, resource or prompt), so a
+   * subject that only shows up in the answer is caught too. `already` is the
+   * rule that decided the call itself: it is not applied twice.
+   */
+  private async topicsAfter(
+    source: string,
+    upstream: Upstream,
+    value: unknown,
+    labels: readonly Label[],
+    args: Record<string, unknown> = {},
+    already?: string,
+  ): Promise<{ withheld?: string; force: boolean; maskFields?: string[] }> {
+    const topics = this.topicsOf(value);
+    const decision = evaluateTopicRules(this.config.rules, {
+      tool: source,
+      upstream: upstream.name,
+      labels,
+      tainted: this.taint.tainted,
+      args,
+      topics,
+      ...(this.identity ? { user: this.identity.user, groups: this.identity.groups } : {}),
+    });
+    if (!decision || decision.ruleId === already) return { force: false };
+    const reason = `it is about ${topics.join(", ")} (policy rule ${decision.ruleId})`;
+    const base = { tool: source, server: upstream.name, upstream: upstream.name, labels: [...labels], ruleId: decision.ruleId };
+    switch (decision.action) {
+      case "deny":
+        this.log({ ...base, type: "blocked", reason: `withheld: ${reason}` });
+        return { withheld: reason, force: false };
+      case "warn":
+        this.log({ ...base, type: "warn", reason });
+        return { force: false };
+      case "mask":
+        return { force: true, ...(decision.maskFields ? { maskFields: decision.maskFields } : {}) };
+      case "approve": {
+        const outcome = this.approver
+          ? await this.approver({ tool: source, upstream: upstream.name, args, reason: `the answer ${reason}`, ...(this.sessionId ? { sessionId: this.sessionId } : {}) })
+          : "unavailable";
+        this.log({ ...base, type: "approval", reason: `${outcome}: ${reason}` });
+        return outcome === "approved" ? { force: false } : { withheld: `${reason}; not approved (${outcome})`, force: false };
+      }
+      default:
+        return { force: false };
+    }
+  }
+
   private protect<T>(value: T, force = false): { value: T; piiFound: boolean; hits: PiiHits } {
     const hits: PiiHits = {};
     const redacted = maskPiiInValue(value, (name) => {
@@ -436,6 +491,7 @@ export class Gateway {
       labels,
       tainted: this.taint.tainted,
       args,
+      topics: this.topicsOf(args),
       ...(this.identity ? { user: this.identity.user, groups: this.identity.groups } : {}),
     });
     const rule = decision.ruleId ?? "defaults.action";
@@ -555,8 +611,15 @@ export class Gateway {
       }
     }
 
+    // 7b. Topic rules on the result: a subject that only shows up in the answer
+    const topical = await this.topicsAfter(name, upstream, [content, result.structuredContent ?? null], labels, args, decision.ruleId);
+    if (topical.withheld) {
+      countRefusal();
+      return errorResult(`Tool result withheld: ${topical.withheld}`);
+    }
+
     // 8. PII: always detected (it taints the session), masked unless turned off — a `mask` rule forces it
-    const force = decision.action === "mask";
+    const force = decision.action === "mask" || topical.force;
     const text = this.protect(content, force);
     let out: CallToolResult = { ...result, content: text.value };
     let piiFound = text.piiFound;
@@ -569,6 +632,7 @@ export class Gateway {
       for (const [category, count] of Object.entries(structured.hits)) hits[category] = Math.max(hits[category] ?? 0, count);
     }
     if (decision.maskFields) out = maskFields(out, decision.maskFields);
+    if (topical.maskFields) out = maskFields(out, topical.maskFields);
 
     this.taint.observe(name, labels, piiFound);
     if (labels.includes("sensitive") || piiFound) this.fingerprints.add(name, [result.content, result.structuredContent ?? null]);
@@ -702,11 +766,14 @@ export class Gateway {
       if (scan.action === "warn") this.log({ type: "warn", tool: source, upstream: upstream.name, reason: scan.reason });
     }
 
+    const topical = await this.topicsAfter(source, upstream, texts, ["untrusted"]);
+    if (topical.withheld) throw new Error(`${PREFIX} Resource withheld: ${topical.withheld}`);
+
     let piiFound = false;
     const hits: PiiHits = {};
     const contents = result.contents.map((item) => {
       if (!("text" in item) || typeof item.text !== "string") return item;
-      const text = this.protect(item.text);
+      const text = this.protect(item.text, topical.force);
       piiFound ||= text.piiFound;
       addHits(hits, text.hits);
       return { ...item, text: text.value };
@@ -758,7 +825,9 @@ export class Gateway {
       }
       if (scan.action === "warn") this.log({ type: "warn", tool: source, upstream: route.upstream.name, reason: scan.reason });
     }
-    return { ...result, messages: this.protect(result.messages).value };
+    const topical = await this.topicsAfter(source, route.upstream, result.messages, [], args ?? {});
+    if (topical.withheld) throw new Error(`${PREFIX} Prompt withheld: ${topical.withheld}`);
+    return { ...result, messages: this.protect(result.messages, topical.force).value };
   }
 
   /** End this session: stop listening to the shared upstreams. They stay open for other sessions. */

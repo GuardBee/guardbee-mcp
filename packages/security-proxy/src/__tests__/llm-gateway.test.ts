@@ -2,7 +2,7 @@ import http from "http";
 import type { AddressInfo } from "net";
 import { afterEach, describe, expect, it } from "vitest";
 import type { AuditLogger } from "../audit/logger.js";
-import { parseGatewayYaml } from "../gateway/config.js";
+import { parseGatewayYaml, type GatewayConfig } from "../gateway/config.js";
 import { startHttpGateway } from "../http-server.js";
 import type { LlmConfig } from "../llm/config.js";
 import { BudgetStore } from "../llm/budget.js";
@@ -79,10 +79,12 @@ async function startLlm(
   providers: { openai?: string; anthropic?: string },
   llm: Partial<LlmConfig> = {},
   interceptors: NonNullable<ProxyConfig["interceptors"]> = {},
+  overrides: Partial<GatewayConfig> = {},
 ) {
   const events: AuditEvent[] = [];
   const audit = { log: (event: AuditEvent) => events.push(event), close: async () => {} } as unknown as AuditLogger;
   const config = gatewayConfig({
+    ...overrides,
     interceptors,
     llm: {
       path: "/v1",
@@ -253,6 +255,27 @@ describe("LLM gateway: OpenAI-compatible", () => {
     const text = await streamed.text();
     expect(text).toContain(`echo: müşteri ${TCKN}`);
     expect(text.trim().endsWith("data: [DONE]")).toBe(true);
+  });
+
+  it("applies topic rules to the whole prompt, scoped by tool: llm:<model>", async () => {
+    const provider = await fakeProvider(openAiEcho);
+    const { base, events } = await startLlm({ openai: provider.url }, {}, {}, {
+      topics: [{ id: "ma", terms: ["birleşme", "acquisition"], minMatches: 1 }],
+      rules: [
+        { id: "no-ma-external", match: { topic: "ma", tool: "llm:gpt-*" }, action: "deny" },
+        { id: "never-matches-llm", match: { tool: "*" }, action: "deny" },
+      ],
+    });
+    const denied = await chat(base, "gb-alice", {
+      model: "gpt-4o",
+      messages: [{ role: "system", content: "Context: ACME birleşme dosyası" }, { role: "user", content: "özetle" }],
+    });
+    expect(denied.status).toBe(403);
+    expect(((await denied.json()) as { error: { message: string } }).error.message).toContain("no-ma-external");
+    expect(provider.seen).toHaveLength(0);
+    expect(events.some((e) => e.type === "blocked" && e.ruleId === "no-ma-external")).toBe(true);
+    // Rules without a topic are for tool calls; they do not apply to LLM requests
+    expect((await chat(base, "gb-alice", { model: "gpt-4o", messages: [{ role: "user", content: "hello" }] })).status).toBe(200);
   });
 
   it("lists the literal models", async () => {

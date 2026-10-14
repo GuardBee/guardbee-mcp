@@ -31,6 +31,8 @@ export const policyRuleSchema = z
         args: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
         user: z.string().min(1).optional(),
         group: z.string().min(1).optional(),
+        /** Id of a topic in `topics`: the arguments, result or prompt are about it. */
+        topic: z.string().min(1).optional(),
       })
       .strict(),
     action: actionSchema,
@@ -62,9 +64,22 @@ export const quotaRuleSchema = z
   })
   .strict();
 
+/** A subject a rule can match on (see topics.ts for how terms match). */
+export const topicSchema = z
+  .object({
+    id: z.string().regex(/^[a-z0-9][a-z0-9_-]*$/, "topic ids use lower-case letters, digits, - and _"),
+    description: z.string().max(500).optional(),
+    terms: z.array(z.string().trim().min(1).max(200)).min(1).max(500),
+    minMatches: z.number().int().positive().default(1),
+  })
+  .strict()
+  .refine((topic) => topic.minMatches <= topic.terms.length, { message: "minMatches is larger than the number of terms", path: ["minMatches"] });
+
 /** Every field has a default, so `{}` is a valid (allow-all, strict-taint) policy. */
 export const policyShape = {
   labels: z.record(z.string(), z.array(labelSchema)).default({}),
+  /** Subjects for `match.topic`, e.g. mergers & acquisitions, salaries, unreleased source code. */
+  topics: z.array(topicSchema).default([]),
   /**
    * Which tools the agent sees, by the name it sees (globs). `expose` is an
    * allowlist (absent: every tool), `hide` removes tools after it. A hidden
@@ -143,7 +158,29 @@ export const policyShape = {
     .default({}),
 };
 
-export const gatewayPolicySchema = z.object(policyShape).strict();
+/**
+ * Cross-field checks the object shape cannot express: unique topic ids, and
+ * every `match.topic` naming a defined topic. Shared with the proxy's YAML
+ * schema, which spreads policyShape into a larger object.
+ */
+export function checkTopicReferences(
+  policy: { topics: readonly { id: string }[]; rules: readonly { match: { topic?: string | undefined } }[] },
+  ctx: z.RefinementCtx,
+): void {
+  const ids = new Set<string>();
+  for (const [index, topic] of policy.topics.entries()) {
+    if (ids.has(topic.id)) ctx.addIssue({ code: "custom", path: ["topics", index, "id"], message: `duplicate topic id "${topic.id}"` });
+    ids.add(topic.id);
+  }
+  for (const [index, rule] of policy.rules.entries()) {
+    const topic = rule.match.topic;
+    if (topic !== undefined && !ids.has(topic)) {
+      ctx.addIssue({ code: "custom", path: ["rules", index, "match", "topic"], message: `no topic with id "${topic}" in topics` });
+    }
+  }
+}
+
+export const gatewayPolicySchema = z.object(policyShape).strict().superRefine(checkTopicReferences);
 
 export type GatewayPolicy = z.infer<typeof gatewayPolicySchema>;
 
