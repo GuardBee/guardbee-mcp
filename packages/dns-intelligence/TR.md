@@ -49,7 +49,8 @@ npm install -g @guardbee/mcp-dns-intelligence
 
 | Tool | Açıklama |
 |------|----------|
-| `enumerate_dns` | Domain için tüm DNS kayıtlarını sıralar ve SPF/DMARC/DKIM analizi yapar |
+| `enumerate_dns` | A–F notlu tam DNS kontrolü: kayıtlar, SPF/DMARC/DKIM, MTA-STS, DNSSEC, CAA, nameserver'lar |
+| `audit_domains` | 20'ye kadar alan adını denetler, notlarını ve en önemli bulgularını karşılaştırır |
 | `enumerate_subdomains` | Yaygın subdomain'leri dener (wildcard'ı ayırt eder); subdomain ele geçirmelerini tespit eder |
 | `check_takeover` | Verilen host adlarını subdomain ele geçirmeye karşı kontrol eder |
 | `check_email_security` | SPF + DMARC + DKIM birleşik denetimi ve düzeltme önerileri |
@@ -197,7 +198,13 @@ npx @guardbee/mcp-dns-intelligence subdomains example.com --concurrency=50
 
 # JSON çıktı
 npx @guardbee/mcp-dns-intelligence check example.com --format=json
+
+# Birden fazla alan adı: her birine A–F notu ve özet tablo (alan adı verilmezse guardbee.yml'deki tüm alan adları)
+npx @guardbee/mcp-dns-intelligence check example.com example.de example.co.uk
+npx @guardbee/mcp-dns-intelligence check --format=sarif > dns.sarif
 ```
+
+Notlar: her bulgu puan düşürür (critical 40, high 20, medium 8, low 2) ve en kötü bulgu notu sınırlar — herhangi bir critical F, herhangi bir high en fazla C, herhangi bir medium en fazla B.
 
 **Exit kodları:** `0` = sorun yok · `1` = threshold üstü bulgu / dangling subdomain · `2` = hata
 

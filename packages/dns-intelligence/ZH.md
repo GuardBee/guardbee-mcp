@@ -49,7 +49,8 @@ npm install -g @guardbee/mcp-dns-intelligence
 
 | 工具 | 说明 |
 |------|----------|
-| `enumerate_dns` | 枚举域名的全部 DNS 记录，并运行 SPF/DMARC/DKIM 分析 |
+| `enumerate_dns` | 带 A–F 评级的完整 DNS 检查：记录、SPF/DMARC/DKIM、MTA-STS、DNSSEC、CAA、域名服务器 |
+| `audit_domains` | 审计最多 20 个域名，比较其评级和主要发现 |
 | `enumerate_subdomains` | 探测常见子域名（识别通配符）；检测子域名接管 |
 | `check_takeover` | 检查给定主机名是否存在子域名接管 |
 | `check_email_security` | SPF + DMARC + DKIM 综合审计，附修复建议 |
@@ -197,7 +198,13 @@ npx @guardbee/mcp-dns-intelligence subdomains example.com --concurrency=50
 
 # JSON output
 npx @guardbee/mcp-dns-intelligence check example.com --format=json
+
+# 多个域名：每个域名一个 A–F 评级并附汇总表（未指定域名时检查 guardbee.yml 中的全部域名）
+npx @guardbee/mcp-dns-intelligence check example.com example.de example.co.uk
+npx @guardbee/mcp-dns-intelligence check --format=sarif > dns.sarif
 ```
+
+评级：每个发现都会扣分（critical 40、high 20、medium 8、low 2），最严重的发现决定评级上限 —— 任何 critical 为 F，任何 high 最多 C，任何 medium 最多 B。
 
 **退出码：** `0` = 无问题 · `1` = 超过阈值的发现 / 悬空子域名 · `2` = 错误
 
