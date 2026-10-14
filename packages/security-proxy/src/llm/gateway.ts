@@ -35,6 +35,8 @@ export interface LlmGatewayOptions {
   authenticate: Authenticate | null;
   fetchImpl?: typeof fetch;
   budgets?: BudgetStore;
+  /** Adds directory (LDAP) groups to a gateway key's user. */
+  groupsFor?: (user: string | undefined, groups: string[]) => Promise<string[]>;
 }
 
 export type LlmHandler = (req: http.IncomingMessage, res: http.ServerResponse) => Promise<boolean>;
@@ -117,7 +119,7 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     let found: (typeof virtualKeys)[number] | undefined;
     for (const entry of virtualKeys) if (timingSafeEqual(entry.hash, hash)) found = entry;
     const anonymousId = hash.toString("hex").slice(0, 16);
-    if (found) return { user: found.user, groups: found.groups, anonymousId };
+    if (found) return { user: found.user, groups: options.groupsFor ? await options.groupsFor(found.user, found.groups) : found.groups, anonymousId };
     const identity = authenticate ? await authenticate(`Bearer ${key}`) : null;
     if (!identity) throw new HttpError(401, "Invalid API key");
     return { ...(identity.user ? { user: identity.user } : {}), groups: identity.groups, anonymousId };
@@ -337,7 +339,7 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
       if (models) await listModels(req, res);
       else await handle(req, res, api!);
     } catch (err) {
-      const status = err instanceof HttpError ? err.status : 500;
+      const status = err instanceof HttpError ? err.status : typeof (err as { status?: unknown }).status === "number" ? (err as { status: number }).status : 500;
       const message = err instanceof Error ? err.message : "Internal error";
       if (!res.headersSent) sendJson(res, status, errorBody(api ?? "openai", status, message), err instanceof HttpError ? err.headers : {});
       else res.end();

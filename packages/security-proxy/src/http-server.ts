@@ -10,6 +10,7 @@ import { QuotaStore } from "./gateway/quota.js";
 import type { Upstream } from "./gateway/upstream.js";
 import { createGatewayServer } from "./proxy.js";
 import { createLlmHandler, type LlmHandler } from "./llm/gateway.js";
+import { createDirectory, withDirectoryGroups, type ClientFactory } from "./directory.js";
 
 type HttpListen = Extract<ListenConfig, { transport: "http" }>;
 
@@ -70,18 +71,26 @@ export async function startHttpGateway(
   config: GatewayConfig,
   audit: AuditLogger,
   listen: HttpListen,
-  options: { authenticate?: Authenticate; fetchImpl?: typeof fetch } = {},
+  options: { authenticate?: Authenticate; fetchImpl?: typeof fetch; ldapClient?: ClientFactory } = {},
 ): Promise<HttpGateway> {
   const sessions = new Map<string, Session>();
   // One set of quota counters for every session of this process
   const quotas = new QuotaStore();
-  const authenticate = options.authenticate ?? createAuthenticator(listen.apiKeys, listen.oidc);
+  const tokenAuth = options.authenticate ?? createAuthenticator(listen.apiKeys, listen.oidc);
+  // The directory adds groups to a known user; it never makes a caller known
+  const directory = listen.ldap ? createDirectory(listen.ldap, options.ldapClient) : null;
+  const groupsFor = (user: string | undefined, groups: string[]) => withDirectoryGroups(directory, listen.ldap?.onError ?? "deny", user, groups);
+  const authenticate: Authenticate = async (authorization) => {
+    const identity = await tokenAuth(authorization);
+    return identity ? { ...identity, groups: await groupsFor(identity.user, identity.groups) } : null;
+  };
   const metadataPath = `/.well-known/oauth-protected-resource${listen.path}`;
   const llm: LlmHandler | null = config.llm
     ? createLlmHandler({
         llm: config.llm,
         config,
         audit,
+        groupsFor,
         // With virtual keys and no listen keys, an unknown key must not pass as the open loopback listener
         authenticate: listen.apiKeys.length > 0 || listen.oidc || config.llm.keys.length === 0 ? authenticate : null,
         ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
@@ -191,7 +200,9 @@ export async function startHttpGateway(
 
   const server = http.createServer((req, res) => {
     handle(req, res).catch((err) => {
-      if (!res.headersSent) jsonRpcError(res, 500, err instanceof Error ? err.message : "Internal error");
+      // 503 when the directory cannot be reached (listen.ldap.onError: deny)
+      const status = typeof (err as { status?: unknown }).status === "number" ? (err as { status: number }).status : 500;
+      if (!res.headersSent) jsonRpcError(res, status, err instanceof Error ? err.message : "Internal error");
       else res.end();
     });
   });

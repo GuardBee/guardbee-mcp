@@ -218,6 +218,23 @@ audit:
 - **Sessions are isolated.** Each MCP session gets its own taint state, PII tokens and tool pins, so one agent's toxic flow never blocks another. All sessions share the upstream connections. Audit events carry the `sessionId`.
 - **No key, no network.** Listening on anything other than loopback without `listen.apiKeys` or `listen.oidc` is a config error. Keys are compared in constant time, and a wrong or missing key gets `401`.
 - **Users (`listen.oidc`):** the proxy accepts JWTs from your OpenID Connect provider (Okta, Entra ID, Auth0, Keycloak, Google…) next to or instead of API keys. It checks the signature against the issuer's JWKS (found through its discovery document, or `jwksUri`), the issuer, the `audience` (required: a token minted for another service is refused) and the lifetime. The user comes from `userClaim` (default `sub`; `email` is common) and the groups from `groupsClaim` (default `groups`, a list or a space-separated string). Rules can match `user` (glob, e.g. `"*@contractor.com"`) and `group`, and every audit event carries `user`. A session belongs to the user who opened it: another user's token gets `403` on it. A `401` carries `WWW-Authenticate: Bearer resource_metadata=…`, and `/.well-known/oauth-protected-resource` (RFC 9728) names the issuer, so MCP clients that implement the authorization spec find where to sign in; behind a reverse proxy set `oidc.resource` to the public URL.
+- **Directory groups (`listen.ldap`):** LDAP / Active Directory groups are added to the groups a caller already has — an OIDC user, or an LLM gateway key's user — so `group` matches in rules, quotas, `llm.access` and budgets can use the groups your organisation already maintains. The directory never makes a caller known: authentication stays with API keys, OIDC or gateway keys.
+
+  ```yaml
+  listen:
+    ldap:
+      url: ldaps://dc.acme.com                # certificates verified; caFile for a private CA
+      bindDn: "CN=svc-guardbee,OU=Service,DC=acme,DC=com"
+      bindPasswordEnv: LDAP_BIND_PASSWORD
+      baseDn: "DC=acme,DC=com"
+      userFilter: "(|(mail={user})(userPrincipalName={user}))"   # {user} is escaped (RFC 4515)
+      groupAttribute: memberOf                 # AD; or groupSearch: { baseDn, filter: "(member={dn})", nameAttribute: cn }
+      groupName: cn                            # CN=Platform Eng,OU=… → "Platform Eng"; dn keeps the DN
+      cacheSeconds: 300
+      onError: deny                            # directory down: 503 (default) | token-groups: go on without it
+  ```
+
+  SAML is not a proxy setting: MCP and the LLM endpoints authenticate with bearer tokens, and identity providers that speak SAML (Entra ID, Okta, ADFS, Keycloak) also issue OIDC tokens — use `listen.oidc` with them, and `listen.ldap` for groups the token does not carry.
 - `GET /healthz` returns `{"ok": true, "sessions": N}`. Sessions above `maxSessions` get `503`.
 - **Dashboard:** `audit.dashboard` sends every audit event, batched, to the GuardBee dashboard with a workspace API key taken from `apiKeyEnv`. The key never sits in the file. If the dashboard is unreachable, events wait in memory (up to 10,000) and go out later. A rejected key is reported once on stderr. Tool calls never wait for the dashboard.
 - `init` now also moves Streamable HTTP servers (`url` + `headers`) behind the proxy. Legacy SSE servers stay in the client config and are reported.
