@@ -1,5 +1,11 @@
 # @guardbee/mcp-document-scanner
 
+## 0.1.2
+
+### Patch Changes
+
+- [#140](https://github.com/GuardBee/guardbee-mcp/pull/140) [`d8cd9cc`](https://github.com/GuardBee/guardbee-mcp/commit/d8cd9cc0524abe68dbb095dc0c28a399ae8eb282) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - CLI: `--cache-path=<dir>` sets where Tesseract language data is cached (the option existed in the API but not on the command line).
+
 ## 0.1.1
 
 ### Patch Changes
