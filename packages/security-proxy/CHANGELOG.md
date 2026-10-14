@@ -1,5 +1,16 @@
 # @guardbee/mcp-security-proxy
 
+## 1.16.0
+
+### Minor Changes
+
+- [#118](https://github.com/GuardBee/guardbee-mcp/pull/118) [`08cc29e`](https://github.com/GuardBee/guardbee-mcp/commit/08cc29e4ca69af9aaf2bcbbde9f31824c9ada5c7) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - More PII detectors: passport, SGK/SSK/Bağ-Kur number, MERSİS number, date of birth and postal address (all label-gated), KEP address, and opt-in IP address, MAC address and Turkish vehicle plate (`piiMasking.include`). guard-core exports `PERSONAL_DATA_CATEGORIES` and `OPT_IN_PII`; every new category is counted in `piiHits`.
+
+### Patch Changes
+
+- Updated dependencies [[`08cc29e`](https://github.com/GuardBee/guardbee-mcp/commit/08cc29e4ca69af9aaf2bcbbde9f31824c9ada5c7)]:
+  - @guardbee/guard-core@0.14.0
+
 ## 1.15.0
 
 ### Minor Changes
