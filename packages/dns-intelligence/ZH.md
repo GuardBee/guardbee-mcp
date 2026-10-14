@@ -119,6 +119,24 @@ Email Security Check: example.com
 
 没有自己 DMARC 记录的子域名会像接收方一样继承父域名的记录（`sp=` 策略）。子域名枚举会检测通配符 DNS，并排除仅由通配符应答的名称。
 
+## DKIM、MX 与传输安全发现项
+
+| 代码 | 严重程度 | 说明 |
+|-----|----------|----------|
+| `DKIM_NOT_FOUND` | 🟡 Medium | 约 35 个常见选择器下都没有 DKIM 密钥（可通过 `dkimSelectors` 传入自己的选择器） |
+| `DKIM_KEY_WEAK` | 🟠 High | RSA 密钥小于 1024 位 |
+| `DKIM_KEY_1024` | 🟡 Medium | 1024 位 RSA 密钥 —— 请轮换为 2048 位（RFC 8301） |
+| `DKIM_KEY_INVALID` | 🟡 Medium | 发布的密钥无法解析 |
+| `DKIM_TESTING` | 🔵 Low | `t=y` 测试模式 |
+| `MX_UNRESOLVABLE` | 🟠 High | 某个 MX 主机没有 A/AAAA 记录 |
+| `MTA_STS_MISSING` | 🔵 Low | 没有 MTA-STS：入站邮件可被降级为明文 |
+| `MTA_STS_MX_MISMATCH` | 🟠 High | enforce 策略未列出在用的 MX —— 遵循策略的发送方会拒绝投递 |
+| `MTA_STS_POLICY_UNREACHABLE` / `_INVALID` | 🟡 Medium | 策略文件缺失、被重定向或格式错误 —— 发送方会忽略 MTA-STS |
+| `MTA_STS_TESTING` / `_MODE_NONE` / `_MAX_AGE_SHORT` | 🔵 Low | 未强制执行、已撤回或 `max_age` 不足一天 |
+| `TLSRPT_MISSING` / `_INVALID` | 🔵 Low | 配合 MTA-STS 时没有可用的 TLS-RPT |
+
+域名有 MX 记录时 `SPF_MISSING` 为 🟠 High（并给出起始记录，例如 Google Workspace 的 `v=spf1 include:_spf.google.com ~all`），否则为 🟡 Medium（建议 `v=spf1 -all`）。
+
 ## 子域名接管检测
 
 每个带 CNAME 的存活子域名都会沿 CNAME 链（最多 5 跳）进行检查。通配符记录也会检查：悬空的 `*.domain` 会让所有未列出的名称都可被接管。

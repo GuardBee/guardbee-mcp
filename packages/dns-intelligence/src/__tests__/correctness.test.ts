@@ -2,6 +2,9 @@ import { describe, it, expect } from "vitest";
 import { analyzeSpf, analyzeDmarc, enumerateDomain, enumerateSubdomainsDetailed, formatSubdomainReport } from "../dns.js";
 import { countLookupTerms, evaluateSpf, isSpfRecord } from "../spf.js";
 import { normalizeDomain, type DnsResolver } from "../resolver.js";
+import { generateKeyPairSync } from "crypto";
+
+const RSA_2048 = generateKeyPairSync("rsa", { modulusLength: 2048 }).publicKey.export({ type: "spki", format: "der" }).toString("base64");
 
 // ── Fake resolver ─────────────────────────────────────────────────────────────
 //
@@ -170,7 +173,7 @@ describe("enumerateDomain", () => {
       "example.com": { SOA, NS: ["a.ns", "b.ns"], TXT: txt("v=spf1 include:big.com -all") },
       "big.com": { TXT: txt("v=spf1 a a a a a a a a a a -all") },
       "_dmarc.example.com": { TXT: txt("v=DMARC1; p=reject; rua=mailto:d@example.com") },
-      "google._domainkey.example.com": { TXT: txt("v=DKIM1; p=abc") },
+      "google._domainkey.example.com": { TXT: txt(`v=DKIM1; k=rsa; p=${RSA_2048}`) },
     };
     const res = await enumerateDomain("example.com", { resolver: fakeResolver(zone) });
     expect(res.spf!.lookupCount).toBe(1);

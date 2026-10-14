@@ -11,6 +11,8 @@ import {
 } from "./dns.js";
 import { normalizeDomain, systemResolver } from "./resolver.js";
 import { checkTakeover } from "./takeover.js";
+import { DKIM_SELECTORS, suggestSpf } from "./email.js";
+import type { Finding } from "./dns.js";
 import * as dns from "dns/promises";
 
 export async function startServer() {
@@ -93,7 +95,7 @@ export async function startServer() {
 
   server.tool(
     "check_email_security",
-    "Check SPF, DMARC, and DKIM configuration for a domain and get actionable remediation advice",
+    "Check a domain's email security: MX, SPF (nested lookup count), DMARC, DKIM key strength, MTA-STS and TLS-RPT, with remediation advice",
     {
       domain: z.string().describe("Domain to check email security for"),
       dkimSelectors: z
@@ -104,65 +106,76 @@ export async function startServer() {
     async ({ domain: input, dkimSelectors: extraSelectors }) => {
       const start = Date.now();
       const domain = normalizeDomain(input);
-      const result = await enumerateDomain(domain);
+      const result = await enumerateDomain(domain, {
+        dkimSelectors: extraSelectors?.length ? [...DKIM_SELECTORS, ...extraSelectors] : undefined,
+      });
       if (result.exists === false) {
         return { content: [{ type: "text", text: `${domain} does not exist (NXDOMAIN); there is nothing to check.` }] };
       }
 
       const lines: string[] = [`Email Security Check: ${domain}`, "─".repeat(50)];
+      const issuesFor = (re: RegExp) => result.findings.filter((f) => re.test(f.code) && f.severity !== "info");
+      const push = (fs: Finding[]) => {
+        for (const f of fs) lines.push(`  [${f.severity.toUpperCase()}] ${f.message}`);
+      };
+
+      // MX
+      lines.push("\n── MX ──────────────────────────────────────────");
+      const mx = result.records["MX"] ?? [];
+      if (result.nullMx) lines.push("✓ Null MX: the domain accepts no mail");
+      else if (mx.length === 0) lines.push("– No MX records: the domain does not receive mail");
+      else lines.push(`✓ ${mx.map((m) => m.value).join(", ")}`);
+      push(issuesFor(/^MX_/));
 
       // SPF
       lines.push("\n── SPF ─────────────────────────────────────────");
       if (!result.spf) {
         lines.push("✗ No SPF record found");
-        lines.push("  Add:  v=spf1 include:<your-mail-provider> -all");
+        const hosts = result.nullMx ? [] : mx.map((m) => m.value.split(" ")[1]!.replace(/\.$/, ""));
+        lines.push(`  Add:  ${suggestSpf(hosts)}${hosts.length ? "   (plus every other service that sends as this domain)" : "   (the domain sends no mail)"}`);
       } else {
         lines.push(`✓ ${result.spf.raw}`);
         if (result.spf.totalLookups !== undefined) {
           lines.push(`  DNS lookups: ${result.spf.totalLookups}/10 including nested includes`);
         }
-        for (const f of result.spf.issues) lines.push(`  [${f.severity.toUpperCase()}] ${f.message}`);
       }
+      push(issuesFor(/^SPF_/));
 
       // DMARC
       lines.push("\n── DMARC ───────────────────────────────────────");
       if (!result.dmarc) {
-        for (const f of result.findings.filter((x) => x.code === "DMARC_MULTIPLE")) lines.push(`✗ ${f.message}`);
         lines.push("✗ No usable DMARC record found at _dmarc." + domain);
         lines.push("  Add:  v=DMARC1; p=quarantine; rua=mailto:dmarc@" + domain);
       } else {
         lines.push(`✓ ${result.dmarc.raw}${result.dmarc.inheritedFrom ? `  (inherited from ${result.dmarc.inheritedFrom})` : ""}`);
-        for (const f of result.dmarc.issues) lines.push(`  [${f.severity.toUpperCase()}] ${f.message}`);
       }
+      push(issuesFor(/^DMARC_/));
 
       // DKIM
       lines.push("\n── DKIM ────────────────────────────────────────");
-      const foundDkim = Object.entries(result.dkimSelectors ?? {})
-        .filter(([, found]) => found)
-        .map(([sel]) => sel);
-
-      if (extraSelectors?.length) {
-        const extraChecks = await Promise.all(
-          extraSelectors.map(async (sel) => {
-            try {
-              const txt = await dns.resolveTxt(`${sel}._domainkey.${domain}`);
-              return txt.length ? sel : null;
-            } catch {
-              return null;
-            }
-          })
-        );
-        foundDkim.push(...extraChecks.filter((s): s is string => s !== null));
-      }
-
-      if (foundDkim.length === 0) {
-        lines.push("✗ No DKIM records found");
-        lines.push("  Configure DKIM signing with your mail provider and publish the public key");
+      const keys = result.dkimKeys ?? [];
+      if (keys.length === 0) {
+        lines.push("✗ No DKIM key found under common selectors");
+        lines.push("  Configure DKIM signing with your mail provider, or pass its selector in dkimSelectors");
       } else {
-        lines.push(`✓ Found DKIM selectors: ${foundDkim.join(", ")}`);
+        for (const k of keys) {
+          lines.push(k.revoked ? `– ${k.selector}: revoked` : `✓ ${k.selector}: ${k.keyType}${k.bits ? ` ${k.bits}-bit` : ""}${k.testing ? " (t=y)" : ""}`);
+        }
       }
+      push(issuesFor(/^DKIM_/));
 
-      const totalIssues = result.findings.filter((f) => /^(SPF|DMARC|DKIM)_/.test(f.code) && f.severity !== "info").length;
+      // Transport security
+      lines.push("\n── MTA-STS / TLS-RPT ───────────────────────────");
+      const p = result.mtaSts?.policy;
+      lines.push(
+        result.mtaSts?.record
+          ? `✓ MTA-STS ${p ? `mode ${p.mode}, mx ${p.mx.join(" ")}, max_age ${p.maxAge}` : "announced (policy not loaded)"}`
+          : "– MTA-STS not set up"
+      );
+      lines.push(result.tlsRpt?.record ? `✓ ${result.tlsRpt.record}` : "– TLS-RPT not set up");
+      push(issuesFor(/^(MTA_STS|TLSRPT)_/));
+
+      const totalIssues = result.findings.filter((f) => /^(SPF|DMARC|DKIM|MX|MTA_STS|TLSRPT)_/.test(f.code) && f.severity !== "info").length;
       lines.push(`\n${totalIssues === 0 ? "✅ Email security looks good!" : `⚠️  ${totalIssues} issue(s) need attention`}`);
       lines.push(`\nCompleted in ${Date.now() - start}ms`);
 

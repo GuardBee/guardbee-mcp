@@ -119,6 +119,24 @@ Email Security Check: example.com
 
 Subdomains without their own DMARC record inherit the parent domain's (`sp=` policy), as receivers do. Subdomain enumeration detects wildcard DNS and leaves out names answered only by the wildcard.
 
+## DKIM, MX and Transport Findings
+
+| Code | Severity | Description |
+|-----|----------|----------|
+| `DKIM_NOT_FOUND` | 🟡 Medium | No DKIM key under ~35 common selectors (pass yours via `dkimSelectors`) |
+| `DKIM_KEY_WEAK` | 🟠 High | RSA key under 1024 bits |
+| `DKIM_KEY_1024` | 🟡 Medium | 1024-bit RSA key — rotate to 2048 (RFC 8301) |
+| `DKIM_KEY_INVALID` | 🟡 Medium | Published key cannot be parsed |
+| `DKIM_TESTING` | 🔵 Low | `t=y` test mode |
+| `MX_UNRESOLVABLE` | 🟠 High | An MX host has no A/AAAA record |
+| `MTA_STS_MISSING` | 🔵 Low | No MTA-STS: inbound mail can be downgraded to plaintext |
+| `MTA_STS_MX_MISMATCH` | 🟠 High | Enforce policy omits a live MX — compliant senders refuse to deliver |
+| `MTA_STS_POLICY_UNREACHABLE` / `_INVALID` | 🟡 Medium | Policy file missing, redirected or malformed — senders ignore MTA-STS |
+| `MTA_STS_TESTING` / `_MODE_NONE` / `_MAX_AGE_SHORT` | 🔵 Low | Not enforcing, withdrawn, or `max_age` under a day |
+| `TLSRPT_MISSING` / `_INVALID` | 🔵 Low | No usable TLS-RPT next to MTA-STS |
+
+`SPF_MISSING` is 🟠 High when the domain has MX records (with a starting record, e.g. `v=spf1 include:_spf.google.com ~all` for Google Workspace) and 🟡 Medium otherwise (suggests `v=spf1 -all`).
+
 ## Subdomain Takeover Detection
 
 Each live subdomain with a CNAME is checked, following the CNAME chain (up to 5 hops). The wildcard record is checked too: a dangling `*.domain` makes every unlisted name claimable.

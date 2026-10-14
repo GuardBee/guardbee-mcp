@@ -119,6 +119,24 @@ Email Security Check: example.com
 
 Kendi DMARC kaydı olmayan alt alan adları, alıcıların yaptığı gibi üst alan adının kaydını (`sp=` politikasıyla) devralır. Alt alan adı taraması wildcard DNS'i tespit eder ve yalnızca wildcard'ın yanıtladığı adları listelemez.
 
+## DKIM, MX ve Taşıma Güvenliği Bulguları
+
+| Kod | Önem | Açıklama |
+|-----|----------|----------|
+| `DKIM_NOT_FOUND` | 🟡 Medium | ~35 yaygın seçicide DKIM anahtarı yok (kendi seçicinizi `dkimSelectors` ile verin) |
+| `DKIM_KEY_WEAK` | 🟠 High | 1024 bitten küçük RSA anahtarı |
+| `DKIM_KEY_1024` | 🟡 Medium | 1024 bit RSA anahtarı — 2048'e yenileyin (RFC 8301) |
+| `DKIM_KEY_INVALID` | 🟡 Medium | Yayınlanan anahtar okunamıyor |
+| `DKIM_TESTING` | 🔵 Low | `t=y` test modu |
+| `MX_UNRESOLVABLE` | 🟠 High | Bir MX sunucusunun A/AAAA kaydı yok |
+| `MTA_STS_MISSING` | 🔵 Low | MTA-STS yok: gelen posta düz metne düşürülebilir |
+| `MTA_STS_MX_MISMATCH` | 🟠 High | Enforce politikası canlı bir MX'i listelemiyor — uyumlu göndericiler teslim etmez |
+| `MTA_STS_POLICY_UNREACHABLE` / `_INVALID` | 🟡 Medium | Politika dosyası yok, yönlendiriliyor veya bozuk — göndericiler MTA-STS'i yok sayar |
+| `MTA_STS_TESTING` / `_MODE_NONE` / `_MAX_AGE_SHORT` | 🔵 Low | Uygulanmıyor, geri çekilmiş veya `max_age` bir günden kısa |
+| `TLSRPT_MISSING` / `_INVALID` | 🔵 Low | MTA-STS'in yanında kullanılabilir TLS-RPT yok |
+
+`SPF_MISSING`, alan adının MX kaydı varsa 🟠 High (başlangıç kaydıyla, örn. Google Workspace için `v=spf1 include:_spf.google.com ~all`), yoksa 🟡 Medium'dur (`v=spf1 -all` önerilir).
+
 ## Subdomain Ele Geçirme Tespiti
 
 CNAME'i olan her canlı subdomain, CNAME zinciri (en fazla 5 adım) izlenerek kontrol edilir. Wildcard kaydı da kontrol edilir: asılı bir `*.alanadi`, listelenmeyen her adı ele geçirilebilir yapar.
