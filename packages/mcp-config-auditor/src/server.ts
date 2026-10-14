@@ -13,6 +13,7 @@ import {
   scanSkillText,
 } from "./scanner.js";
 import type { ConfigFinding, InventoryServer } from "./types.js";
+import { buildInventory } from "./inventory.js";
 
 function formatFindings(findings: ConfigFinding[], scannedFiles: number, durationMs: number): string {
   if (findings.length === 0) {
@@ -150,7 +151,12 @@ export async function startServer() {
         }
       }
       const result = discoverHostMcp({ home, allowlist, includeContentAudit });
-      const header = `Discovered ${result.scannedFiles} config(s); ${result.missingPaths} well-known path(s) absent.\n\n`;
+      const inventory = buildInventory(result, { includeUser: false });
+      const listed = inventory.servers.map((server) => {
+        const what = server.package ? `${server.package.name}@${server.package.version ?? "latest"}` : (server.url ?? server.command ?? "?");
+        return `  • ${server.client} / ${server.name} (${server.transport}) ${what}${server.envKeys.length ? ` — env: ${server.envKeys.join(", ")}` : ""}`;
+      });
+      const header = `Discovered ${result.scannedFiles} config(s); ${result.missingPaths} well-known path(s) absent.\n${listed.join("\n")}\n\n`;
       return {
         content: [{ type: "text", text: header + formatFindings(result.findings, result.scannedFiles, result.durationMs) }],
       };

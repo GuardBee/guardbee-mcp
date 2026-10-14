@@ -47,3 +47,13 @@ npx @guardbee/mcp-config-auditor discover --allowlist=./mcp-allowlist.json --fai
 `discover` (OWASP MCP09) Cursor / Claude / Windsurf / VS Code yollarını tarar ve kurulu sunucuları org allowlist ile karşılaştırır.
 
 Dizin taraması `mcp.json`, `mcp_config.json`, `claude_desktop_config.json` ve `SKILL.md` açar. Adı `SKILL.md` olan bir dosya agent skill'i olarak denetlenir. Aynı ad ve benzeyen ad bulguları dizin taramasında çıkar; tek dosya diğer skill'leri göremez. Sunucular arası gölgeleme ayrıca tool envanteri ister, çünkü istemci config'i tool listesi içermez.
+
+## Shadow MCP keşfi ve envanter
+
+`discover`, Cursor, Claude Desktop, Claude Code (proje bazlı server'lar dahil: `claude-code:<yol>`), Windsurf, VS Code, Gemini CLI, Cline ve Zed yapılandırmalarını tarar ve her server'ı kurum allowlist'i ile karşılaştırır. `--format=json` her server için bir **envanter** üretir: istemci, yol, transport, komut, paket ve sürüm (sabitlenmiş mi), URL, env ve header **adları**, auto-approve ve bulgular. Gizli değer içermez: env/header değerleri alınmaz, `--token` benzeri bayrak değerleri ve bağlantı dizesi parolaları `[redacted]` olur, URL'lerden kimlik bilgisi ve sorgu değerleri atılır.
+
+`--upload` envanteri GuardBee dashboard'una gönderir (`GUARDBEE_API_KEY`, `gateway.write` kapsamı); host adı, işletim sistemi ve kullanıcı adı eklenir, `--no-user` ile kullanıcı adı çıkarılır.
+
+```bash
+GUARDBEE_API_KEY=gb_… npx @guardbee/mcp-config-auditor discover --allowlist=./mcp-allowlist.json --upload --fail-on=none
+```
