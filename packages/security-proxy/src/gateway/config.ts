@@ -10,6 +10,7 @@ import type { ExporterConfig } from "../audit/exporters.js";
 import type { Label } from "./labels.js";
 import type { PolicyAction, PolicyRule } from "./policy.js";
 import type { OidcConfig } from "../auth.js";
+import type { DirectoryConfig } from "../directory.js";
 import type { QuotaRule } from "./quota.js";
 import type { TaintBasis, TaintMode } from "./taint.js";
 import type { ApprovalChannel } from "./approval.js";
@@ -27,6 +28,8 @@ export type ListenConfig =
       apiKeys: string[];
       /** Accept JWTs from this OpenID Connect issuer; the user and groups feed rules and audit. */
       oidc?: OidcConfig;
+      /** Add the user's LDAP / Active Directory groups to the token's. */
+      ldap?: DirectoryConfig;
       maxSessions: number;
     };
 
@@ -175,6 +178,27 @@ const listenSchema = z
       .strict()
       .optional(),
     maxSessions: z.number().int().positive().default(100),
+    ldap: z
+      .object({
+        url: z.string().regex(/^ldaps?:\/\//, "url must start with ldap:// or ldaps://"),
+        bindDn: z.string().min(1),
+        bindPasswordEnv: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable"),
+        baseDn: z.string().min(1),
+        userFilter: z.string().includes("{user}", { message: "userFilter needs a {user} placeholder" }).default("(|(uid={user})(mail={user})(userPrincipalName={user})(sAMAccountName={user}))"),
+        groupAttribute: z.string().min(1).optional(),
+        groupSearch: z
+          .object({ baseDn: z.string().min(1), filter: z.string().min(1).default("(member={dn})"), nameAttribute: z.string().min(1).default("cn") })
+          .strict()
+          .optional(),
+        groupName: z.enum(["cn", "dn"]).default("cn"),
+        cacheSeconds: z.number().int().min(0).default(300),
+        timeoutMs: z.number().int().positive().default(5000),
+        caFile: z.string().optional(),
+        onError: z.enum(["deny", "token-groups"]).default("deny"),
+      })
+      .strict()
+      .refine((ldap) => ldap.groupAttribute !== undefined || ldap.groupSearch !== undefined, "set groupAttribute (e.g. memberOf) or groupSearch")
+      .optional(),
   })
   .strict();
 
@@ -283,6 +307,13 @@ function interpolateUpstream(name: string, upstream: { command?: string; args?: 
   };
 }
 
+function resolveLdap(ldap: { bindPasswordEnv: string } & Omit<DirectoryConfig, "bindPassword">): DirectoryConfig {
+  const { bindPasswordEnv, ...rest } = ldap;
+  const bindPassword = process.env[bindPasswordEnv];
+  if (!bindPassword) throw new Error(`Environment variable ${bindPasswordEnv} (listen.ldap.bindPasswordEnv) is not set`);
+  return { ...rest, bindPassword };
+}
+
 function resolveDashboard(
   dashboard: { url: string; apiKeyEnv: string; source?: string; batchSize: number; flushIntervalMs: number } | undefined,
 ): AuditConfig["dashboard"] {
@@ -311,6 +342,8 @@ export function parseGatewayYaml(source: string, fileLabel = "guardbee-proxy.yam
   if (cfg.approval.channels.includes("dashboard") && !cfg.audit.dashboard) {
     throw new Error(`Invalid ${fileLabel}:\n  - approval.channels: "dashboard" needs audit.dashboard (url and apiKeyEnv)`);
   }
+  // The directory password is resolved from the environment, like every other secret
+  const { ldap: rawLdap, ...listenRest } = cfg.listen;
   return {
     upstreams: Object.fromEntries(
       Object.entries(cfg.upstreams).map(([name, upstream]) => [name, interpolateUpstream(name, upstream)]),
@@ -318,7 +351,12 @@ export function parseGatewayYaml(source: string, fileLabel = "guardbee-proxy.yam
     policy: cfg.policy.source === "dashboard" ? { source: "dashboard", refreshSeconds: cfg.policy.refreshSeconds } : { source: "local" },
     listen:
       cfg.listen.transport === "http"
-        ? { ...cfg.listen, transport: "http", apiKeys: cfg.listen.apiKeys.map((key) => interpolate(key, "listen.apiKeys")) }
+        ? {
+            ...listenRest,
+            transport: "http",
+            apiKeys: listenRest.apiKeys.map((key) => interpolate(key, "listen.apiKeys")),
+            ...(rawLdap ? { ldap: resolveLdap(rawLdap) } : {}),
+          }
         : { transport: "stdio" },
     namespaced: true,
     labels: cfg.labels,
