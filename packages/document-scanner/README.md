@@ -43,7 +43,7 @@ OCR is optional: `tesseract.js` reads images, and `@napi-rs/canvas` (prebuilt, n
 
 ```bash
 guardbee-document-scanner scan <file|folder> [--format=text|json|sarif] [--fail-on=any|critical|high|medium|low|none]
-                               [--no-ocr] [--lang=tur,eng] [--lang-path=<dir>] [--include=ip_address,plate_tr]
+                               [--no-ocr] [--lang=tur,eng] [--lang-path=<dir>] [--cache-path=<dir>] [--include=ip_address,plate_tr]
                                [--max-pages=50] [--max-files=500] [--text]
 ```
 

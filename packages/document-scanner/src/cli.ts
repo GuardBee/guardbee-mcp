@@ -30,6 +30,7 @@ Options:
   --no-ocr              Read text layers only
   --lang=<l1,l2>        Tesseract languages (default tur,eng)
   --lang-path=<dir>     Folder with <lang>.traineddata, for offline OCR
+  --cache-path=<dir>    Where downloaded language data is cached (default ~/.cache/guardbee/tessdata)
   --include=<d1,d2>     Opt-in detectors: ip_address, mac_address, plate_tr
   --max-pages=<n>       PDF pages read per document (default 50)
   --max-files=<n>       Files scanned in a folder (default 500)
@@ -54,6 +55,7 @@ async function runScan(args: string[]): Promise<void> {
     includeText: args.includes("--text"),
     ...(list(flag("lang")) ? { languages: list(flag("lang"))! } : {}),
     ...(flag("lang-path") ? { langPath: flag("lang-path")! } : {}),
+    ...(flag("cache-path") ? { cachePath: flag("cache-path")! } : {}),
     ...(list(flag("include")) ? { include: list(flag("include"))! } : {}),
     ...(flag("max-pages") ? { maxPages: Number(flag("max-pages")) } : {}),
     ...(flag("max-files") ? { maxFiles: Number(flag("max-files")) } : {}),
