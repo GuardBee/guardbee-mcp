@@ -169,6 +169,10 @@ const yamlSchema = z
     if (llm && listen.transport !== "http") {
       ctx.addIssue({ code: "custom", path: ["llm"], message: "the llm endpoints need listen.transport: http" });
     }
+    const topicIds = new Set(value.topics.map((topic) => topic.id));
+    for (const id of llm?.sensitive?.on.topics ?? []) {
+      if (!topicIds.has(id)) ctx.addIssue({ code: "custom", path: ["llm", "sensitive", "on", "topics"], message: `no topic with id "${id}" in topics` });
+    }
     if (llm && llm.path === listen.path) {
       ctx.addIssue({ code: "custom", path: ["llm", "path"], message: `llm.path and listen.path are both ${listen.path}` });
     }

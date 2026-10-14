@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { globToRegExp } from "../gateway/policy.js";
 
 /** Which API a provider speaks; a request is only routed to a provider of its own shape. */
 export type LlmApi = "openai" | "anthropic";
@@ -46,6 +47,34 @@ export interface LlmBudget {
   costUsd?: number;
 }
 
+/** Which models a caller may ask for; every entry that matches the caller adds its globs. */
+export interface LlmAccessRule {
+  /** Glob on the caller's user (gateway key user or OIDC user). */
+  user?: string;
+  /** One of the caller's groups. */
+  group?: string;
+  allow: string[];
+}
+
+/**
+ * Send a prompt that holds personal data (or a listed topic) to a model you
+ * run yourself instead of the one asked for. The model must have a route for
+ * the request's API; if it has none, the request is refused, never sent on.
+ */
+export interface LlmSensitiveRoute {
+  model: string;
+  on: {
+    /** Any personal data the PII detectors find (default true). */
+    pii: boolean;
+    /** Only these PII categories count (absent: all). */
+    categories?: string[];
+    /** Topic ids (top-level `topics`) that also count. */
+    topics?: string[];
+  };
+  /** Keep masking the prompt on the routed request (default false: the data stays in-house). */
+  mask: boolean;
+}
+
 export interface LlmConfig {
   /** Prefix of the endpoints: <path>/chat/completions, <path>/messages, <path>/models. */
   path: string;
@@ -55,6 +84,10 @@ export interface LlmConfig {
   /** Price per model glob, for cost in the audit log and costUsd budgets. */
   pricing: Record<string, LlmPrice>;
   budgets: LlmBudget[];
+  access: LlmAccessRule[];
+  /** For a caller no access entry matches. */
+  accessDefault: "allow" | "deny";
+  sensitive?: LlmSensitiveRoute;
   /** Also mask PII the model writes in its answer (prompts are always checked). */
   maskResponses: boolean;
   timeoutSeconds: number;
@@ -117,6 +150,30 @@ export const llmSchema = z
       .default([]),
     maskResponses: z.boolean().default(false),
     timeoutSeconds: z.number().int().positive().default(120),
+    access: z
+      .array(
+        z
+          .object({ user: z.string().min(1).optional(), group: z.string().min(1).optional(), allow: z.array(z.string().min(1)).min(1) })
+          .strict()
+          .refine((rule) => rule.user !== undefined || rule.group !== undefined, "an access entry needs user or group"),
+      )
+      .default([]),
+    accessDefault: z.enum(["allow", "deny"]).default("allow"),
+    sensitive: z
+      .object({
+        model: z.string().min(1),
+        on: z
+          .object({
+            pii: z.boolean().default(true),
+            categories: z.array(z.string().min(1)).min(1).optional(),
+            topics: z.array(z.string().min(1)).min(1).optional(),
+          })
+          .strict()
+          .default({ pii: true }),
+        mask: z.boolean().default(false),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
@@ -124,6 +181,9 @@ export const llmSchema = z
       if (!value.providers[route.provider]) {
         ctx.addIssue({ code: "custom", path: ["routes", index, "provider"], message: `no provider named "${route.provider}"` });
       }
+    }
+    if (value.sensitive && !value.routes.some((route) => globToRegExp(route.model).test(value.sensitive!.model))) {
+      ctx.addIssue({ code: "custom", path: ["sensitive", "model"], message: `no route serves "${value.sensitive.model}"` });
     }
     if (value.budgets.some((b) => b.costUsd !== undefined) && Object.keys(value.pricing).length === 0) {
       ctx.addIssue({ code: "custom", path: ["pricing"], message: "a costUsd budget needs pricing for the models it covers" });
@@ -156,5 +216,8 @@ export function resolveLlmConfig(raw: LlmYaml): LlmConfig {
     budgets: raw.budgets,
     maskResponses: raw.maskResponses,
     timeoutSeconds: raw.timeoutSeconds,
+    access: raw.access,
+    accessDefault: raw.accessDefault,
+    ...(raw.sensitive ? { sensitive: raw.sensitive } : {}),
   };
 }

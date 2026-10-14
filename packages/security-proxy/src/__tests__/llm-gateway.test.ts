@@ -102,6 +102,8 @@ async function startLlm(
       ],
       pricing: { "gpt-*": { input: 2, output: 10 } },
       budgets: [],
+      access: [],
+      accessDefault: "allow",
       maskResponses: false,
       timeoutSeconds: 10,
       ...llm,
@@ -396,6 +398,116 @@ describe("LLM gateway: Anthropic-compatible", () => {
   });
 });
 
+describe("LLM gateway: model access and sensitive routing", () => {
+  const twoProviders = async () => {
+    const cloud = await fakeProvider(openAiEcho);
+    const local = await fakeProvider(openAiEcho);
+    return { cloud, local };
+  };
+  const providersWithLocal = (cloud: string, local: string): Partial<LlmConfig> => ({
+    providers: {
+      oai: { name: "oai", api: "openai", baseUrl: `${cloud}/v1`, apiKey: "sk-real-openai", headers: {} },
+      ollama: { name: "ollama", api: "openai", baseUrl: `${local}/v1`, apiKey: "none", headers: {} },
+    },
+    routes: [
+      { model: "llama3.1", provider: "ollama" },
+      { model: "gpt-*", provider: "oai" },
+    ],
+  });
+
+  it("refuses a model the caller may not use, and lists only allowed models", async () => {
+    const { cloud, local } = await twoProviders();
+    const { base, events } = await startLlm({}, {
+      ...providersWithLocal(cloud.url, local.url),
+      access: [{ user: "bob", allow: ["gpt-4o-mini", "llama3.1"] }, { group: "eng", allow: ["gpt-*"] }],
+      accessDefault: "deny",
+    });
+    const msg = (model: string) => ({ model, messages: [{ role: "user", content: "hi" }] });
+    const denied = await chat(base, "gb-bob", msg("gpt-4o"));
+    expect(denied.status).toBe(403);
+    expect(((await denied.json()) as { error: { message: string } }).error.message).toContain('model "gpt-4o" is not allowed for user "bob"');
+    expect(events.some((e) => e.type === "blocked" && e.ruleId === "llm:access")).toBe(true);
+    expect((await chat(base, "gb-bob", msg("gpt-4o-mini"))).status).toBe(200);
+    expect((await chat(base, "gb-alice", msg("gpt-4o"))).status).toBe(200);
+    expect(cloud.seen).toHaveLength(2);
+
+    const listed = (await (await fetch(`${base}/models`, { headers: { authorization: "Bearer gb-bob" } })).json()) as { data: { id: string }[] };
+    expect(listed.data.map((m) => m.id)).toEqual(["llama3.1"]);
+  });
+
+  it("accessDefault: deny refuses callers no entry matches", async () => {
+    const { cloud, local } = await twoProviders();
+    const { base } = await startLlm({}, { ...providersWithLocal(cloud.url, local.url), access: [{ group: "eng", allow: ["*"] }], accessDefault: "deny" });
+    expect((await chat(base, "gb-bob", { model: "gpt-4o", messages: [{ role: "user", content: "hi" }] })).status).toBe(403);
+  });
+
+  it("routes a prompt with personal data to the local model, unmasked, and records it", async () => {
+    const { cloud, local } = await twoProviders();
+    const { base, events } = await startLlm({}, { ...providersWithLocal(cloud.url, local.url), sensitive: { model: "llama3.1", on: { pii: true }, mask: false } });
+
+    const res = await chat(base, "gb-alice", { model: "gpt-4o", messages: [{ role: "user", content: `müşteri ${TCKN} borcu` }] });
+    expect(res.status).toBe(200);
+    expect(cloud.seen).toHaveLength(0);
+    expect(local.seen[0]!.body["model"]).toBe("llama3.1");
+    expect(JSON.stringify(local.seen[0]!.body)).toContain(TCKN);
+    expect(local.seen[0]!.headers.authorization).toBe("Bearer none");
+
+    const routed = events.find((e) => e.ruleId === "llm:route:sensitive")!;
+    expect(routed).toMatchObject({ type: "warn", tool: "llm:llama3.1", upstream: "ollama" });
+    expect(routed.reason).toContain("routed from gpt-4o to llama3.1");
+    expect(routed.reason).toContain("tc_kimlik");
+    expect(events.find((e) => e.type === "tool_response")!.llm).toMatchObject({ model: "llama3.1", routedFrom: "gpt-4o" });
+
+    // No personal data: the model asked for
+    await chat(base, "gb-alice", { model: "gpt-4o", messages: [{ role: "user", content: "hava nasıl" }] });
+    expect(cloud.seen).toHaveLength(1);
+  });
+
+  it("only listed categories and topics count, and mask: true keeps masking on the routed request", async () => {
+    const { cloud, local } = await twoProviders();
+    const { base } = await startLlm(
+      {},
+      { ...providersWithLocal(cloud.url, local.url), sensitive: { model: "llama3.1", on: { pii: true, categories: ["iban"], topics: ["ma"] }, mask: true } },
+      {},
+      { topics: [{ id: "ma", terms: ["birleşme"], minMatches: 1 }] },
+    );
+    await chat(base, "gb-alice", { model: "gpt-4o", messages: [{ role: "user", content: "mail ali@example.com" }] });
+    expect(cloud.seen).toHaveLength(1);
+    await chat(base, "gb-alice", { model: "gpt-4o", messages: [{ role: "user", content: "IBAN TR330006100519786457841326" }] });
+    expect(local.seen).toHaveLength(1);
+    expect(JSON.stringify(local.seen[0]!.body)).not.toContain("TR330006100519786457841326");
+    await chat(base, "gb-alice", { model: "gpt-4o", messages: [{ role: "user", content: "ACME birleşme planı" }] });
+    expect(local.seen).toHaveLength(2);
+  });
+
+  it("fails closed when the local model has no route for the request's API", async () => {
+    const cloud = await fakeProvider(anthropicEcho);
+    const local = await fakeProvider(openAiEcho);
+    const { base } = await startLlm(
+      { anthropic: cloud.url },
+      {
+        providers: {
+          ant: { name: "ant", api: "anthropic", baseUrl: cloud.url, apiKey: "sk-ant-real", headers: {} },
+          ollama: { name: "ollama", api: "openai", baseUrl: `${local.url}/v1`, apiKey: "none", headers: {} },
+        },
+        routes: [
+          { model: "claude-*", provider: "ant" },
+          { model: "llama3.1", provider: "ollama" },
+        ],
+        sensitive: { model: "llama3.1", on: { pii: true }, mask: false },
+      },
+    );
+    const res = await fetch(`${base}/messages`, {
+      method: "POST",
+      headers: { "x-api-key": "gb-bob", "content-type": "application/json" },
+      body: JSON.stringify({ model: "claude-sonnet-5", max_tokens: 10, messages: [{ role: "user", content: `TC ${TCKN}` }] }),
+    });
+    expect(res.status).toBe(403);
+    expect(cloud.seen).toHaveLength(0);
+    expect(local.seen).toHaveLength(0);
+  });
+});
+
 describe("LLM gateway pieces", () => {
   it("token budgets refuse the call after the one that crossed the limit", () => {
     let now = 0;
@@ -455,6 +567,17 @@ llm:
     expect(() => parseGatewayYaml(base + "  budgets: [{ windowSeconds: 60, costUsd: 5 }]\n")).toThrow(/needs pricing/);
     delete process.env["TEST_GB_KEY"];
     expect(() => parseGatewayYaml(base)).toThrow(/TEST_GB_KEY/);
+  });
+
+  it("checks llm.access entries, the sensitive model's route and its topics", () => {
+    process.env["TEST_OPENAI_KEY"] = "sk-x";
+    process.env["TEST_GB_KEY"] = "gb-x";
+    expect(() => parseGatewayYaml(base + "  access: [{ allow: [gpt-4o] }]\n")).toThrow(/needs user or group/);
+    expect(() => parseGatewayYaml(base + "  sensitive: { model: llama3.1 }\n")).toThrow(/no route serves "llama3.1"/);
+    expect(() => parseGatewayYaml(base + "  sensitive: { model: gpt-local, on: { topics: [hr] } }\n")).toThrow(/no topic with id "hr"/);
+    const cfg = parseGatewayYaml(base + "  sensitive: { model: gpt-local }\n  access: [{ group: eng, allow: [\"gpt-*\"] }]\n");
+    expect(cfg.llm?.sensitive).toEqual({ model: "gpt-local", on: { pii: true }, mask: false });
+    expect(cfg.llm?.accessDefault).toBe("allow");
   });
 
   it("refuses an open LLM gateway beyond loopback", () => {

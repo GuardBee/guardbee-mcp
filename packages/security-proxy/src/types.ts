@@ -147,7 +147,7 @@ export type AuditEvent = {
    */
   piiHits?: Record<string, number>;
   /** Token usage of an LLM gateway call, with its price when llm.pricing covers the model. */
-  llm?: { model: string; inputTokens: number; outputTokens: number; costUsd?: number };
+  llm?: { model: string; routedFrom?: string; inputTokens?: number; outputTokens?: number; costUsd?: number };
   /** Hash chain: each event carries the previous event's hash. Set by AuditLogger. */
   prevHash?: string;
   hash?: string;
