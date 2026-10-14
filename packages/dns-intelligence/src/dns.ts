@@ -3,6 +3,8 @@ import { evaluateSpf, isSpfRecord, countLookupTerms } from "./spf.js";
 import { checkTakeover, type TakeoverFinding } from "./takeover.js";
 import { discoverFromCT, type CtDiscovery, type CtOptions } from "./ct.js";
 import { checkDkim, checkMx, checkMtaSts, checkTlsRpt, suggestSpf, type DkimKeyInfo, type MtaStsCheck } from "./email.js";
+import { checkDnssec, type DnssecStatus } from "./dnssec.js";
+import { checkCaa, type CaaCheck, type CaaResolver } from "./caa.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -62,6 +64,8 @@ export interface DnsEnumerationResult {
   nullMx?: boolean;
   mtaSts?: MtaStsCheck;
   tlsRpt?: { record?: string };
+  dnssec?: DnssecStatus;
+  caa?: CaaCheck;
   findings: Finding[];
 }
 
@@ -74,6 +78,10 @@ export interface EnumerateOptions {
   ct?: boolean | CtOptions;
   /** DKIM selectors to probe instead of the built-in list. */
   dkimSelectors?: string[];
+  /** CAA lookups (tests); defaults to dns.resolveCaa. */
+  caaResolver?: CaaResolver;
+  /** Issuer of the certificate served on :443 (tests); defaults to a TLS handshake. */
+  certificateIssuer?: (host: string) => Promise<string | undefined>;
 }
 
 export interface SubdomainResult {
@@ -460,6 +468,18 @@ export async function enumerateDomain(input: string, options: EnumerateOptions =
   const tlsRpt = await checkTlsRpt(domain, r, !!mtaSts.record);
   findings.push(...tlsRpt.findings);
 
+  // DNSSEC (via DNS-over-HTTPS) and CAA (plus the live certificate's issuer).
+  // Both need more than plain DNS, so `http: false` skips them.
+  let dnssec: DnssecStatus | undefined;
+  let caa: CaaCheck | undefined;
+  if (options.http !== false) {
+    [dnssec, caa] = await Promise.all([
+      checkDnssec(domain, { fetch: options.fetch }),
+      checkCaa(domain, { resolveCaa: options.caaResolver, issuer: options.certificateIssuer }),
+    ]);
+    findings.push(...dnssec.findings, ...caa.findings);
+  }
+
   // Nameservers — check for single point of failure
   const nsRecords = records["NS"] ?? [];
   if (nsRecords.length === 0) {
@@ -484,6 +504,8 @@ export async function enumerateDomain(input: string, options: EnumerateOptions =
     ...(mxCheck.nullMx ? { nullMx: true } : {}),
     mtaSts,
     tlsRpt: tlsRpt.record ? { record: tlsRpt.record } : {},
+    ...(dnssec ? { dnssec } : {}),
+    ...(caa ? { caa } : {}),
     findings,
   };
 }
@@ -530,6 +552,21 @@ export function formatDnsReport(result: DnsEnumerationResult): string {
   } else if (result.dkimSelectors) {
     const found = Object.entries(result.dkimSelectors).filter(([, v]) => v).map(([k]) => k);
     lines.push(`\nDKIM selectors found: ${found.length ? found.join(", ") : "none"}`);
+  }
+
+  // DNSSEC and CAA
+  if (result.dnssec) {
+    const d = result.dnssec;
+    const detail = [d.algorithms.join("/"), d.dsDigests.length ? `DS ${d.dsDigests.join("/")}` : ""].filter(Boolean).join(", ");
+    lines.push(`\nDNSSEC: ${d.status}${detail ? ` (${detail})` : ""}`);
+  }
+  if (result.caa) {
+    const c = result.caa;
+    const where = c.at && c.at !== result.domain ? ` (from ${c.at})` : "";
+    lines.push(
+      `CAA: ${c.at ? `issue ${c.issue.map((x) => x || "none").join(", ") || "—"}${c.issuewild.length ? ` | issuewild ${c.issuewild.map((x) => x || "none").join(", ")}` : ""}${where}` : "none"}` +
+        (c.currentIssuer ? ` | current certificate: ${c.currentIssuer}` : "")
+    );
   }
 
   // Inbound transport security

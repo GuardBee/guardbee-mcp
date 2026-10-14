@@ -163,7 +163,7 @@ describe("analyzeDmarc", () => {
 
 describe("enumerateDomain", () => {
   it("reports a domain that does not exist instead of missing SPF/DMARC", async () => {
-    const res = await enumerateDomain("gone.example", { resolver: fakeResolver({}) });
+    const res = await enumerateDomain("gone.example", { resolver: fakeResolver({}), http: false });
     expect(res.exists).toBe(false);
     expect(res.findings.map((f) => f.code)).toEqual(["DOMAIN_NOT_FOUND"]);
   });
@@ -175,7 +175,7 @@ describe("enumerateDomain", () => {
       "_dmarc.example.com": { TXT: txt("v=DMARC1; p=reject; rua=mailto:d@example.com") },
       "google._domainkey.example.com": { TXT: txt(`v=DKIM1; k=rsa; p=${RSA_2048}`) },
     };
-    const res = await enumerateDomain("example.com", { resolver: fakeResolver(zone) });
+    const res = await enumerateDomain("example.com", { resolver: fakeResolver(zone), http: false });
     expect(res.spf!.lookupCount).toBe(1);
     expect(res.spf!.totalLookups).toBe(11);
     expect(res.findings.map((f) => f.code)).toEqual(["SPF_TOO_MANY_LOOKUPS"]);
@@ -187,7 +187,7 @@ describe("enumerateDomain", () => {
       "mail.example.com": { A: a("1.2.3.4") },
       "_dmarc.example.com": { TXT: txt("v=DMARC1; p=reject; sp=none; rua=mailto:d@example.com") },
     };
-    const res = await enumerateDomain("mail.example.com", { resolver: fakeResolver(zone) });
+    const res = await enumerateDomain("mail.example.com", { resolver: fakeResolver(zone), http: false });
     expect(res.dmarc!.inheritedFrom).toBe("_dmarc.example.com");
     expect(res.dmarc!.policy).toBe("none");
     const codes = res.findings.map((f) => f.code);
@@ -201,13 +201,13 @@ describe("enumerateDomain", () => {
       "example.com": { SOA, NS: ["a.ns", "b.ns"] },
       "_dmarc.example.com": { TXT: txt("v=DMARC1; p=reject", "v=DMARC1; p=none") },
     };
-    const res = await enumerateDomain("example.com", { resolver: fakeResolver(zone) });
+    const res = await enumerateDomain("example.com", { resolver: fakeResolver(zone), http: false });
     expect(res.dmarc).toBeUndefined();
     expect(res.findings.map((f) => f.code)).toContain("DMARC_MULTIPLE");
   });
 
   it("normalizes URLs and case", async () => {
-    const res = await enumerateDomain("https://Example.COM./path", { resolver: fakeResolver({ "example.com": { SOA, NS: ["a", "b"] } }) });
+    const res = await enumerateDomain("https://Example.COM./path", { resolver: fakeResolver({ "example.com": { SOA, NS: ["a", "b"] } }), http: false });
     expect(res.domain).toBe("example.com");
   });
 });
