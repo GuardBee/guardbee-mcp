@@ -9,7 +9,8 @@ import { PiiVault } from "../gateway/tokens.js";
 import type { AuditEvent } from "../types.js";
 import { BudgetStore, costOf, type LlmCaller, type LlmUsage } from "./budget.js";
 import type { LlmApi, LlmConfig, LlmProvider } from "./config.js";
-import { SseRelay, completionAsStream, errorBody, mapCompletion, mapPrompt, promptTexts, usageOf } from "./shapes.js";
+import { SseRelay, errorBody, mapCompletion, mapPrompt, promptTexts, usageOf } from "./shapes.js";
+import { SseRewriter, type TextRewrite } from "./stream.js";
 
 type Json = Record<string, unknown>;
 
@@ -215,15 +216,27 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     const piiHits = Object.keys(hits).length > 0 ? { piiHits: hits } : {};
     log({ ...base, type: "tool_call", input: forward, ...piiHits });
 
-    // 5. To the provider. A stream the proxy must rewrite (tokens back, masked
-    //    answer) is fetched whole and replayed as a stream.
+    // 5. To the provider. The answer is rewritten when tokens must go back or
+    //    responses are masked — a stream too, as it passes (llm/stream.ts).
     const wantsStream = forward["stream"] === true;
     const rewrite = vault.size > 0 || llm.maskResponses;
+    const rewriteText: TextRewrite = (text) => {
+      const hits: Record<string, number> = {};
+      const restored = vault.detokenize(text);
+      if (!llm.maskResponses) return { text: restored, hits };
+      const masked = maskPiiInText(
+        restored,
+        (name) => {
+          const category = PERSONAL_DATA.has(name) ? name : "secret";
+          hits[category] = (hits[category] ?? 0) + 1;
+          return PLACEHOLDER.get(name) ?? "[REDACTED]";
+        },
+        include,
+      );
+      return { text: masked, hits };
+    };
     const clientUsage = typeof forward["stream_options"] === "object" && (forward["stream_options"] as Json | null)?.["include_usage"] === true;
-    if (wantsStream && rewrite) {
-      const { stream_options: _ignored, ...rest } = forward;
-      forward = { ...rest, stream: false };
-    } else if (wantsStream && api === "openai") {
+    if (wantsStream && api === "openai") {
       forward = { ...forward, stream_options: { ...((forward["stream_options"] as Json | undefined) ?? {}), include_usage: true } };
     }
 
@@ -275,9 +288,10 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
       return;
     }
 
-    if (wantsStream && !rewrite) {
+    if (wantsStream) {
       res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" });
-      const relay = new SseRelay(api, api === "openai" && !clientUsage);
+      const dropUsage = api === "openai" && !clientUsage;
+      const relay = rewrite ? new SseRewriter(api, rewriteText, dropUsage) : new SseRelay(api, dropUsage);
       if (upstream.body) {
         const reader = upstream.body.getReader();
         // The client went away: stop reading so the provider stops generating
@@ -291,27 +305,19 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
       }
       const rest = relay.end();
       res.end(rest);
-      finish(relay.usage);
+      const streamHits = relay instanceof SseRewriter ? relay.hits : {};
+      finish(relay.usage, Object.keys(streamHits).length > 0 ? { piiHits: streamHits } : {});
       return;
     }
 
     let completion = (await upstream.json()) as Json;
     const answerHits: Record<string, number> = {};
     completion = mapCompletion(api, completion, (text) => {
-      const restored = vault.detokenize(text);
-      if (!llm.maskResponses) return restored;
-      return maskPiiInText(restored, (name) => {
-        const category = PERSONAL_DATA.has(name) ? name : "secret";
-        answerHits[category] = (answerHits[category] ?? 0) + 1;
-        return PLACEHOLDER.get(name) ?? "[REDACTED]";
-      }, include);
+      const out = rewriteText(text);
+      for (const [category, count] of Object.entries(out.hits)) answerHits[category] = (answerHits[category] ?? 0) + count;
+      return out.text;
     });
     finish(usageOf(api, completion), Object.keys(answerHits).length > 0 ? { piiHits: answerHits } : {});
-    if (wantsStream) {
-      res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" });
-      res.end(completionAsStream(api, completion, clientUsage));
-      return;
-    }
     sendJson(res, 200, completion);
   };
 
