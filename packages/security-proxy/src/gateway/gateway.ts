@@ -12,6 +12,7 @@ import type {
 import {
   detectTopics,
   maskPiiInValue,
+  PERSONAL_DATA_CATEGORIES,
   PII_PATTERNS,
   scanForPromptInjection,
   scanToolCatalog,
@@ -52,7 +53,7 @@ export interface CallerIdentity {
 }
 
 /** Pattern names that are personal data; every other PII pattern is a credential and counts as "secret". */
-const PERSONAL_DATA = new Set(["tc_kimlik", "vkn", "iban", "credit_card", "email", "phone_tr"]);
+const PERSONAL_DATA = new Set<string>(PERSONAL_DATA_CATEGORIES);
 const PLACEHOLDER = new Map(PII_PATTERNS.map((p) => [p.name, p.replacement]));
 
 type PiiHits = Record<string, number>;
@@ -305,12 +306,18 @@ export class Gateway {
       const category = PERSONAL_DATA.has(name) ? name : "secret";
       hits[category] = (hits[category] ?? 0) + 1;
       return PLACEHOLDER.get(name) ?? "[REDACTED]";
-    }) as T;
+    }, this.optInPii) as T;
     const piiFound = Object.keys(hits).length > 0;
     const enabled = this.interceptors.piiMasking?.enabled !== false || force;
     if (!piiFound || !enabled) return { value, piiFound, hits };
     const tokenize = this.interceptors.piiMasking?.mode === "tokenize";
-    return { value: tokenize ? this.vault.tokenize(value) : redacted, piiFound, hits };
+    return { value: tokenize ? this.vault.tokenize(value, this.optInPii) : redacted, piiFound, hits };
+  }
+
+  /** Opt-in detectors turned on by piiMasking.include (ip_address, mac_address, plate_tr). */
+  private get optInPii(): ReadonlySet<string> | undefined {
+    const include = this.interceptors.piiMasking?.include;
+    return include && include.length > 0 ? new Set(include) : undefined;
   }
 
   async listTools(): Promise<Tool[]> {

@@ -104,6 +104,8 @@ export type ProxyConfig = {
     piiMasking?: {
       enabled: boolean;
       patterns?: string[];
+      /** Opt-in detectors to also run: ip_address, mac_address, plate_tr. */
+      include?: ("ip_address" | "mac_address" | "plate_tr")[];
       /** `redact` (default) replaces PII with a fixed placeholder; `tokenize` with a reversible session token. */
       mode?: "redact" | "tokenize";
       /** Put real values back even when the tool can send data out. Off by default. */

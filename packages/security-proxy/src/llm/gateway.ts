@@ -1,6 +1,6 @@
 import type http from "http";
 import { createHash, timingSafeEqual } from "crypto";
-import { PII_PATTERNS, detectTopics, maskPiiInText, scanForPromptInjection } from "@guardbee/guard-core";
+import { PERSONAL_DATA_CATEGORIES, PII_PATTERNS, detectTopics, maskPiiInText, scanForPromptInjection } from "@guardbee/guard-core";
 import type { AuditLogger } from "../audit/logger.js";
 import type { Authenticate } from "../auth.js";
 import type { GatewayConfig } from "../gateway/config.js";
@@ -14,7 +14,7 @@ import { SseRelay, completionAsStream, errorBody, mapCompletion, mapPrompt, prom
 type Json = Record<string, unknown>;
 
 const MAX_BODY_BYTES = 32 * 1024 * 1024;
-const PERSONAL_DATA = new Set(["tc_kimlik", "vkn", "iban", "credit_card", "email", "phone_tr"]);
+const PERSONAL_DATA = new Set<string>(PERSONAL_DATA_CATEGORIES);
 const PLACEHOLDER = new Map(PII_PATTERNS.map((p) => [p.name, p.replacement]));
 /** Text from these roles is scanned for injection; the app's own system prompt and the model's turns are not. */
 const UNTRUSTED_ROLES = new Set(["user", "tool", "function"]);
@@ -202,14 +202,15 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     const hits: Record<string, number> = {};
     const tokenize = interceptors.piiMasking?.mode === "tokenize";
     const masking = interceptors.piiMasking?.enabled !== false || forceMask;
+    const include = interceptors.piiMasking?.include?.length ? new Set(interceptors.piiMasking.include) : undefined;
     let forward = mapPrompt(api, body, (text) => {
       const redacted = maskPiiInText(text, (name) => {
         const category = PERSONAL_DATA.has(name) ? name : "secret";
         hits[category] = (hits[category] ?? 0) + 1;
         return PLACEHOLDER.get(name) ?? "[REDACTED]";
-      });
+      }, include);
       if (!masking || redacted === text) return text;
-      return tokenize ? vault.tokenize(text) : redacted;
+      return tokenize ? vault.tokenize(text, include) : redacted;
     });
     const piiHits = Object.keys(hits).length > 0 ? { piiHits: hits } : {};
     log({ ...base, type: "tool_call", input: forward, ...piiHits });
@@ -303,7 +304,7 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
         const category = PERSONAL_DATA.has(name) ? name : "secret";
         answerHits[category] = (answerHits[category] ?? 0) + 1;
         return PLACEHOLDER.get(name) ?? "[REDACTED]";
-      });
+      }, include);
     });
     finish(usageOf(api, completion), Object.keys(answerHits).length > 0 ? { piiHits: answerHits } : {});
     if (wantsStream) {

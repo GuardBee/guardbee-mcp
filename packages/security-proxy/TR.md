@@ -266,6 +266,17 @@ Proxy kendi tool'unu kaydetmez. Hedef sunucunun tool'larını iletir ve her ça�
 | Özel anahtar | BEGIN…END bloğunun tamamı | `-----BEGIN … PRIVATE KEY-----` | `[PRIVATE-KEY]` |
 | Bağlantı dizesi | URL'de kullanıcı:şifre (localhost hariç) | `postgres://app:pw@db/prod` | `[CONNECTION-STRING]` |
 | JWT | — | `eyJhbGc...` | `[JWT-TOKEN]` |
+| Pasaport | `Pasaport` / `Passport` etiketi gerekir | `Pasaport No: U12345678` | `Pasaport No: [PASAPORT]` |
+| SGK / SSK / Bağ-Kur no | etiket gerekir | `SGK sicil no: 1234567890` | `SGK sicil no: [SGK-NO]` |
+| MERSİS no | etiket gerekir; 16 hane | `MERSİS No: 0123 4567 8901 2345` | `MERSİS No: [MERSİS]` |
+| Doğum tarihi | `Doğum tarihi` / `DOB` etiketi gerekir | `Doğum tarihi: 12.05.1990` | `Doğum tarihi: [DOĞUM-TARİHİ]` |
+| Posta adresi | `Adres:` etiketi, numara veya cadde/sokak kelimesi gerekir; IP/e-posta/web adresi değil | `Adres: Moda Cad. No 5` | `Adres: [ADRES]` |
+| KEP adresi | `@….kep.tr` | `acme@hs01.kep.tr` | `***@[KEP]` |
+| IP adresi *(isteğe bağlı)* | geçerli IPv4; `::` veya 8 grup içeren IPv6 | `10.0.3.17` | `[IP]` |
+| MAC adresi *(isteğe bağlı)* | 6 hex çift, tek ayraç | `aa:bb:cc:dd:ee:ff` | `[MAC]` |
+| Araç plakası *(isteğe bağlı)* | il kodu 01–81, harf/rakam kombinasyonu, birimler değil (`16 GB 2400`) | `34 ABC 123` | `[PLAKA]` |
+
+IP, MAC adresleri ve plakalar altyapı çıktılarında çok sık geçtiği için varsayılan olarak kapalıdır; açmak için: `interceptors.piiMasking.include: [ip_address, mac_address, plate_tr]`. Her kategori `piiHits` ve dashboard'un KVKK raporunda sayılır.
 
 Checksum'ı tutmayan sayılar (sipariş no, takip kodu) olduğu gibi bırakılır.
 

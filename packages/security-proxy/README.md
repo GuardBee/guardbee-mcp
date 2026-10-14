@@ -27,7 +27,7 @@ Claude ──► MCP Security Proxy ──► Any MCP Server
 - **Prompt Injection Protection** — 27 rules in English and Turkish; precise ones block, generic phrases only warn
 - **Tool-result injection** — the same patterns applied to tool results, tagged MCP06:2025. Block mode replaces the result; warn mode prepends a warning
 - **Session tool pin** — the first `tools/list` is pinned. A later description or schema change is a rug pull (MCP03:2025). Block mode keeps serving the pinned definition and refuses the drifted call
-- **PII Masking** — TC Kimlik No, VKN, IBAN, card and phone numbers (checksum-validated), email, 22 provider key formats, private keys and connection strings are masked in responses
+- **PII Masking** — TC Kimlik No, VKN, IBAN, card and phone numbers (checksum-validated), passport, SGK, MERSİS, date of birth, postal and KEP addresses, email, opt-in IP/MAC/plates, 22 provider key formats, private keys and connection strings are masked in responses
 - **Block / Warn Mode** — each interceptor can independently run in blocking or warning mode
 - **Audit Log** — configurable log written to console or a file
 - **Gateway mode** — several MCP servers behind one proxy, one YAML policy (allow / deny / mask / warn)
@@ -323,6 +323,17 @@ Since 1.1, a broad phrase alone no longer blocks: in 1.0 "use jailbreak mode" or
 | Private key | whole BEGIN…END block | `-----BEGIN … PRIVATE KEY-----` | `[PRIVATE-KEY]` |
 | Connection string | user:password in the URL (localhost excluded) | `postgres://app:pw@db/prod` | `[CONNECTION-STRING]` |
 | JWT | — | `eyJhbGc...` | `[JWT-TOKEN]` |
+| Passport | needs a `Pasaport` / `Passport` label | `Pasaport No: U12345678` | `Pasaport No: [PASAPORT]` |
+| SGK / SSK / Bağ-Kur no | needs the label | `SGK sicil no: 1234567890` | `SGK sicil no: [SGK-NO]` |
+| MERSİS no | needs the label; 16 digits | `MERSİS No: 0123 4567 8901 2345` | `MERSİS No: [MERSİS]` |
+| Date of birth | needs `Doğum tarihi` / `DOB` / `Date of birth` | `Doğum tarihi: 12.05.1990` | `Doğum tarihi: [DOĞUM-TARİHİ]` |
+| Postal address | needs `Adres:` / `Address:`; a number or street word; not IP/e-mail/web/wallet addresses | `Adres: Moda Cad. No 5` | `Adres: [ADRES]` |
+| KEP address | `@….kep.tr` | `acme@hs01.kep.tr` | `***@[KEP]` |
+| IP address *(opt-in)* | valid IPv4 octets; IPv6 with `::` or 8 groups | `10.0.3.17` | `[IP]` |
+| MAC address *(opt-in)* | 6 hex pairs, one separator | `aa:bb:cc:dd:ee:ff` | `[MAC]` |
+| Vehicle plate, TR *(opt-in)* | province 01–81, letter/digit combination, not units (`16 GB 2400`) | `34 ABC 123` | `[PLAKA]` |
+
+IP and MAC addresses and plates are everywhere in infrastructure output, so they are off unless you list them: `interceptors.piiMasking.include: [ip_address, mac_address, plate_tr]`. Every category is counted in `piiHits` and the dashboard's KVKK report.
 
 A number that fails its checksum (an order number, a tracking code) is left as is.
 

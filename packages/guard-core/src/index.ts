@@ -1,5 +1,5 @@
 export { isValidTcKimlik, isValidLuhn, isValidIban, isValidVkn, isValidTrPhone } from "./validators.js";
-export { PII_PATTERNS, maskPiiInText, maskPiiInValue } from "./pii.js";
+export { PII_PATTERNS, PERSONAL_DATA_CATEGORIES, OPT_IN_PII, maskPiiInText, maskPiiInValue } from "./pii.js";
 export type { PiiPattern, PiiReplacer } from "./pii.js";
 export { SECRET_RULES } from "./secrets.js";
 export type { SecretRule } from "./secrets.js";

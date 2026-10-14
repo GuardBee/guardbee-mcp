@@ -7,7 +7,35 @@ export interface PiiPattern {
   replacement: string;
   /** Checksum run on each regex match; a match that fails it is left as-is. */
   validate?: (rawMatch: string) => boolean;
+  /**
+   * Off unless asked for by name (`include`): network identifiers and plates
+   * are everywhere in infrastructure output, where masking them would break
+   * the tool more than it protects anyone.
+   */
+  optIn?: boolean;
 }
+
+/** Personal data categories (the rest of PII_PATTERNS are credentials). */
+export const PERSONAL_DATA_CATEGORIES = [
+  "tc_kimlik",
+  "vkn",
+  "iban",
+  "credit_card",
+  "email",
+  "phone_tr",
+  "passport",
+  "sgk_no",
+  "mersis",
+  "kep",
+  "birth_date",
+  "address",
+  "ip_address",
+  "mac_address",
+  "plate_tr",
+] as const;
+
+export const OPT_IN_PII = ["ip_address", "mac_address", "plate_tr"] as const;
+
 
 const REPLACEMENT_BY_SECRET: Record<string, string> = {
   jwt: "[JWT-TOKEN]",
@@ -56,6 +84,41 @@ export const PII_PATTERNS: PiiPattern[] = [
     },
   },
   {
+    // Label-gated: "Pasaport No: U12345678", "Passport number 123456789"
+    name: "passport",
+    pattern: /(?<=\b(?:pasaport|passport)(?:\s+(?:no|numaras[ıi]|number|#))?\.?\s*[:#]?\s*)(?:[A-Z]{1,2}\d{6,8}|\d{9})(?![A-Za-z0-9])/gi,
+    replacement: "[PASAPORT]",
+  },
+  {
+    // Label-gated: SGK / SSK / Bağ-Kur registration numbers
+    name: "sgk_no",
+    pattern: /(?<=\b(?:SGK|SSK|Ba[ğg]-?Kur)\s*(?:sicil\s*)?(?:no|numaras[ıi])?\.?\s*[:#]?\s*)\d{7,13}(?!\d)/gi,
+    replacement: "[SGK-NO]",
+  },
+  {
+    // Label-gated: 16-digit MERSİS company number (before cards: 16 digits)
+    name: "mersis",
+    pattern: /(?<=\bMERS[İIıi]S\s*(?:no|numaras[ıi])?\.?\s*[:#]?\s*)\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}(?!\d)/gi,
+    replacement: "[MERSİS]",
+  },
+  {
+    // Label-gated: "Doğum tarihi: 12.05.1990", "DOB 1990-05-12"
+    name: "birth_date",
+    pattern: /(?<=\b(?:do[ğg]um\s+tarihi|date\s+of\s+birth|birth\s*date|DOB)\s*[:#]?\s*)(?:\d{1,2}[./-]\d{1,2}[./-](?:\d{4}|\d{2})|\d{4}-\d{2}-\d{2})(?!\d)/gi,
+    replacement: "[DOĞUM-TARİHİ]",
+  },
+  {
+    // Label-gated, with a colon, the rest of the line: "Adres: Atatürk Mah. 12. Sok. No:5"
+    // Not "IP address:", "E-mail address:", "Web address:", "Wallet address:".
+    name: "address",
+    pattern: /(?<=(?<!\b(?:IP|MAC|e-?mail|web|wallet|billing\s+e-?mail|server|host)\s)\b(?:adres(?:i)?|ikametgah|address)\s*:\s*)\S[^\n]{7,199}/gi,
+    replacement: "[ADRES]",
+    // A street address has a number or a street word; a URL or a handle is not one
+    validate: (match) =>
+      !/^\s*(?:https?:|www\.|@|0x)/i.test(match) &&
+      (/\d/.test(match) || /\b(?:mah(?:alle(?:si)?)?|sok(?:ak|a[ğg]ı)?|cad(?:de(?:si)?)?|bulvar(?:ı)?|street|st\.|avenue|ave\.|road|rd\.|apt|daire|kat)\b/i.test(match)),
+  },
+  {
     name: "tc_kimlik",
     pattern: /\b[1-9]\d{10}\b/g,
     replacement: "[TC-KİMLİK]",
@@ -81,6 +144,12 @@ export const PII_PATTERNS: PiiPattern[] = [
     validate: isValidLuhn,
   },
   {
+    // Registered e-mail (KEP), before plain e-mail
+    name: "kep",
+    pattern: /\b[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)*kep\.tr\b/gi,
+    replacement: "***@[KEP]",
+  },
+  {
     name: "email",
     pattern: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
     replacement: "***@[EMAIL]",
@@ -94,14 +163,48 @@ export const PII_PATTERNS: PiiPattern[] = [
     replacement: "+90-***-***-**[TELEFON]",
     validate: (match) => isValidTrPhone(match) && (/^(?:\+90|0)/.test(match) || /[\s-]/.test(match)),
   },
+  {
+    name: "mac_address",
+    pattern: /(?<![\w:-])[0-9A-F]{2}([:-])[0-9A-F]{2}(?:\1[0-9A-F]{2}){4}(?![\w:-])/gi,
+    replacement: "[MAC]",
+    optIn: true,
+  },
+  {
+    name: "ip_address",
+    // IPv4 with valid octets, not part of a longer dotted run (1.2.3.4.5, a version string)
+    pattern: /(?<![\w.])(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?![\w.])|(?<![\w:])(?:[0-9a-f]{0,4}:){2,7}[0-9a-f]{0,4}(?![\w:])/gi,
+    replacement: "[IP]",
+    optIn: true,
+    // IPv6 needs "::" or all eight groups, so a time like 12:30:45 is not one
+    validate: (match) => match.includes(".") || ((match.includes("::") || match.split(":").length === 8) && /[0-9a-f]/i.test(match)),
+  },
+  {
+    // 34 ABC 123 — 1 letter + 4-5 digits, 2 letters + 3-4, 3 letters + 2-3; no Q, W, X
+    name: "plate_tr",
+    pattern: /(?<![\w-])(?:0[1-9]|[1-7]\d|8[01])\s?[A-PR-VYZ]{1,3}\s?\d{2,5}(?![\w-])/g,
+    replacement: "[PLAKA]",
+    optIn: true,
+    validate: (match) => {
+      const parts = /^\d{2}\s?([A-Z]+)\s?(\d+)$/.exec(match);
+      if (!parts) return false;
+      const [letters, digits] = [parts[1]!.length, parts[2]!.length];
+      if (/^(?:GB|MB|KB|TB|PB|GHZ|MHZ|KM|CM|MM|KG|TL|MS|HZ|FPS|DPI|PX|PT|UTC|GMT)$/.test(parts[1]!)) return false;
+      return (letters === 1 && digits >= 4) || (letters === 2 && digits >= 3 && digits <= 4) || (letters === 3 && digits <= 3);
+    },
+  },
 ];
 
 /** Returns what a validated match is replaced with; defaults to the pattern's fixed placeholder. */
 export type PiiReplacer = (patternName: string, match: string) => string;
 
-export function maskPiiInText(text: string, replace?: PiiReplacer): string {
+/**
+ * Mask validated PII. `include` turns on opt-in detectors by name
+ * (ip_address, mac_address, plate_tr); the others always run.
+ */
+export function maskPiiInText(text: string, replace?: PiiReplacer, include?: ReadonlySet<string>): string {
   let result = text;
-  for (const { name, pattern, replacement, validate } of PII_PATTERNS) {
+  for (const { name, pattern, replacement, validate, optIn } of PII_PATTERNS) {
+    if (optIn && !include?.has(name)) continue;
     result = result.replace(pattern, (match) =>
       validate && !validate(match) ? match : replace ? replace(name, match) : replacement,
     );
@@ -109,17 +212,17 @@ export function maskPiiInText(text: string, replace?: PiiReplacer): string {
   return result;
 }
 
-export function maskPiiInValue(value: unknown, replace?: PiiReplacer): unknown {
+export function maskPiiInValue(value: unknown, replace?: PiiReplacer, include?: ReadonlySet<string>): unknown {
   if (typeof value === "string") {
-    return maskPiiInText(value, replace);
+    return maskPiiInText(value, replace, include);
   }
   if (Array.isArray(value)) {
-    return value.map((item) => maskPiiInValue(item, replace));
+    return value.map((item) => maskPiiInValue(item, replace, include));
   }
   if (typeof value === "object" && value !== null) {
     const result: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value)) {
-      result[k] = maskPiiInValue(v, replace);
+      result[k] = maskPiiInValue(v, replace, include);
     }
     return result;
   }
