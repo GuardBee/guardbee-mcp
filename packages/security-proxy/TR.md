@@ -233,6 +233,25 @@ Tam yapılandırma örneği için [README](README.md#llm-api-gateway) dosyasına
 
 ---
 
+## Kodlama Ajanı Hook'ları
+
+Proxy yalnızca MCP trafiğini görür; kodlama ajanının kendi tool'ları (shell, dosya okuma, web fetch) ondan geçmez, yani `cat .env` ardından `curl -d @.env …` görünmez kalır. `guardbee-hook` aynı politikayı ajanların hook sistemleri üzerinden bu tool'lara uygular.
+
+```bash
+npm i -g @guardbee/mcp-security-proxy
+guardbee-hook install --claude-code     # ~/.claude/settings.json (PreToolUse + PostToolUse)
+guardbee-hook install --cursor          # ~/.cursor/hooks.json
+guardbee-hook uninstall --claude-code   # yalnızca GuardBee girdilerini kaldırır
+```
+
+- `.env`, `~/.ssh`, cloud credential dosyaları `sensitive`; `curl`, `git push`, `npm publish` gibi komutlar `egress`; `rm -rf`, `git push --force` `destructive`; `WebFetch`/`WebSearch` `untrusted` + `egress` olarak etiketlenir.
+- Kurallar `upstream: claude-code|cursor`, `tool: Bash|Read|WebFetch|mcp__…`, `args` ve `topic` ile eşleşir; lethal trifecta kontrolü oturum boyunca (diskte saklanan taint ile) çalışır.
+- Hook sizin yerinize hiçbir zaman "allow" demez; ajanın kendi izin istemleri yerinde kalır. `defaults.action` ajan tool'larına uygulanmaz.
+- Çıktıdaki gizli talimatlar ajanı durdurur; çıktıdaki PII oturumu taint eder. Yerleşik tool çıktıları yeniden yazılmaz (aksi halde `Edit` çağrıları bozulurdu).
+- Ayrıntılar için [README](README.md#coding-agent-hooks).
+
+---
+
 ## MCP Tools
 
 Proxy kendi tool'unu kaydetmez. Hedef sunucunun tool'larını iletir ve her çağrıda interceptor zincirini uygular.

@@ -158,12 +158,14 @@ const yamlSchema = z
       .default({ source: "local", refreshSeconds: 60 }),
     listen: listenSchema.default({ transport: "stdio", host: "127.0.0.1", port: 8787, path: "/mcp", apiKeys: [], maxSessions: 100 }),
     llm: llmSchema.optional(),
+    /** This file also (or only) serves guardbee-hook, the policy for coding agents' own tools. */
+    hooks: z.object({}).strict().optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
     checkTopicReferences(value, ctx);
-    if (Object.keys(value.upstreams).length === 0 && !value.llm) {
-      ctx.addIssue({ code: "custom", path: ["upstreams"], message: "at least one upstream is required (or an llm section)" });
+    if (Object.keys(value.upstreams).length === 0 && !value.llm && !value.hooks) {
+      ctx.addIssue({ code: "custom", path: ["upstreams"], message: "at least one upstream is required (or an llm or hooks section)" });
     }
     const { listen, llm } = value;
     if (llm && listen.transport !== "http") {
