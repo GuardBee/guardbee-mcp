@@ -1,5 +1,12 @@
 # @guardbee/security-suite
 
+## 0.2.16
+
+### Patch Changes
+
+- Updated dependencies [[`fec0601`](https://github.com/GuardBee/guardbee-mcp/commit/fec0601472df7fd1dfcd20b503703d42e2474e49)]:
+  - @guardbee/mcp-dns-intelligence@0.5.0
+
 ## 0.2.15
 
 ### Patch Changes
