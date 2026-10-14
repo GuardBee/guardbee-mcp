@@ -3,6 +3,16 @@ import { createHash } from "crypto";
 import type { AuditConfig, AuditEvent } from "../types.js";
 import { stable } from "../interceptors/definition-drift.js";
 import { DashboardSink } from "./dashboard-sink.js";
+import { Exporter } from "./exporters.js";
+import path from "path";
+
+function packageVersion(): string {
+  try {
+    return (JSON.parse(fs.readFileSync(path.join(__dirname, "..", "..", "package.json"), "utf8")) as { version: string }).version;
+  } catch {
+    return "1";
+  }
+}
 
 const GENESIS = "";
 
@@ -39,6 +49,7 @@ export class AuditLogger {
   private stream: fs.WriteStream | null = null;
   private lastHash = GENESIS;
   private readonly dashboard: DashboardSink | null = null;
+  private readonly exporters: Exporter[] = [];
 
   constructor(config: AuditConfig, fetchImpl?: typeof fetch) {
     this.config = config;
@@ -47,6 +58,10 @@ export class AuditLogger {
       this.stream = fs.createWriteStream(config.filePath, { flags: "a" });
     }
     if (config.enabled && config.dashboard) this.dashboard = new DashboardSink(config.dashboard, fetchImpl);
+    if (config.enabled && config.exporters?.length) {
+      const version = packageVersion();
+      this.exporters = config.exporters.map((exporter) => new Exporter(exporter, { version, ...(fetchImpl ? { fetchImpl } : {}) }));
+    }
   }
 
   log(event: AuditEvent): void {
@@ -56,6 +71,7 @@ export class AuditLogger {
     this.lastHash = hash;
     const hashed = { ...unhashed, hash };
     this.dashboard?.push(hashed);
+    for (const exporter of this.exporters) exporter.push(hashed);
     const line = JSON.stringify(hashed);
     if (this.config.sink === "file" && this.stream) {
       this.stream.write(line + "\n");
@@ -66,7 +82,7 @@ export class AuditLogger {
 
   /** Flush the dashboard queue and close the file. */
   async close(): Promise<void> {
-    await this.dashboard?.close();
+    await Promise.all([this.dashboard?.close(), ...this.exporters.map((exporter) => exporter.close())]);
     await new Promise<void>((resolve) => (this.stream ? this.stream.end(resolve) : resolve()));
   }
 

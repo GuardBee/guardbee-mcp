@@ -1,4 +1,5 @@
 import type { AnomalyConfig } from "./gateway/anomaly.js";
+import type { ExporterConfig } from "./audit/exporters.js";
 
 export type McpServerConfig = {
   command: string;
@@ -31,6 +32,8 @@ export type AuditConfig = {
   includePayloads?: boolean;
   /** Also send every event, batched, to the GuardBee dashboard. */
   dashboard?: DashboardSinkConfig;
+  /** And to SIEMs: Splunk HEC, Elasticsearch/OpenSearch, syslog (RFC 5424 / CEF). */
+  exporters?: ExporterConfig[];
 };
 
 export type DashboardSinkConfig = {
