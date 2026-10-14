@@ -58,6 +58,18 @@ export class TaintTracker {
     );
   }
 
+  /** Where each leg came from, to carry a session across processes (agent hooks). */
+  toJSON(): { untrustedFrom: string | null; sensitiveFrom: string | null } {
+    return { untrustedFrom: this.untrustedFrom, sensitiveFrom: this.sensitiveFrom };
+  }
+
+  static restore(saved: { untrustedFrom?: string | null; sensitiveFrom?: string | null } | null | undefined): TaintTracker {
+    const tracker = new TaintTracker();
+    tracker.untrustedFrom = saved?.untrustedFrom ?? null;
+    tracker.sensitiveFrom = saved?.sensitiveFrom ?? null;
+    return tracker;
+  }
+
   snapshot(): TaintSnapshot {
     return { sawUntrusted: this.sawUntrusted, sawSensitive: this.sawSensitive };
   }

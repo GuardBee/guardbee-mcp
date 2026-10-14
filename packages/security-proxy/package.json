@@ -29,7 +29,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "guardbee-proxy": "dist/cli.js"
+    "guardbee-proxy": "dist/cli.js",
+    "guardbee-hook": "dist/hook-cli.js"
   },
   "files": [
     "dist",

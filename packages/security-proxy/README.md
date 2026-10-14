@@ -33,6 +33,7 @@ Claude ──► MCP Security Proxy ──► Any MCP Server
 - **Gateway mode** — several MCP servers behind one proxy, one YAML policy (allow / deny / mask / warn)
 - **Toxic-flow blocking** — tracks the lethal trifecta across servers and blocks the egress call that would complete it
 - **LLM API gateway** — OpenAI- and Anthropic-compatible endpoints: gateway keys instead of provider keys, PII masking and injection checks on prompts, token and spend budgets, usage and cost in the audit log
+- **Coding-agent hooks** — `guardbee-hook` applies the same policy to Claude Code's and Cursor's own shell, file and web tools
 - **Zero Code Changes** — attaches in front of any existing MCP server
 
 ---
@@ -297,6 +298,49 @@ What every request goes through, in order:
 8. **Audit.** A `tool_call` event (`tool: llm:<model>`, `upstream: <provider>`, `labels: [llm]`, `user`, `piiHits`) and a `tool_response` event with `llm: { model, inputTokens, outputTokens, costUsd }`. Refusals are `blocked` events with `ruleId` `llm:injection`, `llm:credential` or the budget id.
 
 Streaming works for both APIs. A plain stream is relayed event by event; for OpenAI the proxy adds `stream_options.include_usage` to count tokens and drops that extra chunk if the client did not ask for it. When the answer has to be rewritten (PII tokens to put back, or `maskResponses`), it is rewritten as it streams: text — message content, tool-call arguments, Anthropic text, JSON and thinking deltas — is held only until a safe cut (a space with no digit on either side, so a grouped number such as an IBAN or a card is never split; a private key block until its END line; a line with an `Adres:` label until it ends) and rewritten together with the last 300 characters already sent, so a label like `Pasaport No:` still applies to a value in the next event. Whatever is still held goes out just before the choice's finish chunk or the block's stop event. Provider errors are passed through unchanged, so SDK retries and error types keep working.
+
+---
+
+## Coding-Agent Hooks
+
+The proxy sees MCP traffic only. A coding agent's own tools — the shell, file reads, web fetch — never pass through it, so `cat .env` followed by `curl -d @.env …` is invisible to it. `guardbee-hook` applies the same policy to those tools through the agents' hook systems.
+
+```bash
+npm i -g @guardbee/mcp-security-proxy
+guardbee-hook install --claude-code                 # ~/.claude/settings.json (PreToolUse + PostToolUse)
+guardbee-hook install --cursor                      # ~/.cursor/hooks.json (shell, MCP, file reads)
+guardbee-hook install --claude-code --project       # .claude/settings.json in this repo
+guardbee-hook install --cursor --config ~/.guardbee/guardbee-proxy.yaml --fail-closed
+guardbee-hook uninstall --claude-code               # removes only GuardBee's entries
+```
+
+Install keeps every other setting and hook, replaces its own entries when run again, and leaves a `.guardbee-backup` copy. `--dry-run` prints the result without writing. Run it from a global install: a path in the npx cache can be cleared.
+
+**Labels.** Built-in tools get the same four labels as MCP tools, from what they do:
+
+| Tool | Label |
+|---|---|
+| `Read`/`Grep`/`Glob` of `.env*`, `~/.ssh/`, `id_rsa`, `~/.aws/credentials`, `.kube/config`, `.npmrc`, `.netrc`, `*.pem`, `*.key`, `*.tfstate`, `credentials*.json`, … | `sensitive` |
+| `Bash` reading those files, `printenv`, keychain and cloud-token commands | `sensitive` |
+| `Bash` with `curl`, `wget`, `nc`, `scp`, `ssh`, `git push`, `npm publish`, `docker push`, `gh api`, `aws s3 cp`, … | `egress` (`curl`/`wget`/`git clone` also `untrusted`) |
+| `Bash` with `rm -rf`, `git push --force`, `git reset --hard`, `DROP TABLE`, `terraform destroy`, `kubectl delete`, … | `destructive` |
+| `WebFetch`, `WebSearch` | `untrusted` + `egress` (the URL or query can carry data out) |
+| `mcp__server__tool` | the proxy's name heuristics |
+
+**What is checked**, before the tool runs: a credential in a call that can send data out (`egress:credential`), your `rules` — with `upstream` set to `claude-code` or `cursor`, `tool` to the tool name (`Bash`, `Read`, `WebFetch`, `mcp__github__create_pull_request`), `args` to its input and `topic` to its topics — and the lethal-trifecta check: once the session has read untrusted content and sensitive data (a secret file, or PII in any output), an `egress` call is denied (`taint.mode: strict`), asked about (`approve`) or logged (`warn`). After it runs: PII in the output taints the session, instructions hidden in the output stop the agent (`decision: block` with the reason), and topic rules apply to the output.
+
+```yaml
+rules:
+  - { id: ask-destructive, match: { upstream: claude-code, label: destructive }, action: approve }
+  - { id: no-prod,         match: { tool: Bash, args: { command: "*--context prod*" } }, action: deny }
+```
+
+- The hook never answers "allow" for you: no objection leaves the agent's own permission prompts in place. `deny` becomes `permissionDecision: deny` (Cursor: `permission: deny`), `approve` becomes `ask`.
+- `defaults.action` is not applied to agent tools — a `deny` default meant for MCP tools would otherwise block every shell command. Write rules for what to stop.
+- Each hook call is a separate process (about 0.1–0.2 s). The session's taint is kept per agent session under `~/.local/state/guardbee/hooks` (`$XDG_STATE_HOME`) and expires after a day. The audit log goes to your configured file sink, or `~/.local/state/guardbee/hooks/audit.jsonl` — never to the agent's terminal — and to the dashboard when `audit.dashboard` is set.
+- Config: `--config`, then `GUARDBEE_PROXY_CONFIG`, then `~/.guardbee/guardbee-proxy.yaml`, then built-in defaults. A file used only for hooks has a `hooks: {}` section and no upstreams.
+- On an internal error the tool runs (fail open), unless the hook was installed with `--fail-closed`.
+- Output of built-in tools is not rewritten: masking a file Claude reads would break its later `Edit` calls, which must match the file exactly.
 
 ---
 
