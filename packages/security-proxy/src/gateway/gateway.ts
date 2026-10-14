@@ -54,6 +54,21 @@ export interface CallerIdentity {
 
 /** Pattern names that are personal data; every other PII pattern is a credential and counts as "secret". */
 const PERSONAL_DATA = new Set<string>(PERSONAL_DATA_CATEGORIES);
+
+/** Base64 bytes in a content item: an image, an embedded resource or a resource's blob. */
+function blobOf(item: { type?: string }): { data: string; label: string } | null {
+  const record = item as Record<string, unknown>;
+  if (record["type"] === "image" && typeof record["data"] === "string") {
+    return { data: record["data"], label: `image (${typeof record["mimeType"] === "string" ? record["mimeType"] : "unknown type"})` };
+  }
+  // An embedded resource nests it under `resource`; a resources/read item is the resource itself
+  const nested = record["resource"];
+  const resource = (typeof nested === "object" && nested !== null ? nested : record) as Record<string, unknown>;
+  if (typeof resource["blob"] === "string") {
+    return { data: resource["blob"], label: typeof resource["uri"] === "string" ? resource["uri"] : "embedded document" };
+  }
+  return null;
+}
 const PLACEHOLDER = new Map(PII_PATTERNS.map((p) => [p.name, p.replacement]));
 
 type PiiHits = Record<string, number>;
@@ -246,6 +261,53 @@ export class Gateway {
    * Find PII in a value (it taints the session either way) and hide it unless
    * masking is off. `force` comes from a `mask` rule and overrides "off".
    */
+  /**
+   * Images and blobs (embedded resources, resource contents) read with the
+   * document scanner: a PDF's text layer, OCR for images and scanned pages.
+   * `block` replaces a document holding PII or a credential with a notice.
+   */
+  private async scanDocuments<T extends { type: string }>(
+    items: T[],
+    base: { tool?: string; server?: string; upstream?: string; labels?: string[] },
+  ): Promise<{ content: T[]; hits: PiiHits }> {
+    const config = this.interceptors.documents!;
+    const { scanBytes } = await import("@guardbee/mcp-document-scanner");
+    const hits: PiiHits = {};
+    const out: T[] = [];
+    for (const item of items) {
+      const blob = blobOf(item);
+      if (!blob) {
+        out.push(item);
+        continue;
+      }
+      const result = await scanBytes(new Uint8Array(Buffer.from(blob.data, "base64")), blob.label, {
+        ocr: config.ocr !== false,
+        ...(config.maxBytes ? { maxBytes: config.maxBytes } : {}),
+        ...(this.optInPii ? { include: [...this.optInPii] } : {}),
+      });
+      for (const note of result.notes) this.log({ ...base, type: "warn", ruleId: "documents:unread", reason: `${blob.label}: ${note}` });
+      if (result.findings.length === 0) {
+        out.push(item);
+        continue;
+      }
+      const found: PiiHits = {};
+      for (const finding of result.findings) {
+        const category = PERSONAL_DATA.has(finding.detector) ? finding.detector : "secret";
+        found[category] = (found[category] ?? 0) + 1;
+      }
+      addHits(hits, found);
+      const summary = Object.entries(found).map(([category, count]) => `${category} ×${count}`).join(", ");
+      if (config.action === "block") {
+        this.log({ ...base, type: "blocked", ruleId: "documents:pii", reason: `${blob.label} withheld: it holds ${summary}` });
+        out.push({ type: "text", text: `${PREFIX} ${blob.label} withheld: it holds ${summary}` } as unknown as T);
+      } else {
+        this.log({ ...base, type: "warn", ruleId: "documents:pii", reason: `${blob.label} holds ${summary}` });
+        out.push(item);
+      }
+    }
+    return { content: out, hits };
+  }
+
   /** Ids of the topics a value is about; skipped while no rule names a topic. */
   private topicsOf(value: unknown): string[] {
     const topics = this.config.topics ?? [];
@@ -618,6 +680,14 @@ export class Gateway {
       }
     }
 
+    // 7a. Documents: PII inside images, PDFs and blobs that the text checks cannot see
+    let documentHits: PiiHits = {};
+    if (this.interceptors.documents?.enabled) {
+      const scanned = await this.scanDocuments(content, base);
+      content = scanned.content;
+      documentHits = scanned.hits;
+    }
+
     // 7b. Topic rules on the result: a subject that only shows up in the answer
     const topical = await this.topicsAfter(name, upstream, [content, result.structuredContent ?? null], labels, args, decision.ruleId);
     if (topical.withheld) {
@@ -637,6 +707,10 @@ export class Gateway {
       out.structuredContent = structured.value;
       piiFound ||= structured.piiFound;
       for (const [category, count] of Object.entries(structured.hits)) hits[category] = Math.max(hits[category] ?? 0, count);
+    }
+    if (Object.keys(documentHits).length > 0) {
+      piiFound = true;
+      addHits(hits, documentHits);
     }
     if (decision.maskFields) out = maskFields(out, decision.maskFields);
     if (topical.maskFields) out = maskFields(out, topical.maskFields);
@@ -778,7 +852,20 @@ export class Gateway {
 
     let piiFound = false;
     const hits: PiiHits = {};
-    const contents = result.contents.map((item) => {
+    let items = result.contents;
+    if (this.interceptors.documents?.enabled) {
+      const scanned = await this.scanDocuments(items.map((item) => ({ type: "resource", ...item })), { tool: source, upstream: upstream.name });
+      if (Object.keys(scanned.hits).length > 0) {
+        piiFound = true;
+        addHits(hits, scanned.hits);
+      }
+      // A withheld blob comes back as a text notice under the same uri
+      items = scanned.content.map((item, index) => {
+        const original = result.contents[index]!;
+        return item.type === "resource" ? original : { uri: original.uri, mimeType: "text/plain", text: (item as unknown as { text: string }).text };
+      });
+    }
+    const contents = items.map((item) => {
       if (!("text" in item) || typeof item.text !== "string") return item;
       const text = this.protect(item.text, topical.force);
       piiFound ||= text.piiFound;
