@@ -1,5 +1,7 @@
 # @guardbee/mcp-toxic-flow-auditor
 
+[![Redthread scan](https://trust.redthreadsec.com/badge/mcp/io.github.GuardBee/toxic-flow-auditor.svg)](https://trust.redthreadsec.com/v/mcp/io.github.GuardBee/toxic-flow-auditor)
+
 **🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 An MCP server that audits an MCP **tool catalog** for **toxic flows** — Simon Willison's *lethal trifecta*:
