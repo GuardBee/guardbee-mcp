@@ -26,7 +26,7 @@ T.C. kimlik no, VKN, IBAN, kart (checksum doğrulamalı), pasaport, SGK, MERSİS
 ## CLI
 
 ```bash
-guardbee-document-scanner scan <dosya|klasör> [--format=text|json|sarif] [--fail-on=...] [--no-ocr] [--lang=tur,eng] [--lang-path=<klasör>]
+guardbee-document-scanner scan <dosya|klasör> [--format=text|json|sarif] [--fail-on=...] [--no-ocr] [--lang=tur,eng] [--lang-path=<klasör>] [--cache-path=<klasör>]
 ```
 
 ## Security proxy ile
