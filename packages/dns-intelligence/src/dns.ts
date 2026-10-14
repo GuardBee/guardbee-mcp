@@ -2,6 +2,7 @@ import { lookup, valueOf, normalizeDomain, systemResolver, type DnsResolver } fr
 import { evaluateSpf, isSpfRecord, countLookupTerms } from "./spf.js";
 import { checkTakeover, type TakeoverFinding } from "./takeover.js";
 import { discoverFromCT, type CtDiscovery, type CtOptions } from "./ct.js";
+import { checkDkim, checkMx, checkMtaSts, checkTlsRpt, suggestSpf, type DkimKeyInfo, type MtaStsCheck } from "./email.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -55,6 +56,12 @@ export interface DnsEnumerationResult {
   zoneTransferVulnerable?: boolean;
   /** False when the domain does not exist (NXDOMAIN). */
   exists?: boolean;
+  /** DKIM keys found under the probed selectors, with size and flags. */
+  dkimKeys?: DkimKeyInfo[];
+  /** "0 ." MX: the domain accepts no mail. */
+  nullMx?: boolean;
+  mtaSts?: MtaStsCheck;
+  tlsRpt?: { record?: string };
   findings: Finding[];
 }
 
@@ -65,6 +72,8 @@ export interface EnumerateOptions {
   fetch?: typeof fetch;
   /** Add names from Certificate Transparency logs (crt.sh, Cert Spotter). Off unless set. */
   ct?: boolean | CtOptions;
+  /** DKIM selectors to probe instead of the built-in list. */
+  dkimSelectors?: string[];
 }
 
 export interface SubdomainResult {
@@ -103,7 +112,10 @@ const COMMON_SUBDOMAINS = [
 
 // ── DNS helpers ───────────────────────────────────────────────────────────────
 
-async function resolveAll(domain: string, r: DnsResolver): Promise<{ records: Record<string, DnsRecord[]>; exists: boolean }> {
+async function resolveAll(
+  domain: string,
+  r: DnsResolver
+): Promise<{ records: Record<string, DnsRecord[]>; exists: boolean; mx: Array<{ priority: number; exchange: string }> }> {
   const records: Record<string, DnsRecord[]> = {};
 
   const [a, aaaa, mx, ns, txt, cname, soa] = await Promise.all([
@@ -140,7 +152,7 @@ async function resolveAll(domain: string, r: DnsResolver): Promise<{ records: Re
     }];
   }
 
-  return { records, exists };
+  return { records, exists, mx: MX ?? [] };
 }
 
 // ── SPF analysis ──────────────────────────────────────────────────────────────
@@ -369,7 +381,7 @@ export async function enumerateDomain(input: string, options: EnumerateOptions =
   const r = options.resolver ?? systemResolver;
   const domain = normalizeDomain(input);
   const findings: Finding[] = [];
-  const { records, exists } = await resolveAll(domain, r);
+  const { records, exists, mx } = await resolveAll(domain, r);
 
   if (!exists) {
     // Email checks on a name that does not exist would only add noise.
@@ -382,10 +394,18 @@ export async function enumerateDomain(input: string, options: EnumerateOptions =
   }
 
   // SPF: the record alone, then the full include tree as receivers count it.
+  const mxCheck = await checkMx(mx, r);
+  findings.push(...mxCheck.findings);
+  const receivesMail = mxCheck.hosts.length > 0;
+
   const txtRecords = records["TXT"] ?? [];
   const spf = analyzeSpf(txtRecords);
   if (!spf) {
-    findings.push({ severity: "medium", code: "SPF_MISSING", message: `No SPF record found for ${domain}` });
+    findings.push(
+      receivesMail
+        ? { severity: "high", code: "SPF_MISSING", message: `No SPF record for ${domain}, which has MX records: anyone can send mail claiming to be from it, and its own mail relies on DKIM alone to pass DMARC. Start from: ${suggestSpf(mxCheck.hosts)} (add every other service that sends as ${domain})` }
+        : { severity: "medium", code: "SPF_MISSING", message: `No SPF record for ${domain}; if it sends no mail, publish "v=spf1 -all" so spoofed mail is rejected` }
+    );
   } else {
     const evaluation = await evaluateSpf(domain, spf.raw, r);
     spf.totalLookups = evaluation.lookups;
@@ -424,22 +444,21 @@ export async function enumerateDomain(input: string, options: EnumerateOptions =
     findings.push(...dmarc.issues);
   }
 
-  // DKIM — check common selectors
-  const dkimSelectors: Record<string, boolean> = {};
-  const commonSelectors = ["default", "google", "k1", "mail", "dkim", "selector1", "selector2", "s1", "s2"];
-  const dkimChecks = await Promise.all(
-    commonSelectors.map(async (sel) => {
-      const result = valueOf(await lookup(() => r.resolveTxt(`${sel}._domainkey.${domain}`)));
-      return { sel, found: !!result?.length };
-    })
-  );
-  for (const { sel, found: ok } of dkimChecks) {
-    dkimSelectors[sel] = ok;
+  // DKIM — common selectors (selectors cannot be listed from DNS)
+  const dkim = await checkDkim(domain, r, options.dkimSelectors);
+  const dkimSelectors = dkim.found;
+  if (dkim.keys.filter((k) => !k.revoked).length === 0) {
+    if (receivesMail || spf) {
+      findings.push({ severity: "medium", code: "DKIM_NOT_FOUND", message: "No DKIM key found under common selectors (pass yours with dkimSelectors if it uses another)" });
+    }
   }
-  const anyDkim = Object.values(dkimSelectors).some(Boolean);
-  if (!anyDkim) {
-    findings.push({ severity: "medium", code: "DKIM_NOT_FOUND", message: "No DKIM records found for common selectors" });
-  }
+  for (const k of dkim.keys) findings.push(...k.issues);
+
+  // Transport security for inbound mail
+  const mtaSts = await checkMtaSts(domain, mxCheck.hosts, r, { http: options.http, fetch: options.fetch });
+  findings.push(...mtaSts.findings);
+  const tlsRpt = await checkTlsRpt(domain, r, !!mtaSts.record);
+  findings.push(...tlsRpt.findings);
 
   // Nameservers — check for single point of failure
   const nsRecords = records["NS"] ?? [];
@@ -454,7 +473,19 @@ export async function enumerateDomain(input: string, options: EnumerateOptions =
     findings.push({ severity: "info", code: "OK", message: "No DNS misconfigurations found" });
   }
 
-  return { domain, records, exists: true, spf: spf ?? undefined, dmarc: dmarc ?? undefined, dkimSelectors, findings };
+  return {
+    domain,
+    records,
+    exists: true,
+    spf: spf ?? undefined,
+    dmarc: dmarc ?? undefined,
+    dkimSelectors,
+    dkimKeys: dkim.keys,
+    ...(mxCheck.nullMx ? { nullMx: true } : {}),
+    mtaSts,
+    tlsRpt: tlsRpt.record ? { record: tlsRpt.record } : {},
+    findings,
+  };
 }
 
 // ── Report formatter ──────────────────────────────────────────────────────────
@@ -491,9 +522,23 @@ export function formatDnsReport(result: DnsEnumerationResult): string {
   }
 
   // DKIM
-  if (result.dkimSelectors) {
+  if (result.dkimKeys) {
+    const keys = result.dkimKeys.map((k) =>
+      k.revoked ? `${k.selector} (revoked)` : `${k.selector} (${k.keyType}${k.bits ? ` ${k.bits}-bit` : ""}${k.testing ? ", t=y" : ""})`
+    );
+    lines.push(`\nDKIM keys found: ${keys.length ? keys.join(", ") : "none"}`);
+  } else if (result.dkimSelectors) {
     const found = Object.entries(result.dkimSelectors).filter(([, v]) => v).map(([k]) => k);
     lines.push(`\nDKIM selectors found: ${found.length ? found.join(", ") : "none"}`);
+  }
+
+  // Inbound transport security
+  if (result.mtaSts) {
+    const p = result.mtaSts.policy;
+    lines.push(
+      `MTA-STS: ${result.mtaSts.record ? (p ? `mode ${p.mode}, mx ${p.mx.join(" ")}, max_age ${p.maxAge}` : "announced, policy not loaded") : "not set up"}` +
+        ` | TLS-RPT: ${result.tlsRpt?.record ? "yes" : "no"}`
+    );
   }
 
   // Findings

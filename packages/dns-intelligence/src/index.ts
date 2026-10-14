@@ -26,3 +26,5 @@ export { checkTakeover, FINGERPRINTS } from "./takeover.js";
 export type { TakeoverFinding, Fingerprint, TakeoverOptions } from "./takeover.js";
 export { discoverFromCT, normalizeCtName } from "./ct.js";
 export type { CtDiscovery, CtOptions, CtSourceResult } from "./ct.js";
+export { analyzeDkimRecord, checkDkim, checkMx, checkMtaSts, checkTlsRpt, parseMtaStsPolicy, mxMatches, suggestSpf, DKIM_SELECTORS } from "./email.js";
+export type { DkimKeyInfo, MtaStsCheck, MtaStsPolicy, MxCheck } from "./email.js";
