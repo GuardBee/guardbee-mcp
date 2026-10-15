@@ -1,5 +1,11 @@
 # @guardbee/guard-core
 
+## 0.17.0
+
+### Minor Changes
+
+- [#146](https://github.com/GuardBee/guardbee-mcp/pull/146) [`0e96d18`](https://github.com/GuardBee/guardbee-mcp/commit/0e96d18c6d96a505a5cf5774af2a29d323d066e1) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - PII category presets. guard-core exports `PII_PRESETS` (`ALL`, `KVKK`, `IDENTITY`, `IDENTIFIERS`, `SECRETS`), `piiScope({ preset, enable, disable })` and a config schema that rejects unknown preset or detector names. security-proxy takes `interceptors.piiMasking.preset` / `enable` / `disable`, with `piiMasking.upstreams.<name>` per upstream or LLM provider; detection stays complete (taint, `piiHits`), only masking narrows. db-gateway gets `piiScan`: value-based masking of PII inside text columns no field rule covers, off by default, also set with `GATEWAY_PII_SCAN`.
+
 ## 0.16.0
 
 ### Minor Changes
