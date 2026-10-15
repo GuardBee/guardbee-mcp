@@ -1,6 +1,8 @@
 export { isValidTcKimlik, isValidLuhn, isValidIban, isValidVkn, isValidTrPhone } from "./validators.js";
 export { PII_PATTERNS, PERSONAL_DATA_CATEGORIES, OPT_IN_PII, maskPiiInText, maskPiiInValue } from "./pii.js";
-export type { PiiPattern, PiiReplacer } from "./pii.js";
+export type { PiiPattern, PiiReplacer, PiiInclude } from "./pii.js";
+export { PII_DETECTORS, PII_PRESETS, PII_PRESET_NAMES, PiiScope, piiScope, piiSelectionErrors, piiSelectionSchema, piiSelectionShape, checkPiiDetectorNames } from "./presets.js";
+export type { PiiPresetName, PiiSelection } from "./presets.js";
 export { SECRET_RULES } from "./secrets.js";
 export type { SecretRule } from "./secrets.js";
 export {

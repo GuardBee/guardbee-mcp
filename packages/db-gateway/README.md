@@ -299,6 +299,16 @@ createServer({
 
 Glob pattern support: `*Password*`, `*Token*`, `*Secret*`
 
+### PII inside text columns (`piiScan`)
+
+Field rules go by column name, so a free-text column (`notes`, `description`) can still carry an e-mail, a TC kimlik or an API key. `piiScan` (off by default) masks those by value in every text field no field rule covers, nested objects and arrays included; an `allow` rule turns it off for that field. `preset` / `enable` / `disable` pick the detectors, with the same presets as the security proxy: `ALL` (default), `KVKK`, `IDENTITY`, `IDENTIFIERS`, `SECRETS`.
+
+```ts
+createServer({ piiScan: { enabled: true, preset: "KVKK", disable: ["address"] } }, adapter);
+```
+
+From the CLI: `GATEWAY_PII_SCAN=true` (every default detector) or `GATEWAY_PII_SCAN=KVKK` (a preset). An unknown preset or detector name fails at startup.
+
 ---
 
 ## Role-Based Access (RBAC)

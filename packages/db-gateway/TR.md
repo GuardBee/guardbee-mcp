@@ -299,6 +299,16 @@ createServer({
 
 Glob pattern desteği: `*Password*`, `*Token*`, `*Secret*`
 
+### Metin kolonlarındaki PII (`piiScan`)
+
+Alan kuralları kolon adına bakar; serbest metin bir kolon (`notes`, `description`) yine de e-posta, TC kimlik ya da API anahtarı taşıyabilir. `piiScan` (varsayılan kapalı) bunları, hiçbir alan kuralının kapsamadığı her metin alanında değer bazında maskeler; iç içe objeler ve diziler dahil. Bir `allow` kuralı o alan için taramayı kapatır. `preset` / `enable` / `disable` dedektörleri seçer; presetler security proxy ile aynıdır: `ALL` (varsayılan), `KVKK`, `IDENTITY`, `IDENTIFIERS`, `SECRETS`.
+
+```ts
+createServer({ piiScan: { enabled: true, preset: "KVKK", disable: ["address"] } }, adapter);
+```
+
+CLI'dan: `GATEWAY_PII_SCAN=true` (tüm varsayılan dedektörler) ya da `GATEWAY_PII_SCAN=KVKK` (bir preset). Bilinmeyen bir preset ya da dedektör adı başlangıçta hata verir.
+
 ---
 
 ## Rol Bazlı Erişim (RBAC)

@@ -315,6 +315,28 @@ Proxy kendi tool'unu kaydetmez. Hedef sunucunun tool'larını iletir ve her ça�
 
 IP, MAC adresleri ve plakalar altyapı çıktılarında çok sık geçtiği için varsayılan olarak kapalıdır; açmak için: `interceptors.piiMasking.include: [ip_address, mac_address, plate_tr]`. Her kategori `piiHits` ve dashboard'un KVKK raporunda sayılır.
 
+**Neyin maskeleneceğini seçmek.** `piiMasking.preset` maskeleyen dedektörleri seçer; `enable` / `disable` dedektörleri adıyla ekler ya da çıkarır (`piiHits`'teki adlar, ör. `tc_kimlik`, `email`, `github_pat`). `upstreams.<ad>` bir upstream ya da LLM sağlayıcısı için seçimi değiştirir. Tespit daralmaz: varsayılan dedektörlerin hepsi `piiHits`'te sayılmaya ve oturumu taint etmeye devam eder, yalnızca maskeleme seçime uyar. İsteğe bağlı dedektörler hiçbir presette yoktur; `enable` (ya da `include`) ile açılır.
+
+| Preset | Maskeler |
+| --- | --- |
+| `ALL` (varsayılan) | isteğe bağlı olanlar dışında yukarıdaki tüm dedektörler ve kimlik bilgileri |
+| `KVKK` | yalnızca kişisel veri, kimlik bilgisi yok |
+| `IDENTITY` | posta adresi, doğum tarihi |
+| `IDENTIFIERS` | TC kimlik, VKN, MERSİS, SGK, pasaport, IBAN, kart, telefon, KEP, e-posta |
+| `SECRETS` | API anahtarları, token'lar, private key'ler, bağlantı adresleri, JWT |
+
+```yaml
+interceptors:
+  piiMasking:
+    enabled: true
+    preset: KVKK
+    disable: [address]
+    upstreams:
+      ops: { preset: SECRETS, enable: [ip_address] }   # bir altyapı sunucusu
+```
+
+Bilinmeyen bir preset, dedektör ya da upstream adı config doğrulamasında hata verir.
+
 Checksum'ı tutmayan sayılar (sipariş no, takip kodu) olduğu gibi bırakılır.
 
 ---

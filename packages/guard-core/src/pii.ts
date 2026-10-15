@@ -199,10 +199,19 @@ export const PII_PATTERNS: PiiPattern[] = [
 export type PiiReplacer = (patternName: string, match: string) => string;
 
 /**
- * Mask validated PII. `include` turns on opt-in detectors by name
- * (ip_address, mac_address, plate_tr); the others always run.
+ * Which detectors run: a plain set turns on opt-in detectors by name
+ * (ip_address, mac_address, plate_tr) next to the default ones; a scope from
+ * `piiScope()` (any set with `exact: true`) runs exactly the detectors in it.
  */
-export function maskPiiInText(text: string, replace?: PiiReplacer, include?: ReadonlySet<string>): string {
+export type PiiInclude = ReadonlySet<string> & { readonly exact?: boolean };
+
+function runs(name: string, optIn: boolean | undefined, include: PiiInclude | undefined): boolean {
+  if (include?.exact) return include.has(name);
+  return !optIn || include?.has(name) === true;
+}
+
+/** Mask validated PII with the detectors `include` selects (see `PiiInclude`). */
+export function maskPiiInText(text: string, replace?: PiiReplacer, include?: PiiInclude): string {
   const masked = (name: string, replacement: string, validate: PiiPattern["validate"]) => (match: string) =>
     validate && !validate(match) ? match : replace ? replace(name, match) : replacement;
 
@@ -211,7 +220,7 @@ export function maskPiiInText(text: string, replace?: PiiReplacer, include?: Rea
     // normalized value, so every spelling of a value gets the same token.
     const working = new NormalizedText(text);
     for (const { name, pattern, replacement, validate, optIn } of PII_PATTERNS) {
-      if (optIn && !include?.has(name)) continue;
+      if (!runs(name, optIn, include)) continue;
       working.replace(pattern, masked(name, replacement, validate));
     }
     return working.toString();
@@ -219,13 +228,13 @@ export function maskPiiInText(text: string, replace?: PiiReplacer, include?: Rea
 
   let result = text;
   for (const { name, pattern, replacement, validate, optIn } of PII_PATTERNS) {
-    if (optIn && !include?.has(name)) continue;
+    if (!runs(name, optIn, include)) continue;
     result = result.replace(pattern, masked(name, replacement, validate));
   }
   return result;
 }
 
-export function maskPiiInValue(value: unknown, replace?: PiiReplacer, include?: ReadonlySet<string>): unknown {
+export function maskPiiInValue(value: unknown, replace?: PiiReplacer, include?: PiiInclude): unknown {
   if (typeof value === "string") {
     return maskPiiInText(value, replace, include);
   }

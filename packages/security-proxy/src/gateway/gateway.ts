@@ -12,6 +12,7 @@ import type {
 import {
   detectTopics,
   maskPiiInValue,
+  OPT_IN_PII,
   PERSONAL_DATA_CATEGORIES,
   PII_PATTERNS,
   scanForPromptInjection,
@@ -25,6 +26,7 @@ import { activeCallSpan, tracer, withCallSpan } from "../tracing.js";
 import type { AuditLogger } from "../audit/logger.js";
 import { ToolDefinitionPin, type ToolRecord } from "../interceptors/definition-drift.js";
 import type { AuditEvent } from "../types.js";
+import { piiScopesFor, type PiiScopes } from "./pii-scope.js";
 import { AnomalyDetector, type AnomalyConfig } from "./anomaly.js";
 import type { Approver } from "./approval.js";
 import type { GatewayConfig } from "./config.js";
@@ -283,7 +285,7 @@ export class Gateway {
       const result = await scanBytes(new Uint8Array(Buffer.from(blob.data, "base64")), blob.label, {
         ocr: config.ocr !== false,
         ...(config.maxBytes ? { maxBytes: config.maxBytes } : {}),
-        ...(this.optInPii ? { include: [...this.optInPii] } : {}),
+        include: OPT_IN_PII.filter((name) => this.piiScopes(base.upstream).detect.has(name)),
       });
       for (const note of result.notes) this.log({ ...base, type: "warn", ruleId: "documents:unread", reason: `${blob.label}: ${note}` });
       if (result.findings.length === 0) {
@@ -362,24 +364,25 @@ export class Gateway {
     }
   }
 
-  private protect<T>(value: T, force = false): { value: T; piiFound: boolean; hits: PiiHits } {
+  private protect<T>(value: T, force = false, upstream?: string): { value: T; piiFound: boolean; hits: PiiHits } {
+    const scopes = this.piiScopes(upstream);
     const hits: PiiHits = {};
-    const redacted = maskPiiInValue(value, (name) => {
+    // Every detector counts (taint, piiHits); only the selected ones mask
+    const redacted = maskPiiInValue(value, (name, match) => {
       const category = PERSONAL_DATA.has(name) ? name : "secret";
       hits[category] = (hits[category] ?? 0) + 1;
-      return PLACEHOLDER.get(name) ?? "[REDACTED]";
-    }, this.optInPii) as T;
+      return scopes.mask.has(name) ? (PLACEHOLDER.get(name) ?? "[REDACTED]") : match;
+    }, scopes.detect) as T;
     const piiFound = Object.keys(hits).length > 0;
     const enabled = this.interceptors.piiMasking?.enabled !== false || force;
     if (!piiFound || !enabled) return { value, piiFound, hits };
     const tokenize = this.interceptors.piiMasking?.mode === "tokenize";
-    return { value: tokenize ? this.vault.tokenize(value, this.optInPii) : redacted, piiFound, hits };
+    return { value: tokenize ? this.vault.tokenize(value, scopes.mask) : redacted, piiFound, hits };
   }
 
-  /** Opt-in detectors turned on by piiMasking.include (ip_address, mac_address, plate_tr). */
-  private get optInPii(): ReadonlySet<string> | undefined {
-    const include = this.interceptors.piiMasking?.include;
-    return include && include.length > 0 ? new Set(include) : undefined;
+  /** piiMasking's preset / enable / disable for this upstream (see gateway/pii-scope.ts). */
+  private piiScopes(upstream?: string): PiiScopes {
+    return piiScopesFor(this.interceptors.piiMasking, upstream);
   }
 
   async listTools(): Promise<Tool[]> {
@@ -697,13 +700,13 @@ export class Gateway {
 
     // 8. PII: always detected (it taints the session), masked unless turned off — a `mask` rule forces it
     const force = decision.action === "mask" || topical.force;
-    const text = this.protect(content, force);
+    const text = this.protect(content, force, upstream.name);
     let out: CallToolResult = { ...result, content: text.value };
     let piiFound = text.piiFound;
     // structuredContent usually repeats the text content: count the larger of the two, not both
     let hits = text.hits;
     if (result.structuredContent) {
-      const structured = this.protect(result.structuredContent, force);
+      const structured = this.protect(result.structuredContent, force, upstream.name);
       out.structuredContent = structured.value;
       piiFound ||= structured.piiFound;
       for (const [category, count] of Object.entries(structured.hits)) hits[category] = Math.max(hits[category] ?? 0, count);
@@ -805,7 +808,7 @@ export class Gateway {
     if (leak && config.action === "block") return refuse(`${leak}; it would go to "${upstream.name}"`, "sampling:egress");
     if (leak) this.log({ ...base, type: "warn", ruleId: "sampling:egress", reason: leak });
 
-    const masked = this.protect(result.content, true);
+    const masked = this.protect(result.content, true, upstream.name);
     this.log({ ...base, type: "tool_response", output: masked.value, ...(masked.piiFound ? { piiHits: masked.hits } : {}) });
     return { ...result, content: masked.value };
   }
@@ -867,7 +870,7 @@ export class Gateway {
     }
     const contents = items.map((item) => {
       if (!("text" in item) || typeof item.text !== "string") return item;
-      const text = this.protect(item.text, topical.force);
+      const text = this.protect(item.text, topical.force, upstream.name);
       piiFound ||= text.piiFound;
       addHits(hits, text.hits);
       return { ...item, text: text.value };
@@ -921,7 +924,7 @@ export class Gateway {
     }
     const topical = await this.topicsAfter(source, route.upstream, result.messages, [], args ?? {});
     if (topical.withheld) throw new Error(`${PREFIX} Prompt withheld: ${topical.withheld}`);
-    return { ...result, messages: this.protect(result.messages, topical.force).value };
+    return { ...result, messages: this.protect(result.messages, topical.force, route.upstream.name).value };
   }
 
   /** End this session: stop listening to the shared upstreams. They stay open for other sessions. */

@@ -125,6 +125,9 @@ importers:
 
   packages/db-gateway:
     dependencies:
+      '@guardbee/guard-core':
+        specifier: workspace:^
+        version: link:../guard-core
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry

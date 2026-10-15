@@ -445,6 +445,28 @@ Since 1.1, a broad phrase alone no longer blocks: in 1.0 "use jailbreak mode" or
 
 IP and MAC addresses and plates are everywhere in infrastructure output, so they are off unless you list them: `interceptors.piiMasking.include: [ip_address, mac_address, plate_tr]`. Every category is counted in `piiHits` and the dashboard's KVKK report.
 
+**Choosing what to mask.** `piiMasking.preset` picks the detectors that mask, and `enable` / `disable` add or drop detectors by name (the names in `piiHits`, e.g. `tc_kimlik`, `email`, `github_pat`). `upstreams.<name>` replaces the selection for one upstream or LLM provider. Detection does not narrow: every default detector still counts in `piiHits` and taints the session, only masking follows the selection. Opt-in detectors are in no preset; list them in `enable` (or `include`).
+
+| Preset | Masks |
+| --- | --- |
+| `ALL` (default) | every detector above except the opt-in ones, plus credentials |
+| `KVKK` | personal data only, no credentials |
+| `IDENTITY` | postal address, date of birth |
+| `IDENTIFIERS` | TC kimlik, VKN, MERSİS, SGK, passport, IBAN, card, phone, KEP, e-mail |
+| `SECRETS` | API keys, tokens, private keys, connection strings, JWTs |
+
+```yaml
+interceptors:
+  piiMasking:
+    enabled: true
+    preset: KVKK
+    disable: [address]
+    upstreams:
+      ops: { preset: SECRETS, enable: [ip_address] }   # an infrastructure server
+```
+
+An unknown preset, detector or upstream name fails config validation.
+
 A number that fails its checksum (an order number, a tracking code) is left as is.
 
 ---
