@@ -1,0 +1,66 @@
+# Glama introspection config: every GuardBee MCP server behind one security-proxy.
+# Each upstream starts without credentials; tools appear as <upstream>__<tool>.
+# Used by the Glama build spec: npm install -g every package, then
+#   guardbee-proxy --config /app/glama/guardbee-proxy.yaml
+version: 1
+upstreams:
+  a2a_auditor:
+    command: guardbee-a2a-auditor
+  agent_graph_auditor:
+    command: guardbee-agent-graph-auditor
+  ai_code_scanner:
+    command: guardbee-ai-code-scanner
+  audit_gap_auditor:
+    command: guardbee-audit-gap-auditor
+  compliance_checker:
+    command: guardbee-compliance-checker
+  context_oversharing_auditor:
+    command: guardbee-context-oversharing-auditor
+  dependency_auditor:
+    command: guardbee-dependency-auditor
+  dns_intelligence:
+    command: guardbee-dns-intelligence
+  document_scanner:
+    command: guardbee-document-scanner
+  elicitation_auditor:
+    command: guardbee-elicitation-auditor
+  db_gateway:
+    command: guardbee-gateway
+  llm_redteam:
+    command: guardbee-llm-redteam
+  mcp_config_auditor:
+    command: guardbee-mcp-config-auditor
+  mcp_server_auditor:
+    command: guardbee-mcp-server-auditor
+  memory_poisoning_scanner:
+    command: guardbee-memory-poisoning-scanner
+  model_scanner:
+    command: guardbee-model-scanner
+  oauth_auditor:
+    command: guardbee-oauth-auditor
+  owasp_scan:
+    command: guardbee-owasp-scan
+  prompt_injection_scanner:
+    command: guardbee-prompt-injection-scanner
+  prompt_leak_scanner:
+    command: guardbee-prompt-leak-scanner
+  rug_pull_detector:
+    command: guardbee-rug-pull-detector
+  secret_scanner:
+    command: guardbee-secret-scanner
+  slopsquat_scanner:
+    command: guardbee-slopsquat-scanner
+  ssl_inspector:
+    command: guardbee-ssl-inspector
+  threat_rules:
+    command: guardbee-threat-rules
+  tool_poisoning_scanner:
+    command: guardbee-tool-poisoning-scanner
+  toxic_flow_auditor:
+    command: guardbee-toxic-flow-auditor
+  unbounded_consumption_auditor:
+    command: guardbee-unbounded-consumption-auditor
+  vector_store_scanner:
+    command: guardbee-vector-store-scanner
+  vulnerability_scanner:
+    command: guardbee-vulnerability-scanner
