@@ -1,3 +1,4 @@
+import { NormalizedText, needsNormalization } from "./normalize.js";
 import { SECRET_RULES } from "./secrets.js";
 import { isValidIban, isValidLuhn, isValidTcKimlik, isValidTrPhone, isValidVkn } from "./validators.js";
 
@@ -202,12 +203,24 @@ export type PiiReplacer = (patternName: string, match: string) => string;
  * (ip_address, mac_address, plate_tr); the others always run.
  */
 export function maskPiiInText(text: string, replace?: PiiReplacer, include?: ReadonlySet<string>): string {
+  const masked = (name: string, replacement: string, validate: PiiPattern["validate"]) => (match: string) =>
+    validate && !validate(match) ? match : replace ? replace(name, match) : replacement;
+
+  if (needsNormalization(text)) {
+    // Detect on the NFKC copy without invisible characters; `replace` sees the
+    // normalized value, so every spelling of a value gets the same token.
+    const working = new NormalizedText(text);
+    for (const { name, pattern, replacement, validate, optIn } of PII_PATTERNS) {
+      if (optIn && !include?.has(name)) continue;
+      working.replace(pattern, masked(name, replacement, validate));
+    }
+    return working.toString();
+  }
+
   let result = text;
   for (const { name, pattern, replacement, validate, optIn } of PII_PATTERNS) {
     if (optIn && !include?.has(name)) continue;
-    result = result.replace(pattern, (match) =>
-      validate && !validate(match) ? match : replace ? replace(name, match) : replacement,
-    );
+    result = result.replace(pattern, masked(name, replacement, validate));
   }
   return result;
 }
