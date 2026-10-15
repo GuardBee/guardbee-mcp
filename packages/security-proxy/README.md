@@ -308,6 +308,7 @@ llm:
     - { model: "gpt-*",    provider: openai }
     - { model: "claude-*", provider: anthropic }
     - { model: "llama*",   provider: local }
+    - { model: "gpt-4o-internal", provider: openai, masking: off }   # explicit passthrough, audited
   keys:                          # gateway keys, one per person or app (values from the environment)
     - { keyEnv: GB_KEY_ALICE,   user: alice@acme.com, groups: [eng] }
     - { keyEnv: GB_KEY_BILLING, user: billing-svc,    groups: [apps] }
@@ -328,6 +329,7 @@ llm:
     mask: false                  # the data stays in-house, so it is not masked (true: keep masking)
   maskResponses: false           # also mask PII the model writes (prompts are always checked)
   timeoutSeconds: 120
+  maxTextChars: 2000000          # longest single text the proxy masks; longer → 413
 interceptors:
   piiMasking: { enabled: true, mode: tokenize }
 ```
@@ -350,10 +352,28 @@ What every request goes through, in order:
 4. **Credentials** (`interceptors.egressSecrets`) anywhere in the prompt: provider keys, private keys and connection strings are blocked (`403`) before they reach the provider.
 5. **Sensitive routing** (`llm.sensitive`). When the prompt holds personal data (optionally only some `categories`) or one of the listed `topics`, the request goes to `sensitive.model` — an Ollama, vLLM or llama.cpp model you run — instead of the model asked for. The audit log gets a `warn` event with `ruleId: llm:route:sensitive` naming both models and why, so routed requests show up in the dashboard, and the usage event carries `llm.routedFrom`. If the local model has no route for the request's API (an Anthropic request with only an OpenAI-compatible local model), the request is refused rather than sent to the provider it was meant to avoid. Budgets count the routed model.
 6. **Budgets.** Requests, tokens and USD per user (or per key) or for the whole gateway, over fixed windows. A request is admitted while every matching budget has room; tokens and cost are known only after the answer, so the call that crosses a limit completes and the next one gets `429` with `Retry-After`.
-7. **PII** (`interceptors.piiMasking`) in message text, tool-call arguments and tool results is masked, or with `mode: tokenize` replaced by tokens the proxy turns back into real values in the answer — the provider never sees them, the user does. Image data, ids and tool names are left alone.
+7. **PII** (`interceptors.piiMasking`) in message text, tool-call arguments and tool results is masked, or with `mode: tokenize` replaced by tokens the proxy turns back into real values in the answer — the provider never sees them, the user does. The text of Anthropic `document` blocks with a text or content source is masked too. Image data, ids and tool names are left alone; content the proxy cannot read is refused (see [Failure behavior](#failure-behavior)).
 8. **Audit.** A `tool_call` event (`tool: llm:<model>`, `upstream: <provider>`, `labels: [llm]`, `user`, `piiHits`) and a `tool_response` event with `llm: { model, inputTokens, outputTokens, costUsd }`. Refusals are `blocked` events with `ruleId` `llm:injection`, `llm:credential` or the budget id.
 
 Streaming works for both APIs. A plain stream is relayed event by event; for OpenAI the proxy adds `stream_options.include_usage` to count tokens and drops that extra chunk if the client did not ask for it. When the answer has to be rewritten (PII tokens to put back, or `maskResponses`), it is rewritten as it streams: text — message content, tool-call arguments, Anthropic text, JSON and thinking deltas — is held only until a safe cut (a space with no digit on either side, so a grouped number such as an IBAN or a card is never split; a private key block until its END line; a line with an `Adres:` label until it ends) and rewritten together with the last 300 characters already sent, so a label like `Pasaport No:` still applies to a value in the next event. Whatever is still held goes out just before the choice's finish chunk or the block's stop event. Provider errors are passed through unchanged, so SDK retries and error types keep working.
+
+### Failure behavior
+
+The gateway fails closed: when it cannot check or mask a request, the provider is not called. The refusal carries a stable code in the error body (`error.code`, in the OpenAI and the Anthropic error shape) and in the `x-guardbee-error` header, and a `blocked` event goes to the audit log. Neither the response nor the audit log ever holds the text that could not be masked — a detector's own error message is replaced by its error class.
+
+| Status | Code | When | Audit `ruleId` |
+| --- | --- | --- | --- |
+| `502` | `guardbee_masking_failed` | A detector or scan threw, or a block pattern ran over its time budget. Covers every check before the call: injection, credentials, topics, sensitive routing, masking. | `pii:masking-failed`, `pii:pattern-timeout` |
+| `415` | `guardbee_unmaskable_content` | The request holds content the proxy cannot read: OpenAI `input_audio` or `file` parts, an Anthropic `document` with a PDF (base64, url or file) source, an unknown part or block type, or content that is not text or a list. The message names what was found. | `pii:unmaskable` |
+| `413` | `guardbee_text_too_large` | A single text (message, part, tool result) is longer than `llm.maxTextChars` (default 2,000,000 characters). The limit is per text, not per request: split the text into several messages or parts. | `pii:text-too-large` |
+
+What is not refused: images (`image_url`, Anthropic `image`) are forwarded unchanged and are not inspected; in an assistant turn, blocks the provider itself produced (`thinking`, `redacted_thinking`, `server_tool_use`, `*_tool_result`) are passed back as they are. `415` and `413` apply only when the request is masked — with `piiMasking.enabled: false`, on a route with `masking: off`, or for a request routed in-house by `llm.sensitive` without `mask: true`, nothing is masked and nothing is refused for being unmaskable.
+
+An answer that cannot be masked (`maskResponses`, or a failure while putting tokens back) is withheld: the text is replaced by `[GuardBee: withheld, …]`, also mid-stream, and the event is logged with the same `ruleId`s.
+
+**Passthrough per route.** `masking: off` on an `llm.routes` entry sends that route's prompts (and answers) unmasked. It has to be written out — there is no implicit passthrough — and every such request writes a `warn` event with `ruleId: pii:masking-off` naming the route; PII is still counted in `piiHits`. A topic rule with action `mask` still masks on that route.
+
+In the MCP gateway a masking failure withholds the tool result: the client gets an MCP error (`InternalError`, `Result withheld: …`) with `data: { guardbee: "guardbee_masking_failed" }`, and no `tool_response` event is written.
 
 ---
 

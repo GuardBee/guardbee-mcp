@@ -50,10 +50,77 @@ function mapAnthropicContent(content: unknown, fn: TextMapper): unknown {
         return { ...block, input: mapStrings(block["input"], fn) };
       case "tool_result":
         return { ...block, content: mapAnthropicContent(block["content"], fn) };
+      case "document":
+        return mapAnthropicDocument(block, fn);
       default:
         return block;
     }
   });
+}
+
+/** A document's title and context, and its text when the source is text or content blocks (a PDF is left alone). */
+function mapAnthropicDocument(block: Json, fn: TextMapper): Json {
+  const out: Json = { ...block };
+  if (typeof block["title"] === "string") out["title"] = fn(block["title"]);
+  if (typeof block["context"] === "string") out["context"] = fn(block["context"]);
+  const source = block["source"];
+  if (isObject(source) && source["type"] === "text" && typeof source["data"] === "string") out["source"] = { ...source, data: fn(source["data"]) };
+  if (isObject(source) && source["type"] === "content") out["source"] = { ...source, content: mapAnthropicContent(source["content"], fn) };
+  return out;
+}
+
+/** OpenAI content parts that are not text the proxy can read: image_url is forwarded as is, refusal is the model's own. */
+const OPENAI_PASSED_PARTS = new Set(["text", "image_url", "refusal"]);
+/** Blocks the provider itself produced; only accepted in an assistant turn. */
+const ANTHROPIC_MODEL_BLOCKS = /^(thinking|redacted_thinking|server_tool_use|mcp_tool_use|mcp_tool_result|[a-z_]+_tool_result)$/;
+
+/**
+ * What in a request the proxy cannot read, and so cannot mask: audio, files,
+ * PDF documents, content shapes it does not know. Images are not on the
+ * list: they are forwarded unchanged and the README says so. Empty: every
+ * piece of text in the request goes through mapPrompt.
+ */
+export function unmaskableParts(api: LlmApi, body: Json): string[] {
+  const found = new Set<string>();
+  const shape = (content: unknown, where: string) => {
+    if (content === undefined || content === null || typeof content === "string" || Array.isArray(content)) return true;
+    found.add(`${where} of type ${typeof content}`);
+    return false;
+  };
+  const openAi = (content: unknown) => {
+    if (!shape(content, "content") || !Array.isArray(content)) return;
+    for (const part of content) {
+      const type = isObject(part) ? part["type"] : undefined;
+      if (typeof type !== "string" || !OPENAI_PASSED_PARTS.has(type)) found.add(`content part "${String(type)}"`);
+    }
+  };
+  const anthropic = (content: unknown, role: unknown) => {
+    if (!shape(content, "content") || !Array.isArray(content)) return;
+    for (const block of content) {
+      const type = isObject(block) ? block["type"] : undefined;
+      if (type === "text" || type === "tool_use" || type === "image") continue;
+      if (type === "tool_result") anthropic((block as Json)["content"], role);
+      else if (type === "document") {
+        const source = (block as Json)["source"];
+        const kind = isObject(source) ? source["type"] : undefined;
+        if (kind === "content") anthropic((source as Json)["content"], role);
+        else if (kind !== "text") found.add(`document with a ${String(kind)} source`);
+      } else if (!(role === "assistant" && typeof type === "string" && ANTHROPIC_MODEL_BLOCKS.test(type) && type !== "tool_result")) {
+        found.add(`content block "${String(type)}"`);
+      }
+    }
+  };
+  if (body["messages"] !== undefined && !Array.isArray(body["messages"])) found.add("messages that are not a list");
+  for (const message of Array.isArray(body["messages"]) ? body["messages"] : []) {
+    if (!isObject(message)) {
+      found.add("a message that is not an object");
+      continue;
+    }
+    if (api === "anthropic") anthropic(message["content"], message["role"]);
+    else openAi(message["content"]);
+  }
+  if (api === "anthropic") anthropic(body["system"], "system");
+  return [...found];
 }
 
 /**
@@ -116,11 +183,11 @@ export function usageOf(api: LlmApi, body: unknown): LlmUsage | null {
   return { inputTokens: input, outputTokens: num(usage["output_tokens"]) };
 }
 
-/** An error body in the shape the client's SDK parses. */
-export function errorBody(api: LlmApi, status: number, message: string): Json {
+/** An error body in the shape the client's SDK parses; `code` is one of the proxy's own stable codes. */
+export function errorBody(api: LlmApi, status: number, message: string, code?: string): Json {
   const type =
     status === 401 ? "authentication_error" : status === 403 ? "permission_error" : status === 429 ? "rate_limit_error" : status >= 500 ? "api_error" : "invalid_request_error";
-  return api === "anthropic" ? { type: "error", error: { type, message } } : { error: { message, type, code: null } };
+  return api === "anthropic" ? { type: "error", error: { type, message, ...(code ? { code } : {}) } } : { error: { message, type, code: code ?? null } };
 }
 
 /**
