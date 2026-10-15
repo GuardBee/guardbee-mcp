@@ -13,6 +13,8 @@ import {
   detectTopics,
   maskPiiInValue,
   OPT_IN_PII,
+  PiiPatternTimeoutError,
+  type OrgPatternEvent,
   PERSONAL_DATA_CATEGORIES,
   PII_PATTERNS,
   scanForPromptInjection,
@@ -26,7 +28,7 @@ import { activeCallSpan, tracer, withCallSpan } from "../tracing.js";
 import type { AuditLogger } from "../audit/logger.js";
 import { ToolDefinitionPin, type ToolRecord } from "../interceptors/definition-drift.js";
 import type { AuditEvent } from "../types.js";
-import { piiScopesFor, type PiiScopes } from "./pii-scope.js";
+import { orgPatternsFor, piiScopesFor, type PiiScopes } from "./pii-scope.js";
 import { AnomalyDetector, type AnomalyConfig } from "./anomaly.js";
 import type { Approver } from "./approval.js";
 import type { GatewayConfig } from "./config.js";
@@ -364,20 +366,42 @@ export class Gateway {
     }
   }
 
-  private protect<T>(value: T, force = false, upstream?: string): { value: T; piiFound: boolean; hits: PiiHits } {
-    const scopes = this.piiScopes(upstream);
+  private protect<T>(value: T, force: boolean, where: { upstream: string; tool: string }): { value: T; piiFound: boolean; hits: PiiHits } {
+    const scopes = this.piiScopes(where.upstream);
+    const org = orgPatternsFor(this.interceptors.piiMasking);
     const hits: PiiHits = {};
-    // Every detector counts (taint, piiHits); only the selected ones mask
-    const redacted = maskPiiInValue(value, (name, match) => {
-      const category = PERSONAL_DATA.has(name) ? name : "secret";
-      hits[category] = (hits[category] ?? 0) + 1;
-      return scopes.mask.has(name) ? (PLACEHOLDER.get(name) ?? "[REDACTED]") : match;
-    }, scopes.detect) as T;
-    const piiFound = Object.keys(hits).length > 0;
-    const enabled = this.interceptors.piiMasking?.enabled !== false || force;
-    if (!piiFound || !enabled) return { value, piiFound, hits };
-    const tokenize = this.interceptors.piiMasking?.mode === "tokenize";
-    return { value: tokenize ? this.vault.tokenize(value, scopes.mask) : redacted, piiFound, hits };
+    const onEvent = (event: OrgPatternEvent) =>
+      this.log({
+        ...where,
+        type: "warn",
+        ruleId: event.type === "allowed" ? "pii:allow" : "pii:allow-skipped",
+        reason:
+          event.type === "allowed"
+            ? `allow pattern ${JSON.stringify(event.pattern)} kept a ${event.detector} value unmasked`
+            : `allow pattern ${JSON.stringify(event.pattern)} ran over its time budget and was skipped`,
+      });
+    try {
+      // Every detector counts (taint, piiHits); only the selected ones and org block patterns mask
+      const redacted = org.withEvents(onEvent, () =>
+        maskPiiInValue(value, (name, match) => {
+          const custom = org.categories.has(name);
+          const category = custom ? name : PERSONAL_DATA.has(name) ? name : "secret";
+          hits[category] = (hits[category] ?? 0) + 1;
+          if (custom) return undefined;
+          return scopes.mask.has(name) ? (PLACEHOLDER.get(name) ?? "[REDACTED]") : match;
+        }, scopes.detect, org),
+      ) as T;
+      const piiFound = Object.keys(hits).length > 0;
+      const enabled = this.interceptors.piiMasking?.enabled !== false || force;
+      if (!piiFound || !enabled) return { value, piiFound, hits };
+      const tokenize = this.interceptors.piiMasking?.mode === "tokenize";
+      return { value: tokenize ? this.vault.tokenize(value, scopes.mask, org) : redacted, piiFound, hits };
+    } catch (err) {
+      if (!(err instanceof PiiPatternTimeoutError)) throw err;
+      // Fail closed: a block pattern that did not finish may have missed something
+      this.log({ ...where, type: "blocked", ruleId: "pii:pattern-timeout", reason: err.message });
+      throw new McpError(ErrorCode.InternalError, `${PREFIX} Result withheld: ${err.message}`);
+    }
   }
 
   /** piiMasking's preset / enable / disable for this upstream (see gateway/pii-scope.ts). */
@@ -700,13 +724,13 @@ export class Gateway {
 
     // 8. PII: always detected (it taints the session), masked unless turned off — a `mask` rule forces it
     const force = decision.action === "mask" || topical.force;
-    const text = this.protect(content, force, upstream.name);
+    const text = this.protect(content, force, { upstream: upstream.name, tool: name });
     let out: CallToolResult = { ...result, content: text.value };
     let piiFound = text.piiFound;
     // structuredContent usually repeats the text content: count the larger of the two, not both
     let hits = text.hits;
     if (result.structuredContent) {
-      const structured = this.protect(result.structuredContent, force, upstream.name);
+      const structured = this.protect(result.structuredContent, force, { upstream: upstream.name, tool: name });
       out.structuredContent = structured.value;
       piiFound ||= structured.piiFound;
       for (const [category, count] of Object.entries(structured.hits)) hits[category] = Math.max(hits[category] ?? 0, count);
@@ -808,7 +832,7 @@ export class Gateway {
     if (leak && config.action === "block") return refuse(`${leak}; it would go to "${upstream.name}"`, "sampling:egress");
     if (leak) this.log({ ...base, type: "warn", ruleId: "sampling:egress", reason: leak });
 
-    const masked = this.protect(result.content, true, upstream.name);
+    const masked = this.protect(result.content, true, { upstream: upstream.name, tool: `sampling:${upstream.name}` });
     this.log({ ...base, type: "tool_response", output: masked.value, ...(masked.piiFound ? { piiHits: masked.hits } : {}) });
     return { ...result, content: masked.value };
   }
@@ -870,7 +894,7 @@ export class Gateway {
     }
     const contents = items.map((item) => {
       if (!("text" in item) || typeof item.text !== "string") return item;
-      const text = this.protect(item.text, topical.force, upstream.name);
+      const text = this.protect(item.text, topical.force, { upstream: upstream.name, tool: source });
       piiFound ||= text.piiFound;
       addHits(hits, text.hits);
       return { ...item, text: text.value };
@@ -924,7 +948,7 @@ export class Gateway {
     }
     const topical = await this.topicsAfter(source, route.upstream, result.messages, [], args ?? {});
     if (topical.withheld) throw new Error(`${PREFIX} Prompt withheld: ${topical.withheld}`);
-    return { ...result, messages: this.protect(result.messages, topical.force, route.upstream.name).value };
+    return { ...result, messages: this.protect(result.messages, topical.force, { upstream: route.upstream.name, tool: source }).value };
   }
 
   /** End this session: stop listening to the shared upstreams. They stay open for other sessions. */

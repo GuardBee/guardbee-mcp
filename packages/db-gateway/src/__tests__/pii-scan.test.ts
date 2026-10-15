@@ -84,3 +84,29 @@ describe("GATEWAY_PII_SCAN", () => {
     withEnv("GDPR", () => expect(() => loadConfig()).toThrow());
   });
 });
+
+describe("piiScan org patterns", () => {
+  const notes = [{ id: "n1", notes: "Dosya CL-123456, destek@acme.com.tr ve ayse@example.com" }];
+  const run = (piiScan: object, data = notes) =>
+    new GatewayPipeline(loadConfig({ audit: { enabled: false, sink: "console" as const }, piiScan: { enabled: true, ...piiScan } as never })).process(
+      "query_table",
+      "notes",
+      {},
+      data,
+    );
+
+  it("block masks the org's ids, allow keeps a public address", async () => {
+    const result = await run({ blockPatterns: [{ pattern: "CL-\\d{6}", category: "CLIENT_NO" }], allowPatterns: ["destek@acme\\.com\\.tr"] });
+    if (!("rows" in result)) throw new Error("denied");
+    expect(result.rows[0]!["notes"]).toBe("Dosya <CLIENT_NO_1>, destek@acme.com.tr ve ***@[EMAIL]");
+  });
+
+  it("a block pattern over its time budget fails the query instead of returning unmasked rows", async () => {
+    await expect(run({ blockPatterns: ["(a+)+b"] }, [{ id: "n1", notes: "a".repeat(40) }])).rejects.toThrow("took longer than");
+  });
+
+  it("config validation rejects a reserved category and an invalid regex", () => {
+    expect(GatewayConfigSchema.safeParse({ piiScan: { blockPatterns: [{ pattern: "x", category: "EMAIL" }] } }).success).toBe(false);
+    expect(GatewayConfigSchema.safeParse({ piiScan: { allowPatterns: ["("] } }).success).toBe(false);
+  });
+});

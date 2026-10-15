@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { checkPiiDetectorNames, piiSelectionShape } from "@guardbee/guard-core";
+import { checkOrgPatterns, checkPiiDetectorNames, orgPatternShape, piiSelectionShape } from "@guardbee/guard-core";
 
 /**
  * Per-field masking rule.
@@ -147,11 +147,16 @@ export const GatewayConfigSchema = z.object({
    * metin kolonlarında (ör. `notes`, `description`) bulunan TC kimlik, IBAN,
    * e-posta, API anahtarı vb. maskelenir. `preset` / `enable` / `disable`
    * hangi dedektörlerin çalışacağını seçer (guard-core presetleri).
+   * `blockPatterns` kurumun kendi kalıplarını (dosya no, müşteri kodu) maskeler,
+   * `allowPatterns` tespit edilmiş bir değeri (ör. herkese açık destek adresi) bırakır.
    */
   piiScan: z
-    .object({ enabled: z.boolean().default(true), ...piiSelectionShape })
+    .object({ enabled: z.boolean().default(true), ...piiSelectionShape, ...orgPatternShape })
     .strict()
-    .superRefine((selection, ctx) => checkPiiDetectorNames(selection, ctx))
+    .superRefine((scan, ctx) => {
+      checkPiiDetectorNames(scan, ctx);
+      checkOrgPatterns(scan, ctx);
+    })
     .optional(),
 
   /** Tablo bazlı erişim kuralları */

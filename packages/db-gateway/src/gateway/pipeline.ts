@@ -1,4 +1,4 @@
-import { piiScope, type PiiScope } from "@guardbee/guard-core";
+import { OrgPatterns, piiScope, type PiiScope } from "@guardbee/guard-core";
 import type { GatewayConfig, TableRule } from "../config";
 import { maskRows, maskRow, findProtectedWriteFields } from "./masker";
 import { AuditLogger, createAuditEvent, type AuditEvent, type AuditQueryFilter } from "../audit/logger";
@@ -38,6 +38,8 @@ export class GatewayPipeline {
   private readonly roleResolver: RoleResolver;
   /** Detectors for value-based PII masking in unruled text columns; undefined when piiScan is off. */
   private readonly piiScan: PiiScope | undefined;
+  /** piiScan's block / allow patterns; a block pattern over its time budget fails the query. */
+  private readonly orgPatterns: OrgPatterns | undefined;
 
   constructor(private readonly config: GatewayConfig) {
     this.audit = new AuditLogger(config.audit);
@@ -51,6 +53,10 @@ export class GatewayPipeline {
           ...(scan.disable ? { disable: scan.disable } : {}),
         })
       : undefined;
+    this.orgPatterns =
+      scan?.enabled && (scan.blockPatterns?.length || scan.allowPatterns?.length)
+        ? OrgPatterns.compile({ blockPatterns: scan.blockPatterns ?? [], allowPatterns: scan.allowPatterns ?? [] })
+        : undefined;
   }
 
   /** list_tables için tablo listesini rol kısıtlamalarına göre filtreler. */
@@ -129,7 +135,8 @@ export class GatewayPipeline {
       this.roleResolver.mergedFieldRules,
       table,
       maxRows,
-      this.piiScan
+      this.piiScan,
+      this.orgPatterns
     );
 
     // 6a. Hangi field'lar maskelendi?
@@ -298,7 +305,7 @@ export class GatewayPipeline {
 
     return {
       rowsAffected,
-      row: insertedRow ? maskRow(insertedRow, this.roleResolver.mergedFieldRules, table, this.piiScan) : undefined,
+      row: insertedRow ? maskRow(insertedRow, this.roleResolver.mergedFieldRules, table, this.piiScan, this.orgPatterns) : undefined,
       auditId: event.id,
     };
   }

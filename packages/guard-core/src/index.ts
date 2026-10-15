@@ -3,6 +3,16 @@ export { PII_PATTERNS, PERSONAL_DATA_CATEGORIES, OPT_IN_PII, maskPiiInText, mask
 export type { PiiPattern, PiiReplacer, PiiInclude } from "./pii.js";
 export { PII_DETECTORS, PII_PRESETS, PII_PRESET_NAMES, PiiScope, piiScope, piiSelectionErrors, piiSelectionSchema, piiSelectionShape, checkPiiDetectorNames } from "./presets.js";
 export type { PiiPresetName, PiiSelection } from "./presets.js";
+export {
+  DEFAULT_PATTERN_BUDGET_MS,
+  ORG_PATTERN_LIMITS,
+  OrgPatterns,
+  PiiPatternTimeoutError,
+  checkOrgPatterns,
+  orgPatternIssues,
+  orgPatternShape,
+} from "./org-patterns.js";
+export type { BlockMatch, OrgPatternConfig, OrgPatternEvent, OrgPatternOptions } from "./org-patterns.js";
 export { SECRET_RULES } from "./secrets.js";
 export type { SecretRule } from "./secrets.js";
 export {

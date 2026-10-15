@@ -309,6 +309,12 @@ createServer({ piiScan: { enabled: true, preset: "KVKK", disable: ["address"] } 
 
 CLI'dan: `GATEWAY_PII_SCAN=true` (tüm varsayılan dedektörler) ya da `GATEWAY_PII_SCAN=KVKK` (bir preset). Bilinmeyen bir preset ya da dedektör adı başlangıçta hata verir.
 
+`piiScan.blockPatterns` ve `piiScan.allowPatterns` security proxy'deki gibi kendi kalıplarınızı ekler: block kendi kimliklerinizi `<KATEGORİ_n>` olarak maskeler, allow metninin tamamı eşleşen tespit edilmiş bir değeri bırakır. 100 ms bütçesini aşan bir block kalıbı, maskelenmemiş olabilecek satırları döndürmek yerine sorguyu başarısız kılar.
+
+```ts
+createServer({ piiScan: { enabled: true, blockPatterns: [{ pattern: "CL-\\d{6}", category: "CLIENT_NO" }], allowPatterns: ["destek@acme\\.com\\.tr"] } }, adapter);
+```
+
 ---
 
 ## Rol Bazlı Erişim (RBAC)

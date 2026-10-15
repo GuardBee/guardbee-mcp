@@ -601,3 +601,47 @@ describe("LLM gateway: piiMasking selection per provider", () => {
     expect(events.find((e) => e.type === "tool_call")?.piiHits).toEqual({ tc_kimlik: 1, email: 1 });
   });
 });
+
+describe("LLM gateway: org patterns", () => {
+  const blockClient = { piiMasking: { enabled: true, blockPatterns: [{ pattern: "CL-\\d{6}", category: "CLIENT_NO" }] } };
+
+  it("masks configured and per-request block patterns with numbers shared by the request, and never forwards `guardbee`", async () => {
+    const provider = await fakeProvider(openAiEcho);
+    const { base } = await startLlm({ openai: provider.url }, {}, blockClient);
+    const res = await chat(base, "gb-alice", {
+      model: "gpt-4o",
+      guardbee: { blockPatterns: [{ pattern: "SIP-\\d{4}", category: "ORDER_NO" }] },
+      messages: [
+        { role: "system", content: "Müşteri CL-123456" },
+        { role: "user", content: "CL-123456 için SIP-1234 ve CL-999999" },
+      ],
+    });
+    expect(res.status).toBe(200);
+    const sent = provider.seen[0]!.body;
+    expect(sent).not.toHaveProperty("guardbee");
+    expect(JSON.stringify(sent["messages"])).toBe(
+      JSON.stringify([
+        { role: "system", content: "Müşteri <CLIENT_NO_1>" },
+        { role: "user", content: "<CLIENT_NO_1> için <ORDER_NO_1> ve <CLIENT_NO_2>" },
+      ]),
+    );
+  });
+
+  it("refuses allow patterns from a request: a request can only add masking", async () => {
+    const provider = await fakeProvider(openAiEcho);
+    const { base, events } = await startLlm({ openai: provider.url }, {}, blockClient);
+    const res = await chat(base, "gb-alice", { model: "gpt-4o", guardbee: { allowPatterns: [".*"] }, messages: [{ role: "user", content: "CL-123456" }] });
+    expect(res.status).toBe(400);
+    expect(await res.text()).toContain("allowPatterns cannot come from a request");
+    expect(provider.seen).toHaveLength(0);
+    expect(events.some((e) => e.ruleId === "llm:pii-patterns")).toBe(true);
+  });
+
+  it("refuses with 502 when a block pattern runs over its budget, and sends nothing", async () => {
+    const provider = await fakeProvider(openAiEcho);
+    const { base } = await startLlm({ openai: provider.url }, {}, { piiMasking: { enabled: true, blockPatterns: ["(a+)+b"] } });
+    const res = await chat(base, "gb-alice", { model: "gpt-4o", messages: [{ role: "user", content: "a".repeat(40) }] });
+    expect(res.status).toBe(502);
+    expect(provider.seen).toHaveLength(0);
+  });
+});
