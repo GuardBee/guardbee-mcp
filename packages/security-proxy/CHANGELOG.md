@@ -1,5 +1,14 @@
 # @guardbee/mcp-security-proxy
 
+## 1.18.1
+
+### Patch Changes
+
+- [#144](https://github.com/GuardBee/guardbee-mcp/pull/144) [`a489a7e`](https://github.com/GuardBee/guardbee-mcp/commit/a489a7e06e4dc8dfd208572efbb46e81e0bc3c69) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - PII and secret masking now sees through Unicode look-alikes: fullwidth digits, mathematical bold letters and zero-width characters inside a TC kimlik, IBAN, e-mail or API key no longer bypass the detectors. Detection runs on an NFKC copy with invisible characters removed and maps back to the original text, so unmasked text keeps its original spelling and every spelling of a value gets the same token.
+- Updated dependencies [[`a489a7e`](https://github.com/GuardBee/guardbee-mcp/commit/a489a7e06e4dc8dfd208572efbb46e81e0bc3c69)]:
+  - @guardbee/guard-core@0.16.0
+  - @guardbee/mcp-document-scanner@0.1.3
+
 ## 1.18.0
 
 ### Minor Changes
