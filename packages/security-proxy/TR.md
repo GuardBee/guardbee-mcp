@@ -337,6 +337,20 @@ interceptors:
 
 Bilinmeyen bir preset, dedektör ya da upstream adı config doğrulamasında hata verir.
 
+**Kendi kalıplarınız.** `piiMasking.blockPatterns` hiçbir dedektörün bilmediğini maskeler (dosya no, müşteri kodu): bir regex ya da `{ pattern, category }`; kategori numaralı bir yer tutucu (`CLIENT_NO` → `<CLIENT_NO_1>`, aynı değer aynı numarayı alır) ve `piiHits` anahtarı olur. Çakışmada yerleşik tespit kazanır; block kalıpları presetten bağımsız uygulanır. `piiMasking.allowPatterns`, metninin tamamı eşleşen tespit edilmiş bir değeri maskelemeden bırakır (herkese açık destek adresiniz); korumayı azalttığı için her seferinde audit log'a `ruleId: pii:allow` ile bir `warn` event'i yazılır.
+
+```yaml
+interceptors:
+  piiMasking:
+    enabled: true
+    blockPatterns:
+      - { pattern: "CL-\\d{6}", category: CLIENT_NO }
+      - "DOSYA/\\d{4}"                       # kategori CUSTOM
+    allowPatterns: ["destek@acme\\.com\\.tr"]
+```
+
+Her kalıbın bir zaman bütçesi vardır (maskeleme çağrısı başına 100 ms); felakete giden bir regex proxy'yi kilitleyemez. İki tür bilerek ters yönde başarısız olur: bütçeyi aşan bir block kalıbı sonucu alıkoyar (`pii:pattern-timeout`; LLM gateway 502 döner), bütçeyi aşan bir allow kalıbı atlanır ve değer maskeli kalır (`pii:allow-skipped`). En fazla 25 kalıp, her biri 200 karakter; geçersiz regex ya da yerleşik bir dedektörün adını taşıyan kategori (`EMAIL`, `IBAN`, `SECRET`, …) config doğrulamasında hata verir. LLM gateway'e gelen bir istek, gövdedeki `guardbee` alanıyla kendi block kalıplarını ekleyebilir (`{ "guardbee": { "blockPatterns": [...] } }`, sağlayıcıya gitmeden çıkarılır); bunlar config'dekilere eklenir, `allowPatterns` içeren istek 400 ile reddedilir: bir istek yalnızca maskelemeyi artırabilir.
+
 Checksum'ı tutmayan sayılar (sipariş no, takip kodu) olduğu gibi bırakılır.
 
 ---

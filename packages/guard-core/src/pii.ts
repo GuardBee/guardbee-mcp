@@ -1,4 +1,5 @@
 import { NormalizedText, needsNormalization } from "./normalize.js";
+import type { OrgPatterns } from "./org-patterns.js";
 import { SECRET_RULES } from "./secrets.js";
 import { isValidIban, isValidLuhn, isValidTcKimlik, isValidTrPhone, isValidVkn } from "./validators.js";
 
@@ -195,8 +196,12 @@ export const PII_PATTERNS: PiiPattern[] = [
   },
 ];
 
-/** Returns what a validated match is replaced with; defaults to the pattern's fixed placeholder. */
-export type PiiReplacer = (patternName: string, match: string) => string;
+/**
+ * Returns what a validated match is replaced with. Returning `undefined` keeps
+ * the default: the pattern's fixed placeholder, or `<CATEGORY_n>` for an org
+ * block pattern. Returning the match unchanged leaves it unmasked.
+ */
+export type PiiReplacer = (patternName: string, match: string) => string | undefined;
 
 /**
  * Which detectors run: a plain set turns on opt-in detectors by name
@@ -210,10 +215,10 @@ function runs(name: string, optIn: boolean | undefined, include: PiiInclude | un
   return !optIn || include?.has(name) === true;
 }
 
-/** Mask validated PII with the detectors `include` selects (see `PiiInclude`). */
-export function maskPiiInText(text: string, replace?: PiiReplacer, include?: PiiInclude): string {
+/** Built-in detectors only. */
+function maskBuiltIn(text: string, replace: PiiReplacer | undefined, include: PiiInclude | undefined): string {
   const masked = (name: string, replacement: string, validate: PiiPattern["validate"]) => (match: string) =>
-    validate && !validate(match) ? match : replace ? replace(name, match) : replacement;
+    validate && !validate(match) ? match : (replace?.(name, match) ?? replacement);
 
   if (needsNormalization(text)) {
     // Detect on the NFKC copy without invisible characters; `replace` sees the
@@ -234,19 +239,75 @@ export function maskPiiInText(text: string, replace?: PiiReplacer, include?: Pii
   return result;
 }
 
-export function maskPiiInValue(value: unknown, replace?: PiiReplacer, include?: PiiInclude): unknown {
-  if (typeof value === "string") {
-    return maskPiiInText(value, replace, include);
-  }
-  if (Array.isArray(value)) {
-    return value.map((item) => maskPiiInValue(item, replace, include));
-  }
+/** Every string in a value, depth first; `fn` returns its replacement. */
+function mapStrings(value: unknown, fn: (text: string) => string): unknown {
+  if (typeof value === "string") return fn(value);
+  if (Array.isArray(value)) return value.map((item) => mapStrings(item, fn));
   if (typeof value === "object" && value !== null) {
     const result: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value)) {
-      result[k] = maskPiiInValue(v, replace, include);
-    }
+    for (const [k, v] of Object.entries(value)) result[k] = mapStrings(v, fn);
     return result;
   }
   return value;
+}
+
+/**
+ * Mask validated PII with the detectors `include` selects (see `PiiInclude`).
+ * `org` adds an organization's block and allow patterns (see `OrgPatterns`);
+ * it may throw `PiiPatternTimeoutError`, and then nothing may go out.
+ */
+export function maskPiiInText(text: string, replace?: PiiReplacer, include?: PiiInclude, org?: OrgPatterns): string {
+  return maskPiiInValue(text, replace, include, org) as string;
+}
+
+export function maskPiiInValue(value: unknown, replace?: PiiReplacer, include?: PiiInclude, org?: OrgPatterns): unknown {
+  if (!org || org.empty) return mapStrings(value, (text) => maskBuiltIn(text, replace, include));
+
+  // 1. Which detected values an allow pattern exempts, decided for all of them in one pass
+  let exempt = new Map<string, string>();
+  if (org.hasAllow) {
+    const detected = new Set<string>();
+    mapStrings(value, (text) => maskBuiltIn(text, (_name, match) => (detected.add(match), match), include));
+    exempt = org.allowed([...detected]);
+  }
+
+  // 2. Built-in detectors, minus the exempt values
+  const builtIn = mapStrings(value, (text) =>
+    maskBuiltIn(
+      text,
+      (name, match) => {
+        const pattern = exempt.get(match);
+        if (pattern === undefined) return replace?.(name, match);
+        org.noteAllowed(pattern, name);
+        return match;
+      },
+      include,
+    ),
+  );
+  if (!org.hasBlock) return builtIn;
+
+  // 3. Block patterns on what is left: a built-in detection always wins an overlap
+  const texts: string[] = [];
+  mapStrings(builtIn, (text) => (texts.push(text), text));
+  const matches = org.blockMatches(texts);
+  const numbers = new Map<string, Map<string, number>>();
+  const numbered = (category: string, match: string) => {
+    let seen = numbers.get(category);
+    if (!seen) numbers.set(category, (seen = new Map()));
+    if (!seen.has(match)) seen.set(match, seen.size + 1);
+    return `<${category}_${seen.get(match)}>`;
+  };
+  let index = 0;
+  return mapStrings(builtIn, (text) => {
+    const found = matches[index++]!;
+    if (found.length === 0) return text;
+    let out = "";
+    let cursor = 0;
+    for (const { start, end, category } of found) {
+      const match = text.slice(start, end);
+      out += text.slice(cursor, start) + (replace?.(category, match) ?? numbered(category, match));
+      cursor = end;
+    }
+    return out + text.slice(cursor);
+  });
 }

@@ -1,11 +1,21 @@
 import type http from "http";
 import { createHash, timingSafeEqual } from "crypto";
-import { PERSONAL_DATA_CATEGORIES, PII_PATTERNS, detectTopics, maskPiiInText, scanForPromptInjection } from "@guardbee/guard-core";
+import {
+  PERSONAL_DATA_CATEGORIES,
+  PII_PATTERNS,
+  PiiPatternTimeoutError,
+  detectTopics,
+  maskPiiInText,
+  orgPatternShape,
+  scanForPromptInjection,
+  type OrgPatternEvent,
+} from "@guardbee/guard-core";
+import { z } from "zod";
 import type { AuditLogger } from "../audit/logger.js";
 import type { Authenticate } from "../auth.js";
 import type { GatewayConfig } from "../gateway/config.js";
 import { evaluateTopicRules, globToRegExp } from "../gateway/policy.js";
-import { piiScopesFor } from "../gateway/pii-scope.js";
+import { orgPatternsFor, piiScopesFor } from "../gateway/pii-scope.js";
 import { PiiVault } from "../gateway/tokens.js";
 import type { AuditEvent } from "../types.js";
 import { BudgetStore, costOf, type LlmCaller, type LlmUsage } from "./budget.js";
@@ -16,6 +26,8 @@ import { SseRewriter, type TextRewrite } from "./stream.js";
 type Json = Record<string, unknown>;
 
 const MAX_BODY_BYTES = 32 * 1024 * 1024;
+/** `guardbee` in a request body: the request's own block patterns (allow patterns are refused later, by name). */
+const requestPatternsSchema = z.object(orgPatternShape).strict();
 const PERSONAL_DATA = new Set<string>(PERSONAL_DATA_CATEGORIES);
 const PLACEHOLDER = new Map(PII_PATTERNS.map((p) => [p.name, p.replacement]));
 /** Text from these roles is scanned for injection; the app's own system prompt and the model's turns are not. */
@@ -171,6 +183,39 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
       throw new HttpError(status, `[GuardBee] ${reason}`, headers);
     };
 
+    // The request's own block patterns (`guardbee.blockPatterns`) add masking on top of
+    // piiMasking's; they never reach the provider, and allow patterns are refused.
+    let org = orgPatternsFor(interceptors.piiMasking);
+    if (body["guardbee"] !== undefined) {
+      const { guardbee: extra, ...rest } = body;
+      body = rest;
+      const parsed = requestPatternsSchema.safeParse(extra);
+      if (!parsed.success) refuse(400, `guardbee: ${parsed.error!.issues.map((i) => `${i.path.join(".") || "value"}: ${i.message}`).join("; ")}`, "llm:pii-patterns");
+      try {
+        org = org.withRequest(parsed.data!);
+      } catch (err) {
+        refuse(400, `guardbee: ${(err as Error).message}`, "llm:pii-patterns");
+      }
+    }
+    const orgEvent = (event: OrgPatternEvent) =>
+      log({
+        ...base,
+        type: "warn",
+        ruleId: event.type === "allowed" ? "pii:allow" : "pii:allow-skipped",
+        reason:
+          event.type === "allowed"
+            ? `allow pattern ${JSON.stringify(event.pattern)} kept a ${event.detector} value unmasked`
+            : `allow pattern ${JSON.stringify(event.pattern)} ran over its time budget and was skipped`,
+      });
+    // Org categories get numbered placeholders shared by the whole request
+    const numbers = new Map<string, Map<string, number>>();
+    const numbered = (category: string, match: string) => {
+      let seen = numbers.get(category);
+      if (!seen) numbers.set(category, (seen = new Map()));
+      if (!seen.has(match)) seen.set(match, seen.size + 1);
+      return `<${category}_${seen.get(match)}>`;
+    };
+
     // 0. Model access: which models this caller may ask for
     if (!mayUse(caller, model)) {
       refuse(403, `model "${model}" is not allowed for ${caller.user ? `user "${caller.user}"` : "this key"} (llm.access)`, "llm:access");
@@ -259,15 +304,26 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     const tokenize = interceptors.piiMasking?.mode === "tokenize";
     // Routed in-house: the data stays inside, unless llm.sensitive.mask keeps masking on
     const masking = forceMask || (interceptors.piiMasking?.enabled !== false && !(routedFrom && !sensitive?.mask));
-    let forward = mapPrompt(api, body, (text) => {
-      const redacted = maskPiiInText(text, (name, match) => {
-        const category = PERSONAL_DATA.has(name) ? name : "secret";
-        hits[category] = (hits[category] ?? 0) + 1;
-        return scopes.mask.has(name) ? (PLACEHOLDER.get(name) ?? "[REDACTED]") : match;
-      }, scopes.detect);
-      if (!masking || redacted === text) return text;
-      return tokenize ? vault.tokenize(text, scopes.mask) : redacted;
-    });
+    let forward: Json = body;
+    try {
+      forward = mapPrompt(api, body, (text) => {
+        const redacted = org.withEvents(orgEvent, () =>
+          maskPiiInText(text, (name, match) => {
+            const custom = org.categories.has(name);
+            const category = custom ? name : PERSONAL_DATA.has(name) ? name : "secret";
+            hits[category] = (hits[category] ?? 0) + 1;
+            if (custom) return numbered(name, match);
+            return scopes.mask.has(name) ? (PLACEHOLDER.get(name) ?? "[REDACTED]") : match;
+          }, scopes.detect, org),
+        );
+        if (!masking || redacted === text) return text;
+        return tokenize ? vault.tokenize(text, scopes.mask, org) : redacted;
+      });
+    } catch (err) {
+      // Fail closed: a block pattern that did not finish may have missed something
+      if (err instanceof PiiPatternTimeoutError) refuse(502, err.message, "pii:pattern-timeout");
+      throw err;
+    }
     const piiHits = Object.keys(hits).length > 0 ? { piiHits: hits } : {};
     log({ ...base, type: "tool_call", input: forward, ...piiHits, ...(routedFrom ? { llm: { model, routedFrom } } : {}) });
 
@@ -279,16 +335,28 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
       const hits: Record<string, number> = {};
       const restored = vault.detokenize(text);
       if (!llm.maskResponses) return { text: restored, hits };
-      const masked = maskPiiInText(
-        restored,
-        (name, match) => {
-          const category = PERSONAL_DATA.has(name) ? name : "secret";
-          hits[category] = (hits[category] ?? 0) + 1;
-          return scopes.mask.has(name) ? (PLACEHOLDER.get(name) ?? "[REDACTED]") : match;
-        },
-        scopes.detect,
-      );
-      return { text: masked, hits };
+      try {
+        const masked = org.withEvents(orgEvent, () =>
+          maskPiiInText(
+            restored,
+            (name, match) => {
+              const custom = org.categories.has(name);
+              const category = custom ? name : PERSONAL_DATA.has(name) ? name : "secret";
+              hits[category] = (hits[category] ?? 0) + 1;
+              if (custom) return numbered(name, match);
+              return scopes.mask.has(name) ? (PLACEHOLDER.get(name) ?? "[REDACTED]") : match;
+            },
+            scopes.detect,
+            org,
+          ),
+        );
+        return { text: masked, hits };
+      } catch (err) {
+        if (!(err instanceof PiiPatternTimeoutError)) throw err;
+        // The answer is already on its way: withhold this text rather than send it unmasked
+        log({ ...base, type: "blocked", ruleId: "pii:pattern-timeout", reason: err.message });
+        return { text: "[GuardBee: withheld, a block pattern ran over its time budget]", hits };
+      }
     };
     const clientUsage = typeof forward["stream_options"] === "object" && (forward["stream_options"] as Json | null)?.["include_usage"] === true;
     if (wantsStream && api === "openai") {

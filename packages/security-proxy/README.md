@@ -467,6 +467,20 @@ interceptors:
 
 An unknown preset, detector or upstream name fails config validation.
 
+**Your own patterns.** `piiMasking.blockPatterns` masks what no detector knows (a case number, a client code): a regex, or `{ pattern, category }`; the category becomes a numbered placeholder (`CLIENT_NO` → `<CLIENT_NO_1>`, the same value gets the same number) and the `piiHits` key. A built-in detection wins an overlap, and block patterns apply whatever the preset. `piiMasking.allowPatterns` leaves a detected value unmasked when its whole text matches (your public support address); every time one does, a `warn` event with `ruleId: pii:allow` goes to the audit log, since it lowers protection.
+
+```yaml
+interceptors:
+  piiMasking:
+    enabled: true
+    blockPatterns:
+      - { pattern: "CL-\\d{6}", category: CLIENT_NO }
+      - "DOSYA/\\d{4}"                       # category CUSTOM
+    allowPatterns: ["destek@acme\\.com\\.tr"]
+```
+
+Each pattern gets a time budget (100 ms per masking call), so a catastrophic regex cannot hang the proxy, and the two kinds fail in opposite directions on purpose: a block pattern over budget withholds the result (`pii:pattern-timeout`; the LLM gateway answers 502), an allow pattern over budget is skipped and the value stays masked (`pii:allow-skipped`). At most 25 patterns, 200 characters each; an invalid regex, or a category named like a built-in detector (`EMAIL`, `IBAN`, `SECRET`, …), fails config validation. An LLM gateway request can add its own block patterns in a `guardbee` body field (`{ "guardbee": { "blockPatterns": [...] } }`, removed before the provider sees the body); they are added to the configured ones, and a request with `allowPatterns` is refused with 400: a request can only add masking.
+
 A number that fails its checksum (an order number, a tracking code) is left as is.
 
 ---

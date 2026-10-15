@@ -1,7 +1,7 @@
-import { PII_PRESETS, PiiScope, piiScope, type PiiPresetName, type PiiSelection } from "@guardbee/guard-core";
+import { OrgPatterns, PII_PRESETS, PiiScope, piiScope, type OrgPatternConfig, type PiiPresetName, type PiiSelection } from "@guardbee/guard-core";
 
 /** The piiMasking fields that pick detectors (policy file or dashboard policy). */
-export interface PiiMaskingSelection extends PiiSelection {
+export interface PiiMaskingSelection extends PiiSelection, OrgPatternConfig {
   include?: readonly string[];
   upstreams?: Record<string, { preset?: PiiPresetName; enable?: readonly string[]; disable?: readonly string[] }>;
 }
@@ -42,4 +42,15 @@ export function piiScopesFor(masking: PiiMaskingSelection | undefined, upstream?
     byUpstream.set(key, scopes);
   }
   return scopes;
+}
+
+const NO_PATTERNS = OrgPatterns.compile();
+const compiled = new WeakMap<object, OrgPatterns>();
+
+/** piiMasking's block and allow patterns, compiled once per policy (validated with it). */
+export function orgPatternsFor(masking: PiiMaskingSelection | undefined): OrgPatterns {
+  if (!masking || (!masking.blockPatterns?.length && !masking.allowPatterns?.length)) return NO_PATTERNS;
+  let org = compiled.get(masking);
+  if (!org) compiled.set(masking, (org = OrgPatterns.compile({ blockPatterns: masking.blockPatterns ?? [], allowPatterns: masking.allowPatterns ?? [] })));
+  return org;
 }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { checkOrgPatterns, orgPatternShape } from "./org-patterns.js";
 import { checkPiiDetectorNames, piiSelectionSchema, piiSelectionShape } from "./presets.js";
 
 /**
@@ -148,9 +149,14 @@ export const policyShape = {
           ...piiSelectionShape,
           /** Per upstream (or LLM provider) by name: replaces the selection above for it. */
           upstreams: z.record(z.string(), piiSelectionSchema).optional(),
+          /** The organization's own patterns: block masks what no detector knows, allow exempts detected values. */
+          ...orgPatternShape,
         })
         .strict()
-        .superRefine((masking, ctx) => checkPiiDetectorNames(masking, ctx))
+        .superRefine((masking, ctx) => {
+          checkPiiDetectorNames(masking, ctx);
+          checkOrgPatterns(masking, ctx);
+        })
         .optional(),
       /**
        * PII and credentials inside images, PDFs and other blobs in tool results

@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import { maskPiiInText, type PiiInclude } from "@guardbee/guard-core";
+import { maskPiiInText, type OrgPatterns, type PiiInclude } from "@guardbee/guard-core";
 import type { FieldRule, MaskingStrategy } from "../config";
 
 /**
@@ -79,7 +79,8 @@ export function maskRow(
   row: Record<string, unknown>,
   fieldRules: FieldRule[],
   tableName?: string,
-  piiScan?: PiiInclude
+  piiScan?: PiiInclude,
+  org?: OrgPatterns
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
 
@@ -93,7 +94,7 @@ export function maskRow(
     if (rule) {
       result[key] = applyStrategy(value, rule.strategy);
     } else {
-      result[key] = maskUnruled(value, fieldRules, tableName, piiScan);
+      result[key] = maskUnruled(value, fieldRules, tableName, piiScan, org);
     }
   }
 
@@ -105,16 +106,17 @@ function maskUnruled(
   value: unknown,
   fieldRules: FieldRule[],
   tableName: string | undefined,
-  piiScan: PiiInclude | undefined
+  piiScan: PiiInclude | undefined,
+  org: OrgPatterns | undefined
 ): unknown {
   if (typeof value === "string") {
-    return piiScan ? maskPiiInText(value, undefined, piiScan) : value;
+    return piiScan ? maskPiiInText(value, undefined, piiScan, org) : value;
   }
   if (Array.isArray(value)) {
-    return value.map((item) => maskUnruled(item, fieldRules, tableName, piiScan));
+    return value.map((item) => maskUnruled(item, fieldRules, tableName, piiScan, org));
   }
   if (value !== null && typeof value === "object" && !(value instanceof Date)) {
-    return maskRow(value as Record<string, unknown>, fieldRules, tableName, piiScan);
+    return maskRow(value as Record<string, unknown>, fieldRules, tableName, piiScan, org);
   }
   return value;
 }
@@ -157,12 +159,13 @@ export function maskRows(
   fieldRules: FieldRule[],
   tableName: string,
   maxRows: number,
-  piiScan?: PiiInclude
+  piiScan?: PiiInclude,
+  org?: OrgPatterns
 ): { rows: Record<string, unknown>[]; truncated: boolean } {
   const truncated = rows.length > maxRows;
   const limited = truncated ? rows.slice(0, maxRows) : rows;
   return {
-    rows: limited.map((row) => maskRow(row, fieldRules, tableName, piiScan)),
+    rows: limited.map((row) => maskRow(row, fieldRules, tableName, piiScan, org)),
     truncated,
   };
 }

@@ -309,6 +309,12 @@ createServer({ piiScan: { enabled: true, preset: "KVKK", disable: ["address"] } 
 
 From the CLI: `GATEWAY_PII_SCAN=true` (every default detector) or `GATEWAY_PII_SCAN=KVKK` (a preset). An unknown preset or detector name fails at startup.
 
+`piiScan.blockPatterns` and `piiScan.allowPatterns` add your own patterns, as in the security proxy: block masks your ids as `<CATEGORY_n>`, allow leaves a detected value whose whole text matches. A block pattern that runs over its 100 ms budget fails the query rather than return rows it may not have masked.
+
+```ts
+createServer({ piiScan: { enabled: true, blockPatterns: [{ pattern: "CL-\\d{6}", category: "CLIENT_NO" }], allowPatterns: ["destek@acme\\.com\\.tr"] } }, adapter);
+```
+
 ---
 
 ## Role-Based Access (RBAC)
