@@ -586,3 +586,18 @@ llm:
     expect(() => parseGatewayYaml(open)).toThrow(/spend your provider keys/);
   });
 });
+
+describe("LLM gateway: piiMasking selection per provider", () => {
+  it("masks what the provider's selection names and still counts the rest", async () => {
+    const provider = await fakeProvider(openAiEcho);
+    const { base, events } = await startLlm(
+      { openai: provider.url },
+      {},
+      { piiMasking: { enabled: true, preset: "KVKK", disable: ["tc_kimlik"], upstreams: { ant: { preset: "IDENTIFIERS" } } } },
+    );
+    await chat(base, "gb-alice", { model: "gpt-4o", messages: [{ role: "user", content: `müşteri ${TCKN}, ayse@example.com` }] });
+    expect(JSON.stringify(provider.seen[0]!.body)).toContain(TCKN);
+    expect(JSON.stringify(provider.seen[0]!.body)).not.toContain("ayse@example.com");
+    expect(events.find((e) => e.type === "tool_call")?.piiHits).toEqual({ tc_kimlik: 1, email: 1 });
+  });
+});

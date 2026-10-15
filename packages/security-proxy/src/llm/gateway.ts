@@ -5,6 +5,7 @@ import type { AuditLogger } from "../audit/logger.js";
 import type { Authenticate } from "../auth.js";
 import type { GatewayConfig } from "../gateway/config.js";
 import { evaluateTopicRules, globToRegExp } from "../gateway/policy.js";
+import { piiScopesFor } from "../gateway/pii-scope.js";
 import { PiiVault } from "../gateway/tokens.js";
 import type { AuditEvent } from "../types.js";
 import { BudgetStore, costOf, type LlmCaller, type LlmUsage } from "./budget.js";
@@ -219,14 +220,14 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     }
 
     // 2c. Sensitive data goes to your own model instead of the one asked for
-    const include = interceptors.piiMasking?.include?.length ? new Set(interceptors.piiMasking.include) : undefined;
+    const detect = piiScopesFor(interceptors.piiMasking, provider.name).detect;
     let routedFrom: string | undefined;
     const sensitive = llm.sensitive;
     if (sensitive && model !== sensitive.model) {
       const why: string[] = [];
       if (sensitive.on.pii) {
         const found = new Set<string>();
-        mapPrompt(api, body, (text) => (maskPiiInText(text, (name, match) => (PERSONAL_DATA.has(name) && found.add(name), match), include), text));
+        mapPrompt(api, body, (text) => (maskPiiInText(text, (name, match) => (PERSONAL_DATA.has(name) && found.add(name), match), detect), text));
         why.push(...[...found].filter((category) => !sensitive.on.categories || sensitive.on.categories.includes(category)));
       }
       if (sensitive.on.topics) {
@@ -252,18 +253,20 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
 
     // 4. PII: counted always, masked (or tokenized) unless turned off
     const vault = new PiiVault();
+    // The provider's own selection: routing above may have changed it
+    const scopes = piiScopesFor(interceptors.piiMasking, provider.name);
     const hits: Record<string, number> = {};
     const tokenize = interceptors.piiMasking?.mode === "tokenize";
     // Routed in-house: the data stays inside, unless llm.sensitive.mask keeps masking on
     const masking = forceMask || (interceptors.piiMasking?.enabled !== false && !(routedFrom && !sensitive?.mask));
     let forward = mapPrompt(api, body, (text) => {
-      const redacted = maskPiiInText(text, (name) => {
+      const redacted = maskPiiInText(text, (name, match) => {
         const category = PERSONAL_DATA.has(name) ? name : "secret";
         hits[category] = (hits[category] ?? 0) + 1;
-        return PLACEHOLDER.get(name) ?? "[REDACTED]";
-      }, include);
+        return scopes.mask.has(name) ? (PLACEHOLDER.get(name) ?? "[REDACTED]") : match;
+      }, scopes.detect);
       if (!masking || redacted === text) return text;
-      return tokenize ? vault.tokenize(text, include) : redacted;
+      return tokenize ? vault.tokenize(text, scopes.mask) : redacted;
     });
     const piiHits = Object.keys(hits).length > 0 ? { piiHits: hits } : {};
     log({ ...base, type: "tool_call", input: forward, ...piiHits, ...(routedFrom ? { llm: { model, routedFrom } } : {}) });
@@ -278,12 +281,12 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
       if (!llm.maskResponses) return { text: restored, hits };
       const masked = maskPiiInText(
         restored,
-        (name) => {
+        (name, match) => {
           const category = PERSONAL_DATA.has(name) ? name : "secret";
           hits[category] = (hits[category] ?? 0) + 1;
-          return PLACEHOLDER.get(name) ?? "[REDACTED]";
+          return scopes.mask.has(name) ? (PLACEHOLDER.get(name) ?? "[REDACTED]") : match;
         },
-        include,
+        scopes.detect,
       );
       return { text: masked, hits };
     };

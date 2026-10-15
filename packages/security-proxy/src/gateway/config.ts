@@ -254,6 +254,13 @@ const yamlSchema = z
   .strict()
   .superRefine((value, ctx) => {
     checkTopicReferences(value, ctx);
+    // A per-upstream PII selection names an upstream or an LLM provider
+    const known = new Set([...Object.keys(value.upstreams), ...Object.keys(value.llm?.providers ?? {})]);
+    for (const name of Object.keys(value.interceptors?.piiMasking?.upstreams ?? {})) {
+      if (!known.has(name)) {
+        ctx.addIssue({ code: "custom", path: ["interceptors", "piiMasking", "upstreams", name], message: `no upstream or LLM provider named "${name}"` });
+      }
+    }
     if (Object.keys(value.upstreams).length === 0 && !value.llm && !value.hooks) {
       ctx.addIssue({ code: "custom", path: ["upstreams"], message: "at least one upstream is required (or an llm or hooks section)" });
     }

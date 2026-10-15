@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { checkPiiDetectorNames, piiSelectionSchema, piiSelectionShape } from "./presets.js";
 
 /**
  * The policy part of a GuardBee MCP gateway config: what may run and how.
@@ -143,8 +144,13 @@ export const policyShape = {
           /** Opt-in detectors: network identifiers and plates are off unless listed. */
           include: z.array(z.enum(["ip_address", "mac_address", "plate_tr"])).optional(),
           detokenizeForEgress: z.boolean().optional(),
+          /** Which detectors mask: a preset, then enable / disable by detector name. */
+          ...piiSelectionShape,
+          /** Per upstream (or LLM provider) by name: replaces the selection above for it. */
+          upstreams: z.record(z.string(), piiSelectionSchema).optional(),
         })
         .strict()
+        .superRefine((masking, ctx) => checkPiiDetectorNames(masking, ctx))
         .optional(),
       /**
        * PII and credentials inside images, PDFs and other blobs in tool results

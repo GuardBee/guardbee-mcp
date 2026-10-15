@@ -1,4 +1,5 @@
 import { PERSONAL_DATA_CATEGORIES, detectTopics, maskPiiInValue, scanToolResult } from "@guardbee/guard-core";
+import { piiScopesFor } from "../gateway/pii-scope.js";
 import type { AuditLogger } from "../audit/logger.js";
 import type { GatewayConfig } from "../gateway/config.js";
 import type { Label } from "../gateway/labels.js";
@@ -55,9 +56,9 @@ export class HookEngine {
     return detectTopics(value, topics).map((hit) => hit.id);
   }
 
-  private get include(): ReadonlySet<string> | undefined {
-    const include = this.config.interceptors.piiMasking?.include;
-    return include?.length ? new Set(include) : undefined;
+  /** Detectors that count for this agent: hooks only detect, they never mask. */
+  private detectScope(agent: string): ReadonlySet<string> {
+    return piiScopesFor(this.config.interceptors.piiMasking, agent).detect;
   }
 
   before(call: AgentCall): BeforeDecision {
@@ -127,7 +128,7 @@ export class HookEngine {
         hits[category] = (hits[category] ?? 0) + 1;
         return "";
       },
-      this.include,
+      this.detectScope(call.agent),
     );
     const piiFound = Object.keys(hits).length > 0;
     const result: AfterDecision = {};
