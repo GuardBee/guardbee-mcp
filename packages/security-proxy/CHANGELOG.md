@@ -1,5 +1,11 @@
 # @guardbee/mcp-security-proxy
 
+## 1.21.0
+
+### Minor Changes
+
+- [#150](https://github.com/GuardBee/guardbee-mcp/pull/150) [`e49fbc2`](https://github.com/GuardBee/guardbee-mcp/commit/e49fbc2bc1a67a4a32e40c7d221a81fb7bbbd211) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Fail-closed contract for the LLM and MCP gateways: any masking or scanning failure refuses the request with 502 `guardbee_masking_failed` (never the original text in the response or audit log), content the proxy cannot read (audio, files, PDF documents, unknown blocks) gets 415 `guardbee_unmaskable_content`, and a single text over `llm.maxTextChars` gets 413 `guardbee_text_too_large`. Codes come back in `error.code` and the `x-guardbee-error` header. Anthropic text documents are now masked. A route can opt out with `masking: off`, which is written to the audit log on every request.
+
 ## 1.20.0
 
 ### Minor Changes
