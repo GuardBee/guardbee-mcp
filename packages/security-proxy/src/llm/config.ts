@@ -18,6 +18,12 @@ export interface LlmRoute {
   /** Glob on the model name the client asks for. */
   model: string;
   provider: string;
+  /**
+   * `off`: PII in requests to this route is counted but not masked, and
+   * nothing is refused as unmaskable. Every such request is written to the
+   * audit log (`pii:masking-off`). A topic rule with action `mask` still masks.
+   */
+  masking?: "on" | "off";
 }
 
 /** A gateway key handed to a person or an app instead of the provider key. */
@@ -91,7 +97,11 @@ export interface LlmConfig {
   /** Also mask PII the model writes in its answer (prompts are always checked). */
   maskResponses: boolean;
   timeoutSeconds: number;
+  /** Longest single text (message, part, tool result) the proxy masks; a longer one is refused with 413. */
+  maxTextChars?: number;
 }
+
+export const DEFAULT_MAX_TEXT_CHARS = 2_000_000;
 
 const envName = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable");
 
@@ -114,7 +124,9 @@ export const llmSchema = z
           .strict(),
       )
       .refine((providers) => Object.keys(providers).length > 0, "at least one provider is required"),
-    routes: z.array(z.object({ model: z.string().min(1), provider: z.string().min(1) }).strict()).min(1),
+    routes: z
+      .array(z.object({ model: z.string().min(1), provider: z.string().min(1), masking: z.enum(["on", "off"]).optional() }).strict())
+      .min(1),
     keys: z
       .array(
         z
@@ -150,6 +162,7 @@ export const llmSchema = z
       .default([]),
     maskResponses: z.boolean().default(false),
     timeoutSeconds: z.number().int().positive().default(120),
+    maxTextChars: z.number().int().positive().default(DEFAULT_MAX_TEXT_CHARS),
     access: z
       .array(
         z
@@ -216,6 +229,7 @@ export function resolveLlmConfig(raw: LlmYaml): LlmConfig {
     budgets: raw.budgets,
     maskResponses: raw.maskResponses,
     timeoutSeconds: raw.timeoutSeconds,
+    maxTextChars: raw.maxTextChars,
     access: raw.access,
     accessDefault: raw.accessDefault,
     ...(raw.sensitive ? { sensitive: raw.sensitive } : {}),

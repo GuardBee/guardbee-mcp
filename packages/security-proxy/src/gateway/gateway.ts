@@ -82,6 +82,8 @@ function addHits(into: PiiHits, from: PiiHits): PiiHits {
   return into;
 }
 const PREFIX = "[GuardBee Security Proxy]";
+/** Stable code in an McpError's data when a result is withheld because masking failed (same as the LLM gateway's). */
+const MASKING_FAILED = "guardbee_masking_failed";
 
 interface ToolRoute {
   upstream: Upstream;
@@ -397,10 +399,12 @@ export class Gateway {
       const tokenize = this.interceptors.piiMasking?.mode === "tokenize";
       return { value: tokenize ? this.vault.tokenize(value, scopes.mask, org) : redacted, piiFound, hits };
     } catch (err) {
-      if (!(err instanceof PiiPatternTimeoutError)) throw err;
-      // Fail closed: a block pattern that did not finish may have missed something
-      this.log({ ...where, type: "blocked", ruleId: "pii:pattern-timeout", reason: err.message });
-      throw new McpError(ErrorCode.InternalError, `${PREFIX} Result withheld: ${err.message}`);
+      // Fail closed: a detector that threw or a block pattern that did not finish may have
+      // missed something. The error's own message may quote the result, so it goes nowhere.
+      const timeout = err instanceof PiiPatternTimeoutError;
+      const reason = timeout ? err.message : `masking failed (${err instanceof Error ? err.name : typeof err})`;
+      this.log({ ...where, type: "blocked", ruleId: timeout ? "pii:pattern-timeout" : "pii:masking-failed", reason });
+      throw new McpError(ErrorCode.InternalError, `${PREFIX} Result withheld: ${reason}`, { guardbee: MASKING_FAILED });
     }
   }
 

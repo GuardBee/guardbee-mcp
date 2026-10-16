@@ -249,6 +249,24 @@ HTTP modunda proxy, uygulamalarınızla model sağlayıcıları (OpenAI, Anthrop
 
 Tam yapılandırma örneği için [README](README.md#llm-api-gateway) dosyasına bakın.
 
+### Hata durumunda davranış
+
+Gateway kapalı başarısız olur (fail closed): bir isteği kontrol edemediğinde veya maskeleyemediğinde sağlayıcı çağrılmaz. Ret, hata gövdesinde (`error.code`; OpenAI ve Anthropic hata biçiminde) ve `x-guardbee-error` başlığında sabit bir kod taşır, audit log'a `blocked` event'i yazılır. Maskelenemeyen metin ne yanıtta ne audit log'da yer alır; dedektörün kendi hata mesajı yerine yalnızca hata sınıfı yazılır.
+
+| Durum | Kod | Ne zaman | Audit `ruleId` |
+| --- | --- | --- | --- |
+| `502` | `guardbee_masking_failed` | Bir dedektör veya tarama hata fırlattı ya da bir block kalıbı zaman bütçesini aştı. Çağrıdan önceki her kontrolü kapsar: injection, credential, konu, hassas yönlendirme, maskeleme. | `pii:masking-failed`, `pii:pattern-timeout` |
+| `415` | `guardbee_unmaskable_content` | İstekte proxy'nin okuyamadığı içerik var: OpenAI `input_audio` veya `file` parçaları, kaynağı PDF (base64, url, file) olan Anthropic `document`, bilinmeyen parça/blok türü, metin ya da liste olmayan içerik. Mesaj bulunanı adıyla söyler. | `pii:unmaskable` |
+| `413` | `guardbee_text_too_large` | Tek bir metin (mesaj, parça, tool sonucu) `llm.maxTextChars`'tan (varsayılan 2.000.000 karakter) uzun. Sınır istek başına değil metin başınadır: metni birkaç mesaja veya parçaya bölün. | `pii:text-too-large` |
+
+Reddedilmeyenler: görseller (`image_url`, Anthropic `image`) incelenmeden olduğu gibi iletilir; assistant turunda sağlayıcının kendi ürettiği bloklar (`thinking`, `redacted_thinking`, `server_tool_use`, `*_tool_result`) aynen geri gönderilir. `415` ve `413` yalnızca istek maskelendiğinde uygulanır: `piiMasking.enabled: false`, `masking: off` olan bir route veya `llm.sensitive` ile `mask: true` olmadan içeri yönlendirilen istek maskelenmez, maskelenemez diye de reddedilmez.
+
+Maskelenemeyen bir yanıt (`maskResponses` ya da token geri koyarken hata) alıkonur: metin, akış ortasında da olsa `[GuardBee: withheld, …]` ile değiştirilir ve aynı `ruleId`'lerle loglanır.
+
+**Route başına maskesiz geçiş.** Bir `llm.routes` girdisinde `masking: off`, o route'un prompt'larını (ve yanıtlarını) maskelemeden gönderir. Açıkça yazılması gerekir, örtük geçiş yoktur; bu tür her istek route'u adıyla anan `ruleId: pii:masking-off` `warn` event'i yazar, PII yine `piiHits`'te sayılır. `mask` aksiyonlu bir konu kuralı o route'ta da maskeler.
+
+MCP gateway'de maskeleme hatası tool sonucunu alıkoyar: istemci `data: { guardbee: "guardbee_masking_failed" }` taşıyan bir MCP hatası (`InternalError`, `Result withheld: …`) alır, `tool_response` event'i yazılmaz.
+
 ---
 
 ## Kodlama Ajanı Hook'ları

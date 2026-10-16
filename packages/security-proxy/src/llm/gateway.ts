@@ -19,8 +19,8 @@ import { orgPatternsFor, piiScopesFor } from "../gateway/pii-scope.js";
 import { PiiVault } from "../gateway/tokens.js";
 import type { AuditEvent } from "../types.js";
 import { BudgetStore, costOf, type LlmCaller, type LlmUsage } from "./budget.js";
-import type { LlmApi, LlmConfig, LlmProvider } from "./config.js";
-import { SseRelay, errorBody, mapCompletion, mapPrompt, promptTexts, usageOf } from "./shapes.js";
+import { DEFAULT_MAX_TEXT_CHARS, type LlmApi, type LlmConfig, type LlmProvider } from "./config.js";
+import { SseRelay, errorBody, mapCompletion, mapPrompt, promptTexts, unmaskableParts, usageOf } from "./shapes.js";
 import { SseRewriter, type TextRewrite } from "./stream.js";
 
 type Json = Record<string, unknown>;
@@ -35,6 +35,21 @@ const UNTRUSTED_ROLES = new Set(["user", "tool", "function"]);
 const ALL_ROLES = new Set(["system", "developer", "user", "assistant", "tool", "function"]);
 /** Client headers passed on to the provider; everything else (cookies, the client's key) stays here. */
 const FORWARDED_HEADERS = ["anthropic-version", "anthropic-beta", "openai-organization", "openai-project"];
+
+/**
+ * The fail-closed contract: when the proxy cannot check or mask a request,
+ * the provider is never called. These codes are stable — clients may branch
+ * on them — and come back in the error body (`error.code`) and in the
+ * `x-guardbee-error` header.
+ */
+export const FAIL_CLOSED = {
+  /** 502: a detector threw or a block pattern ran over its time budget. */
+  maskingFailed: "guardbee_masking_failed",
+  /** 415: audio, a file, a PDF or a content shape the proxy cannot read. */
+  unmaskable: "guardbee_unmaskable_content",
+  /** 413: one text is longer than llm.maxTextChars. */
+  textTooLarge: "guardbee_text_too_large",
+} as const;
 
 export interface LlmGatewayOptions {
   llm: LlmConfig;
@@ -59,6 +74,7 @@ class HttpError extends Error {
     readonly status: number,
     message: string,
     readonly headers: Record<string, string> = {},
+    readonly code?: string,
   ) {
     super(message);
   }
@@ -138,17 +154,17 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     return { ...(identity.user ? { user: identity.user } : {}), groups: identity.groups, anonymousId };
   };
 
-  const routeOf = (api: LlmApi, model: string): LlmProvider | null => {
+  const routeOf = (api: LlmApi, model: string): { provider: LlmProvider; glob: string; maskingOff: boolean } | null => {
     for (const r of llm.routes) {
       const provider = llm.providers[r.provider];
-      if (provider && provider.api === api && globToRegExp(r.model).test(model)) return provider;
+      if (provider && provider.api === api && globToRegExp(r.model).test(model)) return { provider, glob: r.model, maskingOff: r.masking === "off" };
     }
     return null;
   };
-  const route = (api: LlmApi, model: string): LlmProvider => {
-    const provider = routeOf(api, model);
-    if (!provider) throw new HttpError(404, `model "${model}" is not served by this gateway`);
-    return provider;
+  const route = (api: LlmApi, model: string) => {
+    const found = routeOf(api, model);
+    if (!found) throw new HttpError(404, `model "${model}" is not served by this gateway`);
+    return found;
   };
 
   /** Every access entry that matches the caller adds its globs; none matching → accessDefault. */
@@ -170,7 +186,8 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     const requested = body["model"];
     if (typeof requested !== "string" || requested === "") throw new HttpError(400, "model is required");
     let model = requested;
-    let provider = route(api, model);
+    let routed = route(api, model);
+    let provider = routed.provider;
     const interceptors = options.config.interceptors;
     let base = {
       tool: `llm:${model}`,
@@ -181,6 +198,22 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     const refuse = (status: number, reason: string, ruleId: string, headers: Record<string, string> = {}): never => {
       log({ ...base, type: "blocked", ruleId, reason });
       throw new HttpError(status, `[GuardBee] ${reason}`, headers);
+    };
+    const failClosed = (status: number, code: string, reason: string, ruleId: string): never => {
+      log({ ...base, type: "blocked", ruleId, reason });
+      throw new HttpError(status, `[GuardBee] ${reason}; the request was not sent`, { "x-guardbee-error": code }, code);
+    };
+    // Every check before the provider call runs inside this: a detector that throws
+    // refuses the request (502) and the error's message — which may quote the
+    // text — is neither logged nor returned.
+    const inspect = <T>(fn: () => T): T => {
+      try {
+        return fn();
+      } catch (err) {
+        if (err instanceof HttpError) throw err;
+        if (err instanceof PiiPatternTimeoutError) return failClosed(502, FAIL_CLOSED.maskingFailed, err.message, "pii:pattern-timeout");
+        return failClosed(502, FAIL_CLOSED.maskingFailed, `masking failed (${err instanceof Error ? err.name : typeof err})`, "pii:masking-failed");
+      }
     };
 
     // The request's own block patterns (`guardbee.blockPatterns`) add masking on top of
@@ -223,7 +256,7 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
 
     // 1. Prompt injection in what people and tools wrote
     if (interceptors.promptInjection?.enabled !== false) {
-      const scan = scanForPromptInjection(promptTexts(api, body, UNTRUSTED_ROLES), interceptors.promptInjection?.action ?? "block");
+      const scan = inspect(() => scanForPromptInjection(promptTexts(api, body, UNTRUSTED_ROLES), interceptors.promptInjection?.action ?? "block"));
       if (scan.action === "block") refuse(403, scan.reason, "llm:injection");
       if (scan.action === "warn") log({ ...base, type: "warn", ruleId: "llm:injection", reason: scan.reason });
     }
@@ -232,7 +265,7 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     const egress = interceptors.egressSecrets;
     if (egress?.enabled !== false) {
       const kinds = new Set<string>();
-      mapPrompt(api, body, (text) => (maskPiiInText(text, (name, match) => (PERSONAL_DATA.has(name) ? match : (kinds.add(name), match))), text));
+      inspect(() => mapPrompt(api, body, (text) => (maskPiiInText(text, (name, match) => (PERSONAL_DATA.has(name) ? match : (kinds.add(name), match))), text)));
       if (kinds.size > 0) {
         const reason = `credential in the prompt for ${model} (${[...kinds].join(", ")})`;
         if ((egress?.action ?? interceptors.promptInjection?.action ?? "block") === "block") refuse(403, reason, "llm:credential");
@@ -244,7 +277,7 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     let forceMask = false;
     const topics = options.config.topics ?? [];
     if (topics.length > 0 && options.config.rules.some((rule) => rule.match.topic !== undefined)) {
-      const found = detectTopics(promptTexts(api, body, ALL_ROLES), topics).map((hit) => hit.id);
+      const found = inspect(() => detectTopics(promptTexts(api, body, ALL_ROLES), topics).map((hit) => hit.id));
       const decision = evaluateTopicRules(options.config.rules, {
         tool: base.tool,
         upstream: provider.name,
@@ -272,12 +305,12 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
       const why: string[] = [];
       if (sensitive.on.pii) {
         const found = new Set<string>();
-        mapPrompt(api, body, (text) => (maskPiiInText(text, (name, match) => (PERSONAL_DATA.has(name) && found.add(name), match), detect), text));
+        inspect(() => mapPrompt(api, body, (text) => (maskPiiInText(text, (name, match) => (PERSONAL_DATA.has(name) && found.add(name), match), detect), text)));
         why.push(...[...found].filter((category) => !sensitive.on.categories || sensitive.on.categories.includes(category)));
       }
       if (sensitive.on.topics) {
         const wanted = topics.filter((topic) => sensitive.on.topics!.includes(topic.id));
-        why.push(...detectTopics(promptTexts(api, body, ALL_ROLES), wanted).map((hit) => `topic ${hit.id}`));
+        why.push(...inspect(() => detectTopics(promptTexts(api, body, ALL_ROLES), wanted)).map((hit) => `topic ${hit.id}`));
       }
       if (why.length > 0) {
         const target = routeOf(api, sensitive.model);
@@ -285,10 +318,33 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
         if (!target) refuse(403, `the prompt holds ${why.join(", ")}, and "${sensitive.model}" has no ${api} route (llm.sensitive)`, "llm:route:sensitive");
         routedFrom = model;
         model = sensitive.model;
-        provider = target!;
+        routed = target!;
+        provider = routed.provider;
         body = { ...body, model };
         base = { ...base, tool: `llm:${model}`, upstream: provider.name };
         log({ ...base, type: "warn", ruleId: "llm:route:sensitive", reason: `routed from ${routedFrom} to ${model}: the prompt holds ${why.join(", ")}` });
+      }
+    }
+
+    // 2d. What masking applies, settled before the budget counts the request.
+    //     Routed in-house: the data stays inside, unless llm.sensitive.mask keeps masking on.
+    //     A route with masking: off passes PII through — said so in the audit log, every time.
+    const maskingOff = routed.maskingOff && !forceMask;
+    const masking = forceMask || (interceptors.piiMasking?.enabled !== false && !maskingOff && !(routedFrom && !sensitive?.mask));
+    if (maskingOff && interceptors.piiMasking?.enabled !== false) {
+      log({ ...base, type: "warn", ruleId: "pii:masking-off", reason: `PII masking is off for route "${routed.glob}" (llm.routes)` });
+    }
+    if (masking) {
+      // What the proxy cannot read, it cannot mask: refused, not forwarded
+      const unreadable = unmaskableParts(api, body);
+      if (unreadable.length > 0) {
+        failClosed(415, FAIL_CLOSED.unmaskable, `the request holds content the proxy cannot mask: ${unreadable.join(", ")}`, "pii:unmaskable");
+      }
+      const limit = llm.maxTextChars ?? DEFAULT_MAX_TEXT_CHARS;
+      let longest = 0;
+      mapPrompt(api, body, (text) => ((longest = Math.max(longest, text.length)), text));
+      if (longest > limit) {
+        failClosed(413, FAIL_CLOSED.textTooLarge, `one text is ${longest} characters, over llm.maxTextChars (${limit}); split it into smaller messages or parts`, "pii:text-too-large");
       }
     }
 
@@ -302,11 +358,8 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     const scopes = piiScopesFor(interceptors.piiMasking, provider.name);
     const hits: Record<string, number> = {};
     const tokenize = interceptors.piiMasking?.mode === "tokenize";
-    // Routed in-house: the data stays inside, unless llm.sensitive.mask keeps masking on
-    const masking = forceMask || (interceptors.piiMasking?.enabled !== false && !(routedFrom && !sensitive?.mask));
-    let forward: Json = body;
-    try {
-      forward = mapPrompt(api, body, (text) => {
+    let forward: Json = inspect(() =>
+      mapPrompt(api, body, (text) => {
         const redacted = org.withEvents(orgEvent, () =>
           maskPiiInText(text, (name, match) => {
             const custom = org.categories.has(name);
@@ -318,23 +371,20 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
         );
         if (!masking || redacted === text) return text;
         return tokenize ? vault.tokenize(text, scopes.mask, org) : redacted;
-      });
-    } catch (err) {
-      // Fail closed: a block pattern that did not finish may have missed something
-      if (err instanceof PiiPatternTimeoutError) refuse(502, err.message, "pii:pattern-timeout");
-      throw err;
-    }
+      }),
+    );
     const piiHits = Object.keys(hits).length > 0 ? { piiHits: hits } : {};
     log({ ...base, type: "tool_call", input: forward, ...piiHits, ...(routedFrom ? { llm: { model, routedFrom } } : {}) });
 
     // 5. To the provider. The answer is rewritten when tokens must go back or
     //    responses are masked — a stream too, as it passes (llm/stream.ts).
     const wantsStream = forward["stream"] === true;
-    const rewrite = vault.size > 0 || llm.maskResponses;
+    const maskResponses = llm.maskResponses && !maskingOff;
+    const rewrite = vault.size > 0 || maskResponses;
     const rewriteText: TextRewrite = (text) => {
       const hits: Record<string, number> = {};
       const restored = vault.detokenize(text);
-      if (!llm.maskResponses) return { text: restored, hits };
+      if (!maskResponses) return { text: restored, hits };
       try {
         const masked = org.withEvents(orgEvent, () =>
           maskPiiInText(
@@ -352,10 +402,15 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
         );
         return { text: masked, hits };
       } catch (err) {
-        if (!(err instanceof PiiPatternTimeoutError)) throw err;
-        // The answer is already on its way: withhold this text rather than send it unmasked
-        log({ ...base, type: "blocked", ruleId: "pii:pattern-timeout", reason: err.message });
-        return { text: "[GuardBee: withheld, a block pattern ran over its time budget]", hits };
+        // The answer may already be on its way: withhold this text rather than send it unmasked
+        const timeout = err instanceof PiiPatternTimeoutError;
+        log({
+          ...base,
+          type: "blocked",
+          ruleId: timeout ? "pii:pattern-timeout" : "pii:masking-failed",
+          reason: timeout ? err.message : `masking the answer failed (${err instanceof Error ? err.name : typeof err})`,
+        });
+        return { text: `[GuardBee: withheld, ${timeout ? "a block pattern ran over its time budget" : "masking failed"}]`, hits: {} };
       }
     };
     const clientUsage = typeof forward["stream_options"] === "object" && (forward["stream_options"] as Json | null)?.["include_usage"] === true;
@@ -471,7 +526,7 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     } catch (err) {
       const status = err instanceof HttpError ? err.status : typeof (err as { status?: unknown }).status === "number" ? (err as { status: number }).status : 500;
       const message = err instanceof Error ? err.message : "Internal error";
-      if (!res.headersSent) sendJson(res, status, errorBody(api ?? "openai", status, message), err instanceof HttpError ? err.headers : {});
+      if (!res.headersSent) sendJson(res, status, errorBody(api ?? "openai", status, message, err instanceof HttpError ? err.code : undefined), err instanceof HttpError ? err.headers : {});
       else res.end();
     }
     return true;
