@@ -1,5 +1,6 @@
 import type { LlmApi } from "./config.js";
 import type { LlmUsage } from "./budget.js";
+import { mapEmbeddingInput, mapResponsesInput, mapResponsesOutput, unmaskableEmbeddingParts, unmaskableResponsesParts } from "./responses.js";
 
 /**
  * The parts of OpenAI Chat Completions and Anthropic Messages bodies that
@@ -10,6 +11,11 @@ import type { LlmUsage } from "./budget.js";
 
 type Json = Record<string, unknown>;
 export type TextMapper = (text: string) => string;
+
+/** Which body an endpoint takes: Chat Completions, Messages, the Responses API, Embeddings (llm/responses.ts). */
+export type LlmShape = LlmApi | "responses" | "embeddings";
+/** The provider API a shape is served by, and the error shape it answers in. */
+export const apiOf = (shape: LlmShape): LlmApi => (shape === "anthropic" ? "anthropic" : "openai");
 
 const isObject = (value: unknown): value is Json => typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -80,7 +86,9 @@ const ANTHROPIC_MODEL_BLOCKS = /^(thinking|redacted_thinking|server_tool_use|mcp
  * list: they are forwarded unchanged and the README says so. Empty: every
  * piece of text in the request goes through mapPrompt.
  */
-export function unmaskableParts(api: LlmApi, body: Json): string[] {
+export function unmaskableParts(api: LlmShape, body: Json): string[] {
+  if (api === "responses") return unmaskableResponsesParts(body);
+  if (api === "embeddings") return unmaskableEmbeddingParts(body);
   const found = new Set<string>();
   const shape = (content: unknown, where: string) => {
     if (content === undefined || content === null || typeof content === "string" || Array.isArray(content)) return true;
@@ -127,8 +135,10 @@ export function unmaskableParts(api: LlmApi, body: Json): string[] {
  * Map the prompt texts of a request body. `only` restricts it to messages
  * from these roles (the system prompt counts as "system").
  */
-export function mapPrompt(api: LlmApi, body: Json, fn: TextMapper, only?: ReadonlySet<string>): Json {
+export function mapPrompt(api: LlmShape, body: Json, fn: TextMapper, only?: ReadonlySet<string>): Json {
   const take = (role: unknown) => !only || (typeof role === "string" && only.has(role));
+  if (api === "responses") return mapResponsesInput(body, fn, take);
+  if (api === "embeddings") return mapEmbeddingInput(body, fn, take);
   const messages = Array.isArray(body["messages"])
     ? body["messages"].map((message) => {
         if (!isObject(message) || !take(message["role"])) return message;
@@ -144,14 +154,16 @@ export function mapPrompt(api: LlmApi, body: Json, fn: TextMapper, only?: Readon
 }
 
 /** Every prompt text from these roles, for scanning. */
-export function promptTexts(api: LlmApi, body: Json, roles: ReadonlySet<string>): string[] {
+export function promptTexts(api: LlmShape, body: Json, roles: ReadonlySet<string>): string[] {
   const texts: string[] = [];
   mapPrompt(api, body, (text) => (texts.push(text), text), roles);
   return texts;
 }
 
 /** Map the texts of a non-streamed completion. */
-export function mapCompletion(api: LlmApi, body: Json, fn: TextMapper): Json {
+export function mapCompletion(api: LlmShape, body: Json, fn: TextMapper): Json {
+  if (api === "responses") return mapResponsesOutput(body, fn);
+  if (api === "embeddings") return body;
   if (api === "anthropic") return { ...body, content: mapAnthropicContent(body["content"], fn) };
   if (!Array.isArray(body["choices"])) return body;
   return {
@@ -170,9 +182,14 @@ export function mapCompletion(api: LlmApi, body: Json, fn: TextMapper): Json {
 const num = (value: unknown): number => (typeof value === "number" && Number.isFinite(value) ? value : 0);
 
 /** Token counts from a completion body or a streamed event; null when it has none. */
-export function usageOf(api: LlmApi, body: unknown): LlmUsage | null {
+export function usageOf(api: LlmShape, body: unknown): LlmUsage | null {
   if (!isObject(body)) return null;
-  if (api === "openai") {
+  if (api === "responses") {
+    // A body, or a streamed response.completed (usage under response)
+    const usage = isObject(body["usage"]) ? body["usage"] : isObject(body["response"]) && isObject(body["response"]["usage"]) ? body["response"]["usage"] : null;
+    return usage ? { inputTokens: num(usage["input_tokens"]), outputTokens: num(usage["output_tokens"]) } : null;
+  }
+  if (api === "openai" || api === "embeddings") {
     const usage = body["usage"];
     return isObject(usage) ? { inputTokens: num(usage["prompt_tokens"]), outputTokens: num(usage["completion_tokens"]) } : null;
   }
@@ -202,7 +219,7 @@ export class SseRelay {
   usage: LlmUsage | null = null;
 
   constructor(
-    private readonly api: LlmApi,
+    private readonly api: LlmShape,
     private readonly dropUsageChunks = false,
   ) {}
 

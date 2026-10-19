@@ -1,5 +1,5 @@
-import type { LlmApi } from "./config.js";
-import { SseRelay } from "./shapes.js";
+import { mapOutputItem, mapResponsesOutput } from "./responses.js";
+import { SseRelay, type LlmShape } from "./shapes.js";
 
 type Json = Record<string, unknown>;
 
@@ -115,6 +115,15 @@ function dataOf(event: string): string {
     .join("\n");
 }
 
+/** Responses API text streams: event type (without .delta/.done) → held-stream kind, and the full-text field of its .done event. */
+const RESPONSES_STREAMS: Record<string, { kind: string; field: string }> = {
+  "response.output_text": { kind: "text", field: "text" },
+  "response.function_call_arguments": { kind: "args", field: "arguments" },
+  "response.custom_tool_call_input": { kind: "custom", field: "input" },
+  "response.reasoning_summary_text": { kind: "summary", field: "text" },
+  "response.reasoning_text": { kind: "reasoning", field: "text" },
+};
+
 const sse = (data: unknown, event?: string) => `${event ? `event: ${event}\n` : ""}data: ${JSON.stringify(data)}\n\n`;
 
 /**
@@ -130,10 +139,12 @@ export class SseRewriter {
   private readonly held = new Map<string, HeldText>();
   /** What each OpenAI choice's last chunk looked like, to build a flush chunk from. */
   private readonly lastChunk = new Map<number, Json>();
+  /** Responses API: each held stream's last delta event, to build a flush event from. */
+  private readonly lastDelta = new Map<string, Json>();
   readonly hits: Record<string, number> = {};
 
   constructor(
-    private readonly api: LlmApi,
+    private readonly api: LlmShape,
     private readonly rewrite: TextRewrite,
     dropUsageChunks = false,
   ) {
@@ -178,6 +189,10 @@ export class SseRewriter {
     const text = held?.flush() ?? "";
     if (!text) return "";
     const [kind, a, b] = key.split(":");
+    if (this.api === "responses") {
+      const base = this.lastDelta.get(key) ?? {};
+      return sse({ ...base, delta: text }, String(base["type"]));
+    }
     if (this.api === "anthropic") {
       const index = Number(a);
       const delta =
@@ -207,7 +222,48 @@ export class SseRewriter {
       return kept;
     }
     if (!isObject(parsed)) return kept;
+    if (this.api === "responses") return this.responsesEvent(parsed);
     return this.api === "anthropic" ? this.anthropicEvent(event, parsed) : this.openAiEvent(parsed);
+  }
+
+  /**
+   * Responses API events. Deltas are held per stream like the other APIs;
+   * a `.done` event first releases what its stream holds, then carries its
+   * full text rewritten. Items, parts and the response object (created,
+   * completed) are rewritten whole, so the final snapshot matches the deltas.
+   */
+  private responsesEvent(data: Json): string {
+    const type = String(data["type"]);
+    const out = (event: Json) => sse(event, type);
+    const whole = (text: string) => this.rewrite(text).text;
+    const stream = RESPONSES_STREAMS[type.replace(/\.(delta|done)$/, "")];
+    if (stream) {
+      const key = `${stream.kind}:${String(data["output_index"] ?? 0)}:${String(data["content_index"] ?? data["summary_index"] ?? 0)}`;
+      if (type.endsWith(".delta") && typeof data["delta"] === "string") {
+        this.lastDelta.set(key, data);
+        const text = this.stream(key).push(data["delta"]);
+        return text ? out({ ...data, delta: text }) : "";
+      }
+      if (type.endsWith(".done")) {
+        const field = stream.field;
+        return this.flushKey(key) + out(typeof data[field] === "string" ? { ...data, [field]: whole(data[field] as string) } : data);
+      }
+      return out(data);
+    }
+    if ((type === "response.output_item.added" || type === "response.output_item.done") && data["item"] !== undefined) {
+      return out({ ...data, item: mapOutputItem(data["item"], whole) });
+    }
+    if ((type === "response.content_part.added" || type === "response.content_part.done" || type.startsWith("response.reasoning_summary_part.")) && isObject(data["part"])) {
+      const part = data["part"];
+      return out(typeof part["text"] === "string" ? { ...data, part: { ...part, text: whole(part["text"]) } } : data);
+    }
+    if (isObject(data["response"])) {
+      // completed / incomplete / failed: the stream is over, release everything still held
+      let before = "";
+      if (type !== "response.created" && type !== "response.in_progress") for (const key of [...this.held.keys()]) before += this.flushKey(key);
+      return before + out({ ...data, response: mapResponsesOutput(data["response"], whole) });
+    }
+    return out(data);
   }
 
   private anthropicEvent(raw: string, data: Json): string {
