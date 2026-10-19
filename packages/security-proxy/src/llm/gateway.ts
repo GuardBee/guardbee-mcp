@@ -20,7 +20,7 @@ import { PiiVault } from "../gateway/tokens.js";
 import type { AuditEvent } from "../types.js";
 import { BudgetStore, costOf, type LlmCaller, type LlmUsage } from "./budget.js";
 import { DEFAULT_MAX_TEXT_CHARS, type LlmApi, type LlmConfig, type LlmProvider } from "./config.js";
-import { SseRelay, errorBody, mapCompletion, mapPrompt, promptTexts, unmaskableParts, usageOf } from "./shapes.js";
+import { SseRelay, apiOf, errorBody, mapCompletion, mapPrompt, promptTexts, unmaskableParts, usageOf, type LlmShape } from "./shapes.js";
 import { SseRewriter, type TextRewrite } from "./stream.js";
 
 type Json = Record<string, unknown>;
@@ -35,6 +35,10 @@ const UNTRUSTED_ROLES = new Set(["user", "tool", "function"]);
 const ALL_ROLES = new Set(["system", "developer", "user", "assistant", "tool", "function"]);
 /** Client headers passed on to the provider; everything else (cookies, the client's key) stays here. */
 const FORWARDED_HEADERS = ["anthropic-version", "anthropic-beta", "openai-organization", "openai-project"];
+/** Endpoints under llm.path, and the body each takes. */
+const CLIENT_PATHS: Partial<Record<string, LlmShape>> = { "/chat/completions": "openai", "/messages": "anthropic", "/responses": "responses", "/embeddings": "embeddings" };
+/** The provider path of each endpoint: after baseUrl, or for Anthropic after its host. */
+const ENDPOINTS: Record<LlmShape, string> = { openai: "/chat/completions", anthropic: "/v1/messages", responses: "/responses", embeddings: "/embeddings" };
 
 /**
  * The fail-closed contract: when the proxy cannot check or mask a request,
@@ -180,7 +184,8 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
 
   const log = (event: Omit<AuditEvent, "ts">) => audit.log({ ts: new Date().toISOString(), ...event });
 
-  const handle = async (req: http.IncomingMessage, res: http.ServerResponse, api: LlmApi): Promise<void> => {
+  const handle = async (req: http.IncomingMessage, res: http.ServerResponse, shape: LlmShape): Promise<void> => {
+    const api = apiOf(shape);
     const caller = await identify(req);
     let body = await readBody(req);
     const requested = body["model"];
@@ -254,9 +259,10 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
       refuse(403, `model "${model}" is not allowed for ${caller.user ? `user "${caller.user}"` : "this key"} (llm.access)`, "llm:access");
     }
 
-    // 1. Prompt injection in what people and tools wrote
-    if (interceptors.promptInjection?.enabled !== false) {
-      const scan = inspect(() => scanForPromptInjection(promptTexts(api, body, UNTRUSTED_ROLES), interceptors.promptInjection?.action ?? "block"));
+    // 1. Prompt injection in what people and tools wrote. Text sent for embedding is
+    //    not run by a model, and a document about injection must still be indexable.
+    if (shape !== "embeddings" && interceptors.promptInjection?.enabled !== false) {
+      const scan = inspect(() => scanForPromptInjection(promptTexts(shape, body, UNTRUSTED_ROLES), interceptors.promptInjection?.action ?? "block"));
       if (scan.action === "block") refuse(403, scan.reason, "llm:injection");
       if (scan.action === "warn") log({ ...base, type: "warn", ruleId: "llm:injection", reason: scan.reason });
     }
@@ -265,7 +271,7 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     const egress = interceptors.egressSecrets;
     if (egress?.enabled !== false) {
       const kinds = new Set<string>();
-      inspect(() => mapPrompt(api, body, (text) => (maskPiiInText(text, (name, match) => (PERSONAL_DATA.has(name) ? match : (kinds.add(name), match))), text)));
+      inspect(() => mapPrompt(shape, body, (text) => (maskPiiInText(text, (name, match) => (PERSONAL_DATA.has(name) ? match : (kinds.add(name), match))), text)));
       if (kinds.size > 0) {
         const reason = `credential in the prompt for ${model} (${[...kinds].join(", ")})`;
         if ((egress?.action ?? interceptors.promptInjection?.action ?? "block") === "block") refuse(403, reason, "llm:credential");
@@ -277,7 +283,7 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     let forceMask = false;
     const topics = options.config.topics ?? [];
     if (topics.length > 0 && options.config.rules.some((rule) => rule.match.topic !== undefined)) {
-      const found = inspect(() => detectTopics(promptTexts(api, body, ALL_ROLES), topics).map((hit) => hit.id));
+      const found = inspect(() => detectTopics(promptTexts(shape, body, ALL_ROLES), topics).map((hit) => hit.id));
       const decision = evaluateTopicRules(options.config.rules, {
         tool: base.tool,
         upstream: provider.name,
@@ -301,16 +307,17 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     const detect = piiScopesFor(interceptors.piiMasking, provider.name).detect;
     let routedFrom: string | undefined;
     const sensitive = llm.sensitive;
-    if (sensitive && model !== sensitive.model) {
+    // Not embeddings: vectors from another model are not comparable with the index's
+    if (sensitive && model !== sensitive.model && shape !== "embeddings") {
       const why: string[] = [];
       if (sensitive.on.pii) {
         const found = new Set<string>();
-        inspect(() => mapPrompt(api, body, (text) => (maskPiiInText(text, (name, match) => (PERSONAL_DATA.has(name) && found.add(name), match), detect), text)));
+        inspect(() => mapPrompt(shape, body, (text) => (maskPiiInText(text, (name, match) => (PERSONAL_DATA.has(name) && found.add(name), match), detect), text)));
         why.push(...[...found].filter((category) => !sensitive.on.categories || sensitive.on.categories.includes(category)));
       }
       if (sensitive.on.topics) {
         const wanted = topics.filter((topic) => sensitive.on.topics!.includes(topic.id));
-        why.push(...inspect(() => detectTopics(promptTexts(api, body, ALL_ROLES), wanted)).map((hit) => `topic ${hit.id}`));
+        why.push(...inspect(() => detectTopics(promptTexts(shape, body, ALL_ROLES), wanted)).map((hit) => `topic ${hit.id}`));
       }
       if (why.length > 0) {
         const target = routeOf(api, sensitive.model);
@@ -336,13 +343,13 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     }
     if (masking) {
       // What the proxy cannot read, it cannot mask: refused, not forwarded
-      const unreadable = unmaskableParts(api, body);
+      const unreadable = unmaskableParts(shape, body);
       if (unreadable.length > 0) {
         failClosed(415, FAIL_CLOSED.unmaskable, `the request holds content the proxy cannot mask: ${unreadable.join(", ")}`, "pii:unmaskable");
       }
       const limit = llm.maxTextChars ?? DEFAULT_MAX_TEXT_CHARS;
       let longest = 0;
-      mapPrompt(api, body, (text) => ((longest = Math.max(longest, text.length)), text));
+      mapPrompt(shape, body, (text) => ((longest = Math.max(longest, text.length)), text));
       if (longest > limit) {
         failClosed(413, FAIL_CLOSED.textTooLarge, `one text is ${longest} characters, over llm.maxTextChars (${limit}); split it into smaller messages or parts`, "pii:text-too-large");
       }
@@ -357,9 +364,12 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     // The provider's own selection: routing above may have changed it
     const scopes = piiScopesFor(interceptors.piiMasking, provider.name);
     const hits: Record<string, number> = {};
-    const tokenize = interceptors.piiMasking?.mode === "tokenize";
+    // Embeddings: placeholders, never tokens, and org numbers counted per text,
+    // so the same text always embeds the same way (indexes stay stable)
+    const tokenize = shape !== "embeddings" && interceptors.piiMasking?.mode === "tokenize";
     let forward: Json = inspect(() =>
-      mapPrompt(api, body, (text) => {
+      mapPrompt(shape, body, (text) => {
+        if (shape === "embeddings") numbers.clear();
         const redacted = org.withEvents(orgEvent, () =>
           maskPiiInText(text, (name, match) => {
             const custom = org.categories.has(name);
@@ -414,7 +424,7 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
       }
     };
     const clientUsage = typeof forward["stream_options"] === "object" && (forward["stream_options"] as Json | null)?.["include_usage"] === true;
-    if (wantsStream && api === "openai") {
+    if (wantsStream && shape === "openai") {
       forward = { ...forward, stream_options: { ...((forward["stream_options"] as Json | undefined) ?? {}), include_usage: true } };
     }
 
@@ -429,7 +439,7 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
       const value = req.headers[name];
       if (typeof value === "string") headers[name] = value;
     }
-    const endpoint = api === "anthropic" ? "/v1/messages" : "/chat/completions";
+    const endpoint = ENDPOINTS[shape];
     const upstreamUrl = api === "anthropic" ? provider.baseUrl.replace(/\/v1$/, "") + endpoint : provider.baseUrl + endpoint;
 
     let upstream: Response;
@@ -477,8 +487,8 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
 
     if (wantsStream) {
       res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" });
-      const dropUsage = api === "openai" && !clientUsage;
-      const relay = rewrite ? new SseRewriter(api, rewriteText, dropUsage) : new SseRelay(api, dropUsage);
+      const dropUsage = shape === "openai" && !clientUsage;
+      const relay = rewrite ? new SseRewriter(shape, rewriteText, dropUsage) : new SseRelay(shape, dropUsage);
       if (upstream.body) {
         const reader = upstream.body.getReader();
         // The client went away: stop reading so the provider stops generating
@@ -499,12 +509,12 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
 
     let completion = (await upstream.json()) as Json;
     const answerHits: Record<string, number> = {};
-    completion = mapCompletion(api, completion, (text) => {
+    completion = mapCompletion(shape, completion, (text) => {
       const out = rewriteText(text);
       for (const [category, count] of Object.entries(out.hits)) answerHits[category] = (answerHits[category] ?? 0) + count;
       return out.text;
     });
-    finish(usageOf(api, completion), Object.keys(answerHits).length > 0 ? { piiHits: answerHits } : {});
+    finish(usageOf(shape, completion), Object.keys(answerHits).length > 0 ? { piiHits: answerHits } : {});
     sendJson(res, 200, completion);
   };
 
@@ -516,17 +526,16 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
 
   return async (req, res) => {
     const path = (req.url ?? "/").split("?")[0];
-    const api: LlmApi | null =
-      req.method === "POST" && path === `${llm.path}/chat/completions` ? "openai" : req.method === "POST" && path === `${llm.path}/messages` ? "anthropic" : null;
+    const shape = req.method === "POST" && path.startsWith(`${llm.path}/`) ? CLIENT_PATHS[path.slice(llm.path.length)] : undefined;
     const models = req.method === "GET" && path === `${llm.path}/models`;
-    if (!api && !models) return false;
+    if (!shape && !models) return false;
     try {
       if (models) await listModels(req, res);
-      else await handle(req, res, api!);
+      else await handle(req, res, shape!);
     } catch (err) {
       const status = err instanceof HttpError ? err.status : typeof (err as { status?: unknown }).status === "number" ? (err as { status: number }).status : 500;
       const message = err instanceof Error ? err.message : "Internal error";
-      if (!res.headersSent) sendJson(res, status, errorBody(api ?? "openai", status, message, err instanceof HttpError ? err.code : undefined), err instanceof HttpError ? err.headers : {});
+      if (!res.headersSent) sendJson(res, status, errorBody(apiOf(shape ?? "openai"), status, message, err instanceof HttpError ? err.code : undefined), err instanceof HttpError ? err.headers : {});
       else res.end();
     }
     return true;

@@ -69,7 +69,8 @@
   "devDependencies": {
     "@opentelemetry/exporter-trace-otlp-http": "^0.223.0",
     "@opentelemetry/resources": "^2.12.0",
-    "@opentelemetry/sdk-trace-base": "^2.12.0"
+    "@opentelemetry/sdk-trace-base": "^2.12.0",
+    "openai": "^7.39.0"
   },
   "peerDependencies": {
     "@opentelemetry/exporter-trace-otlp-http": "^0.223.0",

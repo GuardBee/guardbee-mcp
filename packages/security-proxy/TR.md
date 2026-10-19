@@ -238,7 +238,7 @@ docker run -p 8787:8787 -e GUARDBEE_PROXY_KEY=... -e GUARDBEE_API_KEY=... \
 
 HTTP modunda proxy, uygulamalarınızla model sağlayıcıları (OpenAI, Anthropic, OpenAI uyumlu yerel modeller) arasında da durabilir. Uygulamalar SDK'nın base URL'ini proxy'ye çevirip bir gateway anahtarı kullanır; gerçek sağlayıcı anahtarları proxy'nin ortam değişkenlerinde kalır.
 
-- **Uç noktalar:** `POST /v1/chat/completions` (OpenAI), `POST /v1/messages` (Anthropic), `GET /v1/models`
+- **Uç noktalar:** `POST /v1/chat/completions`, `POST /v1/responses` (OpenAI Responses API), `POST /v1/embeddings` (OpenAI), `POST /v1/messages` (Anthropic), `GET /v1/models`. Responses API'de `instructions`, mesaj öğeleri, fonksiyon çağrısı argümanları ve tool çıktıları maskelenir; `input_file`/`input_audio` `415` alır. `mode: tokenize` ile `previous_response_id` üzerinden sürdürülen bir konuşmada önceki isteğin token'ları geri konamaz
 - **Anahtarlar:** `llm.keys` ile kişi/uygulama başına gateway anahtarı (kullanıcı ve grup bilgisiyle); `listen.apiKeys` ve OIDC token'ları da kabul edilir
 - **Kontroller:** kullanıcı ve tool mesajlarında prompt injection, prompt'ta credential (403), mesaj metninde PII maskeleme veya `tokenize` (sağlayıcı gerçek değeri görmez, kullanıcı yanıtta görür)
 - **Model erişimi (`llm.access`):** kullanıcı (glob) veya gruba göre hangi modellerin kullanılabileceği; eşleşen girdi yoksa `accessDefault` (allow/deny). İzin verilmeyen model `403` alır ve `/models` yalnızca izinli modelleri listeler
@@ -248,6 +248,16 @@ HTTP modunda proxy, uygulamalarınızla model sağlayıcıları (OpenAI, Anthrop
 - **Streaming:** iki API'de de çalışır; yanıtın yeniden yazılması gerektiğinde (token geri koyma, `maskResponses`) metin akarken yeniden yazılır: yalnızca güvenli bir kesme noktasına kadar (iki yanında rakam olmayan boşluk; IBAN, kart gibi gruplu sayılar bölünmez) bekletilir ve daha önce gönderilen son 300 karakterle birlikte işlenir, böylece `Pasaport No:` gibi bir etiket sonraki olaydaki değere yine uygulanır
 
 Tam yapılandırma örneği için [README](README.md#llm-api-gateway) dosyasına bakın.
+
+### Embeddings
+
+`POST /v1/embeddings` her girdi metnini embedding'den önce maskeler; vektörler olduğu gibi döner. Maskelenmiş metni indekslemeden önce bilinmesi gerekenler:
+
+- **Maskeleme burada deterministiktir.** Yerleşik değerler sabit yer tutucusunu alır (`[TC-KİMLİK]`, `***@[EMAIL]`), `mode: tokenize` kullanılmaz (token istek başınadır, aynı doküman her seferinde farklı embed edilirdi), org block kalıpları istek başına değil metin başına numaralanır. Aynı metin, hangi batch'te gönderilirse gönderilsin aynı vektörü verir.
+- **Yalnızca maskelenen değerde farklı olan dokümanlar aynı vektöre düşer.** Sadece kişi adı veya kimlik numarası farklı iki kayıt tek vektörde birleşir; benzerlik araması bu kişileri ayırt edemez. Vektör benzerliğine değil, kendi ID alanınıza (metadata) göre filtreleyin.
+- **İndeksleme ve sorgu aynı yoldan geçmeli.** Maskeli metinden üretilen vektör yalnızca maskeli metinden üretilen vektörlerle karşılaştırılabilir: hem indekslediğiniz dokümanları hem arama sorgularını aynı `piiMasking` ayarlarıyla gateway'den geçirin.
+- **Uzunluk sınırı eleman başınadır.** `input`'un her elemanı `llm.maxTextChars` ile kontrol edilir; sınırı aşan tek eleman tüm batch'i `413` ile reddettirir. Token-id girdisi (`[[1, 2, 3]]`) maskelenemez, `415` alır — metin gönderin.
+- Embeddings'e uygulanmayanlar: prompt injection taraması (injection hakkındaki bir doküman da indekslenebilmeli) ve `llm.sensitive` yönlendirmesi (başka modelin vektörleri indeksinizle karşılaştırılamaz). Credential, konu, bütçe ve erişim kontrolleri her zamanki gibi uygulanır.
 
 ### Hata durumunda davranış
 
