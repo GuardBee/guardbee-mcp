@@ -1,5 +1,12 @@
 # @guardbee/mcp-secret-scanner
 
+## 0.6.8
+
+### Patch Changes
+
+- Updated dependencies [[`5e6d872`](https://github.com/GuardBee/guardbee-mcp/commit/5e6d872cd6b9014da63743bc2198a0eb159c3b49)]:
+  - @guardbee/guard-core@0.19.0
+
 ## 0.6.7
 
 ### Patch Changes

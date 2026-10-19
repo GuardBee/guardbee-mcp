@@ -1,9 +1,0 @@
----
-"@guardbee/guard-core": minor
-"@guardbee/ner": minor
----
-
-Optional NER backend for Turkish person names (#126).
-
-- New package `@guardbee/ner`: a local BERTurk NER model (akdeniz27/bert-base-turkish-cased-ner, int8, MIT) on ONNX Runtime, offline. `guardbee-ner download` fetches it at a pinned revision and checks SHA-256 hashes; `NerModel.load()` refuses missing or altered files. Runs in-process or as a sidecar (`guardbee-ner serve`, loopback by default, optional bearer token, texts never logged). Picked out of five Turkish NER models on the pii-bench numbers: person-name F1 99.5 on tr-pii-v1, 97.1 on the hand-written hard-names set, p50 8 ms per document.
-- guard-core: `maskPiiInText` / `maskPiiInValue` take a fifth argument, a `SpanLookup`, and mask what a model found in each string in the same pass (placeholder `[KİŞİ]`, or the replacer's value). A lookup must throw for a text it has no result for, so an unscanned text is never passed as clean. A model span inside an e-mail address or URL is left to the regex detector, which masks the whole value. New detector name `person_name` (in `PII_DETECTORS` and the `ALL`, `KVKK` and `IDENTITY` presets; it finds nothing without a lookup), `MODEL_PII`, `ModelSpan`, `ModelDetector`.
