@@ -265,7 +265,7 @@ Gateway kapalı başarısız olur (fail closed): bir isteği kontrol edemediğin
 
 | Durum | Kod | Ne zaman | Audit `ruleId` |
 | --- | --- | --- | --- |
-| `502` | `guardbee_masking_failed` | Bir dedektör veya tarama hata fırlattı ya da bir block kalıbı zaman bütçesini aştı. Çağrıdan önceki her kontrolü kapsar: injection, credential, konu, hassas yönlendirme, maskeleme. | `pii:masking-failed`, `pii:pattern-timeout` |
+| `502` | `guardbee_masking_failed` | Bir dedektör veya tarama hata fırlattı, bir block kalıbı zaman bütçesini aştı ya da isim modeli (`ner:`) yanıt vermedi. Çağrıdan önceki her kontrolü kapsar: injection, credential, konu, hassas yönlendirme, maskeleme. | `pii:masking-failed`, `pii:pattern-timeout`, `pii:ner-failed` |
 | `415` | `guardbee_unmaskable_content` | İstekte proxy'nin okuyamadığı içerik var: OpenAI `input_audio` veya `file` parçaları, kaynağı PDF (base64, url, file) olan Anthropic `document`, bilinmeyen parça/blok türü, metin ya da liste olmayan içerik. Mesaj bulunanı adıyla söyler. | `pii:unmaskable` |
 | `413` | `guardbee_text_too_large` | Tek bir metin (mesaj, parça, tool sonucu) `llm.maxTextChars`'tan (varsayılan 2.000.000 karakter) uzun. Sınır istek başına değil metin başınadır: metni birkaç mesaja veya parçaya bölün. | `pii:text-too-large` |
 
@@ -337,6 +337,7 @@ Proxy kendi tool'unu kaydetmez. Hedef sunucunun tool'larını iletir ve her ça�
 | Doğum tarihi | `Doğum tarihi` / `DOB` etiketi gerekir | `Doğum tarihi: 12.05.1990` | `Doğum tarihi: [DOĞUM-TARİHİ]` |
 | Posta adresi | `Adres:` etiketi, numara veya cadde/sokak kelimesi gerekir; IP/e-posta/web adresi değil | `Adres: Moda Cad. No 5` | `Adres: [ADRES]` |
 | KEP adresi | `@….kep.tr` | `acme@hs01.kep.tr` | `***@[KEP]` |
+| Kişi adı *(`ner:` gerekir)* | yerel Türkçe NER modeli ([`@guardbee/ner`](../ner)) | `Ayşe Yılmaz aradı` | `[KİŞİ] aradı` |
 | IP adresi *(isteğe bağlı)* | geçerli IPv4; `::` veya 8 grup içeren IPv6 | `10.0.3.17` | `[IP]` |
 | MAC adresi *(isteğe bağlı)* | 6 hex çift, tek ayraç | `aa:bb:cc:dd:ee:ff` | `[MAC]` |
 | Araç plakası *(isteğe bağlı)* | il kodu 01–81, harf/rakam kombinasyonu, birimler değil (`16 GB 2400`) | `34 ABC 123` | `[PLAKA]` |
@@ -349,7 +350,7 @@ IP, MAC adresleri ve plakalar altyapı çıktılarında çok sık geçtiği içi
 | --- | --- |
 | `ALL` (varsayılan) | isteğe bağlı olanlar dışında yukarıdaki tüm dedektörler ve kimlik bilgileri |
 | `KVKK` | yalnızca kişisel veri, kimlik bilgisi yok |
-| `IDENTITY` | posta adresi, doğum tarihi |
+| `IDENTITY` | kişi adı (`ner:` ile), posta adresi, doğum tarihi |
 | `IDENTIFIERS` | TC kimlik, VKN, MERSİS, SGK, pasaport, IBAN, kart, telefon, KEP, e-posta |
 | `SECRETS` | API anahtarları, token'lar, private key'ler, bağlantı adresleri, JWT |
 
@@ -380,6 +381,26 @@ interceptors:
 Her kalıbın bir zaman bütçesi vardır (maskeleme çağrısı başına 100 ms); felakete giden bir regex proxy'yi kilitleyemez. İki tür bilerek ters yönde başarısız olur: bütçeyi aşan bir block kalıbı sonucu alıkoyar (`pii:pattern-timeout`; LLM gateway 502 döner), bütçeyi aşan bir allow kalıbı atlanır ve değer maskeli kalır (`pii:allow-skipped`). En fazla 25 kalıp, her biri 200 karakter; geçersiz regex ya da yerleşik bir dedektörün adını taşıyan kategori (`EMAIL`, `IBAN`, `SECRET`, …) config doğrulamasında hata verir. LLM gateway'e gelen bir istek, gövdedeki `guardbee` alanıyla kendi block kalıplarını ekleyebilir (`{ "guardbee": { "blockPatterns": [...] } }`, sağlayıcıya gitmeden çıkarılır); bunlar config'dekilere eklenir, `allowPatterns` içeren istek 400 ile reddedilir: bir istek yalnızca maskelemeyi artırabilir.
 
 Checksum'ı tutmayan sayılar (sipariş no, takip kodu) olduğu gibi bırakılır.
+
+**Kişi adları.** İsmi bir regex bulamaz; `person_name` bir modelden gelir: [`@guardbee/ner`](../ner), çevrimdışı çalışan Türkçe bir BERT NER modeli (186 MB, dizüstü CPU'da metin başına yaklaşık 8 ms). Config'de üst düzey bir `ner:` bölümü olmadıkça kapalıdır. Bu bölüm politika değil kurulum ayarıdır: dashboard politikası onu açamaz, başka yere yönlendiremez.
+
+```yaml
+ner:
+  url: http://127.0.0.1:8765        # guardbee-ner serve (sidecar)
+  tokenEnv: GUARDBEE_NER_TOKEN      # bearer token'ı, ortam değişkeninden
+  timeoutMs: 5000                   # varsayılan
+# ya da bu süreçte (@guardbee/ner proxy'nin yanına kurulu olmalı):
+# ner:
+#   modelDir: /opt/guardbee/ner     # varsayılan: guardbee-ner download'un önbelleği
+```
+
+Sidecar'ı `npx @guardbee/ner download` ve ardından `npx @guardbee/ner serve` ile çalıştırın; loopback'i dinler. Başka bir makinedeki sidecar `https://` olmalıdır, yoksa metinler ağda açık metin olarak gider. Model, yüklenmeden önce dosyalarını sabitlenmiş SHA-256 özetleriyle karşılaştırır.
+
+Maskelemeden önce değerdeki her metin modele bir kez gönderilir, sonra regex dedektörleriyle aynı geçişte maskelenir. Böylece `person_name` her dedektör gibi `preset` / `enable` / `disable`, `mode: tokenize` (`<pii:person_name:…>`) ve allow kalıplarına uyar. İsimler tool sonuçlarında, `structuredContent`'te, resource'larda, prompt şablonlarında, sampling yanıtlarında ve LLM gateway isteklerinde (embeddings dahil) maskelenir, `llm.sensitive` yönlendirmesinde de sayılır. Model yanıtlarında (`maskResponses`), kodlama ajanı hook'larında ve maskeleme kapalıyken aranmaz.
+
+`ner:` ayarlıyken model yanıt veremezse (sidecar kapalı, zaman aşımı, hata) hiçbir şey dışarı çıkmaz: tool sonucu alıkonur, LLM isteği `502 guardbee_masking_failed` ile reddedilir, `ruleId: pii:ner-failed`. Maskeleme hiçbir zaman yalnızca regex'e geri düşmez, çünkü metinde yalnızca modelin bulacağı bir isim olabilir.
+
+Model bazı isimleri kaçırır, bazı kelimeleri isim sanar. Cümle başında büyük harfle yazılan ve aynı zamanda isim olan bir kelime (`Barış`, `Umut`) iki yöne de gidebilir; tamamı küçük harfli sohbeti (`elifle konuştum`) çoğu zaman kaçırır. Ölçülmüş sayılar [pii-bench](../pii-bench)'tedir.
 
 ---
 

@@ -1,6 +1,8 @@
 import type http from "http";
 import { createHash, timingSafeEqual } from "crypto";
 import {
+  MODEL_PII,
+  MODEL_PII_REPLACEMENT,
   PERSONAL_DATA_CATEGORIES,
   PII_PATTERNS,
   PiiPatternTimeoutError,
@@ -9,12 +11,14 @@ import {
   orgPatternShape,
   scanForPromptInjection,
   type OrgPatternEvent,
+  type SpanLookup,
 } from "@guardbee/guard-core";
 import { z } from "zod";
 import type { AuditLogger } from "../audit/logger.js";
 import type { Authenticate } from "../auth.js";
 import type { GatewayConfig } from "../gateway/config.js";
 import { evaluateTopicRules, globToRegExp } from "../gateway/policy.js";
+import { NerError, nerDetectorFor, scanNames } from "../gateway/ner.js";
 import { orgPatternsFor, piiScopesFor } from "../gateway/pii-scope.js";
 import { PiiVault } from "../gateway/tokens.js";
 import type { AuditEvent } from "../types.js";
@@ -28,8 +32,8 @@ type Json = Record<string, unknown>;
 const MAX_BODY_BYTES = 32 * 1024 * 1024;
 /** `guardbee` in a request body: the request's own block patterns (allow patterns are refused later, by name). */
 const requestPatternsSchema = z.object(orgPatternShape).strict();
-const PERSONAL_DATA = new Set<string>(PERSONAL_DATA_CATEGORIES);
-const PLACEHOLDER = new Map(PII_PATTERNS.map((p) => [p.name, p.replacement]));
+const PERSONAL_DATA = new Set<string>([...PERSONAL_DATA_CATEGORIES, ...MODEL_PII]);
+const PLACEHOLDER = new Map<string, string>([...PII_PATTERNS.map((p) => [p.name, p.replacement] as const), ...Object.entries(MODEL_PII_REPLACEMENT)]);
 /** Text from these roles is scanned for injection; the app's own system prompt and the model's turns are not. */
 const UNTRUSTED_ROLES = new Set(["user", "tool", "function"]);
 const ALL_ROLES = new Set(["system", "developer", "user", "assistant", "tool", "function"]);
@@ -254,6 +258,25 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
       return `<${category}_${seen.get(match)}>`;
     };
 
+    // Person names (ner:): one model call over every prompt text, made the first time
+    // routing or masking needs it. No answer, no request: a name no regex knows may be in it.
+    let nameScan: Promise<SpanLookup> | undefined;
+    const names = async (): Promise<SpanLookup | undefined> => {
+      const ner = options.config.ner;
+      if (!ner) return undefined;
+      if (!nameScan) {
+        const texts: string[] = [];
+        mapPrompt(shape, body, (text) => (texts.push(text), text));
+        nameScan = scanNames(nerDetectorFor(ner), texts);
+      }
+      try {
+        return await nameScan;
+      } catch (err) {
+        const reason = err instanceof NerError ? `name detection failed: ${err.message}` : `name detection failed (${err instanceof Error ? err.name : typeof err})`;
+        return failClosed(502, FAIL_CLOSED.maskingFailed, reason, "pii:ner-failed");
+      }
+    };
+
     // 0. Model access: which models this caller may ask for
     if (!mayUse(caller, model)) {
       refuse(403, `model "${model}" is not allowed for ${caller.user ? `user "${caller.user}"` : "this key"} (llm.access)`, "llm:access");
@@ -312,7 +335,8 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
       const why: string[] = [];
       if (sensitive.on.pii) {
         const found = new Set<string>();
-        inspect(() => mapPrompt(shape, body, (text) => (maskPiiInText(text, (name, match) => (PERSONAL_DATA.has(name) && found.add(name), match), detect), text)));
+        const spans = await names();
+        inspect(() => mapPrompt(shape, body, (text) => (maskPiiInText(text, (name, match) => (PERSONAL_DATA.has(name) && found.add(name), match), detect, undefined, spans), text)));
         why.push(...[...found].filter((category) => !sensitive.on.categories || sensitive.on.categories.includes(category)));
       }
       if (sensitive.on.topics) {
@@ -354,6 +378,7 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
         failClosed(413, FAIL_CLOSED.textTooLarge, `one text is ${longest} characters, over llm.maxTextChars (${limit}); split it into smaller messages or parts`, "pii:text-too-large");
       }
     }
+    const spans = masking ? await names() : undefined;
 
     // 3. Budgets: only a request that is about to go out counts
     const over = budgets.admit(llm.budgets, { ...caller, model });
@@ -377,10 +402,10 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
             hits[category] = (hits[category] ?? 0) + 1;
             if (custom) return numbered(name, match);
             return scopes.mask.has(name) ? (PLACEHOLDER.get(name) ?? "[REDACTED]") : match;
-          }, scopes.detect, org),
+          }, scopes.detect, org, spans),
         );
         if (!masking || redacted === text) return text;
-        return tokenize ? vault.tokenize(text, scopes.mask, org) : redacted;
+        return tokenize ? vault.tokenize(text, scopes.mask, org, spans) : redacted;
       }),
     );
     const piiHits = Object.keys(hits).length > 0 ? { piiHits: hits } : {};

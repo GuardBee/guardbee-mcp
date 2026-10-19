@@ -375,7 +375,7 @@ The gateway fails closed: when it cannot check or mask a request, the provider i
 
 | Status | Code | When | Audit `ruleId` |
 | --- | --- | --- | --- |
-| `502` | `guardbee_masking_failed` | A detector or scan threw, or a block pattern ran over its time budget. Covers every check before the call: injection, credentials, topics, sensitive routing, masking. | `pii:masking-failed`, `pii:pattern-timeout` |
+| `502` | `guardbee_masking_failed` | A detector or scan threw, a block pattern ran over its time budget, or the name model (`ner:`) did not answer. Covers every check before the call: injection, credentials, topics, sensitive routing, masking. | `pii:masking-failed`, `pii:pattern-timeout`, `pii:ner-failed` |
 | `415` | `guardbee_unmaskable_content` | The request holds content the proxy cannot read: OpenAI `input_audio` or `file` parts, an Anthropic `document` with a PDF (base64, url or file) source, an unknown part or block type, or content that is not text or a list. The message names what was found. | `pii:unmaskable` |
 | `413` | `guardbee_text_too_large` | A single text (message, part, tool result) is longer than `llm.maxTextChars` (default 2,000,000 characters). The limit is per text, not per request: split the text into several messages or parts. | `pii:text-too-large` |
 
@@ -471,6 +471,7 @@ Since 1.1, a broad phrase alone no longer blocks: in 1.0 "use jailbreak mode" or
 | Date of birth | needs `Doğum tarihi` / `DOB` / `Date of birth` | `Doğum tarihi: 12.05.1990` | `Doğum tarihi: [DOĞUM-TARİHİ]` |
 | Postal address | needs `Adres:` / `Address:`; a number or street word; not IP/e-mail/web/wallet addresses | `Adres: Moda Cad. No 5` | `Adres: [ADRES]` |
 | KEP address | `@….kep.tr` | `acme@hs01.kep.tr` | `***@[KEP]` |
+| Person name *(needs `ner:`)* | a local Turkish NER model ([`@guardbee/ner`](../ner)) | `Ayşe Yılmaz aradı` | `[KİŞİ] aradı` |
 | IP address *(opt-in)* | valid IPv4 octets; IPv6 with `::` or 8 groups | `10.0.3.17` | `[IP]` |
 | MAC address *(opt-in)* | 6 hex pairs, one separator | `aa:bb:cc:dd:ee:ff` | `[MAC]` |
 | Vehicle plate, TR *(opt-in)* | province 01–81, letter/digit combination, not units (`16 GB 2400`) | `34 ABC 123` | `[PLAKA]` |
@@ -483,7 +484,7 @@ IP and MAC addresses and plates are everywhere in infrastructure output, so they
 | --- | --- |
 | `ALL` (default) | every detector above except the opt-in ones, plus credentials |
 | `KVKK` | personal data only, no credentials |
-| `IDENTITY` | postal address, date of birth |
+| `IDENTITY` | person name (with `ner:`), postal address, date of birth |
 | `IDENTIFIERS` | TC kimlik, VKN, MERSİS, SGK, passport, IBAN, card, phone, KEP, e-mail |
 | `SECRETS` | API keys, tokens, private keys, connection strings, JWTs |
 
@@ -514,6 +515,26 @@ interceptors:
 Each pattern gets a time budget (100 ms per masking call), so a catastrophic regex cannot hang the proxy, and the two kinds fail in opposite directions on purpose: a block pattern over budget withholds the result (`pii:pattern-timeout`; the LLM gateway answers 502), an allow pattern over budget is skipped and the value stays masked (`pii:allow-skipped`). At most 25 patterns, 200 characters each; an invalid regex, or a category named like a built-in detector (`EMAIL`, `IBAN`, `SECRET`, …), fails config validation. An LLM gateway request can add its own block patterns in a `guardbee` body field (`{ "guardbee": { "blockPatterns": [...] } }`, removed before the provider sees the body); they are added to the configured ones, and a request with `allowPatterns` is refused with 400: a request can only add masking.
 
 A number that fails its checksum (an order number, a tracking code) is left as is.
+
+**Person names.** No regex finds a name, so `person_name` comes from a model: [`@guardbee/ner`](../ner), a Turkish BERT NER model that runs offline (186 MB, about 8 ms per text on a laptop CPU). It is off until the config has a top-level `ner:` section. That section is deployment, not policy: a dashboard policy cannot set or move it.
+
+```yaml
+ner:
+  url: http://127.0.0.1:8765        # guardbee-ner serve (sidecar)
+  tokenEnv: GUARDBEE_NER_TOKEN      # its bearer token, from the environment
+  timeoutMs: 5000                   # default
+# or in this process (install @guardbee/ner next to the proxy):
+# ner:
+#   modelDir: /opt/guardbee/ner     # default: guardbee-ner download's cache
+```
+
+Run the sidecar with `npx @guardbee/ner download` then `npx @guardbee/ner serve`; it listens on loopback. A sidecar on another host must be `https://`, since the texts would otherwise cross the network in the clear. The model checks its files against pinned SHA-256 hashes before it loads.
+
+Before masking, every string in the value is sent to the model once, then masked in the same pass as the regex detectors, so `person_name` follows `preset` / `enable` / `disable`, `mode: tokenize` (`<pii:person_name:…>`) and allow patterns like any detector. Names are masked in tool results, `structuredContent`, resources, prompt templates, sampling answers, and LLM gateway requests (embeddings too), and they count for `llm.sensitive` routing. They are not looked for in model answers (`maskResponses`), in coding-agent hooks, or when masking is off.
+
+When `ner:` is set and the model cannot answer (sidecar down, timed out, an error), nothing goes out: the tool result is withheld and an LLM request is refused with `502 guardbee_masking_failed`, `ruleId: pii:ner-failed`. Masking never falls back to regex only, because the text may hold a name that only the model would find.
+
+The model misses some names and flags some words. A capitalised word at the start of a sentence that is also a name (`Barış`, `Umut`) can go either way, and all-lowercase chat (`elifle konuştum`) is often missed. Measured numbers are in [pii-bench](../pii-bench).
 
 ---
 

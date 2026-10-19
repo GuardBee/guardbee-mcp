@@ -12,6 +12,8 @@ import type {
 import {
   detectTopics,
   maskPiiInValue,
+  MODEL_PII,
+  MODEL_PII_REPLACEMENT,
   OPT_IN_PII,
   PiiPatternTimeoutError,
   type OrgPatternEvent,
@@ -21,6 +23,7 @@ import {
   scanToolCatalog,
   scanToolResult,
   type CatalogFinding,
+  type SpanLookup,
 } from "@guardbee/guard-core";
 import { recordEvent } from "@guardbee/mcp-telemetry";
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
@@ -38,6 +41,7 @@ import { DataFingerprints } from "./fingerprints.js";
 import { evaluatePolicy, evaluateTopicRules, globToRegExp } from "./policy.js";
 import { QuotaStore } from "./quota.js";
 import { TaintTracker } from "./taint.js";
+import { NerError, nerDetectorFor, scanNames } from "./ner.js";
 import { PiiVault } from "./tokens.js";
 import type { CallOptions, Upstream } from "./upstream.js";
 
@@ -57,7 +61,7 @@ export interface CallerIdentity {
 }
 
 /** Pattern names that are personal data; every other PII pattern is a credential and counts as "secret". */
-const PERSONAL_DATA = new Set<string>(PERSONAL_DATA_CATEGORIES);
+const PERSONAL_DATA = new Set<string>([...PERSONAL_DATA_CATEGORIES, ...MODEL_PII]);
 
 /** Base64 bytes in a content item: an image, an embedded resource or a resource's blob. */
 function blobOf(item: { type?: string }): { data: string; label: string } | null {
@@ -73,7 +77,7 @@ function blobOf(item: { type?: string }): { data: string; label: string } | null
   }
   return null;
 }
-const PLACEHOLDER = new Map(PII_PATTERNS.map((p) => [p.name, p.replacement]));
+const PLACEHOLDER = new Map<string, string>([...PII_PATTERNS.map((p) => [p.name, p.replacement] as const), ...Object.entries(MODEL_PII_REPLACEMENT)]);
 
 type PiiHits = Record<string, number>;
 
@@ -368,7 +372,20 @@ export class Gateway {
     }
   }
 
-  private protect<T>(value: T, force: boolean, where: { upstream: string; tool: string }): { value: T; piiFound: boolean; hits: PiiHits } {
+  private async protect<T>(value: T, force: boolean, where: { upstream: string; tool: string }): Promise<{ value: T; piiFound: boolean; hits: PiiHits }> {
+    const enabled = this.interceptors.piiMasking?.enabled !== false || force;
+    // Names first: the model is asked once for every string in the value. When it
+    // cannot answer, nothing goes out — the value may hold a name no regex knows.
+    let names: SpanLookup | undefined;
+    if (enabled && this.config.ner) {
+      try {
+        names = await scanNames(nerDetectorFor(this.config.ner), value);
+      } catch (err) {
+        const reason = err instanceof NerError ? `name detection failed: ${err.message}` : `name detection failed (${err instanceof Error ? err.name : typeof err})`;
+        this.log({ ...where, type: "blocked", ruleId: "pii:ner-failed", reason });
+        throw new McpError(ErrorCode.InternalError, `${PREFIX} Result withheld: ${reason}`, { guardbee: MASKING_FAILED });
+      }
+    }
     const scopes = this.piiScopes(where.upstream);
     const org = orgPatternsFor(this.interceptors.piiMasking);
     const hits: PiiHits = {};
@@ -391,13 +408,12 @@ export class Gateway {
           hits[category] = (hits[category] ?? 0) + 1;
           if (custom) return undefined;
           return scopes.mask.has(name) ? (PLACEHOLDER.get(name) ?? "[REDACTED]") : match;
-        }, scopes.detect, org),
+        }, scopes.detect, org, names),
       ) as T;
       const piiFound = Object.keys(hits).length > 0;
-      const enabled = this.interceptors.piiMasking?.enabled !== false || force;
       if (!piiFound || !enabled) return { value, piiFound, hits };
       const tokenize = this.interceptors.piiMasking?.mode === "tokenize";
-      return { value: tokenize ? this.vault.tokenize(value, scopes.mask, org) : redacted, piiFound, hits };
+      return { value: tokenize ? this.vault.tokenize(value, scopes.mask, org, names) : redacted, piiFound, hits };
     } catch (err) {
       // Fail closed: a detector that threw or a block pattern that did not finish may have
       // missed something. The error's own message may quote the result, so it goes nowhere.
@@ -728,13 +744,13 @@ export class Gateway {
 
     // 8. PII: always detected (it taints the session), masked unless turned off — a `mask` rule forces it
     const force = decision.action === "mask" || topical.force;
-    const text = this.protect(content, force, { upstream: upstream.name, tool: name });
+    const text = await this.protect(content, force, { upstream: upstream.name, tool: name });
     let out: CallToolResult = { ...result, content: text.value };
     let piiFound = text.piiFound;
     // structuredContent usually repeats the text content: count the larger of the two, not both
     let hits = text.hits;
     if (result.structuredContent) {
-      const structured = this.protect(result.structuredContent, force, { upstream: upstream.name, tool: name });
+      const structured = await this.protect(result.structuredContent, force, { upstream: upstream.name, tool: name });
       out.structuredContent = structured.value;
       piiFound ||= structured.piiFound;
       for (const [category, count] of Object.entries(structured.hits)) hits[category] = Math.max(hits[category] ?? 0, count);
@@ -836,7 +852,7 @@ export class Gateway {
     if (leak && config.action === "block") return refuse(`${leak}; it would go to "${upstream.name}"`, "sampling:egress");
     if (leak) this.log({ ...base, type: "warn", ruleId: "sampling:egress", reason: leak });
 
-    const masked = this.protect(result.content, true, { upstream: upstream.name, tool: `sampling:${upstream.name}` });
+    const masked = await this.protect(result.content, true, { upstream: upstream.name, tool: `sampling:${upstream.name}` });
     this.log({ ...base, type: "tool_response", output: masked.value, ...(masked.piiFound ? { piiHits: masked.hits } : {}) });
     return { ...result, content: masked.value };
   }
@@ -896,13 +912,17 @@ export class Gateway {
         return item.type === "resource" ? original : { uri: original.uri, mimeType: "text/plain", text: (item as unknown as { text: string }).text };
       });
     }
-    const contents = items.map((item) => {
-      if (!("text" in item) || typeof item.text !== "string") return item;
-      const text = this.protect(item.text, topical.force, { upstream: upstream.name, tool: source });
+    const contents: typeof items = [];
+    for (const item of items) {
+      if (!("text" in item) || typeof item.text !== "string") {
+        contents.push(item);
+        continue;
+      }
+      const text = await this.protect(item.text, topical.force, { upstream: upstream.name, tool: source });
       piiFound ||= text.piiFound;
       addHits(hits, text.hits);
-      return { ...item, text: text.value };
-    });
+      contents.push({ ...item, text: text.value });
+    }
 
     this.taint.observe(source, ["untrusted"], piiFound);
     if (piiFound) this.fingerprints.add(source, result.contents);
@@ -952,7 +972,7 @@ export class Gateway {
     }
     const topical = await this.topicsAfter(source, route.upstream, result.messages, [], args ?? {});
     if (topical.withheld) throw new Error(`${PREFIX} Prompt withheld: ${topical.withheld}`);
-    return { ...result, messages: this.protect(result.messages, topical.force, { upstream: route.upstream.name, tool: source }).value };
+    return { ...result, messages: (await this.protect(result.messages, topical.force, { upstream: route.upstream.name, tool: source })).value };
   }
 
   /** End this session: stop listening to the shared upstreams. They stay open for other sessions. */
