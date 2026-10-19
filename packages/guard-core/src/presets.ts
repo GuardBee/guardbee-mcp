@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PERSONAL_DATA_CATEGORIES, PII_PATTERNS } from "./pii.js";
+import { MODEL_PII, PERSONAL_DATA_CATEGORIES, PII_PATTERNS } from "./pii.js";
 
 /**
  * Which detectors mask: a named preset, then `enable` / `disable` by detector
@@ -12,20 +12,20 @@ export interface PiiSelection {
   disable?: readonly string[];
 }
 
-/** Every detector name `maskPiiInText` knows. */
-export const PII_DETECTORS: readonly string[] = PII_PATTERNS.map((p) => p.name);
+/** Every detector name `maskPiiInText` knows: the regex ones, and the model ones (which need a `SpanLookup`). */
+export const PII_DETECTORS: readonly string[] = [...PII_PATTERNS.map((p) => p.name), ...MODEL_PII];
 
 const OPT_IN = new Set(PII_PATTERNS.filter((p) => p.optIn).map((p) => p.name));
-const PERSONAL = new Set<string>(PERSONAL_DATA_CATEGORIES);
+const PERSONAL = new Set<string>([...PERSONAL_DATA_CATEGORIES, ...MODEL_PII]);
 const defaults = (names: Iterable<string>) => [...names].filter((name) => !OPT_IN.has(name));
 
 export const PII_PRESETS = {
   /** Every detector that runs by default (the behaviour without a selection). */
   ALL: defaults(PII_DETECTORS),
   /** Personal data under KVKK / GDPR; no credentials. */
-  KVKK: defaults(PERSONAL_DATA_CATEGORIES),
+  KVKK: defaults([...PERSONAL_DATA_CATEGORIES, ...MODEL_PII]),
   /** Who someone is and where they live. */
-  IDENTITY: ["address", "birth_date"],
+  IDENTITY: ["person_name", "address", "birth_date"],
   /** Numbers and handles that point at one person or account. */
   IDENTIFIERS: ["tc_kimlik", "vkn", "mersis", "sgk_no", "passport", "iban", "credit_card", "phone_tr", "kep", "email"],
   /** Keys, tokens, private keys and connection strings: not personal data. */

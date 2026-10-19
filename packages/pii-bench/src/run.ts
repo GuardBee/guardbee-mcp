@@ -1,5 +1,5 @@
 /**
- * `pnpm bench [--system <name>] [--samples <n>]`: run a system over the
+ * `pnpm bench [--system <name> | --model-dir <dir>] [--dataset <name>] [--samples <n>]`: run a system over the
  * dataset, print a markdown report, write results/<system>.json and .md, and
  * update the system's results block in README.md.
  */
@@ -9,8 +9,8 @@ import { fileURLToPath } from "node:url";
 import { performance } from "node:perf_hooks";
 import { CATEGORIES, IDENTIFIER_CATEGORIES, type Doc } from "./categories.js";
 import { bootstrap, countDoc, metrics, percentile, type Interval, type Metrics } from "./evaluate.js";
-import { DATASET_PATH } from "./generate.js";
-import { SYSTEMS, type Detection, type System } from "./systems.js";
+import { CHALLENGE_PATH, DATASET_PATH } from "./generate.js";
+import { onnxNerSystem, SYSTEMS, type Detection, type System } from "./systems.js";
 
 export const BOOTSTRAP_SEED = 7;
 
@@ -32,7 +32,7 @@ export interface Report {
   node: string;
 }
 
-export async function evaluate(system: System, docs: Doc[], samples = 1000): Promise<Report> {
+export async function evaluate(system: System, docs: Doc[], samples = 1000, dataset = "tr-pii-v1"): Promise<Report> {
   for (const doc of docs) await system.detect(doc.text);
   const times: number[] = [];
   const detections: Detection[][] = [];
@@ -46,7 +46,7 @@ export async function evaluate(system: System, docs: Doc[], samples = 1000): Pro
   return {
     system: { name: system.name, description: system.description },
     dataset: {
-      name: "tr-pii-v1",
+      name: dataset,
       documents: docs.length,
       pii: docs.filter((doc) => doc.set === "pii").length,
       clean: docs.filter((doc) => doc.set === "clean").length,
@@ -89,21 +89,34 @@ export function toMarkdown(report: Report): string {
     const name = (IDENTIFIER_CATEGORIES as readonly string[]).includes(category) ? category : `${category} †`;
     lines.push(`| ${name} | ${c.support} | ${withCi(report, `${key}.precision`, c.precision)} | ${withCi(report, `${key}.recall`, c.recall)} | ${withCi(report, `${key}.f1`, c.f1)} | ${withCi(report, `${key}.coverage`, c.coverage)} |`);
   }
-  lines.push("", "† Person names and KVKK Art. 6 special categories: guard-core has no regex detector for them.", "");
+  lines.push("", "† No regex detector: person names come from the NER model when the system has one; the KVKK Art. 6 categories have no detector yet.", "");
   return lines.join("\n");
 }
 
+const DATASETS: Record<string, string> = { "tr-pii-v1": DATASET_PATH, "tr-names-challenge": CHALLENGE_PATH };
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const { values } = parseArgs({ options: { system: { type: "string", default: "guard-core-regex" }, samples: { type: "string", default: "1000" } } });
-  const system = SYSTEMS[values.system!];
-  if (!system) throw new Error(`unknown system "${values.system}" (one of ${Object.keys(SYSTEMS).join(", ")})`);
-  const report = await evaluate(system, loadDataset(), Number(values.samples));
-  const out = (ext: string) => fileURLToPath(new URL(`../results/${system.name}.${ext}`, import.meta.url));
+  const { values } = parseArgs({
+    options: {
+      system: { type: "string", default: "guard-core-regex" },
+      "model-dir": { type: "string" },
+      dataset: { type: "string", default: "tr-pii-v1" },
+      samples: { type: "string", default: "1000" },
+    },
+  });
+  const make = SYSTEMS[values.system!];
+  if (!make && !values["model-dir"]) throw new Error(`unknown system "${values.system}" (one of ${Object.keys(SYSTEMS).join(", ")}, or --model-dir <dir>)`);
+  const system = values["model-dir"] ? onnxNerSystem(values["model-dir"]) : make!();
+  const path = DATASETS[values.dataset!];
+  if (!path) throw new Error(`unknown dataset "${values.dataset}" (one of ${Object.keys(DATASETS).join(", ")})`);
+  const report = await evaluate(system, loadDataset(path), Number(values.samples), values.dataset);
+  const key = values.dataset === "tr-pii-v1" ? system.name : `${system.name}.${values.dataset}`;
+  const out = (ext: string) => fileURLToPath(new URL(`../results/${key}.${ext}`, import.meta.url));
   writeFileSync(out("json"), `${JSON.stringify(report, null, 2)}\n`);
   writeFileSync(out("md"), toMarkdown(report));
-  // The README's results section for this system, between its markers
+  // The README's results section for this run, between its markers
   const readme = fileURLToPath(new URL("../README.md", import.meta.url));
-  const block = new RegExp(`(<!-- results:${system.name} -->\\n)[\\s\\S]*?(<!-- /results -->)`);
+  const block = new RegExp(`(<!-- results:${key.replace(/[.+]/g, "\\$&")} -->\\n)[\\s\\S]*?(<!-- /results -->)`);
   writeFileSync(readme, readFileSync(readme, "utf8").replace(block, (_all, open: string, close: string) => `${open}${toMarkdown(report)}${close}`));
   console.log(toMarkdown(report));
 }

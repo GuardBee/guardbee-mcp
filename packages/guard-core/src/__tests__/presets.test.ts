@@ -1,14 +1,17 @@
 import { describe, it, expect } from "vitest";
-import { maskPiiInText, maskPiiInValue, PERSONAL_DATA_CATEGORIES } from "../pii.js";
+import { MODEL_PII, maskPiiInText, maskPiiInValue, PERSONAL_DATA_CATEGORIES } from "../pii.js";
 import { PII_DETECTORS, PII_PRESETS, piiScope, piiSelectionErrors, piiSelectionSchema } from "../presets.js";
 import { gatewayPolicySchema } from "../policy.js";
+
+// A fake token, assembled so secret scanners do not flag the test itself
+const GITHUB_PAT = ["ghp", "aB3dE5fG7hJ9kL1mN3pQ5rS7tU9vW1xY2zAb"].join("_");
 
 const TEXT = [
   "TC 10000000146",
   "IBAN TR330006100519786457841326",
   "mail ahmet@example.com",
   "Adres: Atatürk Mah. 12. Sok. No:5",
-  "anahtar ghp_aB3dE5fG7hJ9kL1mN3pQ5rS7tU9vW1xY2zAb",
+  `anahtar ${GITHUB_PAT}`,
   "sunucu 192.168.1.10",
 ].join("\n");
 
@@ -27,7 +30,7 @@ describe("PII presets", () => {
 
   it("KVKK masks personal data and leaves credentials", () => {
     expect(masked({ preset: "KVKK" })).toEqual(["address", "tc_kimlik", "iban", "email"]);
-    for (const name of PII_PRESETS.KVKK) expect(PERSONAL_DATA_CATEGORIES).toContain(name);
+    for (const name of PII_PRESETS.KVKK) expect([...PERSONAL_DATA_CATEGORIES, ...MODEL_PII]).toContain(name);
   });
 
   it("IDENTITY masks the address and birth date only", () => {
@@ -65,7 +68,7 @@ describe("enable / disable", () => {
   });
 
   it("a detector outside the scope leaves its value as it was", () => {
-    const out = maskPiiInValue({ tc: "10000000146", key: "ghp_aB3dE5fG7hJ9kL1mN3pQ5rS7tU9vW1xY2zAb" }, undefined, piiScope({ preset: "SECRETS" }));
+    const out = maskPiiInValue({ tc: "10000000146", key: GITHUB_PAT }, undefined, piiScope({ preset: "SECRETS" }));
     expect(out).toEqual({ tc: "10000000146", key: "[API-KEY]" });
   });
 

@@ -11,7 +11,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@guardbee/guard-core": "workspace:^"
+    "@guardbee/guard-core": "workspace:^",
+    "@guardbee/ner": "workspace:^"
   },
   "license": "MIT"
 }

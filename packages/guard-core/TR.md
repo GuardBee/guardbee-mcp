@@ -11,6 +11,7 @@ Amacı, aynı kuralın her yerde çalışması: bir kalıbı raporlayan statik t
 | Export | Kullanan | Amaç |
 |---|---|---|
 | `maskPiiInText`, `maskPiiInValue`, `PII_PATTERNS` | security-proxy | Tool sonuçlarında TC Kimlik No, VKN, IBAN, kart, telefon, e-posta, sağlayıcı API key'leri, özel anahtarlar, bağlantı dizeleri ve JWT'leri maskeler; isteğe bağlı bir replacer eşleşmeleri token'a çevirir |
+| `SpanLookup`, `ModelDetector`, `MODEL_PII` | @guardbee/ner, pii-bench | Bir modelin bulduklarını (`@guardbee/ner` ile kişi adları) aynı geçişte maskeler. Önce model metinler üzerinde çalıştırılır, sonra sonuçlar bir arama fonksiyonu olarak `maskPiiInText`'in beşinci argümanına verilir. Bu fonksiyon sonucu olmayan bir metin için hata fırlatmalı, böylece taranmamış bir metin asla temiz kabul edilmez. `person_name`, `ALL`, `KVKK` ve `IDENTITY` presetlerinde bir dedektör adı; arama fonksiyonu verilmezse hiçbir şey bulmaz |
 | `SECRET_RULES` | secret-scanner, security-proxy | 76 secret kuralı (sağlayıcı anahtar ve token'ları — bulut, AI sağlayıcıları, geliştirici araçları, SaaS, Türk ödeme ve SMS sağlayıcıları — özel anahtarlar, bağlantı dizeleri, JWT). Tarayıcı hepsini raporlar; proxy `broad` işaretli olmayan 66'sini maskeler |
 | `isValidTcKimlik`, `isValidVkn`, `isValidIban`, `isValidLuhn`, `isValidTrPhone` | security-proxy, prompt-leak-scanner | Regex eşleşmesinden sonra doğrulama |
 | `INJECTION_RULES`, `findInjections` | prompt-injection-scanner, security-proxy | İngilizce ve Türkçe 27 injection kuralı, base64 çözme dahil; tarayıcı 17 kesin kuralı kullanır |
