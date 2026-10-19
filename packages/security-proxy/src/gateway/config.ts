@@ -14,6 +14,7 @@ import type { DirectoryConfig } from "../directory.js";
 import type { QuotaRule } from "./quota.js";
 import type { TaintBasis, TaintMode } from "./taint.js";
 import type { ApprovalChannel } from "./approval.js";
+import type { NerConfig } from "./ner.js";
 import { llmSchema, resolveLlmConfig, type LlmConfig } from "../llm/config.js";
 
 /** How the agent reaches the proxy. */
@@ -70,6 +71,8 @@ export interface GatewayConfig {
   interceptors: NonNullable<ProxyConfig["interceptors"]>;
   /** OpenAI/Anthropic-compatible endpoints next to /mcp (HTTP mode only). */
   llm?: LlmConfig;
+  /** The person-name model (@guardbee/ner) that masking asks before it runs; absent → names are not detected. */
+  ner?: NerConfig;
 }
 
 
@@ -157,6 +160,37 @@ function resolveExporter(exporter: ExporterYaml, index: number): ExporterConfig 
       return { type: "syslog", ...rest, ...batching };
     }
   }
+}
+
+/**
+ * Person names come from a model: a `guardbee-ner serve` sidecar (url), or
+ * @guardbee/ner in this process (modelDir, or its default cache). Deployment,
+ * not policy: a dashboard policy cannot point it anywhere.
+ */
+const nerSchema = z
+  .object({
+    url: httpUrl.optional(),
+    tokenEnv: envVar.optional(),
+    modelDir: z.string().min(1).optional(),
+    timeoutMs: z.number().int().positive().max(60_000).default(5000),
+  })
+  .strict()
+  .superRefine((ner, ctx) => {
+    if (ner.url && ner.modelDir) ctx.addIssue({ code: "custom", message: "use url (a guardbee-ner sidecar) or modelDir (in this process), not both" });
+    if (ner.tokenEnv && !ner.url) ctx.addIssue({ code: "custom", path: ["tokenEnv"], message: "tokenEnv is for a sidecar (url)" });
+    if (ner.url?.startsWith("http://") && !LOOPBACK.has(new URL(ner.url).hostname.replace(/^\[|\]$/g, ""))) {
+      ctx.addIssue({ code: "custom", path: ["url"], message: "the texts would cross the network in the clear: use https:// for a sidecar on another host" });
+    }
+  });
+
+function resolveNer(ner: z.infer<typeof nerSchema>): NerConfig {
+  if (!ner.url) return { ...(ner.modelDir ? { modelDir: ner.modelDir } : {}), timeoutMs: ner.timeoutMs };
+  let token: string | undefined;
+  if (ner.tokenEnv) {
+    token = process.env[ner.tokenEnv];
+    if (!token) throw new Error(`Environment variable ${ner.tokenEnv} (ner.tokenEnv) is not set`);
+  }
+  return { url: ner.url, ...(token ? { token } : {}), timeoutMs: ner.timeoutMs };
 }
 
 const listenSchema = z
@@ -248,6 +282,7 @@ const yamlSchema = z
       .default({ source: "local", refreshSeconds: 60 }),
     listen: listenSchema.default({ transport: "stdio", host: "127.0.0.1", port: 8787, path: "/mcp", apiKeys: [], maxSessions: 100 }),
     llm: llmSchema.optional(),
+    ner: nerSchema.optional(),
     /** This file also (or only) serves guardbee-hook, the policy for coding agents' own tools. */
     hooks: z.object({}).strict().optional(),
   })
@@ -377,6 +412,7 @@ export function parseGatewayYaml(source: string, fileLabel = "guardbee-proxy.yam
     audit: { ...cfg.audit, dashboard: resolveDashboard(cfg.audit.dashboard), exporters: cfg.audit.exporters.map(resolveExporter) },
     interceptors: cfg.interceptors,
     ...(cfg.llm ? { llm: resolveLlmConfig(cfg.llm) } : {}),
+    ...(cfg.ner ? { ner: resolveNer(cfg.ner) } : {}),
   };
 }
 

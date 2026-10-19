@@ -1,5 +1,5 @@
 import { randomBytes } from "crypto";
-import { maskPiiInValue, type OrgPatterns } from "@guardbee/guard-core";
+import { maskPiiInValue, type OrgPatterns, type SpanLookup } from "@guardbee/guard-core";
 
 const TOKEN = /<pii:[a-z0-9_]+:[0-9a-f]{8}>/g;
 
@@ -18,7 +18,7 @@ export class PiiVault {
   }
 
   /** Replace validated PII in any JSON-like value with tokens; the same value always gets the same token. */
-  tokenize<T>(value: T, include?: ReadonlySet<string>, org?: OrgPatterns): T {
+  tokenize<T>(value: T, include?: ReadonlySet<string>, org?: OrgPatterns, spans?: SpanLookup): T {
     return maskPiiInValue(value, (name, match) => {
       const known = this.byValue.get(match);
       if (known) return known;
@@ -29,7 +29,7 @@ export class PiiVault {
       this.byToken.set(token, match);
       this.byValue.set(match, token);
       return token;
-    }, include, org) as T;
+    }, include, org, spans) as T;
   }
 
   /** Put real values back for tokens this session issued; unknown tokens stay as they are. */
