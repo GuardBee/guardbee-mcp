@@ -338,6 +338,12 @@ importers:
         specifier: 'catalog:'
         version: 4.6.2
 
+  packages/pii-bench:
+    dependencies:
+      '@guardbee/guard-core':
+        specifier: workspace:^
+        version: link:../guard-core
+
   packages/prompt-injection-scanner:
     dependencies:
       '@guardbee/guard-core':

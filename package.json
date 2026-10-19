@@ -10,6 +10,7 @@
     "build": "turbo run build",
     "test": "turbo run test",
     "dev": "turbo run dev",
+    "bench": "turbo run build --filter=@guardbee/guard-core && pnpm --filter @guardbee/pii-bench bench",
     "changeset": "changeset",
     "version-packages": "node scripts/version.mjs",
     "release": "turbo run build && changeset publish",

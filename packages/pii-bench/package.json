@@ -1,0 +1,17 @@
+{
+  "name": "@guardbee/pii-bench",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Turkish PII detection benchmark for guard-core: a synthetic labeled dataset, span-level recall/precision/F1, false-alarm rate and latency, with bootstrap confidence intervals",
+  "type": "module",
+  "scripts": {
+    "generate": "tsx src/generate.ts",
+    "bench": "tsx src/run.ts",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@guardbee/guard-core": "workspace:^"
+  },
+  "license": "MIT"
+}
