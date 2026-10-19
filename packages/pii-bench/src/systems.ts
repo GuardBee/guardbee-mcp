@@ -1,4 +1,6 @@
-import { maskPiiInText } from "@guardbee/guard-core";
+import { existsSync, statSync } from "node:fs";
+import { join } from "node:path";
+import { maskPiiInText, type ModelDetector, type ModelSpan, type SpanLookup } from "@guardbee/guard-core";
 
 /** One span a system flags; `category` is its own name for it (guard-core's detector name). */
 export interface Detection {
@@ -14,9 +16,9 @@ export interface System {
   detect(text: string): Detection[] | Promise<Detection[]>;
 }
 
-const OPEN = "";
-const CLOSE = "";
-const MARK = /([-])/g;
+const OPEN = "\uE000";
+const CLOSE = "\uE001";
+const MARK = /\uE000([\uE100-\uF8FF])\uE001/g;
 
 /**
  * guard-core masks text rather than reporting spans. The replacer swaps each
@@ -24,12 +26,18 @@ const MARK = /([-])/g;
  * matches recovers where each one was. A match a later pattern swallowed
  * (it holds a marker) is expanded, and the swallowed one kept as its own span.
  */
-export function guardCoreSpans(text: string): Detection[] {
+export function guardCoreSpans(text: string, spans?: SpanLookup): Detection[] {
   const found: { name: string; match: string }[] = [];
-  const masked = maskPiiInText(text, (name, match) => {
-    found.push({ name, match });
-    return OPEN + String.fromCharCode(0xe100 + found.length - 1) + CLOSE;
-  });
+  const masked = maskPiiInText(
+    text,
+    (name, match) => {
+      found.push({ name, match });
+      return OPEN + String.fromCharCode(0xe100 + found.length - 1) + CLOSE;
+    },
+    undefined,
+    undefined,
+    spans,
+  );
 
   const detections: Detection[] = [];
   const walk = (value: string, base: number): string => {
@@ -51,10 +59,52 @@ export function guardCoreSpans(text: string): Detection[] {
   return detections.sort((a, b) => a.start - b.start);
 }
 
-export const SYSTEMS: Record<string, System> = {
-  "guard-core-regex": {
+/**
+ * guard-core's masking with a model's spans: the same path the proxy takes,
+ * so a model-found name inside an e-mail address is left to the regex.
+ */
+export function withModel(name: string, description: string, load: () => Promise<ModelDetector>): System {
+  let model: Promise<ModelDetector> | undefined;
+  return {
+    name,
+    description,
+    async detect(text) {
+      const [found] = await (await (model ??= load())).detect([text]);
+      return guardCoreSpans(text, () => found as ModelSpan[]);
+    },
+  };
+}
+
+/**
+ * Any token-classification model exported to ONNX (`optimum-cli export onnx
+ * --task token-classification`): a directory with config.json, tokenizer.json,
+ * tokenizer_config.json and model.onnx (or onnx/model.onnx). PER and PERSON
+ * entities count as person_name. This is how the candidates were compared.
+ */
+export function onnxNerSystem(dir: string): System {
+  const onnx = ["model_quantized.onnx", "model.onnx", "onnx/model_quantized.onnx", "onnx/model.onnx"].find((path) => existsSync(join(dir, path)));
+  if (!onnx) throw new Error(`no model.onnx in ${dir}`);
+  const name = `guard-core+${dir.split("/").filter(Boolean).at(-1)}`;
+  return withModel(name, `guard-core regex + NER model in ${name.slice(11)} (${onnx}, ${(statSync(join(dir, onnx)).size / 1e6).toFixed(0)} MB)`, async () => {
+    const { NerModel } = await import("@guardbee/ner");
+    return NerModel.load({
+      dir,
+      skipVerify: true,
+      spec: { repo: dir, revision: "local", files: [{ path: onnx, sha256: "", size: 0 }], types: { PER: "person_name", PERSON: "person_name" } },
+    });
+  });
+}
+
+export const SYSTEMS: Record<string, () => System> = {
+  "guard-core-regex": () => ({
     name: "guard-core-regex",
     description: "@guardbee/guard-core maskPiiInText, default detectors (regex + checksum validation)",
-    detect: guardCoreSpans,
-  },
+    detect: (text) => guardCoreSpans(text),
+  }),
+  // The default model, from GUARDBEE_NER_CACHE or ~/.cache/guardbee/ner (`guardbee-ner download`)
+  "guard-core+ner": () =>
+    withModel("guard-core+ner", "@guardbee/guard-core regex + @guardbee/ner default model (akdeniz27/bert-base-turkish-cased-ner, int8)", async () => {
+      const { NerModel } = await import("@guardbee/ner");
+      return NerModel.load();
+    }),
 };

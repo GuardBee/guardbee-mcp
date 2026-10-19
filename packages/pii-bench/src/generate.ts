@@ -1,8 +1,9 @@
 /**
  * Builds the dataset from the templates. Labels are right by construction:
  * each span is recorded where its value is written, so the generator, not a
- * reader, decides the offsets. `pnpm generate` rewrites data/tr-pii-v1.jsonl;
- * a test checks the committed file is what this produces.
+ * reader, decides the offsets. `pnpm generate` rewrites data/tr-pii-v1.jsonl
+ * and data/tr-names-challenge.jsonl; a test checks the committed files are
+ * what this produces.
  */
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -30,6 +31,7 @@ import {
   type Case,
   type Rand,
 } from "./identities.js";
+import { CHALLENGE_LINES } from "./challenge.js";
 import { CLEAN_TEMPLATES, PII_TEMPLATES } from "./templates.js";
 
 export const DATASET_SEED = 20261019;
@@ -205,12 +207,23 @@ export function generateDataset(seed = DATASET_SEED): Doc[] {
   return docs;
 }
 
+/** The hand-written name challenge (challenge.ts): a line with a label is a PII document, one without is clean. */
+export function generateChallenge(): Doc[] {
+  return CHALLENGE_LINES.map((line, i) => {
+    const { text, spans } = render(line, rng(i));
+    const domain: Domain = text === text.toLocaleUpperCase("tr") ? "legal" : /^\p{Ll}/u.test(text) ? "chat" : "support";
+    return { id: `challenge-${String(i + 1).padStart(3, "0")}`, domain, set: spans.length > 0 ? "pii" : "clean", text, spans };
+  });
+}
+
 export const toJsonl = (docs: Doc[]): string => docs.map((doc) => JSON.stringify(doc)).join("\n") + "\n";
 
 export const DATASET_PATH = fileURLToPath(new URL("../data/tr-pii-v1.jsonl", import.meta.url));
+export const CHALLENGE_PATH = fileURLToPath(new URL("../data/tr-names-challenge.jsonl", import.meta.url));
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const docs = generateDataset();
-  writeFileSync(DATASET_PATH, toJsonl(docs));
-  console.log(`wrote ${docs.length} documents to ${DATASET_PATH}`);
+  for (const [path, docs] of [[DATASET_PATH, generateDataset()], [CHALLENGE_PATH, generateChallenge()]] as const) {
+    writeFileSync(path, toJsonl(docs));
+    console.log(`wrote ${docs.length} documents to ${path}`);
+  }
 }

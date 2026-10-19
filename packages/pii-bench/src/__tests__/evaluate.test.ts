@@ -78,7 +78,7 @@ describe("metrics", () => {
 
 describe("evaluate", () => {
   it("runs guard-core over the dataset and reports what regex cannot see", async () => {
-    const report = await evaluate(SYSTEMS["guard-core-regex"]!, loadDataset(), 50);
+    const report = await evaluate(SYSTEMS["guard-core-regex"]!(), loadDataset(), 50);
     const { perCategory } = report.metrics;
     expect(perCategory.tc_kimlik.recall).toBe(1);
     expect(perCategory.iban.recall).toBe(1);

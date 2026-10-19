@@ -38,6 +38,52 @@ export const PERSONAL_DATA_CATEGORIES = [
 
 export const OPT_IN_PII = ["ip_address", "mac_address", "plate_tr"] as const;
 
+/**
+ * Personal data no regex finds: a model does (the NER backend in
+ * @guardbee/ner). Its spans come in through `SpanLookup`; without one these
+ * detectors find nothing.
+ */
+export const MODEL_PII = ["person_name"] as const;
+
+/** What a model-found value is replaced with, unless the replacer says otherwise. */
+export const MODEL_PII_REPLACEMENT: Record<(typeof MODEL_PII)[number], string> = {
+  person_name: "[KİŞİ]",
+};
+
+/** One value a model found in a text: offsets into that text, and the detector name. */
+export interface ModelSpan {
+  start: number;
+  end: number;
+  detector: string;
+}
+
+/**
+ * The spans a model found in a text, looked up by the text itself: models run
+ * asynchronously, masking does not, so the caller runs the model over every
+ * string first and masking asks for each one's result. A lookup that has no
+ * result for a text must throw, never return nothing: an unscanned text
+ * passed as clean is the silent fallback masking must not make.
+ */
+export type SpanLookup = (text: string) => readonly ModelSpan[];
+
+/** A model that finds personal data in texts: one list of spans per text, in order. */
+export interface ModelDetector {
+  detect(texts: readonly string[]): Promise<ModelSpan[][]>;
+}
+
+/**
+ * The whitespace-delimited run around a span holds an e-mail address or a URL:
+ * a regex detector masks that whole, where masking the name inside first
+ * would break its match and leave the rest of the address out.
+ */
+function insideAddress(text: string, start: number, end: number): boolean {
+  let from = start;
+  let to = end;
+  while (from > 0 && !/\s/.test(text[from - 1]!)) from--;
+  while (to < text.length && !/\s/.test(text[to]!)) to++;
+  return /@|:\/\//.test(text.slice(from, to));
+}
+
 
 const REPLACEMENT_BY_SECRET: Record<string, string> = {
   jwt: "[JWT-TOKEN]",
@@ -215,8 +261,25 @@ function runs(name: string, optIn: boolean | undefined, include: PiiInclude | un
   return !optIn || include?.has(name) === true;
 }
 
+/** Model-found values, replaced before the regex detectors run (whose placeholders a model may misread). */
+function maskModelSpans(text: string, spans: SpanLookup | undefined, replace: PiiReplacer | undefined, include: PiiInclude | undefined): string {
+  const found = spans?.(text);
+  if (!found || found.length === 0) return text;
+  let out = "";
+  let cursor = 0;
+  for (const { start, end, detector } of [...found].sort((a, b) => a.start - b.start)) {
+    if (start < cursor || end <= start || end > text.length || !runs(detector, false, include) || insideAddress(text, start, end)) continue;
+    const match = text.slice(start, end);
+    const fallback = MODEL_PII_REPLACEMENT[detector as keyof typeof MODEL_PII_REPLACEMENT] ?? "[REDACTED]";
+    out += text.slice(cursor, start) + (replace?.(detector, match) ?? fallback);
+    cursor = end;
+  }
+  return out + text.slice(cursor);
+}
+
 /** Built-in detectors only. */
-function maskBuiltIn(text: string, replace: PiiReplacer | undefined, include: PiiInclude | undefined): string {
+function maskBuiltIn(text: string, replace: PiiReplacer | undefined, include: PiiInclude | undefined, spans?: SpanLookup): string {
+  text = maskModelSpans(text, spans, replace, include);
   const masked = (name: string, replacement: string, validate: PiiPattern["validate"]) => (match: string) =>
     validate && !validate(match) ? match : (replace?.(name, match) ?? replacement);
 
@@ -255,19 +318,20 @@ function mapStrings(value: unknown, fn: (text: string) => string): unknown {
  * Mask validated PII with the detectors `include` selects (see `PiiInclude`).
  * `org` adds an organization's block and allow patterns (see `OrgPatterns`);
  * it may throw `PiiPatternTimeoutError`, and then nothing may go out.
+ * `spans` adds what a model found in each string (see `SpanLookup`).
  */
-export function maskPiiInText(text: string, replace?: PiiReplacer, include?: PiiInclude, org?: OrgPatterns): string {
-  return maskPiiInValue(text, replace, include, org) as string;
+export function maskPiiInText(text: string, replace?: PiiReplacer, include?: PiiInclude, org?: OrgPatterns, spans?: SpanLookup): string {
+  return maskPiiInValue(text, replace, include, org, spans) as string;
 }
 
-export function maskPiiInValue(value: unknown, replace?: PiiReplacer, include?: PiiInclude, org?: OrgPatterns): unknown {
-  if (!org || org.empty) return mapStrings(value, (text) => maskBuiltIn(text, replace, include));
+export function maskPiiInValue(value: unknown, replace?: PiiReplacer, include?: PiiInclude, org?: OrgPatterns, spans?: SpanLookup): unknown {
+  if (!org || org.empty) return mapStrings(value, (text) => maskBuiltIn(text, replace, include, spans));
 
   // 1. Which detected values an allow pattern exempts, decided for all of them in one pass
   let exempt = new Map<string, string>();
   if (org.hasAllow) {
     const detected = new Set<string>();
-    mapStrings(value, (text) => maskBuiltIn(text, (_name, match) => (detected.add(match), match), include));
+    mapStrings(value, (text) => maskBuiltIn(text, (_name, match) => (detected.add(match), match), include, spans));
     exempt = org.allowed([...detected]);
   }
 
@@ -282,6 +346,7 @@ export function maskPiiInValue(value: unknown, replace?: PiiReplacer, include?: 
         return match;
       },
       include,
+      spans,
     ),
   );
   if (!org.hasBlock) return builtIn;

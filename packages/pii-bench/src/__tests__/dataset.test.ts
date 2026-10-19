@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { isValidIban, isValidLuhn, isValidTcKimlik, isValidTrPhone, isValidVkn } from "@guardbee/guard-core";
 import { describe, expect, it } from "vitest";
 import { CATEGORIES } from "../categories.js";
-import { DATASET_PATH, generateDataset, render, toJsonl } from "../generate.js";
+import { CHALLENGE_PATH, DATASET_PATH, generateChallenge, generateDataset, render, toJsonl } from "../generate.js";
 import { notTcKimlik, rng, suffix } from "../identities.js";
 import { loadDataset } from "../run.js";
 
@@ -11,6 +11,14 @@ const docs = loadDataset();
 describe("dataset", () => {
   it("is what the generator writes", () => {
     expect(readFileSync(DATASET_PATH, "utf8")).toBe(toJsonl(generateDataset()));
+    expect(readFileSync(CHALLENGE_PATH, "utf8")).toBe(toJsonl(generateChallenge()));
+  });
+
+  it("splits the name challenge into lines with a name and lines without", () => {
+    const challenge = loadDataset(CHALLENGE_PATH);
+    expect(challenge.filter((doc) => doc.set === "pii").length).toBeGreaterThanOrEqual(25);
+    expect(challenge.filter((doc) => doc.set === "clean").length).toBeGreaterThanOrEqual(15);
+    for (const doc of challenge) for (const span of doc.spans) expect(span.category).toBe("person_name");
   });
 
   it("has unique ids, labels only in the PII set, and no overlapping spans", () => {
