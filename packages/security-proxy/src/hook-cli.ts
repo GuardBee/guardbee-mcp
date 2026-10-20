@@ -49,7 +49,7 @@ async function run(agent: AgentName, args: string[]): Promise<void> {
     event = JSON.parse(await readStdin()) as Record<string, unknown>;
     const config = loadConfig(args);
     const audit = auditFor(config);
-    const out = handleEvent(agent, new HookEngine(config, audit), event);
+    const out = await handleEvent(agent, new HookEngine(config, audit), event);
     await audit.close();
     if (out) process.stdout.write(JSON.stringify(out));
   } catch (err) {

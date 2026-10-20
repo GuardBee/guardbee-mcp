@@ -1,4 +1,5 @@
-import { MODEL_PII, PERSONAL_DATA_CATEGORIES, SPECIAL_CATEGORIES, detectTopics, maskPiiInValue, scanToolResult } from "@guardbee/guard-core";
+import { MODEL_PII, PERSONAL_DATA_CATEGORIES, SPECIAL_CATEGORIES, detectTopics, maskPiiInValue, scanToolResult, type SpanLookup } from "@guardbee/guard-core";
+import { NerError, nerDetectorFor, scanNames } from "../gateway/ner.js";
 import { piiScopesFor } from "../gateway/pii-scope.js";
 import type { AuditLogger } from "../audit/logger.js";
 import type { GatewayConfig } from "../gateway/config.js";
@@ -117,10 +118,26 @@ export class HookEngine {
     return { action: "allow" };
   }
 
-  /** What the tool returned: PII taints the session, injection and topic rules can stop the agent. */
-  after(call: AgentCall, output: unknown): AfterDecision {
+  /**
+   * What the tool returned: PII taints the session, injection and topic rules can stop the agent.
+   * With `ner:`, names count too. A hook runs once per call, so a sidecar (`ner.url`) suits it
+   * better than loading the model in every hook process.
+   */
+  async after(call: AgentCall, output: unknown): Promise<AfterDecision> {
     const taint = loadTaint(call.agent, call.session, this.stateDir);
     const hits: Record<string, number> = {};
+    let names: SpanLookup | undefined;
+    let nerFailed = false;
+    if (this.config.ner) {
+      try {
+        names = await scanNames(nerDetectorFor(this.config.ner), output);
+      } catch (err) {
+        // The output is already with the agent: assume it held a name, so the session is tainted
+        nerFailed = true;
+        const reason = err instanceof NerError ? err.message : `${err instanceof Error ? err.name : typeof err}`;
+        this.log(call, { type: "warn", ruleId: "pii:ner-failed", reason: `name detection failed (${reason}); the output is counted as personal data` });
+      }
+    }
     maskPiiInValue(
       output,
       (name) => {
@@ -129,8 +146,10 @@ export class HookEngine {
         return "";
       },
       this.detectScope(call.agent),
+      undefined,
+      names,
     );
-    const piiFound = Object.keys(hits).length > 0;
+    const piiFound = nerFailed || Object.keys(hits).length > 0;
     const result: AfterDecision = {};
 
     // Instructions hidden in what the tool brought back

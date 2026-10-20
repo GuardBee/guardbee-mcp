@@ -206,10 +206,10 @@ False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency
 
 | | Precision | Recall | F1 | Fully masked |
 |---|---|---|---|---|
-| **All categories** | 96.9 (96.0–97.8) | 99.9 (99.6–100.0) | 98.4 (97.8–98.8) | 99.6 (99.2–99.9) |
+| **All categories** | 97.1 (96.2–97.9) | 100.0 (100.0–100.0) | 98.5 (98.1–98.9) | 99.7 (99.4–99.9) |
 | **Identifiers** | 94.3 (92.2–96.0) | 100.0 (100.0–100.0) | 97.1 (95.9–98.0) | 100.0 (100.0–100.0) |
 
-False-alarm rate (clean documents with any detection): 11.3 (6.9–16.3)%. Latency per document: p50 7.859 ms, p95 14.616 ms (Node v23.11.0).
+False-alarm rate (clean documents with any detection): 11.3 (6.9–16.3)%. Latency per document: p50 8.054 ms, p95 15.235 ms (Node v23.11.0).
 
 | Category | Labels | Precision | Recall | F1 | Fully masked |
 |---|---|---|---|---|---|
@@ -225,7 +225,7 @@ False-alarm rate (clean documents with any detection): 11.3 (6.9–16.3)%. Laten
 | mersis | 16 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
 | birth_date | 50 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
 | address | 68 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
-| person_name † | 650 | 98.9 (98.1–99.6) | 100.0 (100.0–100.0) | 99.5 (99.0–99.8) | 100.0 (100.0–100.0) |
+| person_name † | 650 | 99.2 (98.5–99.8) | 100.0 (100.0–100.0) | 99.6 (99.2–99.9) | 100.0 (100.0–100.0) |
 | health † | 60 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
 | religion_belief † | 32 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
 | ethnic_origin † | 17 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
@@ -234,7 +234,7 @@ False-alarm rate (clean documents with any detection): 11.3 (6.9–16.3)%. Laten
 | criminal_record † | 34 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
 | sex_life † | 24 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
 | biometric † | 24 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 83.3 (66.7–96.3) |
-| genetic † | 24 | 73.3 (62.5–86.2) | 91.7 (79.2–100.0) | 81.5 (71.4–91.3) | 91.7 (79.2–100.0) |
+| genetic † | 24 | 75.0 (65.0–87.5) | 100.0 (100.0–100.0) | 85.7 (78.8–93.3) | 100.0 (100.0–100.0) |
 
 † No regex detector: person names come from the NER model, and the KVKK Art. 6 categories from guard-core's opt-in term lists, when the system has them.
 <!-- /results -->
@@ -249,7 +249,7 @@ False-alarm rate (clean documents with any detection): 11.3 (6.9–16.3)%. Laten
 | **All categories** | 95.1 (90.5–98.7) | 100.0 (100.0–100.0) | 97.5 (95.0–99.4) | 93.7 (87.9–98.7) |
 | **Identifiers** | – | – | – | – |
 
-False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency per document: p50 4.779 ms, p95 6.441 ms (Node v23.11.0).
+False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency per document: p50 4.677 ms, p95 6.585 ms (Node v23.11.0).
 
 | Category | Labels | Precision | Recall | F1 | Fully masked |
 |---|---|---|---|---|---|
@@ -293,7 +293,7 @@ guard-core finds the nine special categories with a term list per category and a
 | criminal record | 100 | 100 | 75.0 |
 | sex life | 100 | 85.7 | 40.0 |
 | biometric | 100 | 100 | 66.7 |
-| genetic | 81.5 | 100 | 80.0 |
+| genetic | 85.7 | 100 | 80.0 |
 | clean false alarms | 11.3% (same as NER alone) | 0% | 0% |
 
 - **Run it with the name model.** Without names the context rule only has identifiers and role words to go on, and recall drops: many sentences are about a person only through their name.

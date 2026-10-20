@@ -71,3 +71,15 @@ describe("KVKK Art. 6 special categories", () => {
     expect(seen).toEqual(["union_membership:sendika üyesi", "religion_belief:Alevi"]);
   });
 });
+
+describe("a model span inside a special-category term", () => {
+  it("is left to the category, but a name that only contains a term is not", () => {
+    const text = "Hastanın Huntington geni pozitif çıktı.";
+    const huntington = () => [{ start: 9, end: 19, detector: "person_name" }];
+    expect(maskPiiInText(text, undefined, SENSITIVE, undefined, huntington)).toBe("Hastanın [GENETİK] çıktı.");
+    // Without the special categories the model's span still masks
+    expect(maskPiiInText(text, undefined, undefined, undefined, huntington)).toBe("Hastanın [KİŞİ] geni pozitif çıktı.");
+    const named = "Ahmet Kürt geldi, hasta.";
+    expect(maskPiiInText(named, undefined, SENSITIVE, undefined, () => [{ start: 0, end: 10, detector: "person_name" }])).toBe("[KİŞİ] geldi, hasta.");
+  });
+});
