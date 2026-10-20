@@ -1,5 +1,12 @@
 # @guardbee/mcp-db-gateway
 
+## 0.5.3
+
+### Patch Changes
+
+- Updated dependencies [[`c1a16b9`](https://github.com/GuardBee/guardbee-mcp/commit/c1a16b9c9f588c4d3735fb45a1339b33119a8de0)]:
+  - @guardbee/guard-core@0.21.0
+
 ## 0.5.2
 
 ### Patch Changes
