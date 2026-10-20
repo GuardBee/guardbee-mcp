@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-db-gateway",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "mcpName": "io.github.GuardBee/db-gateway",
   "description": "KVKK/GDPR-compliant MCP server gateway between LLMs and databases",
   "author": "GuardBee <hello@guardbee.ai>",
