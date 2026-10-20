@@ -114,6 +114,21 @@ const SECRET_PATTERNS: PiiPattern[] = SECRET_RULES.filter((rule) => !rule.broad)
 // Order matters: earlier patterns mask first, so later ones never see their digits.
 // Secrets run first — a key or connection string holds digit runs that would
 // otherwise be half-masked as a phone or card number.
+/** A date in digits ("12.05.1990", "1990-05-12") or with a Turkish or English month name ("12 Şubat 1985"). */
+const MONTHS = "ocak|[şs]ubat|mart|nisan|may[ıi]s|haziran|temmuz|a[ğg]ustos|eyl[üu]l|ekim|kas[ıi]m|aral[ıi]k|january|february|march|april|may|june|july|august|september|october|november|december";
+const DATE = `\\d{1,2}[./-]\\d{1,2}[./-](?:\\d{4}|\\d{2})|\\d{4}-\\d{2}-\\d{2}|\\d{1,2}\\s+(?:${MONTHS})\\s+\\d{4}`;
+
+/**
+ * A Turkish street address without a label: neighbourhood, street, door
+ * number, then optionally flat and district/city ("Gazi Mah. Akasya Cad.
+ * No:5 D:3 Çankaya/Ankara"). All three parts are needed, so a street name in
+ * passing ("Bağdat Caddesi'nde") is not one.
+ */
+const NAME_WORDS = "(?:[\\p{Lu}\\d][\\p{L}\\d.]*\\s+){1,3}";
+const STREET_ADDRESS =
+  `${NAME_WORDS}(?:Mah\\.|Mahallesi|Mh\\.)\\s+${NAME_WORDS}(?:Cad\\.|Caddesi|Cd\\.|Sok\\.|Soka[kğ]ı?|Sk\\.|Bulvarı|Blv\\.)\\s*,?\\s*` +
+  `(?:No|Numara)\\s*[:.]?\\s*\\d+[\\p{L}]?(?:\\s*\\/\\s*\\d+)?(?:\\s*[/,]?\\s*(?:D|Daire|Kat|K)\\s*[:.]?\\s*\\d+)*(?:\\s+\\p{Lu}[\\p{L}]+\\s*/\\s*\\p{Lu}[\\p{L}]+)?`;
+
 export const PII_PATTERNS: PiiPattern[] = [
   {
     // The whole block, not just the BEGIN line the code scanner reports.
@@ -151,21 +166,33 @@ export const PII_PATTERNS: PiiPattern[] = [
     replacement: "[MERSİS]",
   },
   {
-    // Label-gated: "Doğum tarihi: 12.05.1990", "DOB 1990-05-12"
+    // Label-gated: "Doğum tarihi: 12.05.1990", "doğum tarihim 12 Şubat 1985", "DOB 1990-05-12";
+    // or a date right before "doğumlu" ("12 Şubat 1985 doğumlu", "12.02.1985 tarihinde doğumlu")
     name: "birth_date",
-    pattern: /(?<=\b(?:do[ğg]um\s+tarihi|date\s+of\s+birth|birth\s*date|DOB)\s*[:#]?\s*)(?:\d{1,2}[./-]\d{1,2}[./-](?:\d{4}|\d{2})|\d{4}-\d{2}-\d{2})(?!\d)/gi,
+    pattern: new RegExp(
+      `(?<=\\b(?:do[ğg]um\\s+tar[iİı]h(?:[iİı](?:m|n|niz)?)?|date\\s+of\\s+birth|birth\\s*date|DOB|born(?:\\s+on)?)\\s*[:#]?\\s*)(?:${DATE})(?!\\d)|(?<![\\d.])(?:${DATE})(?=\\s+(?:tarihinde\\s+)?do[ğg]umlu)`,
+      "gi",
+    ),
     replacement: "[DOĞUM-TARİHİ]",
   },
   {
     // Label-gated, with a colon, the rest of the line: "Adres: Atatürk Mah. 12. Sok. No:5"
     // Not "IP address:", "E-mail address:", "Web address:", "Wallet address:".
     name: "address",
-    pattern: /(?<=(?<!\b(?:IP|MAC|e-?mail|web|wallet|billing\s+e-?mail|server|host)\s)\b(?:adres(?:i)?|ikametgah|address)\s*:\s*)\S[^\n]{7,199}/gi,
+    // ADRESİ: the /i flag does not fold İ to i.
+    pattern: /(?<=(?<!\b(?:IP|MAC|e-?mail|web|wallet|billing\s+e-?mail|server|host)\s)\b(?:adres[iİı]?|ADRES[İI]?|ikametgah|address)\s*:\s*)\S[^\n]{7,199}/giu,
     replacement: "[ADRES]",
     // A street address has a number or a street word; a URL or a handle is not one
     validate: (match) =>
       !/^\s*(?:https?:|www\.|@|0x)/i.test(match) &&
       (/\d/.test(match) || /\b(?:mah(?:alle(?:si)?)?|sok(?:ak|a[ğg]ı)?|cad(?:de(?:si)?)?|bulvar(?:ı)?|street|st\.|avenue|ave\.|road|rd\.|apt|daire|kat)\b/i.test(match)),
+  },
+  {
+    // A street address with no label (STREET_ADDRESS above). Case-sensitive: the
+    // names are capitalised, which is what keeps "adresim" out of the span.
+    name: "address",
+    pattern: new RegExp(`(?<![\\p{L}\\d])${STREET_ADDRESS}`, "gu"),
+    replacement: "[ADRES]",
   },
   {
     name: "tc_kimlik",
@@ -205,12 +232,21 @@ export const PII_PATTERNS: PiiPattern[] = [
   },
   {
     name: "phone_tr",
-    // Not glued to letters, `/` or `-` (ids in URLs), and either written with a
-    // +90 / 0 prefix or grouped with spaces/dashes: a bare 10-digit run is more
-    // often an id or an integer IP (2130706433) than a phone number.
-    pattern: /(?<![\w+/.#-])(?:(?:\+90|0090|0)[\s-]?)?\d{3}[\s-]?\d{3}[\s-]?\d{2}[\s-]?\d{2}(?![\w/-])/g,
+    // Not glued to letters, `/` or `-` (ids in URLs), and written with a +90 / 0
+    // prefix, an area code in parentheses ("(0532) 123 45 67"), or grouped with
+    // spaces/dashes: a bare 10-digit run is more often an id or an integer IP
+    // (2130706433) than a phone number. The next pattern takes the bare ones.
+    pattern: /(?<![\w+/.#-])(?:(?:\+90|0090|0)[\s-]?)?(?:\(0?\d{3}\)|\d{3})[\s-]?\d{3}[\s-]?\d{2}[\s-]?\d{2}(?![\w/-])/g,
     replacement: "+90-***-***-**[TELEFON]",
-    validate: (match) => isValidTrPhone(match) && (/^(?:\+90|0)/.test(match) || /[\s-]/.test(match)),
+    validate: (match) => isValidTrPhone(match) && (/^(?:\+90|0|\()/.test(match) || /[\s-]/.test(match)),
+  },
+  {
+    // A bare mobile number (5xx, ten digits) shortly after a word that says it is one:
+    // "numaram değişti 5321234567", "iletişim: Ayşe, 5321234567"; not "build 5321234567"
+    name: "phone_tr",
+    pattern: /(?<=\b(?:numara\p{L}*|tel(?:efon)?\p{L}*|cep|gsm|ileti[şs]im|whatsapp|ara(?:y[ıi]n|r\s*m[ıi]s[ıi]n)|phone|mobile)\b[^\n\d]{0,40})5[0-5]\d{8}(?![\w/-])/giu,
+    replacement: "+90-***-***-**[TELEFON]",
+    validate: isValidTrPhone,
   },
   {
     name: "mac_address",

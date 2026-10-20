@@ -458,7 +458,7 @@ Since 1.1, a broad phrase alone no longer blocks: in 1.0 "use jailbreak mode" or
 | IBAN (TR) | mod-97 | `TR330006100519786457841326` | `TR**[IBAN]` |
 | Card number | Luhn | `4111 1111 1111 1111` | `****-****-****-[KART]` |
 | Email | — | `ahmet@example.com` | `***@[EMAIL]` |
-| Phone (TR) | mobile / landline / 850 prefix | `0532 123 45 67` | `+90-***-***-**[TELEFON]` |
+| Phone (TR) | mobile / landline / 850 prefix; `(0532) …` too; a bare `5xx` number only after a word like `numaram`, `tel`, `cep` | `0532 123 45 67` | `+90-***-***-**[TELEFON]` |
 | Tax number (VKN) | check digit, needs a `VKN` / `Vergi No` label | `VKN: 1234567890` | `VKN: [VKN]` |
 | Provider keys | 22 key and token formats from secret-scanner (AWS, GitHub, Stripe, OpenAI, Anthropic, Slack, …) | `ghp_…`, `AKIA…` | `[API-KEY]` |
 | Other API keys | `sk_`/`api_`/`token_`… prefix, letters and digits | `api_k3y9x8…` | `[API-KEY]` |
@@ -468,8 +468,8 @@ Since 1.1, a broad phrase alone no longer blocks: in 1.0 "use jailbreak mode" or
 | Passport | needs a `Pasaport` / `Passport` label | `Pasaport No: U12345678` | `Pasaport No: [PASAPORT]` |
 | SGK / SSK / Bağ-Kur no | needs the label | `SGK sicil no: 1234567890` | `SGK sicil no: [SGK-NO]` |
 | MERSİS no | needs the label; 16 digits | `MERSİS No: 0123 4567 8901 2345` | `MERSİS No: [MERSİS]` |
-| Date of birth | needs `Doğum tarihi` / `DOB` / `Date of birth` | `Doğum tarihi: 12.05.1990` | `Doğum tarihi: [DOĞUM-TARİHİ]` |
-| Postal address | needs `Adres:` / `Address:`; a number or street word; not IP/e-mail/web/wallet addresses | `Adres: Moda Cad. No 5` | `Adres: [ADRES]` |
+| Date of birth | needs `Doğum tarihi` / `DOB` / `Date of birth`, or `doğumlu` right after; digits or a month name | `Doğum tarihi: 12.05.1990`, `3 Mart 1979 doğumlu` | `Doğum tarihi: [DOĞUM-TARİHİ]` |
+| Postal address | needs `Adres:` / `Address:` (a number or street word; not IP/e-mail/web/wallet addresses), or no label in the `Mah. … Cad./Sok. … No:` form | `Adres: Moda Cad. No 5`, `Gazi Mah. Akasya Cad. No:5 D:3` | `Adres: [ADRES]` |
 | KEP address | `@….kep.tr` | `acme@hs01.kep.tr` | `***@[KEP]` |
 | Person name *(needs `ner:`)* | a local Turkish NER model ([`@guardbee/ner`](../ner)) | `Ayşe Yılmaz aradı` | `[KİŞİ] aradı` |
 | IP address *(opt-in)* | valid IPv4 octets; IPv6 with `::` or 8 groups | `10.0.3.17` | `[IP]` |

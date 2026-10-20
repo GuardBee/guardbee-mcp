@@ -324,7 +324,7 @@ Proxy kendi tool'unu kaydetmez. Hedef sunucunun tool'larını iletir ve her ça�
 | IBAN (TR) | mod-97 | `TR330006100519786457841326` | `TR**[IBAN]` |
 | Kart numarası | Luhn | `4111 1111 1111 1111` | `****-****-****-[KART]` |
 | E-posta | — | `ahmet@example.com` | `***@[EMAIL]` |
-| Telefon (TR) | cep / sabit hat / 850 öneki | `0532 123 45 67` | `+90-***-***-**[TELEFON]` |
+| Telefon (TR) | cep / sabit hat / 850 öneki; `(0532) …` da; öneksiz `5xx` numara yalnızca `numaram`, `tel`, `cep` gibi bir sözcükten sonra | `0532 123 45 67` | `+90-***-***-**[TELEFON]` |
 | Vergi no (VKN) | kontrol hanesi, `VKN` / `Vergi No` etiketi gerekir | `VKN: 1234567890` | `VKN: [VKN]` |
 | Sağlayıcı anahtarları | secret-scanner'dan 22 anahtar ve token formatı (AWS, GitHub, Stripe, OpenAI, Anthropic, Slack, …) | `ghp_…`, `AKIA…` | `[API-KEY]` |
 | Diğer API key'ler | `sk_`/`api_`/`token_`… öneki, harf ve rakam | `api_k3y9x8…` | `[API-KEY]` |
@@ -334,8 +334,8 @@ Proxy kendi tool'unu kaydetmez. Hedef sunucunun tool'larını iletir ve her ça�
 | Pasaport | `Pasaport` / `Passport` etiketi gerekir | `Pasaport No: U12345678` | `Pasaport No: [PASAPORT]` |
 | SGK / SSK / Bağ-Kur no | etiket gerekir | `SGK sicil no: 1234567890` | `SGK sicil no: [SGK-NO]` |
 | MERSİS no | etiket gerekir; 16 hane | `MERSİS No: 0123 4567 8901 2345` | `MERSİS No: [MERSİS]` |
-| Doğum tarihi | `Doğum tarihi` / `DOB` etiketi gerekir | `Doğum tarihi: 12.05.1990` | `Doğum tarihi: [DOĞUM-TARİHİ]` |
-| Posta adresi | `Adres:` etiketi, numara veya cadde/sokak kelimesi gerekir; IP/e-posta/web adresi değil | `Adres: Moda Cad. No 5` | `Adres: [ADRES]` |
+| Doğum tarihi | `Doğum tarihi` / `DOB` etiketi ya da hemen ardından `doğumlu` gerekir; rakamla ya da ay adıyla | `Doğum tarihi: 12.05.1990`, `3 Mart 1979 doğumlu` | `Doğum tarihi: [DOĞUM-TARİHİ]` |
+| Posta adresi | `Adres:` etiketi (numara veya cadde/sokak kelimesiyle; IP/e-posta/web adresi değil) ya da etiketsiz `Mah. … Cad./Sok. … No:` biçimi | `Adres: Moda Cad. No 5`, `Gazi Mah. Akasya Cad. No:5 D:3` | `Adres: [ADRES]` |
 | KEP adresi | `@….kep.tr` | `acme@hs01.kep.tr` | `***@[KEP]` |
 | Kişi adı *(`ner:` gerekir)* | yerel Türkçe NER modeli ([`@guardbee/ner`](../ner)) | `Ayşe Yılmaz aradı` | `[KİŞİ] aradı` |
 | IP adresi *(isteğe bağlı)* | geçerli IPv4; `::` veya 8 grup içeren IPv6 | `10.0.3.17` | `[IP]` |
