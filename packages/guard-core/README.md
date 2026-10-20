@@ -30,9 +30,20 @@ A regex alone masks any 11-digit number as a TC Kimlik No and any 16-digit numbe
 | VKN (tax number) | Gelir İdaresi check digit, and a `VKN` / `Vergi No` label before the number |
 | IBAN | ISO 7064 MOD97-10 |
 | Card number | Luhn |
-| Phone (TR) | Mobile (5xx), landline (2xx–4xx) or 850 code; written with a +90 / 0 prefix, an area code in parentheses, or grouped with spaces/dashes, and not part of a URL or id. A bare 10-digit mobile number counts only after a word that says it is one (`numaram`, `tel`, `cep`, `iletişim`) |
+| Phone (TR) | Mobile (5xx), landline (2xx–4xx) or 850 code; written with a +90 / 0 prefix, an area code in parentheses, or grouped with spaces, dashes or dots, and not part of a URL or id. A bare 10-digit mobile number counts only after a word that says it is one (`numaram`, `tel`, `cep`, `iletişim`) |
 
 A match that fails its check (an order number, a tracking code) is left unchanged.
+
+## Encoded and disguised values
+
+A value a tool returns encoded, or that someone writes to slip past a regex, is masked like the plain one:
+
+- **Character escapes:** HTML entities (`&#49;`, `&#x31;`, `&commat;`), JS/JSON escapes (`\u0031`, `\x31`), URL escapes (`%40`; a lone `%50` between spaces stays a percentage).
+- **Look-alike characters:** fullwidth and mathematical digits (NFKC), other scripts' digits (Arabic-Indic `١٢٣`, Devanagari `१२३`…), zero-width characters.
+- **base64, base64url, hex:** a run that decodes to readable text is masked and encoded again in the same form (alphabet and padding kept), up to two encodings deep. Binary runs (hashes, images, keys) are left alone.
+- **Separators and spelled-out forms:** `TC: 100 000 001 46` after a TC label, `+90.532.123.45.67`, `ahmet [at] example [dot] com`.
+
+Detection runs on a decoded copy; masking maps back onto the characters as written, so everything around a value keeps its spelling. The replacer gets the decoded value, so a vault gives every spelling of a value the same token. Not covered: a value split across fields or reversed, and names inside an encoded run (the NER model sees the text as sent). pii-bench's bypass suite measures this (`pnpm --filter @guardbee/pii-bench bypass`).
 
 ## Precise and broad rules
 

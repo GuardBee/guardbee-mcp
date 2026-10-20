@@ -30,9 +30,20 @@ Tek başına regex, 11 haneli her sayıyı TC Kimlik No, 16 haneli her sayıyı 
 | VKN (vergi kimlik no) | Gelir İdaresi kontrol hanesi ve sayıdan önce bir `VKN` / `Vergi No` etiketi |
 | IBAN | ISO 7064 MOD97-10 |
 | Kart numarası | Luhn |
-| Telefon (TR) | Cep (5xx), sabit hat (2xx–4xx) veya 850 kodu; +90 / 0 önekiyle, parantez içinde alan koduyla ya da boşluk/tire ile gruplanmış yazılmış olmalı, bir URL'nin veya kimliğin parçası olmamalı. Öneksiz 10 haneli cep numarası yalnızca bunu söyleyen bir sözcükten sonra sayılır (`numaram`, `tel`, `cep`, `iletişim`) |
+| Telefon (TR) | Cep (5xx), sabit hat (2xx–4xx) veya 850 kodu; +90 / 0 önekiyle, parantez içinde alan koduyla ya da boşluk, tire veya nokta ile gruplanmış yazılmış olmalı, bir URL'nin veya kimliğin parçası olmamalı. Öneksiz 10 haneli cep numarası yalnızca bunu söyleyen bir sözcükten sonra sayılır (`numaram`, `tel`, `cep`, `iletişim`) |
 
 Kontrolden geçemeyen eşleşme (sipariş no, takip kodu) olduğu gibi bırakılır.
+
+## Kodlanmış ve gizlenmiş değerler
+
+Bir tool'un kodlanmış döndürdüğü ya da regex'ten kaçırmak için gizlenmiş bir değer, düz yazılmış hâli gibi maskelenir:
+
+- **Karakter kaçışları:** HTML entity'leri (`&#49;`, `&#x31;`, `&commat;`), JS/JSON kaçışları (`\u0031`, `\x31`), URL kaçışları (`%40`; boşluklar arasındaki tek başına `%50` yüzde olarak kalır).
+- **Benzer görünen karakterler:** tam genişlikli ve matematiksel rakamlar (NFKC), başka yazı sistemlerinin rakamları (Arapça-Hint `١٢٣`, Devanagari `१२३`…), sıfır genişlikli karakterler.
+- **base64, base64url, hex:** okunabilir metne açılan bir dizi maskelenir ve aynı biçimde (alfabe ve dolgu korunarak) yeniden kodlanır; en fazla iki kat iç içe. İkili veriye açılan diziler (hash, görsel, anahtar) olduğu gibi kalır.
+- **Ayraçlı ve yazıyla yazılmış biçimler:** TC etiketinden sonra `TC: 100 000 001 46`, `+90.532.123.45.67`, `ahmet [at] example [dot] com`.
+
+Tespit açılmış bir kopya üzerinde çalışır; maskeleme değerin yazıldığı karakterlere geri eşlenir, çevresindeki her şey yazıldığı gibi kalır. Replacer açılmış değeri alır, böylece vault bir değerin her yazımına aynı token'ı verir. Kapsam dışı: alanlara bölünmüş ya da ters yazılmış değerler ve kodlanmış dizi içindeki isimler (NER modeli metni gönderildiği hâliyle görür). pii-bench'in bypass suite'i bunu ölçer (`pnpm --filter @guardbee/pii-bench bypass`).
 
 ## Kesin ve genel kurallar
 
