@@ -30,7 +30,7 @@ Tek başına regex, 11 haneli her sayıyı TC Kimlik No, 16 haneli her sayıyı 
 | VKN (vergi kimlik no) | Gelir İdaresi kontrol hanesi ve sayıdan önce bir `VKN` / `Vergi No` etiketi |
 | IBAN | ISO 7064 MOD97-10 |
 | Kart numarası | Luhn |
-| Telefon (TR) | Cep (5xx), sabit hat (2xx–4xx) veya 850 kodu; +90 / 0 önekiyle ya da boşluk/tire ile gruplanmış yazılmış olmalı, bir URL'nin veya kimliğin parçası olmamalı |
+| Telefon (TR) | Cep (5xx), sabit hat (2xx–4xx) veya 850 kodu; +90 / 0 önekiyle, parantez içinde alan koduyla ya da boşluk/tire ile gruplanmış yazılmış olmalı, bir URL'nin veya kimliğin parçası olmamalı. Öneksiz 10 haneli cep numarası yalnızca bunu söyleyen bir sözcükten sonra sayılır (`numaram`, `tel`, `cep`, `iletişim`) |
 
 Kontrolden geçemeyen eşleşme (sipariş no, takip kodu) olduğu gibi bırakılır.
 

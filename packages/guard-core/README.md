@@ -30,7 +30,7 @@ A regex alone masks any 11-digit number as a TC Kimlik No and any 16-digit numbe
 | VKN (tax number) | Gelir İdaresi check digit, and a `VKN` / `Vergi No` label before the number |
 | IBAN | ISO 7064 MOD97-10 |
 | Card number | Luhn |
-| Phone (TR) | Mobile (5xx), landline (2xx–4xx) or 850 code; written with a +90 / 0 prefix or grouped with spaces/dashes, and not part of a URL or id |
+| Phone (TR) | Mobile (5xx), landline (2xx–4xx) or 850 code; written with a +90 / 0 prefix, an area code in parentheses, or grouped with spaces/dashes, and not part of a URL or id. A bare 10-digit mobile number counts only after a word that says it is one (`numaram`, `tel`, `cep`, `iletişim`) |
 
 A match that fails its check (an order number, a tracking code) is left unchanged.
 

@@ -18,7 +18,7 @@ export interface PiiSelection {
  * Every detector name `maskPiiInText` knows: the regex ones, the model ones
  * (which need a `SpanLookup`), and the KVKK Art. 6 special categories.
  */
-export const PII_DETECTORS: readonly string[] = [...PII_PATTERNS.map((p) => p.name), ...MODEL_PII, ...SPECIAL_CATEGORIES];
+export const PII_DETECTORS: readonly string[] = [...new Set([...PII_PATTERNS.map((p) => p.name), ...MODEL_PII, ...SPECIAL_CATEGORIES])];
 
 const OPT_IN = new Set<string>([...PII_PATTERNS.filter((p) => p.optIn).map((p) => p.name), ...SPECIAL_CATEGORIES]);
 const PERSONAL = new Set<string>([...PERSONAL_DATA_CATEGORIES, ...MODEL_PII, ...SPECIAL_CATEGORIES]);

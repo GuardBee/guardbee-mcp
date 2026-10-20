@@ -61,6 +61,7 @@ The 20 clean lines are the hard negatives: the same words with no person behind 
 ### Limits
 
 - Templates are the main limit: 48 PII and 26 clean templates give realistic but repetitive text. A detector tuned on this set will look better here than on real documents, so treat it as a regression and comparison set, not a field estimate.
+- **The identifier numbers are no longer blind.** guard-core's phone, date-of-birth and address detectors were extended after reading this set's misses: phones in parentheses or bare after `numaram`, dates in words or before `doğumlu`, addresses with no label. Identifier F1 went from 84.4 to 97.1 here, and recall on the three categories from 73 / 34 / 27% to 100%. The clean-set false-alarm rate stayed at 8.1%. The same templates now overstate those detectors. guard-core's `identifier-forms.test.ts` checks forms the templates do not use, but real text will still be lower.
 - Labels have not had a second human review yet. The labeling rules are written down so they can.
 - v1 is Turkish only, and covers no opt-in categories (IP, MAC, plates).
 
@@ -85,10 +86,10 @@ License: the dataset and code are MIT, like the rest of the repository.
 
 | | Precision | Recall | F1 | Fully masked |
 |---|---|---|---|---|
-| **All categories** | 92.8 (90.1–95.0) | 26.6 (23.7–29.5) | 41.4 (37.7–44.8) | 26.6 (23.7–29.5) |
-| **Identifiers** | 92.8 (90.1–95.0) | 77.5 (73.2–81.7) | 84.4 (81.3–87.3) | 77.5 (73.2–81.7) |
+| **All categories** | 94.3 (92.2–96.0) | 34.4 (31.7–37.2) | 50.4 (47.4–53.4) | 34.4 (31.7–37.2) |
+| **Identifiers** | 94.3 (92.2–96.0) | 100.0 (100.0–100.0) | 97.1 (95.9–98.0) | 100.0 (100.0–100.0) |
 
-False-alarm rate (clean documents with any detection): 8.1 (4.4–12.5)%. Latency per document: p50 0.029 ms, p95 0.047 ms (Node v23.11.0).
+False-alarm rate (clean documents with any detection): 8.1 (4.4–12.5)%. Latency per document: p50 0.037 ms, p95 0.071 ms (Node v23.11.0).
 
 | Category | Labels | Precision | Recall | F1 | Fully masked |
 |---|---|---|---|---|---|
@@ -98,12 +99,12 @@ False-alarm rate (clean documents with any detection): 8.1 (4.4–12.5)%. Latenc
 | credit_card | 25 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
 | email | 43 | 74.1 (61.9–84.5) | 100.0 (100.0–100.0) | 85.1 (76.5–91.6) | 100.0 (100.0–100.0) |
 | kep | 16 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
-| phone_tr | 94 | 83.1 (75.3–90.9) | 73.4 (64.4–82.8) | 78.0 (71.1–84.5) | 73.4 (64.4–82.8) |
+| phone_tr | 94 | 87.0 (80.9–93.0) | 100.0 (100.0–100.0) | 93.1 (89.4–96.4) | 100.0 (100.0–100.0) |
 | passport | 16 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
 | sgk_no | 25 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
 | mersis | 16 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
-| birth_date | 50 | 100.0 (100.0–100.0) | 34.0 (20.7–46.8) | 50.7 (34.3–63.8) | 34.0 (20.7–46.8) |
-| address | 68 | 100.0 (100.0–100.0) | 26.5 (16.9–36.8) | 41.9 (28.9–53.8) | 26.5 (16.9–36.8) |
+| birth_date | 50 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
+| address | 68 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
 | person_name † | 650 | – | 0.0 (0.0–0.0) | – | 0.0 (0.0–0.0) |
 | health † | 60 | – | 0.0 (0.0–0.0) | – | 0.0 (0.0–0.0) |
 | religion_belief † | 32 | – | 0.0 (0.0–0.0) | – | 0.0 (0.0–0.0) |
@@ -125,10 +126,10 @@ False-alarm rate (clean documents with any detection): 8.1 (4.4–12.5)%. Latenc
 
 | | Precision | Recall | F1 | Fully masked |
 |---|---|---|---|---|
-| **All categories** | 96.6 (95.4–97.6) | 73.2 (71.2–75.2) | 83.3 (81.9–84.6) | 73.2 (71.2–75.2) |
-| **Identifiers** | 92.8 (90.1–95.0) | 77.5 (73.2–81.7) | 84.4 (81.3–87.3) | 77.5 (73.2–81.7) |
+| **All categories** | 96.9 (95.8–97.8) | 80.9 (79.4–82.5) | 88.2 (87.2–89.2) | 80.9 (79.4–82.5) |
+| **Identifiers** | 94.3 (92.2–96.0) | 100.0 (100.0–100.0) | 97.1 (95.9–98.0) | 100.0 (100.0–100.0) |
 
-False-alarm rate (clean documents with any detection): 11.3 (6.9–16.3)%. Latency per document: p50 7.926 ms, p95 15.727 ms (Node v23.11.0).
+False-alarm rate (clean documents with any detection): 11.3 (6.9–16.3)%. Latency per document: p50 7.910 ms, p95 15.195 ms (Node v23.11.0).
 
 | Category | Labels | Precision | Recall | F1 | Fully masked |
 |---|---|---|---|---|---|
@@ -138,12 +139,12 @@ False-alarm rate (clean documents with any detection): 11.3 (6.9–16.3)%. Laten
 | credit_card | 25 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
 | email | 43 | 74.1 (61.9–84.5) | 100.0 (100.0–100.0) | 85.1 (76.5–91.6) | 100.0 (100.0–100.0) |
 | kep | 16 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
-| phone_tr | 94 | 83.1 (75.3–90.9) | 73.4 (64.4–82.8) | 78.0 (71.1–84.5) | 73.4 (64.4–82.8) |
+| phone_tr | 94 | 87.0 (80.9–93.0) | 100.0 (100.0–100.0) | 93.1 (89.4–96.4) | 100.0 (100.0–100.0) |
 | passport | 16 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
 | sgk_no | 25 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
 | mersis | 16 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
-| birth_date | 50 | 100.0 (100.0–100.0) | 34.0 (20.7–46.8) | 50.7 (34.3–63.8) | 34.0 (20.7–46.8) |
-| address | 68 | 100.0 (100.0–100.0) | 26.5 (16.9–36.8) | 41.9 (28.9–53.8) | 26.5 (16.9–36.8) |
+| birth_date | 50 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
+| address | 68 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
 | person_name † | 650 | 98.9 (98.1–99.6) | 100.0 (100.0–100.0) | 99.5 (99.0–99.8) | 100.0 (100.0–100.0) |
 | health † | 60 | – | 0.0 (0.0–0.0) | – | 0.0 (0.0–0.0) |
 | religion_belief † | 32 | – | 0.0 (0.0–0.0) | – | 0.0 (0.0–0.0) |
@@ -168,7 +169,7 @@ False-alarm rate (clean documents with any detection): 11.3 (6.9–16.3)%. Laten
 | **All categories** | 100.0 (100.0–100.0) | 94.4 (84.8–100.0) | 97.1 (91.8–100.0) | 94.4 (84.8–100.0) |
 | **Identifiers** | – | – | – | – |
 
-False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency per document: p50 4.316 ms, p95 6.871 ms (Node v23.11.0).
+False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency per document: p50 4.118 ms, p95 6.458 ms (Node v23.11.0).
 
 | Category | Labels | Precision | Recall | F1 | Fully masked |
 |---|---|---|---|---|---|
@@ -205,10 +206,10 @@ False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency
 
 | | Precision | Recall | F1 | Fully masked |
 |---|---|---|---|---|
-| **All categories** | 96.7 (95.7–97.6) | 92.1 (90.6–93.5) | 94.3 (93.4–95.3) | 91.8 (90.3–93.3) |
-| **Identifiers** | 92.8 (90.1–95.0) | 77.5 (73.2–81.7) | 84.4 (81.3–87.3) | 77.5 (73.2–81.7) |
+| **All categories** | 96.9 (96.0–97.8) | 99.9 (99.6–100.0) | 98.4 (97.8–98.8) | 99.6 (99.2–99.9) |
+| **Identifiers** | 94.3 (92.2–96.0) | 100.0 (100.0–100.0) | 97.1 (95.9–98.0) | 100.0 (100.0–100.0) |
 
-False-alarm rate (clean documents with any detection): 11.3 (6.9–16.3)%. Latency per document: p50 8.536 ms, p95 16.034 ms (Node v23.11.0).
+False-alarm rate (clean documents with any detection): 11.3 (6.9–16.3)%. Latency per document: p50 7.859 ms, p95 14.616 ms (Node v23.11.0).
 
 | Category | Labels | Precision | Recall | F1 | Fully masked |
 |---|---|---|---|---|---|
@@ -218,12 +219,12 @@ False-alarm rate (clean documents with any detection): 11.3 (6.9–16.3)%. Laten
 | credit_card | 25 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
 | email | 43 | 74.1 (61.9–84.5) | 100.0 (100.0–100.0) | 85.1 (76.5–91.6) | 100.0 (100.0–100.0) |
 | kep | 16 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
-| phone_tr | 94 | 83.1 (75.3–90.9) | 73.4 (64.4–82.8) | 78.0 (71.1–84.5) | 73.4 (64.4–82.8) |
+| phone_tr | 94 | 87.0 (80.9–93.0) | 100.0 (100.0–100.0) | 93.1 (89.4–96.4) | 100.0 (100.0–100.0) |
 | passport | 16 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
 | sgk_no | 25 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
 | mersis | 16 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
-| birth_date | 50 | 100.0 (100.0–100.0) | 34.0 (20.7–46.8) | 50.7 (34.3–63.8) | 34.0 (20.7–46.8) |
-| address | 68 | 100.0 (100.0–100.0) | 26.5 (16.9–36.8) | 41.9 (28.9–53.8) | 26.5 (16.9–36.8) |
+| birth_date | 50 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
+| address | 68 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
 | person_name † | 650 | 98.9 (98.1–99.6) | 100.0 (100.0–100.0) | 99.5 (99.0–99.8) | 100.0 (100.0–100.0) |
 | health † | 60 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
 | religion_belief † | 32 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
@@ -248,7 +249,7 @@ False-alarm rate (clean documents with any detection): 11.3 (6.9–16.3)%. Laten
 | **All categories** | 95.1 (90.5–98.7) | 100.0 (100.0–100.0) | 97.5 (95.0–99.4) | 93.7 (87.9–98.7) |
 | **Identifiers** | – | – | – | – |
 
-False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency per document: p50 4.667 ms, p95 6.573 ms (Node v23.11.0).
+False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency per document: p50 4.779 ms, p95 6.441 ms (Node v23.11.0).
 
 | Category | Labels | Precision | Recall | F1 | Fully masked |
 |---|---|---|---|---|---|
