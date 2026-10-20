@@ -285,13 +285,17 @@ const PERSONAL = new Set<string>(PERSONAL_DATA_CATEGORIES);
  * model found a name), holds a personal identifier, or has a word that points
  * at a person.
  */
+let identifiers: { pattern: RegExp; validate?: PiiPattern["validate"] }[] | undefined;
+
 function aboutPerson(text: string, spans: SpanLookup | undefined): boolean {
   if (spans?.(text).some((span) => span.detector === "person_name")) return true;
-  for (const { name, pattern, validate, optIn } of PII_PATTERNS) {
-    if (!PERSONAL.has(name) || optIn) continue;
-    for (const match of text.matchAll(new RegExp(pattern.source, pattern.flags.includes("g") ? pattern.flags : pattern.flags + "g"))) {
-      if (!validate || validate(match[0])) return true;
-    }
+  // Global copies, made once: matchAll needs the g flag
+  identifiers ??= PII_PATTERNS.filter((p) => PERSONAL.has(p.name) && !p.optIn).map(({ pattern, validate }) => ({
+    pattern: new RegExp(pattern.source, pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`),
+    ...(validate ? { validate } : {}),
+  }));
+  for (const { pattern, validate } of identifiers) {
+    for (const match of text.matchAll(pattern)) if (!validate || validate(match[0])) return true;
   }
   return mentionsPerson(text);
 }

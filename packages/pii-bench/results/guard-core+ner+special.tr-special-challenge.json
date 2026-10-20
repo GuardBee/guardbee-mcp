@@ -122,7 +122,7 @@
         "precision": 1,
         "recall": 1,
         "f1": 1,
-        "coverage": 1
+        "coverage": 0.8
       },
       "political_opinion": {
         "support": 4,
@@ -171,7 +171,7 @@
       "precision": 0.9506172839506173,
       "recall": 1,
       "f1": 0.9746835443037974,
-      "coverage": 0.9493670886075949
+      "coverage": 0.9367088607594937
     },
     "identifiers": {
       "precision": null,
@@ -308,7 +308,7 @@
       1
     ],
     "perCategory.ethnic_origin.coverage": [
-      1,
+      0,
       1
     ],
     "perCategory.political_opinion.support": [
@@ -444,8 +444,8 @@
       0.9936305732484078
     ],
     "micro.coverage": [
-      0.8974025974025974,
-      0.9882387140902873
+      0.8794895799413871,
+      0.9871794871794872
     ],
     "falseAlarmRate": [
       0,
@@ -458,9 +458,9 @@
   },
   "bootstrapSamples": 1000,
   "latencyMs": {
-    "p50": 4.887208000000101,
-    "p95": 6.803199800000082,
-    "mean": 4.919777615384621
+    "p50": 4.666584000000057,
+    "p95": 6.573375000000101,
+    "mean": 4.765976876923082
   },
   "node": "v23.11.0"
 }

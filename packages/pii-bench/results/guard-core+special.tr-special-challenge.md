@@ -4,10 +4,10 @@
 
 | | Precision | Recall | F1 | Fully masked |
 |---|---|---|---|---|
-| **All categories** | 96.6 (89.7–100.0) | 38.0 (27.3–48.8) | 54.5 (42.3–64.9) | 34.2 (23.8–45.6) |
+| **All categories** | 96.6 (89.7–100.0) | 38.0 (27.3–48.8) | 54.5 (42.3–64.9) | 32.9 (22.7–43.8) |
 | **Identifiers** | – | – | – | – |
 
-False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency per document: p50 0.081 ms, p95 0.111 ms (Node v23.11.0).
+False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency per document: p50 0.061 ms, p95 0.079 ms (Node v23.11.0).
 
 | Category | Labels | Precision | Recall | F1 | Fully masked |
 |---|---|---|---|---|---|
@@ -26,7 +26,7 @@ False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency
 | person_name † | 34 | – | 0.0 (0.0–0.0) | – | 0.0 (0.0–0.0) |
 | health † | 9 | 100.0 (100.0–100.0) | 77.8 (42.9–100.0) | 87.5 (60.0–100.0) | 77.8 (42.9–100.0) |
 | religion_belief † | 5 | 100.0 (100.0–100.0) | 80.0 (33.3–100.0) | 88.9 (57.1–100.0) | 80.0 (33.3–100.0) |
-| ethnic_origin † | 5 | 100.0 (100.0–100.0) | 80.0 (0.0–100.0) | 88.9 (50.0–100.0) | 80.0 (0.0–100.0) |
+| ethnic_origin † | 5 | 100.0 (100.0–100.0) | 80.0 (0.0–100.0) | 88.9 (50.0–100.0) | 60.0 (0.0–100.0) |
 | political_opinion † | 4 | 100.0 (100.0–100.0) | 75.0 (0.0–100.0) | 85.7 (50.0–100.0) | 50.0 (0.0–100.0) |
 | union_membership † | 4 | 100.0 (100.0–100.0) | 50.0 (0.0–100.0) | 66.7 (33.3–100.0) | 25.0 (0.0–100.0) |
 | criminal_record † | 5 | 100.0 (100.0–100.0) | 60.0 (0.0–100.0) | 75.0 (40.0–100.0) | 60.0 (0.0–100.0) |

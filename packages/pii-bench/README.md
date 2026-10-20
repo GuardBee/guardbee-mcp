@@ -205,10 +205,10 @@ False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency
 
 | | Precision | Recall | F1 | Fully masked |
 |---|---|---|---|---|
-| **All categories** | 96.2 (95.2–97.2) | 92.1 (90.6–93.5) | 94.1 (93.2–95.1) | 91.8 (90.3–93.3) |
+| **All categories** | 96.7 (95.7–97.6) | 92.1 (90.6–93.5) | 94.3 (93.4–95.3) | 91.8 (90.3–93.3) |
 | **Identifiers** | 92.8 (90.1–95.0) | 77.5 (73.2–81.7) | 84.4 (81.3–87.3) | 77.5 (73.2–81.7) |
 
-False-alarm rate (clean documents with any detection): 15.0 (10.0–20.6)%. Latency per document: p50 7.983 ms, p95 14.808 ms (Node v23.11.0).
+False-alarm rate (clean documents with any detection): 11.3 (6.9–16.3)%. Latency per document: p50 8.536 ms, p95 16.034 ms (Node v23.11.0).
 
 | Category | Labels | Precision | Recall | F1 | Fully masked |
 |---|---|---|---|---|---|
@@ -225,7 +225,7 @@ False-alarm rate (clean documents with any detection): 15.0 (10.0–20.6)%. Late
 | birth_date | 50 | 100.0 (100.0–100.0) | 34.0 (20.7–46.8) | 50.7 (34.3–63.8) | 34.0 (20.7–46.8) |
 | address | 68 | 100.0 (100.0–100.0) | 26.5 (16.9–36.8) | 41.9 (28.9–53.8) | 26.5 (16.9–36.8) |
 | person_name † | 650 | 98.9 (98.1–99.6) | 100.0 (100.0–100.0) | 99.5 (99.0–99.8) | 100.0 (100.0–100.0) |
-| health † | 60 | 90.9 (83.9–97.0) | 100.0 (100.0–100.0) | 95.2 (91.2–98.5) | 100.0 (100.0–100.0) |
+| health † | 60 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
 | religion_belief † | 32 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
 | ethnic_origin † | 17 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
 | political_opinion † | 25 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
@@ -245,10 +245,10 @@ False-alarm rate (clean documents with any detection): 15.0 (10.0–20.6)%. Late
 
 | | Precision | Recall | F1 | Fully masked |
 |---|---|---|---|---|
-| **All categories** | 95.1 (90.5–98.7) | 100.0 (100.0–100.0) | 97.5 (95.0–99.4) | 94.9 (89.7–98.8) |
+| **All categories** | 95.1 (90.5–98.7) | 100.0 (100.0–100.0) | 97.5 (95.0–99.4) | 93.7 (87.9–98.7) |
 | **Identifiers** | – | – | – | – |
 
-False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency per document: p50 4.887 ms, p95 6.803 ms (Node v23.11.0).
+False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency per document: p50 4.667 ms, p95 6.573 ms (Node v23.11.0).
 
 | Category | Labels | Precision | Recall | F1 | Fully masked |
 |---|---|---|---|---|---|
@@ -267,7 +267,7 @@ False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency
 | person_name † | 34 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
 | health † | 9 | 81.8 (63.6–100.0) | 100.0 (100.0–100.0) | 90.0 (77.8–100.0) | 100.0 (100.0–100.0) |
 | religion_belief † | 5 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
-| ethnic_origin † | 5 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
+| ethnic_origin † | 5 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 80.0 (0.0–100.0) |
 | political_opinion † | 4 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 75.0 (0.0–100.0) |
 | union_membership † | 4 | 80.0 (50.0–100.0) | 100.0 (100.0–100.0) | 88.9 (66.7–100.0) | 50.0 (0.0–100.0) |
 | criminal_record † | 5 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
@@ -284,7 +284,7 @@ guard-core finds the nine special categories with a term list per category and a
 
 | Category | tr-pii-v1, with NER | tr-special-challenge, with NER | tr-special-challenge, no NER |
 |---|---|---|---|
-| health | 95.2 | 90.0 | 87.5 |
+| health | 100 | 90.0 | 87.5 |
 | religion / belief | 100 | 100 | 88.9 |
 | ethnic origin | 100 | 100 | 88.9 |
 | political opinion | 100 | 100 | 85.7 |
@@ -293,11 +293,11 @@ guard-core finds the nine special categories with a term list per category and a
 | sex life | 100 | 85.7 | 40.0 |
 | biometric | 100 | 100 | 66.7 |
 | genetic | 81.5 | 100 | 80.0 |
-| clean false alarms | 15.0% (NER alone: 11.3%) | 0% | 0% |
+| clean false alarms | 11.3% (same as NER alone) | 0% | 0% |
 
 - **Run it with the name model.** Without names the context rule only has identifiers and role words to go on, and recall drops: many sentences are about a person only through their name.
 - **The challenge set is no longer blind.** It was written before the term lists, but its errors were then read and fixed (upper-case `HIV` becoming `hıv` under Turkish lower-casing, `sanığın`, phrases like `tip 2 diyabet`). The tr-pii-v1 numbers are higher still because the lists were written by the same author as the templates. Expect lower numbers on real text, mostly from terms that are not on the lists.
-- **The bias is conservative.** Once a text is about someone, every listed term in it is masked: the one clean-set false alarm left is `diyabet hakkında güzel bir belgesel izledim`, where a first-person verb makes the speaker the person.
+- **The bias is conservative.** Once a text is about someone, every listed term in it is masked. The term lists add no false alarm on either clean set; on tr-special-challenge the one extra find is `eşcinsel` in `eşcinsel bireylere yönelik ayrımcılığı` (a group), in a line that is also about the speaker.
 - **Latency:** under 0.15 ms per document on top of the regex detectors; the NER model dominates (p50 8 ms).
 
 ## Choosing the NER model

@@ -141,15 +141,20 @@ const PERSON = new RegExp(
  */
 const FIRST_PERSON = /\p{L}{2,}(?:[ıiuü]yorum|[ae]c[ae]ğ[ıi]m)(?![\p{L}\p{N}])/u;
 
+/**
+ * One regex per category. The word-tail and boundary classes are written once
+ * for the whole alternation, not once per term: V8 compiles every \p{L} on
+ * its own, and a hundred of them made the first call take seconds on a slow CI
+ * runner.
+ */
 function termPattern(terms: string[]): RegExp {
-  const parts = terms.map((term) => {
-    const exact = term.startsWith('"') && term.endsWith('"');
-    const words = (exact ? term.slice(1, -1) : term).split(/\s+/).map((word) => dotless(escape(word)));
-    return words.join("[\\s\\-]+") + (exact ? `(?!${LETTER})` : `${LETTER}*`) + SUFFIX;
-  });
+  const source = (term: string) => term.split(/\s+/).map((word) => dotless(escape(word))).join("[\\s\\-]+");
   // Longest first, so "kalp krizi" wins over a shorter term at the same place
-  parts.sort((a, b) => b.length - a.length);
-  return new RegExp(`(?<!${LETTER})(?:${parts.join("|")})`, "gu");
+  const byLength = (list: string[]) => list.map(source).sort((a, b) => b.length - a.length).join("|");
+  const exact = terms.filter((term) => term.startsWith('"') && term.endsWith('"')).map((term) => term.slice(1, -1));
+  const prefix = terms.filter((term) => !(term.startsWith('"') && term.endsWith('"')));
+  const groups = [`(?:${byLength(prefix)})${LETTER}*`, ...(exact.length > 0 ? [`(?:${byLength(exact)})(?!${LETTER})`] : [])];
+  return new RegExp(`(?<!${LETTER})(?:${groups.join("|")})${SUFFIX}`, "gu");
 }
 
 const PATTERNS: [SpecialCategory, RegExp][] = SPECIAL_CATEGORIES.map((category) => [category, termPattern(TERMS[category])]);
