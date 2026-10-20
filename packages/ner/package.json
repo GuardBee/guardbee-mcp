@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/ner",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Optional NER backend for GuardBee: finds Turkish person names with a local BERTurk model (ONNX, offline), in-process or as a sidecar HTTP service",
   "type": "module",
   "bin": {

@@ -1,3 +1,9 @@
+## 0.1.24
+
+### Patch Changes
+
+- Updated dependencies [[`e3355b2`](https://github.com/GuardBee/guardbee-mcp/commit/e3355b23654afcb2eb144da18e54fbfdb2817b16)]:
+  - @guardbee/guard-core@0.20.0
 ## 0.1.23
 
 ### Patch Changes
