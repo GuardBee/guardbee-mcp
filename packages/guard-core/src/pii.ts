@@ -303,10 +303,14 @@ function runs(name: string, optIn: boolean | undefined, include: PiiInclude | un
 function maskModelSpans(text: string, spans: SpanLookup | undefined, replace: PiiReplacer | undefined, include: PiiInclude | undefined): string {
   const found = spans?.(text);
   if (!found || found.length === 0) return text;
+  // A "name" that lies wholly inside a special-category term ("Huntington" in "Huntington geni")
+  // is left to that category, when it runs
+  const terms = findSpecialTerms(text, (category) => runs(category, true, include));
+  const inTerm = (start: number, end: number) => terms.some((term) => term.start <= start && end <= term.end);
   let out = "";
   let cursor = 0;
   for (const { start, end, detector } of [...found].sort((a, b) => a.start - b.start)) {
-    if (start < cursor || end <= start || end > text.length || !runs(detector, false, include) || insideAddress(text, start, end)) continue;
+    if (start < cursor || end <= start || end > text.length || !runs(detector, false, include) || insideAddress(text, start, end) || inTerm(start, end)) continue;
     const match = text.slice(start, end);
     const fallback = MODEL_PII_REPLACEMENT[detector as keyof typeof MODEL_PII_REPLACEMENT] ?? "[REDACTED]";
     out += text.slice(cursor, start) + (replace?.(detector, match) ?? fallback);

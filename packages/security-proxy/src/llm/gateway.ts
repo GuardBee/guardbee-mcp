@@ -13,6 +13,7 @@ import {
   orgPatternShape,
   scanForPromptInjection,
   type OrgPatternEvent,
+  type ModelSpan,
   type SpanLookup,
 } from "@guardbee/guard-core";
 import { z } from "zod";
@@ -27,7 +28,7 @@ import type { AuditEvent } from "../types.js";
 import { BudgetStore, costOf, type LlmCaller, type LlmUsage } from "./budget.js";
 import { DEFAULT_MAX_TEXT_CHARS, type LlmApi, type LlmConfig, type LlmProvider } from "./config.js";
 import { SseRelay, apiOf, errorBody, mapCompletion, mapPrompt, promptTexts, unmaskableParts, usageOf, type LlmShape } from "./shapes.js";
-import { SseRewriter, type TextRewrite } from "./stream.js";
+import { SseRewriter, type RewritePrepare, type TextRewrite } from "./stream.js";
 
 type Json = Record<string, unknown>;
 
@@ -418,10 +419,39 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     const wantsStream = forward["stream"] === true;
     const maskResponses = llm.maskResponses && !maskingOff;
     const rewrite = vault.size > 0 || maskResponses;
+    // Names in the answer (ner:): the model runs over each text before the rewrite sees it
+    // (prepareAnswer). A failure withholds the answer's text from then on, logged once.
+    const ner = maskResponses ? options.config.ner : undefined;
+    const answerNames = new Map<string, readonly ModelSpan[]>();
+    let answerNerFailed = false;
+    const prepareAnswer: RewritePrepare | undefined = ner
+      ? async (texts) => {
+          if (answerNerFailed) return;
+          const fresh = [...new Set(texts.map((text) => vault.detokenize(text)))].filter((text) => !answerNames.has(text));
+          if (fresh.length === 0) return;
+          try {
+            const lookup = await scanNames(nerDetectorFor(ner), fresh);
+            for (const text of fresh) answerNames.set(text, lookup(text));
+          } catch (err) {
+            answerNerFailed = true;
+            const reason = err instanceof NerError ? `name detection in the answer failed: ${err.message}` : `name detection in the answer failed (${err instanceof Error ? err.name : typeof err})`;
+            log({ ...base, type: "blocked", ruleId: "pii:ner-failed", reason });
+          }
+        }
+      : undefined;
+    const answerSpans: SpanLookup | undefined = ner
+      ? (text) => {
+          const spans = answerNames.get(text);
+          if (spans) return spans;
+          if (!/\p{L}/u.test(text)) return [];
+          throw new NerError("an answer text reached masking without going through the NER model");
+        }
+      : undefined;
     const rewriteText: TextRewrite = (text) => {
       const hits: Record<string, number> = {};
       const restored = vault.detokenize(text);
       if (!maskResponses) return { text: restored, hits };
+      if (answerNerFailed) return { text: "[GuardBee: withheld, name detection failed]", hits: {} };
       try {
         const masked = org.withEvents(orgEvent, () =>
           maskPiiInText(
@@ -435,6 +465,7 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
             },
             scopes.detect,
             org,
+            answerSpans,
           ),
         );
         return { text: masked, hits };
@@ -515,7 +546,7 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     if (wantsStream) {
       res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" });
       const dropUsage = shape === "openai" && !clientUsage;
-      const relay = rewrite ? new SseRewriter(shape, rewriteText, dropUsage) : new SseRelay(shape, dropUsage);
+      const relay = rewrite ? new SseRewriter(shape, rewriteText, dropUsage, prepareAnswer) : new SseRelay(shape, dropUsage);
       if (upstream.body) {
         const reader = upstream.body.getReader();
         // The client went away: stop reading so the provider stops generating
@@ -523,11 +554,11 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
         for (;;) {
           const { done, value } = await reader.read();
           if (done) break;
-          const out = relay.push(value);
+          const out = await relay.push(value);
           if (out) res.write(out);
         }
       }
-      const rest = relay.end();
+      const rest = await relay.end();
       res.end(rest);
       const streamHits = relay instanceof SseRewriter ? relay.hits : {};
       finish(relay.usage, Object.keys(streamHits).length > 0 ? { piiHits: streamHits } : {});
@@ -536,6 +567,11 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
 
     let completion = (await upstream.json()) as Json;
     const answerHits: Record<string, number> = {};
+    if (rewrite && prepareAnswer) {
+      const texts: string[] = [];
+      mapCompletion(shape, completion, (text) => (texts.push(text), text));
+      await prepareAnswer(texts);
+    }
     completion = mapCompletion(shape, completion, (text) => {
       const out = rewriteText(text);
       for (const [category, count] of Object.entries(out.hits)) answerHits[category] = (answerHits[category] ?? 0) + count;

@@ -4,6 +4,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { AuditLogger } from "../audit/logger.js";
 import { parseGatewayYaml, type GatewayConfig } from "../gateway/config.js";
 import { Gateway } from "../gateway/gateway.js";
+import { HookEngine } from "../hooks/engine.js";
+import { mkdtempSync } from "fs";
+import { tmpdir } from "os";
+import path from "path";
 import { NerError, nerDetectorFor, scanNames } from "../gateway/ner.js";
 import { startHttpGateway } from "../http-server.js";
 import type { AuditEvent, ProxyConfig } from "../types.js";
@@ -150,7 +154,12 @@ describe("ner: scanNames", () => {
 });
 
 describe("ner: LLM requests", () => {
-  async function startLlm(providerUrl: string, ner: GatewayConfig["ner"], interceptors: NonNullable<ProxyConfig["interceptors"]> = { piiMasking: { enabled: true } }) {
+  async function startLlm(
+    providerUrl: string,
+    ner: GatewayConfig["ner"],
+    interceptors: NonNullable<ProxyConfig["interceptors"]> = { piiMasking: { enabled: true } },
+    maskResponses = false,
+  ) {
     const { events, audit } = capture();
     const config = gatewayConfig({
       interceptors,
@@ -164,7 +173,7 @@ describe("ner: LLM requests", () => {
         budgets: [],
         access: [],
         accessDefault: "allow",
-        maskResponses: false,
+        maskResponses,
         timeoutSeconds: 10,
       },
     });
@@ -173,22 +182,64 @@ describe("ner: LLM requests", () => {
     return { base: gw.llmUrl!, events };
   }
 
-  async function fakeProvider() {
+  /** Answers with `answer`; as an SSE stream in `pieces` when the request asks for one. */
+  async function fakeProvider(answer = "ok", pieces: string[] = [answer]) {
     const seen: Record<string, unknown>[] = [];
     const url = await listen(async (req, res) => {
-      seen.push(await readJson(req));
+      const body = await readJson(req);
+      seen.push(body);
+      if (body["stream"] === true) {
+        res.writeHead(200, { "content-type": "text/event-stream" });
+        const chunk = (delta: unknown, finish: string | null = null) => `data: ${JSON.stringify({ id: "c", object: "chat.completion.chunk", choices: [{ index: 0, delta, finish_reason: finish }] })}\n\n`;
+        for (const piece of pieces) res.write(chunk({ content: piece }));
+        res.end(chunk({}, "stop") + "data: [DONE]\n\n");
+        return;
+      }
       res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ id: "c", object: "chat.completion", choices: [{ index: 0, message: { role: "assistant", content: "ok" }, finish_reason: "stop" }] }));
+      res.end(JSON.stringify({ id: "c", object: "chat.completion", choices: [{ index: 0, message: { role: "assistant", content: answer }, finish_reason: "stop" }] }));
     });
     return { url, seen };
   }
 
-  const chat = (base: string, content: string) =>
+  const chat = (base: string, content: string, stream = false) =>
     fetch(`${base}/chat/completions`, {
       method: "POST",
       headers: { authorization: "Bearer gb-alice", "content-type": "application/json" },
-      body: JSON.stringify({ model: "gpt-4o", messages: [{ role: "system", content: "Kısa yaz." }, { role: "user", content }] }),
+      body: JSON.stringify({ model: "gpt-4o", stream, messages: [{ role: "system", content: "Kısa yaz." }, { role: "user", content }] }),
     });
+  const streamedContent = (sse: string) =>
+    sse
+      .split("\n")
+      .filter((line) => line.startsWith("data: {"))
+      .map((line) => (JSON.parse(line.slice(6)) as { choices: { delta: { content?: string } }[] }).choices[0]?.delta.content ?? "")
+      .join("");
+
+  it("masks names in the answer with maskResponses, streamed or not", async () => {
+    const sidecar = await fakeSidecar();
+    const answer = `Sayın ${NAME}, dosyanız hazır.`;
+    const provider = await fakeProvider(answer, ["Sayın Ay", "şe Yıl", "maz, dosyanız ", "hazır."]);
+    const { base, events } = await startLlm(provider.url, { url: sidecar.url, timeoutMs: 2000 }, { piiMasking: { enabled: true } }, true);
+    const plain = (await (await chat(base, "durum ne")).json()) as { choices: { message: { content: string } }[] };
+    expect(plain.choices[0]!.message.content).toBe("Sayın [KİŞİ], dosyanız hazır.");
+    const streamed = streamedContent(await (await chat(base, "durum ne", true)).text());
+    expect(streamed).toBe("Sayın [KİŞİ], dosyanız hazır.");
+    expect(JSON.stringify(events)).not.toContain("Yılmaz");
+  });
+
+  it("withholds the answer when the sidecar fails on it", async () => {
+    let calls = 0;
+    const sidecar = await listen(async (req, res) => {
+      const body = (await readJson(req)) as { texts: string[] };
+      // The prompt goes through; the answer does not
+      if (calls++ > 0) return void res.writeHead(500).end();
+      res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ spans: body.texts.map(() => []) }));
+    });
+    const provider = await fakeProvider(`Sayın ${NAME}, dosyanız hazır.`);
+    const { base, events } = await startLlm(provider.url, { url: sidecar, timeoutMs: 2000 }, { piiMasking: { enabled: true } }, true);
+    const body = (await (await chat(base, "durum ne")).json()) as { choices: { message: { content: string } }[] };
+    expect(body.choices[0]!.message.content).toBe("[GuardBee: withheld, name detection failed]");
+    expect(events).toContainEqual(expect.objectContaining({ type: "blocked", ruleId: "pii:ner-failed" }));
+  });
 
   it("masks names in the prompt before it reaches the provider", async () => {
     const sidecar = await fakeSidecar();
@@ -240,5 +291,27 @@ describe("ner: config", () => {
     expect(() => parseGatewayYaml(yaml("  tokenEnv: X"))).toThrow(/tokenEnv is for a sidecar/);
     expect(() => parseGatewayYaml(yaml("  url: http://127.0.0.1:8765\n  modelDir: /x"))).toThrow(/not both/);
     expect(() => parseGatewayYaml(yaml("  url: http://127.0.0.1:8765\n  tokenEnv: MISSING_NER_TOKEN"))).toThrow(/MISSING_NER_TOKEN/);
+  });
+});
+
+describe("ner: coding-agent hooks", () => {
+  const call = { agent: "claude-code", session: "s1", tool: "Read", input: { file_path: "/crm/notes.txt" }, labels: [] } as const;
+
+  it("counts a name in a tool's output as personal data", async () => {
+    const sidecar = await fakeSidecar();
+    const { events, audit } = capture();
+    const engine = new HookEngine(gatewayConfig({ ner: { url: sidecar.url, timeoutMs: 2000 } }), audit, mkdtempSync(path.join(tmpdir(), "hooks-")));
+    await engine.after({ ...call, labels: [] }, `Görüşme notu: ${NAME} aradı.`);
+    expect(events.find((e) => e.type === "tool_response")?.piiHits).toEqual({ person_name: 1 });
+  });
+
+  it("taints the session when the model cannot answer, without logging the text", async () => {
+    const sidecar = await fakeSidecar({ status: 500 });
+    const { events, audit } = capture();
+    const engine = new HookEngine(gatewayConfig({ ner: { url: sidecar.url, timeoutMs: 2000 } }), audit, mkdtempSync(path.join(tmpdir(), "hooks-")));
+    await engine.after({ ...call, labels: [] }, `Görüşme notu: ${NAME} aradı.`);
+    expect(events).toContainEqual(expect.objectContaining({ type: "warn", ruleId: "pii:ner-failed" }));
+    expect(events.find((e) => e.type === "tool_response")?.taint?.sawSensitive).toBe(true);
+    expect(JSON.stringify(events)).not.toContain(NAME);
   });
 });

@@ -17,7 +17,7 @@ function call(agent: AgentName, session: string, tool: string, input: Json): Age
  * Returns what to print on stdout (nothing: no objection, the normal
  * permission flow applies — the hook never answers "allow" for the user).
  */
-function claudeCode(engine: HookEngine, event: Json): Json | null {
+async function claudeCode(engine: HookEngine, event: Json): Promise<Json | null> {
   const c = call("claude-code", str(event["session_id"]), str(event["tool_name"]), obj(event["tool_input"]));
   if (event["hook_event_name"] === "PreToolUse") {
     const decision = engine.before(c);
@@ -25,7 +25,7 @@ function claudeCode(engine: HookEngine, event: Json): Json | null {
     return { hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: decision.action, permissionDecisionReason: decision.reason } };
   }
   if (event["hook_event_name"] === "PostToolUse") {
-    const decision = engine.after(c, event["tool_response"]);
+    const decision = await engine.after(c, event["tool_response"]);
     const context = decision.context ? { hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: decision.context } } : {};
     if (decision.block) return { decision: "block", reason: decision.block, ...context };
     return decision.context ? context : null;
@@ -46,7 +46,7 @@ function parseJson(text: string): Json {
  * "Bash" and MCP tools as mcp__<server>__<tool>, so one set of rules covers
  * both agents; `upstream: cursor` tells them apart.
  */
-function cursor(engine: HookEngine, event: Json): Json | null {
+async function cursor(engine: HookEngine, event: Json): Promise<Json | null> {
   const session = str(event["conversation_id"]);
   const permission = (decision: { action: string; reason?: string }, askAllowed = true) => {
     const action = decision.action === "ask" && !askAllowed ? "deny" : decision.action;
@@ -62,20 +62,20 @@ function cursor(engine: HookEngine, event: Json): Json | null {
       // Cursor sends the content with the request: once allowed, it is in the agent's context
       const read = call("cursor", session, "Read", { file_path: str(event["file_path"]) });
       const decision = engine.before(read);
-      if (decision.action === "allow") engine.after(read, str(event["content"]));
+      if (decision.action === "allow") await engine.after(read, str(event["content"]));
       return permission(decision, false);
     }
     case "afterShellExecution":
-      engine.after(call("cursor", session, "Bash", { command: str(event["command"]) }), str(event["output"]));
+      await engine.after(call("cursor", session, "Bash", { command: str(event["command"]) }), str(event["output"]));
       return {};
     case "afterMCPExecution":
-      engine.after(call("cursor", session, mcpTool(), parseJson(str(event["tool_input"]))), parseJson(str(event["result_json"])));
+      await engine.after(call("cursor", session, mcpTool(), parseJson(str(event["tool_input"]))), parseJson(str(event["result_json"])));
       return {};
     default:
       return {};
   }
 }
 
-export function handleEvent(agent: AgentName, engine: HookEngine, event: Json): Json | null {
+export function handleEvent(agent: AgentName, engine: HookEngine, event: Json): Promise<Json | null> {
   return agent === "claude-code" ? claudeCode(engine, event) : cursor(engine, event);
 }

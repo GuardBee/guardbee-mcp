@@ -14,15 +14,15 @@ const SAMPLE =
   "Adres: Moda Cad. No 5 Kadıköy\nAnahtar ghp_1234567890abcdefghijklmnopqrstuvwxyz12 kullanıldı. Bitti.";
 
 /** Feed `text` to a HeldText in pieces cut at `cuts`, return what it released. */
-function stream(text: string, cuts: number[], hits: Record<string, number> = {}): string {
+async function stream(text: string, cuts: number[], hits: Record<string, number> = {}): Promise<string> {
   const held = new HeldText(mask, hits);
   let out = "";
   let at = 0;
   for (const cut of [...cuts, text.length]) {
-    out += held.push(text.slice(at, cut));
+    out += await held.push(text.slice(at, cut));
     at = cut;
   }
-  return out + held.flush();
+  return out + (await held.flush());
 }
 
 /** A small deterministic PRNG so failures can be reproduced. */
@@ -31,7 +31,7 @@ function rng(seed: number) {
 }
 
 describe("HeldText", () => {
-  it("gives the same result as masking the whole text, for any chunking", () => {
+  it("gives the same result as masking the whole text, for any chunking", async () => {
     const expected = mask(SAMPLE).text;
     const random = rng(7);
     for (let run = 0; run < 300; run++) {
@@ -40,45 +40,45 @@ describe("HeldText", () => {
         at += 1 + Math.floor(random() * 12);
         if (at < SAMPLE.length) cuts.push(at);
       }
-      expect(stream(SAMPLE, cuts)).toBe(expected);
+      expect(await stream(SAMPLE, cuts)).toBe(expected);
     }
   });
 
-  it("one character at a time, and counts each value once", () => {
+  it("one character at a time, and counts each value once", async () => {
     const hits: Record<string, number> = {};
     const cuts = Array.from({ length: SAMPLE.length - 1 }, (_, i) => i + 1);
-    expect(stream(SAMPLE, cuts, hits)).toBe(mask(SAMPLE).text);
+    expect(await stream(SAMPLE, cuts, hits)).toBe(mask(SAMPLE).text);
     expect(hits).toEqual(mask(SAMPLE).hits);
   });
 
-  it("releases text as it goes instead of holding all of it", () => {
+  it("releases text as it goes instead of holding all of it", async () => {
     const held = new HeldText(mask, {});
-    expect(held.push("Merhaba, bugün hava ")).toBe("Merhaba, bugün ");
-    expect(held.push("çok güzel ")).toBe("hava çok ");
+    expect(await held.push("Merhaba, bugün hava ")).toBe("Merhaba, bugün ");
+    expect(await held.push("çok güzel ")).toBe("hava çok ");
   });
 
-  it("holds a private key block until its end line", () => {
+  it("holds a private key block until its end line", async () => {
     const key = "-----BEGIN RSA PRIVATE KEY-----\nMIIEow IBAAKCAQ EA0 abc\n-----END RSA PRIVATE KEY-----";
     const held = new HeldText(mask, {});
-    expect(held.push(`see ${key.slice(0, 40)} more words `)).toBe("see ");
-    expect(held.push(key.slice(40) + " done ") + held.flush()).toBe("[private_key] done ");
+    expect(await held.push(`see ${key.slice(0, 40)} more words `)).toBe("see ");
+    expect((await held.push(key.slice(40) + " done ")) + (await held.flush())).toBe("[private_key] done ");
   });
 });
 
 describe("SseRewriter", () => {
   const encode = (s: string) => new TextEncoder().encode(s);
 
-  it("rewrites OpenAI content and tool-call arguments split across chunks", () => {
+  it("rewrites OpenAI content and tool-call arguments split across chunks", async () => {
     const rewriter = new SseRewriter("openai", mask);
     const chunk = (delta: unknown, finish: string | null = null) =>
       `data: ${JSON.stringify({ id: "c", choices: [{ index: 0, delta, finish_reason: finish }] })}\n\n`;
     let out = "";
-    for (const piece of ["TC 1000", "0000146 ok ", "bye"]) out += rewriter.push(encode(chunk({ content: piece })));
-    out += rewriter.push(encode(chunk({ tool_calls: [{ index: 0, id: "t", function: { name: "save", arguments: "" } }] })));
-    for (const piece of ['{"mail":"ali@exa', 'mple.com"}']) out += rewriter.push(encode(chunk({ tool_calls: [{ index: 0, function: { arguments: piece } }] })));
-    out += rewriter.push(encode(chunk({}, "stop")));
-    out += rewriter.push(encode("data: [DONE]\n\n"));
-    out += rewriter.end();
+    for (const piece of ["TC 1000", "0000146 ok ", "bye"]) out += await rewriter.push(encode(chunk({ content: piece })));
+    out += await rewriter.push(encode(chunk({ tool_calls: [{ index: 0, id: "t", function: { name: "save", arguments: "" } }] })));
+    for (const piece of ['{"mail":"ali@exa', 'mple.com"}']) out += await rewriter.push(encode(chunk({ tool_calls: [{ index: 0, function: { arguments: piece } }] })));
+    out += await rewriter.push(encode(chunk({}, "stop")));
+    out += await rewriter.push(encode("data: [DONE]\n\n"));
+    out += await rewriter.end();
 
     let content = "";
     let args = "";
@@ -95,13 +95,13 @@ describe("SseRewriter", () => {
     expect(rewriter.hits).toEqual({ tc_kimlik: 1, email: 1 });
   });
 
-  it("flushes an Anthropic block before its stop event", () => {
+  it("flushes an Anthropic block before its stop event", async () => {
     const rewriter = new SseRewriter("anthropic", mask);
     const ev = (type: string, data: Record<string, unknown>) => encode(`event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`);
-    let out = rewriter.push(ev("content_block_start", { index: 0, content_block: { type: "text", text: "" } }));
-    for (const piece of ["mail ali@", "example.com"]) out += rewriter.push(ev("content_block_delta", { index: 0, delta: { type: "text_delta", text: piece } }));
-    out += rewriter.push(ev("content_block_stop", { index: 0 }));
-    out += rewriter.end();
+    let out = await rewriter.push(ev("content_block_start", { index: 0, content_block: { type: "text", text: "" } }));
+    for (const piece of ["mail ali@", "example.com"]) out += await rewriter.push(ev("content_block_delta", { index: 0, delta: { type: "text_delta", text: piece } }));
+    out += await rewriter.push(ev("content_block_stop", { index: 0 }));
+    out += await rewriter.end();
     expect(out).toContain('"text":"mail "');
     expect(out).toContain('"text":"[email]"');
     expect(out).not.toContain("example.com");

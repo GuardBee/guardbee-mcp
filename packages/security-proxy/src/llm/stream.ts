@@ -9,6 +9,13 @@ type Json = Record<string, unknown>;
  */
 export type TextRewrite = (text: string) => { text: string; hits: Record<string, number> };
 
+/**
+ * Called with the texts a rewrite is about to see, before it sees them: the
+ * gateway runs the name model (ner:) over them here, since a rewrite is
+ * synchronous and the model is not.
+ */
+export type RewritePrepare = (texts: string[]) => Promise<void>;
+
 /** Text already sent, kept so a label before a cut ("Pasaport No:") still applies to the value after it. */
 const CONTEXT_CHARS = 300;
 /** Held text grows past this without a safe cut: send what we have rather than stall the stream. */
@@ -26,7 +33,7 @@ const LINE_LABEL = /\b(?:adres(?:i)?|ikametgah|address)\s*:/gi;
  * either. A private key block is held until its END line, and a line with
  * an address label until the line ends.
  */
-function safeCut(text: string): number {
+function safeCut(text: string, keepNames = false): number {
   let limit = text.length;
   const begin = text.lastIndexOf("-----BEGIN");
   if (begin !== -1 && text.indexOf("-----END", begin) === -1) limit = begin;
@@ -35,14 +42,29 @@ function safeCut(text: string): number {
     limit = Math.min(limit, lineStart + label.index);
     break;
   }
-  return lastCut(text.slice(0, limit), limit < text.length ? text[limit] : undefined);
+  return lastCut(text.slice(0, limit), limit < text.length ? text[limit] : undefined, keepNames);
 }
 
-/** The last cut in `text`; `next` is the character after it, when known. */
-function lastCut(text: string, next?: string): number {
+const UPPER = /\p{Lu}/u;
+
+/** Whether the word that ends at `end` (exclusive) starts with a capital letter. */
+function capitalisedBefore(text: string, end: number): boolean {
+  let start = end;
+  while (start > 0 && !/\s/.test(text[start - 1]!)) start--;
+  return UPPER.test(text[start] ?? "");
+}
+
+/**
+ * The last cut in `text`; `next` is the character after it, when known. With
+ * `keepNames` (the name model is on) a cut never falls next to a capitalised
+ * word, so "Ayşe Yılmaz" reaches the model in one piece.
+ */
+function lastCut(text: string, next?: string, keepNames = false): number {
   for (let i = text.length - 1; i > 0; i--) {
     const after = i + 1 < text.length ? text[i + 1] : next;
-    if (after !== undefined && /\s/.test(text[i]!) && !isDigit(text[i - 1]) && !isDigit(after)) return i + 1;
+    if (after === undefined || !/\s/.test(text[i]!) || isDigit(text[i - 1]) || isDigit(after)) continue;
+    if (keepNames && (UPPER.test(after) || capitalisedBefore(text, i))) continue;
+    return i + 1;
   }
   return 0;
 }
@@ -66,11 +88,12 @@ export class HeldText {
   constructor(
     private readonly rewrite: TextRewrite,
     private readonly hits: Record<string, number>,
+    private readonly prepare?: RewritePrepare,
   ) {}
 
-  push(delta: string): string {
+  async push(delta: string): Promise<string> {
     this.pending += delta;
-    let cut = safeCut(this.pending);
+    let cut = safeCut(this.pending, this.prepare !== undefined);
     if (cut === 0 && this.pending.length > MAX_HELD_CHARS) cut = this.pending.length - CONTEXT_CHARS;
     if (cut <= 0) return "";
     return this.emit(cut);
@@ -81,13 +104,14 @@ export class HeldText {
     this.pending += delta;
   }
 
-  flush(): string {
+  async flush(): Promise<string> {
     return this.pending ? this.emit(this.pending.length) : "";
   }
 
-  private emit(cut: number): string {
+  private async emit(cut: number): Promise<string> {
     const segment = this.pending.slice(0, cut);
     this.pending = this.pending.slice(cut);
+    await this.prepare?.([this.context + segment, this.context, segment]);
     const whole = this.rewrite(this.context + segment);
     const before = this.rewrite(this.context);
     let out: string;
@@ -147,6 +171,7 @@ export class SseRewriter {
     private readonly api: LlmShape,
     private readonly rewrite: TextRewrite,
     dropUsageChunks = false,
+    private readonly prepare?: RewritePrepare,
   ) {
     this.relay = new SseRelay(api, dropUsageChunks);
   }
@@ -155,38 +180,51 @@ export class SseRewriter {
     return this.relay.usage;
   }
 
-  push(chunk: Uint8Array): string {
+  async push(chunk: Uint8Array): Promise<string> {
     this.buffer += this.decoder.decode(chunk, { stream: true });
     let out = "";
     let match: RegExpExecArray | null;
     while ((match = /\r?\n\r?\n/.exec(this.buffer))) {
       const event = this.buffer.slice(0, match.index);
       this.buffer = this.buffer.slice(match.index + match[0].length);
-      out += this.event(event);
+      out += await this.event(event);
     }
     return out;
   }
 
-  end(): string {
+  async end(): Promise<string> {
     const rest = this.buffer + this.decoder.decode();
     this.buffer = "";
-    let out = rest.trim() !== "" ? this.event(rest) : "";
+    let out = rest.trim() !== "" ? await this.event(rest) : "";
     // A stream cut short: still release (rewritten) what was held
-    for (const key of [...this.held.keys()]) out += this.flushKey(key);
+    for (const key of [...this.held.keys()]) out += await this.flushKey(key);
     return out;
+  }
+
+  /**
+   * Rewrite whole texts inside a JSON value with a pure mapper: one pass
+   * collects them for `prepare`, the second rewrites.
+   */
+  private async mapWhole<T>(map: (rewrite: (text: string) => string) => T): Promise<T> {
+    if (this.prepare) {
+      const texts: string[] = [];
+      map((text) => (texts.push(text), text));
+      await this.prepare(texts);
+    }
+    return map((text) => this.rewrite(text).text);
   }
 
   private stream(key: string): HeldText {
     let held = this.held.get(key);
-    if (!held) this.held.set(key, (held = new HeldText(this.rewrite, this.hits)));
+    if (!held) this.held.set(key, (held = new HeldText(this.rewrite, this.hits, this.prepare)));
     return held;
   }
 
   /** Release a held stream as one extra delta in the right shape. */
-  private flushKey(key: string): string {
+  private async flushKey(key: string): Promise<string> {
     const held = this.held.get(key);
     this.held.delete(key);
-    const text = held?.flush() ?? "";
+    const text = (await held?.flush()) ?? "";
     if (!text) return "";
     const [kind, a, b] = key.split(":");
     if (this.api === "responses") {
@@ -205,14 +243,14 @@ export class SseRewriter {
     return sse({ ...base, choices: [{ index, delta, finish_reason: null }] });
   }
 
-  private event(event: string): string {
+  private async event(event: string): Promise<string> {
     // Usage (and the usage-only chunk drop) as in a plain relay
     const kept = this.relay.push(new TextEncoder().encode(event + "\n\n"));
     if (!kept) return "";
     const data = dataOf(event);
     if (!data || data === "[DONE]") {
       let out = "";
-      if (data === "[DONE]") for (const key of [...this.held.keys()]) out += this.flushKey(key);
+      if (data === "[DONE]") for (const key of [...this.held.keys()]) out += await this.flushKey(key);
       return out + kept;
     }
     let parsed: unknown;
@@ -232,90 +270,100 @@ export class SseRewriter {
    * full text rewritten. Items, parts and the response object (created,
    * completed) are rewritten whole, so the final snapshot matches the deltas.
    */
-  private responsesEvent(data: Json): string {
+  private async responsesEvent(data: Json): Promise<string> {
     const type = String(data["type"]);
     const out = (event: Json) => sse(event, type);
-    const whole = (text: string) => this.rewrite(text).text;
     const stream = RESPONSES_STREAMS[type.replace(/\.(delta|done)$/, "")];
     if (stream) {
       const key = `${stream.kind}:${String(data["output_index"] ?? 0)}:${String(data["content_index"] ?? data["summary_index"] ?? 0)}`;
       if (type.endsWith(".delta") && typeof data["delta"] === "string") {
         this.lastDelta.set(key, data);
-        const text = this.stream(key).push(data["delta"]);
+        const text = await this.stream(key).push(data["delta"]);
         return text ? out({ ...data, delta: text }) : "";
       }
       if (type.endsWith(".done")) {
         const field = stream.field;
-        return this.flushKey(key) + out(typeof data[field] === "string" ? { ...data, [field]: whole(data[field] as string) } : data);
+        const flushed = await this.flushKey(key);
+        return flushed + out(typeof data[field] === "string" ? { ...data, [field]: await this.mapWhole((whole) => whole(data[field] as string)) } : data);
       }
       return out(data);
     }
     if ((type === "response.output_item.added" || type === "response.output_item.done") && data["item"] !== undefined) {
-      return out({ ...data, item: mapOutputItem(data["item"], whole) });
+      return out({ ...data, item: await this.mapWhole((whole) => mapOutputItem(data["item"], whole)) });
     }
     if ((type === "response.content_part.added" || type === "response.content_part.done" || type.startsWith("response.reasoning_summary_part.")) && isObject(data["part"])) {
       const part = data["part"];
-      return out(typeof part["text"] === "string" ? { ...data, part: { ...part, text: whole(part["text"]) } } : data);
+      return out(typeof part["text"] === "string" ? { ...data, part: { ...part, text: await this.mapWhole((whole) => whole(part["text"] as string)) } } : data);
     }
-    if (isObject(data["response"])) {
+    const response = data["response"];
+    if (isObject(response)) {
       // completed / incomplete / failed: the stream is over, release everything still held
       let before = "";
-      if (type !== "response.created" && type !== "response.in_progress") for (const key of [...this.held.keys()]) before += this.flushKey(key);
-      return before + out({ ...data, response: mapResponsesOutput(data["response"], whole) });
+      if (type !== "response.created" && type !== "response.in_progress") for (const key of [...this.held.keys()]) before += await this.flushKey(key);
+      return before + out({ ...data, response: await this.mapWhole((whole) => mapResponsesOutput(response, whole)) });
     }
     return out(data);
   }
 
-  private anthropicEvent(raw: string, data: Json): string {
+  private async anthropicEvent(raw: string, data: Json): Promise<string> {
     const index = typeof data["index"] === "number" ? data["index"] : 0;
     if (data["type"] === "content_block_delta" && isObject(data["delta"])) {
       const delta = data["delta"];
       const field = delta["type"] === "text_delta" ? "text" : delta["type"] === "input_json_delta" ? "partial_json" : delta["type"] === "thinking_delta" ? "thinking" : null;
       if (!field || typeof delta[field] !== "string") return raw + "\n\n";
       const kind = field === "partial_json" ? "json" : field === "thinking" ? "thinking" : "text";
-      const text = this.stream(`${kind}:${index}`).push(delta[field] as string);
+      const text = await this.stream(`${kind}:${index}`).push(delta[field] as string);
       return text ? sse({ ...data, delta: { ...delta, [field]: text } }, "content_block_delta") : "";
     }
     if (data["type"] === "content_block_stop") {
       let out = "";
-      for (const key of [...this.held.keys()]) if (key.split(":")[1] === String(index)) out += this.flushKey(key);
+      for (const key of [...this.held.keys()]) if (key.split(":")[1] === String(index)) out += await this.flushKey(key);
       return out + raw + "\n\n";
     }
     if (data["type"] === "message_stop" || data["type"] === "message_delta") {
       let out = "";
-      for (const key of [...this.held.keys()]) out += this.flushKey(key);
+      for (const key of [...this.held.keys()]) out += await this.flushKey(key);
       return out + raw + "\n\n";
     }
     return raw + "\n\n";
   }
 
-  private openAiEvent(data: Json): string {
+  private async openAiEvent(data: Json): Promise<string> {
     const choices = Array.isArray(data["choices"]) ? data["choices"] : [];
     if (choices.length === 0) return sse(data);
     let before = "";
-    const rewritten = choices.map((choice) => {
-      if (!isObject(choice)) return choice;
+    const rewritten: unknown[] = [];
+    for (const choice of choices) {
+      if (!isObject(choice)) {
+        rewritten.push(choice);
+        continue;
+      }
       const index = typeof choice["index"] === "number" ? choice["index"] : 0;
       const { choices: _choices, usage: _usage, ...rest } = data;
       this.lastChunk.set(index, rest);
       const delta = isObject(choice["delta"]) ? { ...choice["delta"] } : {};
       const finishing = choice["finish_reason"] !== null && choice["finish_reason"] !== undefined;
       // On the last chunk of a choice, text joins what is held and all of it goes out before this chunk
-      const take = (key: string, text: string) => (finishing ? (this.stream(key).append(text), "") : this.stream(key).push(text));
-      if (typeof delta["content"] === "string") delta["content"] = take(`text:${index}`, delta["content"]);
+      const take = async (key: string, text: string) => (finishing ? (this.stream(key).append(text), "") : this.stream(key).push(text));
+      if (typeof delta["content"] === "string") delta["content"] = await take(`text:${index}`, delta["content"]);
       if (Array.isArray(delta["tool_calls"])) {
-        delta["tool_calls"] = delta["tool_calls"].map((call) => {
-          if (!isObject(call) || !isObject(call["function"]) || typeof call["function"]["arguments"] !== "string") return call;
+        const calls: unknown[] = [];
+        for (const call of delta["tool_calls"]) {
+          if (!isObject(call) || !isObject(call["function"]) || typeof call["function"]["arguments"] !== "string") {
+            calls.push(call);
+            continue;
+          }
           const callIndex = typeof call["index"] === "number" ? call["index"] : 0;
-          return { ...call, function: { ...call["function"], arguments: take(`args:${index}:${callIndex}`, call["function"]["arguments"]) } };
-        });
+          calls.push({ ...call, function: { ...call["function"], arguments: await take(`args:${index}:${callIndex}`, call["function"]["arguments"]) } });
+        }
+        delta["tool_calls"] = calls;
       }
       // The choice ends here: what it still holds goes out first
       if (finishing) {
-        for (const key of [...this.held.keys()]) if (key.split(":")[1] === String(index)) before += this.flushKey(key);
+        for (const key of [...this.held.keys()]) if (key.split(":")[1] === String(index)) before += await this.flushKey(key);
       }
-      return { ...choice, delta };
-    });
+      rewritten.push({ ...choice, delta });
+    }
     // A chunk that carried only held text says nothing now
     const empty = rewritten.every((choice) => {
       if (!isObject(choice) || !isObject(choice["delta"])) return false;
