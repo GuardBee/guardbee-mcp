@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { isValidIban, isValidLuhn, isValidTcKimlik, isValidTrPhone, isValidVkn } from "@guardbee/guard-core";
 import { describe, expect, it } from "vitest";
 import { CATEGORIES } from "../categories.js";
-import { CHALLENGE_PATH, DATASET_PATH, generateChallenge, generateDataset, render, toJsonl } from "../generate.js";
+import { CHALLENGE_PATH, DATASET_PATH, SPECIAL_CHALLENGE_PATH, generateChallenge, generateDataset, generateSpecialChallenge, render, toJsonl } from "../generate.js";
 import { notTcKimlik, rng, suffix } from "../identities.js";
 import { loadDataset } from "../run.js";
 
@@ -12,6 +12,16 @@ describe("dataset", () => {
   it("is what the generator writes", () => {
     expect(readFileSync(DATASET_PATH, "utf8")).toBe(toJsonl(generateDataset()));
     expect(readFileSync(CHALLENGE_PATH, "utf8")).toBe(toJsonl(generateChallenge()));
+    expect(readFileSync(SPECIAL_CHALLENGE_PATH, "utf8")).toBe(toJsonl(generateSpecialChallenge()));
+  });
+
+  it("labels every special category in the Art. 6 challenge, with clean lines that use the same words", () => {
+    const special = loadDataset(SPECIAL_CHALLENGE_PATH);
+    const categories = new Set(special.flatMap((doc) => doc.spans.map((span) => span.category)));
+    for (const category of ["health", "religion_belief", "ethnic_origin", "political_opinion", "union_membership", "criminal_record", "sex_life", "biometric", "genetic"]) {
+      expect(categories.has(category as never), category).toBe(true);
+    }
+    expect(special.filter((doc) => doc.set === "clean").length).toBeGreaterThanOrEqual(15);
   });
 
   it("splits the name challenge into lines with a name and lines without", () => {

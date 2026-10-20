@@ -1,10 +1,12 @@
 import { z } from "zod";
 import { MODEL_PII, PERSONAL_DATA_CATEGORIES, PII_PATTERNS } from "./pii.js";
+import { SPECIAL_CATEGORIES } from "./special.js";
 
 /**
  * Which detectors mask: a named preset, then `enable` / `disable` by detector
- * name. Opt-in detectors (ip_address, mac_address, plate_tr) are in no
- * preset; turn them on with `enable`.
+ * name. Opt-in detectors (ip_address, mac_address, plate_tr, and the KVKK
+ * Art. 6 special categories) are in no preset but KVKK_SENSITIVE; turn them
+ * on with `enable`.
  */
 export interface PiiSelection {
   preset?: PiiPresetName;
@@ -12,11 +14,14 @@ export interface PiiSelection {
   disable?: readonly string[];
 }
 
-/** Every detector name `maskPiiInText` knows: the regex ones, and the model ones (which need a `SpanLookup`). */
-export const PII_DETECTORS: readonly string[] = [...PII_PATTERNS.map((p) => p.name), ...MODEL_PII];
+/**
+ * Every detector name `maskPiiInText` knows: the regex ones, the model ones
+ * (which need a `SpanLookup`), and the KVKK Art. 6 special categories.
+ */
+export const PII_DETECTORS: readonly string[] = [...PII_PATTERNS.map((p) => p.name), ...MODEL_PII, ...SPECIAL_CATEGORIES];
 
-const OPT_IN = new Set(PII_PATTERNS.filter((p) => p.optIn).map((p) => p.name));
-const PERSONAL = new Set<string>([...PERSONAL_DATA_CATEGORIES, ...MODEL_PII]);
+const OPT_IN = new Set<string>([...PII_PATTERNS.filter((p) => p.optIn).map((p) => p.name), ...SPECIAL_CATEGORIES]);
+const PERSONAL = new Set<string>([...PERSONAL_DATA_CATEGORIES, ...MODEL_PII, ...SPECIAL_CATEGORIES]);
 const defaults = (names: Iterable<string>) => [...names].filter((name) => !OPT_IN.has(name));
 
 export const PII_PRESETS = {
@@ -24,6 +29,8 @@ export const PII_PRESETS = {
   ALL: defaults(PII_DETECTORS),
   /** Personal data under KVKK / GDPR; no credentials. */
   KVKK: defaults([...PERSONAL_DATA_CATEGORIES, ...MODEL_PII]),
+  /** KVKK plus the Art. 6 special categories (health, religion, ethnic origin, …), found when the text is about a person. */
+  KVKK_SENSITIVE: [...defaults([...PERSONAL_DATA_CATEGORIES, ...MODEL_PII]), ...SPECIAL_CATEGORIES],
   /** Who someone is and where they live. */
   IDENTITY: ["person_name", "address", "birth_date"],
   /** Numbers and handles that point at one person or account. */

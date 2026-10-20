@@ -5,7 +5,8 @@ import { parseGatewayYaml, type GatewayConfig } from "../gateway/config.js";
 import type { AuditEvent } from "../types.js";
 import { fakeUpstream, gatewayConfig, textOf } from "./fakes.js";
 
-const KEY = "ghp_aB3dE5fG7hJ9kL1mN3pQ5rS7tU9vW1xY2zAb";
+// A fake GitHub token, assembled so secret scanners do not flag the source
+const KEY = ["ghp", "aB3dE5fG7hJ9kL1mN3pQ5rS7tU9vW1xY2zAb"].join("_");
 const ROW = `TC 10000000146, ayse@example.com, token ${KEY}`;
 
 function setup(interceptors: GatewayConfig["interceptors"]) {
@@ -72,5 +73,22 @@ ${masking}`;
     expect(() => parseGatewayYaml(yaml("    enabled: true\n    enable: [tckn]"))).toThrow('unknown PII detector "tckn"');
     expect(() => parseGatewayYaml(yaml("    enabled: true\n    upstreams:\n      crm: { disable: [mail] }"))).toThrow('unknown PII detector "mail"');
     expect(() => parseGatewayYaml(yaml("    enabled: true\n    upstreams:\n      billing: { preset: SECRETS }"))).toThrow('no upstream or LLM provider named "billing"');
+  });
+});
+
+describe("preset KVKK_SENSITIVE (KVKK Art. 6)", () => {
+  it("masks special-category terms in a result about a person, and counts them as personal data", async () => {
+    const events: AuditEvent[] = [];
+    const audit = { log: (event: AuditEvent) => events.push(event), close: async () => {} } as unknown as AuditLogger;
+    const hr = fakeUpstream("hr", [{ name: "get_employee", returns: "Çalışan TC 10000000146, migren nedeniyle raporlu; sendika üyesi." }]);
+    const gw = new Gateway([hr], gatewayConfig({ interceptors: { piiMasking: { enabled: true, preset: "KVKK_SENSITIVE" } } }), audit);
+    await gw.listTools();
+    expect(textOf(await gw.callTool("hr__get_employee", {}))).toBe("Çalışan TC [TC-KİMLİK], [SAĞLIK] nedeniyle raporlu; [SENDİKA].");
+    expect(events.find((e) => e.type === "tool_response")?.piiHits).toEqual({ tc_kimlik: 1, health: 1, union_membership: 1 });
+  });
+
+  it("accepts the preset and the category names in the config file", () => {
+    const yaml = "version: 1\nupstreams:\n  hr:\n    command: hr-mcp\ninterceptors:\n  piiMasking:\n    enabled: true\n    preset: KVKK\n    enable: [health, genetic]\n    upstreams:\n      hr: { preset: KVKK_SENSITIVE, disable: [religion_belief] }\n";
+    expect(() => parseGatewayYaml(yaml)).not.toThrow();
   });
 });

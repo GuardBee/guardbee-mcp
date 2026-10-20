@@ -7,7 +7,7 @@
 | **All categories** | 100.0 (100.0–100.0) | 94.4 (84.8–100.0) | 97.1 (91.8–100.0) | 94.4 (84.8–100.0) |
 | **Identifiers** | – | – | – | – |
 
-False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency per document: p50 4.069 ms, p95 6.603 ms (Node v23.11.0).
+False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency per document: p50 4.316 ms, p95 6.871 ms (Node v23.11.0).
 
 | Category | Labels | Precision | Recall | F1 | Fully masked |
 |---|---|---|---|---|---|
@@ -34,4 +34,4 @@ False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency
 | biometric † | 0 | – | – | – | – |
 | genetic † | 0 | – | – | – | – |
 
-† No regex detector: person names come from the NER model when the system has one; the KVKK Art. 6 categories have no detector yet.
+† No regex detector: person names come from the NER model, and the KVKK Art. 6 categories from guard-core's opt-in term lists, when the system has them.

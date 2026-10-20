@@ -484,6 +484,7 @@ IP and MAC addresses and plates are everywhere in infrastructure output, so they
 | --- | --- |
 | `ALL` (default) | every detector above except the opt-in ones, plus credentials |
 | `KVKK` | personal data only, no credentials |
+| `KVKK_SENSITIVE` | `KVKK` plus the nine KVKK Art. 6 special categories (below) |
 | `IDENTITY` | person name (with `ner:`), postal address, date of birth |
 | `IDENTIFIERS` | TC kimlik, VKN, MERSİS, SGK, passport, IBAN, card, phone, KEP, e-mail |
 | `SECRETS` | API keys, tokens, private keys, connection strings, JWTs |
@@ -535,6 +536,10 @@ Before masking, every string in the value is sent to the model once, then masked
 When `ner:` is set and the model cannot answer (sidecar down, timed out, an error), nothing goes out: the tool result is withheld and an LLM request is refused with `502 guardbee_masking_failed`, `ruleId: pii:ner-failed`. Masking never falls back to regex only, because the text may hold a name that only the model would find.
 
 The model misses some names and flags some words. A capitalised word at the start of a sentence that is also a name (`Barış`, `Umut`) can go either way, and all-lowercase chat (`elifle konuştum`) is often missed. Measured numbers are in [pii-bench](../pii-bench).
+
+**KVKK Art. 6 special categories.** `preset: KVKK_SENSITIVE` (or `enable` by name) also masks health, religion and belief, ethnic origin, political opinion, union membership, criminal record, sex life, biometric and genetic data: `health` → `[SAĞLIK]`, `religion_belief` → `[DİN-İNANÇ]`, `ethnic_origin` → `[ETNİK-KÖKEN]`, `political_opinion` → `[SİYASİ-GÖRÜŞ]`, `union_membership` → `[SENDİKA]`, `criminal_record` → `[SABIKA]`, `sex_life` → `[CİNSEL-HAYAT]`, `biometric` → `[BİYOMETRİK]`, `genetic` → `[GENETİK]`. They are found with a Turkish and English term list per category and a context rule. A term is masked only when the same text is about a person: a name the model found, a personal identifier, or a word that points at someone (`hastanın`, `çalışan`, `babam`, a first-person verb). `Diyabet hastaları için rehber` is left as it is; `Çalışan migren nedeniyle raporlu` becomes `Çalışan [SAĞLIK] nedeniyle raporlu`. The span grows over the phrase around the term, so `metal işçileri sendikası üyesi` is masked whole.
+
+These detectors are opt-in, because a term list cannot tell a medical knowledge base from a patient file. The bias is conservative: once a text is about someone, every listed term in it is masked. They find words, not meaning, so a term that is not on the list is missed. Use them with `ner:`, since without names many texts are about a person only through their name. In [pii-bench](../pii-bench#kvkk-art-6-term-lists) the hand-written challenge set gives F1 86–100 per category with the name model and 40–89 without, with no false alarms on its clean lines. They add under 0.15 ms per text.
 
 ---
 

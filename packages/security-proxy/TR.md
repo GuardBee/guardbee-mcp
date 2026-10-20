@@ -350,6 +350,7 @@ IP, MAC adresleri ve plakalar altyapı çıktılarında çok sık geçtiği içi
 | --- | --- |
 | `ALL` (varsayılan) | isteğe bağlı olanlar dışında yukarıdaki tüm dedektörler ve kimlik bilgileri |
 | `KVKK` | yalnızca kişisel veri, kimlik bilgisi yok |
+| `KVKK_SENSITIVE` | `KVKK` ve dokuz KVKK m.6 özel nitelikli kategori (aşağıda) |
 | `IDENTITY` | kişi adı (`ner:` ile), posta adresi, doğum tarihi |
 | `IDENTIFIERS` | TC kimlik, VKN, MERSİS, SGK, pasaport, IBAN, kart, telefon, KEP, e-posta |
 | `SECRETS` | API anahtarları, token'lar, private key'ler, bağlantı adresleri, JWT |
@@ -401,6 +402,10 @@ Maskelemeden önce değerdeki her metin modele bir kez gönderilir, sonra regex 
 `ner:` ayarlıyken model yanıt veremezse (sidecar kapalı, zaman aşımı, hata) hiçbir şey dışarı çıkmaz: tool sonucu alıkonur, LLM isteği `502 guardbee_masking_failed` ile reddedilir, `ruleId: pii:ner-failed`. Maskeleme hiçbir zaman yalnızca regex'e geri düşmez, çünkü metinde yalnızca modelin bulacağı bir isim olabilir.
 
 Model bazı isimleri kaçırır, bazı kelimeleri isim sanar. Cümle başında büyük harfle yazılan ve aynı zamanda isim olan bir kelime (`Barış`, `Umut`) iki yöne de gidebilir; tamamı küçük harfli sohbeti (`elifle konuştum`) çoğu zaman kaçırır. Ölçülmüş sayılar [pii-bench](../pii-bench)'tedir.
+
+**KVKK m.6 özel nitelikli kişisel veriler.** `preset: KVKK_SENSITIVE` (ya da adıyla `enable`) sağlık, din ve inanç, etnik köken, siyasi düşünce, sendika üyeliği, ceza mahkûmiyeti, cinsel hayat, biyometrik ve genetik verileri de maskeler: `health` → `[SAĞLIK]`, `religion_belief` → `[DİN-İNANÇ]`, `ethnic_origin` → `[ETNİK-KÖKEN]`, `political_opinion` → `[SİYASİ-GÖRÜŞ]`, `union_membership` → `[SENDİKA]`, `criminal_record` → `[SABIKA]`, `sex_life` → `[CİNSEL-HAYAT]`, `biometric` → `[BİYOMETRİK]`, `genetic` → `[GENETİK]`. Kategori başına Türkçe ve İngilizce bir terim listesi ve bir bağlam kuralı ile bulunurlar. Bir terim yalnızca aynı metin bir kişiyle ilgiliyse maskelenir: modelin bulduğu bir isim, kişisel bir tanımlayıcı ya da birini işaret eden bir sözcük (`hastanın`, `çalışan`, `babam`, birinci tekil kişi fiili). `Diyabet hastaları için rehber` olduğu gibi kalır; `Çalışan migren nedeniyle raporlu` ise `Çalışan [SAĞLIK] nedeniyle raporlu` olur. Maske terimin çevresindeki ifadeye yayılır, böylece `metal işçileri sendikası üyesi` bütünüyle maskelenir.
+
+Bu dedektörler isteğe bağlıdır, çünkü bir terim listesi tıbbi bir bilgi bankasını hasta dosyasından ayıramaz. Yanlılık ihtiyatlı yöndedir: metin birisiyle ilgiliyse içindeki listelenmiş her terim maskelenir. Anlam değil sözcük bulurlar, bu yüzden listede olmayan bir terimi kaçırırlar. `ner:` ile kullanın, çünkü isimler olmadan birçok metnin bir kişiyle ilgili olduğu ancak o kişinin adından anlaşılır. [pii-bench](../pii-bench#kvkk-art-6-term-lists)'te elle yazılmış zor sette kategori başına F1, isim modeliyle 86–100, modelsiz 40–89; temiz satırlarda yanlış alarm yok. Metin başına 0,15 ms'den az ekler.
 
 ---
 

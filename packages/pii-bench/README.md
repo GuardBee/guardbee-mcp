@@ -18,6 +18,9 @@ pnpm --filter @guardbee/pii-bench bench -- --system guard-core+ner
 pnpm --filter @guardbee/pii-bench bench -- --system guard-core+ner --dataset tr-names-challenge
 # any token-classification model exported to ONNX
 pnpm --filter @guardbee/pii-bench bench -- --model-dir ./models/my-ner --dataset tr-names-challenge
+# the KVKK Art. 6 term lists (preset KVKK_SENSITIVE), with and without the name model
+pnpm --filter @guardbee/pii-bench bench -- --system guard-core+ner+special --dataset tr-special-challenge
+pnpm --filter @guardbee/pii-bench bench -- --system guard-core+special
 ```
 
 ## Dataset: tr-pii-v1
@@ -44,6 +47,16 @@ pnpm --filter @guardbee/pii-bench bench -- --model-dir ./models/my-ner --dataset
 - case suffixes, foreign names and public figures
 
 The 20 clean lines use the same words with no person, and person names inside institution names (`Mimar Sinan Güzel Sanatlar Üniversitesi`). The labels are hand-placed, with the same rules as above. It is small, so its intervals are wide: it separates models that fail on these cases, not ones that are close.
+
+## Dataset: tr-special-challenge
+
+`data/tr-special-challenge.jsonl`, 65 hand-written lines (`src/special-challenge.ts`) for the KVKK Art. 6 categories, written before guard-core's term lists and worded apart from the templates' phrases. 41 lines hold 45 special-category labels (3–9 per category), next to 34 names:
+
+- inflected forms and phrases not in the templates (`pankreas kanseri`, `Cemevi'ne`, `sendikaya üye olduktan`)
+- people with no name: `hastanın`, `babam`, the speaker of a chat line
+- English (`prior conviction`, `voiceprint`)
+
+The 20 clean lines are the hard negatives: the same words with no person behind them (`Diyabet hastaları için beslenme rehberi`, `Ermeni mimarisi sergisi`), and four lines whose only personal data is a name that is also a religious or ethnic word (Ramazan, İslam, Kürşat, Hristo).
 
 ### Limits
 
@@ -75,7 +88,7 @@ License: the dataset and code are MIT, like the rest of the repository.
 | **All categories** | 92.8 (90.1–95.0) | 26.6 (23.7–29.5) | 41.4 (37.7–44.8) | 26.6 (23.7–29.5) |
 | **Identifiers** | 92.8 (90.1–95.0) | 77.5 (73.2–81.7) | 84.4 (81.3–87.3) | 77.5 (73.2–81.7) |
 
-False-alarm rate (clean documents with any detection): 8.1 (4.4–12.5)%. Latency per document: p50 0.027 ms, p95 0.047 ms (Node v23.11.0).
+False-alarm rate (clean documents with any detection): 8.1 (4.4–12.5)%. Latency per document: p50 0.029 ms, p95 0.047 ms (Node v23.11.0).
 
 | Category | Labels | Precision | Recall | F1 | Fully masked |
 |---|---|---|---|---|---|
@@ -102,7 +115,7 @@ False-alarm rate (clean documents with any detection): 8.1 (4.4–12.5)%. Latenc
 | biometric † | 24 | – | 0.0 (0.0–0.0) | – | 0.0 (0.0–0.0) |
 | genetic † | 24 | – | 0.0 (0.0–0.0) | – | 0.0 (0.0–0.0) |
 
-† No regex detector: person names come from the NER model when the system has one; the KVKK Art. 6 categories have no detector yet.
+† No regex detector: person names come from the NER model, and the KVKK Art. 6 categories from guard-core's opt-in term lists, when the system has them.
 <!-- /results -->
 
 <!-- results:guard-core+ner -->
@@ -115,7 +128,7 @@ False-alarm rate (clean documents with any detection): 8.1 (4.4–12.5)%. Latenc
 | **All categories** | 96.6 (95.4–97.6) | 73.2 (71.2–75.2) | 83.3 (81.9–84.6) | 73.2 (71.2–75.2) |
 | **Identifiers** | 92.8 (90.1–95.0) | 77.5 (73.2–81.7) | 84.4 (81.3–87.3) | 77.5 (73.2–81.7) |
 
-False-alarm rate (clean documents with any detection): 11.3 (6.9–16.3)%. Latency per document: p50 7.882 ms, p95 15.525 ms (Node v23.11.0).
+False-alarm rate (clean documents with any detection): 11.3 (6.9–16.3)%. Latency per document: p50 7.926 ms, p95 15.727 ms (Node v23.11.0).
 
 | Category | Labels | Precision | Recall | F1 | Fully masked |
 |---|---|---|---|---|---|
@@ -142,7 +155,7 @@ False-alarm rate (clean documents with any detection): 11.3 (6.9–16.3)%. Laten
 | biometric † | 24 | – | 0.0 (0.0–0.0) | – | 0.0 (0.0–0.0) |
 | genetic † | 24 | – | 0.0 (0.0–0.0) | – | 0.0 (0.0–0.0) |
 
-† No regex detector: person names come from the NER model when the system has one; the KVKK Art. 6 categories have no detector yet.
+† No regex detector: person names come from the NER model, and the KVKK Art. 6 categories from guard-core's opt-in term lists, when the system has them.
 <!-- /results -->
 
 <!-- results:guard-core+ner.tr-names-challenge -->
@@ -155,7 +168,7 @@ False-alarm rate (clean documents with any detection): 11.3 (6.9–16.3)%. Laten
 | **All categories** | 100.0 (100.0–100.0) | 94.4 (84.8–100.0) | 97.1 (91.8–100.0) | 94.4 (84.8–100.0) |
 | **Identifiers** | – | – | – | – |
 
-False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency per document: p50 4.069 ms, p95 6.603 ms (Node v23.11.0).
+False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency per document: p50 4.316 ms, p95 6.871 ms (Node v23.11.0).
 
 | Category | Labels | Precision | Recall | F1 | Fully masked |
 |---|---|---|---|---|---|
@@ -182,8 +195,110 @@ False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency
 | biometric † | 0 | – | – | – | – |
 | genetic † | 0 | – | – | – | – |
 
-† No regex detector: person names come from the NER model when the system has one; the KVKK Art. 6 categories have no detector yet.
+† No regex detector: person names come from the NER model, and the KVKK Art. 6 categories from guard-core's opt-in term lists, when the system has them.
 <!-- /results -->
+
+<!-- results:guard-core+ner+special -->
+### guard-core+ner+special
+
+@guardbee/guard-core default detectors + @guardbee/ner default model + the KVKK Art. 6 term lists (preset KVKK_SENSITIVE's detectors). Dataset tr-pii-v1: 400 documents with personal data (1396 labeled spans), 160 without. Percentages with 95% bootstrap intervals (1000 document-level resamples).
+
+| | Precision | Recall | F1 | Fully masked |
+|---|---|---|---|---|
+| **All categories** | 96.7 (95.7–97.6) | 92.1 (90.6–93.5) | 94.3 (93.4–95.3) | 91.8 (90.3–93.3) |
+| **Identifiers** | 92.8 (90.1–95.0) | 77.5 (73.2–81.7) | 84.4 (81.3–87.3) | 77.5 (73.2–81.7) |
+
+False-alarm rate (clean documents with any detection): 11.3 (6.9–16.3)%. Latency per document: p50 8.536 ms, p95 16.034 ms (Node v23.11.0).
+
+| Category | Labels | Precision | Recall | F1 | Fully masked |
+|---|---|---|---|---|---|
+| tc_kimlik | 60 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
+| vkn | 17 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
+| iban | 50 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
+| credit_card | 25 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
+| email | 43 | 74.1 (61.9–84.5) | 100.0 (100.0–100.0) | 85.1 (76.5–91.6) | 100.0 (100.0–100.0) |
+| kep | 16 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
+| phone_tr | 94 | 83.1 (75.3–90.9) | 73.4 (64.4–82.8) | 78.0 (71.1–84.5) | 73.4 (64.4–82.8) |
+| passport | 16 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
+| sgk_no | 25 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
+| mersis | 16 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
+| birth_date | 50 | 100.0 (100.0–100.0) | 34.0 (20.7–46.8) | 50.7 (34.3–63.8) | 34.0 (20.7–46.8) |
+| address | 68 | 100.0 (100.0–100.0) | 26.5 (16.9–36.8) | 41.9 (28.9–53.8) | 26.5 (16.9–36.8) |
+| person_name † | 650 | 98.9 (98.1–99.6) | 100.0 (100.0–100.0) | 99.5 (99.0–99.8) | 100.0 (100.0–100.0) |
+| health † | 60 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
+| religion_belief † | 32 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
+| ethnic_origin † | 17 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
+| political_opinion † | 25 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
+| union_membership † | 26 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
+| criminal_record † | 34 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
+| sex_life † | 24 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
+| biometric † | 24 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 83.3 (66.7–96.3) |
+| genetic † | 24 | 73.3 (62.5–86.2) | 91.7 (79.2–100.0) | 81.5 (71.4–91.3) | 91.7 (79.2–100.0) |
+
+† No regex detector: person names come from the NER model, and the KVKK Art. 6 categories from guard-core's opt-in term lists, when the system has them.
+<!-- /results -->
+
+<!-- results:guard-core+ner+special.tr-special-challenge -->
+### guard-core+ner+special
+
+@guardbee/guard-core default detectors + @guardbee/ner default model + the KVKK Art. 6 term lists (preset KVKK_SENSITIVE's detectors). Dataset tr-special-challenge: 45 documents with personal data (79 labeled spans), 20 without. Percentages with 95% bootstrap intervals (1000 document-level resamples).
+
+| | Precision | Recall | F1 | Fully masked |
+|---|---|---|---|---|
+| **All categories** | 95.1 (90.5–98.7) | 100.0 (100.0–100.0) | 97.5 (95.0–99.4) | 93.7 (87.9–98.7) |
+| **Identifiers** | – | – | – | – |
+
+False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency per document: p50 4.667 ms, p95 6.573 ms (Node v23.11.0).
+
+| Category | Labels | Precision | Recall | F1 | Fully masked |
+|---|---|---|---|---|---|
+| tc_kimlik | 0 | – | – | – | – |
+| vkn | 0 | – | – | – | – |
+| iban | 0 | – | – | – | – |
+| credit_card | 0 | – | – | – | – |
+| email | 0 | – | – | – | – |
+| kep | 0 | – | – | – | – |
+| phone_tr | 0 | – | – | – | – |
+| passport | 0 | – | – | – | – |
+| sgk_no | 0 | – | – | – | – |
+| mersis | 0 | – | – | – | – |
+| birth_date | 0 | – | – | – | – |
+| address | 0 | – | – | – | – |
+| person_name † | 34 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
+| health † | 9 | 81.8 (63.6–100.0) | 100.0 (100.0–100.0) | 90.0 (77.8–100.0) | 100.0 (100.0–100.0) |
+| religion_belief † | 5 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
+| ethnic_origin † | 5 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 80.0 (0.0–100.0) |
+| political_opinion † | 4 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 75.0 (0.0–100.0) |
+| union_membership † | 4 | 80.0 (50.0–100.0) | 100.0 (100.0–100.0) | 88.9 (66.7–100.0) | 50.0 (0.0–100.0) |
+| criminal_record † | 5 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
+| sex_life † | 3 | 75.0 (50.0–100.0) | 100.0 (100.0–100.0) | 85.7 (66.7–100.0) | 66.7 (0.0–100.0) |
+| biometric † | 4 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
+| genetic † | 6 | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) | 100.0 (100.0–100.0) |
+
+† No regex detector: person names come from the NER model, and the KVKK Art. 6 categories from guard-core's opt-in term lists, when the system has them.
+<!-- /results -->
+
+## KVKK Art. 6 term lists
+
+guard-core finds the nine special categories with a term list per category and a context rule (`packages/guard-core/src/special.ts`): a term is masked only when the text is about a person — a name the NER model found, a personal identifier, or a word that points at someone. They are opt-in (preset `KVKK_SENSITIVE`). F1 per category, with 95% intervals in the reports above and in `results/`:
+
+| Category | tr-pii-v1, with NER | tr-special-challenge, with NER | tr-special-challenge, no NER |
+|---|---|---|---|
+| health | 100 | 90.0 | 87.5 |
+| religion / belief | 100 | 100 | 88.9 |
+| ethnic origin | 100 | 100 | 88.9 |
+| political opinion | 100 | 100 | 85.7 |
+| union membership | 100 | 88.9 | 66.7 |
+| criminal record | 100 | 100 | 75.0 |
+| sex life | 100 | 85.7 | 40.0 |
+| biometric | 100 | 100 | 66.7 |
+| genetic | 81.5 | 100 | 80.0 |
+| clean false alarms | 11.3% (same as NER alone) | 0% | 0% |
+
+- **Run it with the name model.** Without names the context rule only has identifiers and role words to go on, and recall drops: many sentences are about a person only through their name.
+- **The challenge set is no longer blind.** It was written before the term lists, but its errors were then read and fixed (upper-case `HIV` becoming `hıv` under Turkish lower-casing, `sanığın`, phrases like `tip 2 diyabet`). The tr-pii-v1 numbers are higher still because the lists were written by the same author as the templates. Expect lower numbers on real text, mostly from terms that are not on the lists.
+- **The bias is conservative.** Once a text is about someone, every listed term in it is masked. The term lists add no false alarm on either clean set; on tr-special-challenge the one extra find is `eşcinsel` in `eşcinsel bireylere yönelik ayrımcılığı` (a group), in a line that is also about the speaker.
+- **Latency:** under 0.15 ms per document on top of the regex detectors; the NER model dominates (p50 8 ms).
 
 ## Choosing the NER model
 

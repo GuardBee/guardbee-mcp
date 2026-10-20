@@ -1,6 +1,7 @@
 import { NormalizedText, needsNormalization } from "./normalize.js";
 import type { OrgPatterns } from "./org-patterns.js";
 import { SECRET_RULES } from "./secrets.js";
+import { SPECIAL_CATEGORY_REPLACEMENT, findSpecialTerms, mentionsPerson } from "./special.js";
 import { isValidIban, isValidLuhn, isValidTcKimlik, isValidTrPhone, isValidVkn } from "./validators.js";
 
 export interface PiiPattern {
@@ -277,8 +278,45 @@ function maskModelSpans(text: string, spans: SpanLookup | undefined, replace: Pi
   return out + text.slice(cursor);
 }
 
+const PERSONAL = new Set<string>(PERSONAL_DATA_CATEGORIES);
+
+/**
+ * The context rule for the special categories: the text names someone (the
+ * model found a name), holds a personal identifier, or has a word that points
+ * at a person.
+ */
+let identifiers: { pattern: RegExp; validate?: PiiPattern["validate"] }[] | undefined;
+
+function aboutPerson(text: string, spans: SpanLookup | undefined): boolean {
+  if (spans?.(text).some((span) => span.detector === "person_name")) return true;
+  // Global copies, made once: matchAll needs the g flag
+  identifiers ??= PII_PATTERNS.filter((p) => PERSONAL.has(p.name) && !p.optIn).map(({ pattern, validate }) => ({
+    pattern: new RegExp(pattern.source, pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`),
+    ...(validate ? { validate } : {}),
+  }));
+  for (const { pattern, validate } of identifiers) {
+    for (const match of text.matchAll(pattern)) if (!validate || validate(match[0])) return true;
+  }
+  return mentionsPerson(text);
+}
+
+/** KVKK Art. 6 terms in `text` (already masked by the other detectors), when `original` is about a person. */
+function maskSpecial(text: string, original: string, replace: PiiReplacer | undefined, include: PiiInclude | undefined, spans: SpanLookup | undefined): string {
+  const found = findSpecialTerms(text, (category) => runs(category, true, include));
+  if (found.length === 0 || !aboutPerson(original, spans)) return text;
+  let out = "";
+  let cursor = 0;
+  for (const { start, end, detector } of found) {
+    const match = text.slice(start, end);
+    out += text.slice(cursor, start) + (replace?.(detector, match) ?? SPECIAL_CATEGORY_REPLACEMENT[detector]);
+    cursor = end;
+  }
+  return out + text.slice(cursor);
+}
+
 /** Built-in detectors only. */
 function maskBuiltIn(text: string, replace: PiiReplacer | undefined, include: PiiInclude | undefined, spans?: SpanLookup): string {
+  const original = text;
   text = maskModelSpans(text, spans, replace, include);
   const masked = (name: string, replacement: string, validate: PiiPattern["validate"]) => (match: string) =>
     validate && !validate(match) ? match : (replace?.(name, match) ?? replacement);
@@ -291,7 +329,7 @@ function maskBuiltIn(text: string, replace: PiiReplacer | undefined, include: Pi
       if (!runs(name, optIn, include)) continue;
       working.replace(pattern, masked(name, replacement, validate));
     }
-    return working.toString();
+    return maskSpecial(working.toString(), original, replace, include, spans);
   }
 
   let result = text;
@@ -299,7 +337,7 @@ function maskBuiltIn(text: string, replace: PiiReplacer | undefined, include: Pi
     if (!runs(name, optIn, include)) continue;
     result = result.replace(pattern, masked(name, replacement, validate));
   }
-  return result;
+  return maskSpecial(result, original, replace, include, spans);
 }
 
 /** Every string in a value, depth first; `fn` returns its replacement. */

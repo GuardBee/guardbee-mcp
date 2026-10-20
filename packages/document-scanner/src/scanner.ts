@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync, statSync } from "fs";
 import { isAbsolute, join, relative, resolve } from "path";
-import { PERSONAL_DATA_CATEGORIES, maskPiiInText } from "@guardbee/guard-core";
+import { MODEL_PII, PERSONAL_DATA_CATEGORIES, SPECIAL_CATEGORIES, maskPiiInText } from "@guardbee/guard-core";
 import { extractText, type DocumentKind, type ExtractMethod, type ExtractOptions } from "./extract.js";
 
 export type Severity = "critical" | "high" | "medium" | "low";
@@ -32,7 +32,7 @@ export interface ScanOptions extends ExtractOptions {
   include?: string[];
 }
 
-const PERSONAL = new Set<string>(PERSONAL_DATA_CATEGORIES);
+const PERSONAL = new Set<string>([...PERSONAL_DATA_CATEGORIES, ...MODEL_PII, ...SPECIAL_CATEGORIES]);
 /** Identifiers that on their own let someone be found or charged. */
 const HIGH_PERSONAL = new Set(["tc_kimlik", "iban", "credit_card", "passport", "sgk_no"]);
 
