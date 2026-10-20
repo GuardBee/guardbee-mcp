@@ -7,7 +7,7 @@
 | **All categories** | 95.1 (90.5–98.7) | 100.0 (100.0–100.0) | 97.5 (95.0–99.4) | 93.7 (87.9–98.7) |
 | **Identifiers** | – | – | – | – |
 
-False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency per document: p50 5.003 ms, p95 6.816 ms (Node v23.11.0).
+False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency per document: p50 4.779 ms, p95 6.441 ms (Node v23.11.0).
 
 | Category | Labels | Precision | Recall | F1 | Fully masked |
 |---|---|---|---|---|---|

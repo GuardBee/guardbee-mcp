@@ -244,7 +244,8 @@ export const PII_PATTERNS: PiiPattern[] = [
     // A bare mobile number (5xx, ten digits) shortly after a word that says it is one:
     // "numaram değişti 5321234567", "iletişim: Ayşe, 5321234567"; not "build 5321234567"
     name: "phone_tr",
-    pattern: /(?<=\b(?:numara\p{L}*|tel(?:efon)?\p{L}*|cep|gsm|ileti[şs]im|whatsapp|ara(?:y[ıi]n|r\s*m[ıi]s[ıi]n)|phone|mobile)\b[^\n\d]{0,40})5[0-5]\d{8}(?![\w/-])/giu,
+    // The lookahead goes first: V8 tries a lookbehind at every position, so the cheap digit test gates it
+    pattern: /(?<!\d)(?=5[0-5]\d{8}(?![\w/-]))(?<=\b(?:numara\p{L}*|tel(?:efon)?\p{L}*|cep|gsm|ileti[şs]im|whatsapp|ara(?:y[ıi]n|r\s*m[ıi]s[ıi]n)|phone|mobile)\b[^\n\d]{0,40})5[0-5]\d{8}(?![\w/-])/giu,
     replacement: "+90-***-***-**[TELEFON]",
     validate: isValidTrPhone,
   },

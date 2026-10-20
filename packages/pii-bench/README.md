@@ -89,7 +89,7 @@ License: the dataset and code are MIT, like the rest of the repository.
 | **All categories** | 94.3 (92.2–96.0) | 34.4 (31.7–37.2) | 50.4 (47.4–53.4) | 34.4 (31.7–37.2) |
 | **Identifiers** | 94.3 (92.2–96.0) | 100.0 (100.0–100.0) | 97.1 (95.9–98.0) | 100.0 (100.0–100.0) |
 
-False-alarm rate (clean documents with any detection): 8.1 (4.4–12.5)%. Latency per document: p50 0.388 ms, p95 0.866 ms (Node v23.11.0).
+False-alarm rate (clean documents with any detection): 8.1 (4.4–12.5)%. Latency per document: p50 0.037 ms, p95 0.071 ms (Node v23.11.0).
 
 | Category | Labels | Precision | Recall | F1 | Fully masked |
 |---|---|---|---|---|---|
@@ -129,7 +129,7 @@ False-alarm rate (clean documents with any detection): 8.1 (4.4–12.5)%. Latenc
 | **All categories** | 96.9 (95.8–97.8) | 80.9 (79.4–82.5) | 88.2 (87.2–89.2) | 80.9 (79.4–82.5) |
 | **Identifiers** | 94.3 (92.2–96.0) | 100.0 (100.0–100.0) | 97.1 (95.9–98.0) | 100.0 (100.0–100.0) |
 
-False-alarm rate (clean documents with any detection): 11.3 (6.9–16.3)%. Latency per document: p50 8.265 ms, p95 15.907 ms (Node v23.11.0).
+False-alarm rate (clean documents with any detection): 11.3 (6.9–16.3)%. Latency per document: p50 7.910 ms, p95 15.195 ms (Node v23.11.0).
 
 | Category | Labels | Precision | Recall | F1 | Fully masked |
 |---|---|---|---|---|---|
@@ -169,7 +169,7 @@ False-alarm rate (clean documents with any detection): 11.3 (6.9–16.3)%. Laten
 | **All categories** | 100.0 (100.0–100.0) | 94.4 (84.8–100.0) | 97.1 (91.8–100.0) | 94.4 (84.8–100.0) |
 | **Identifiers** | – | – | – | – |
 
-False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency per document: p50 4.376 ms, p95 6.867 ms (Node v23.11.0).
+False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency per document: p50 4.118 ms, p95 6.458 ms (Node v23.11.0).
 
 | Category | Labels | Precision | Recall | F1 | Fully masked |
 |---|---|---|---|---|---|
@@ -209,7 +209,7 @@ False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency
 | **All categories** | 96.9 (96.0–97.8) | 99.9 (99.6–100.0) | 98.4 (97.8–98.8) | 99.6 (99.2–99.9) |
 | **Identifiers** | 94.3 (92.2–96.0) | 100.0 (100.0–100.0) | 97.1 (95.9–98.0) | 100.0 (100.0–100.0) |
 
-False-alarm rate (clean documents with any detection): 11.3 (6.9–16.3)%. Latency per document: p50 8.425 ms, p95 15.102 ms (Node v23.11.0).
+False-alarm rate (clean documents with any detection): 11.3 (6.9–16.3)%. Latency per document: p50 7.859 ms, p95 14.616 ms (Node v23.11.0).
 
 | Category | Labels | Precision | Recall | F1 | Fully masked |
 |---|---|---|---|---|---|
@@ -249,7 +249,7 @@ False-alarm rate (clean documents with any detection): 11.3 (6.9–16.3)%. Laten
 | **All categories** | 95.1 (90.5–98.7) | 100.0 (100.0–100.0) | 97.5 (95.0–99.4) | 93.7 (87.9–98.7) |
 | **Identifiers** | – | – | – | – |
 
-False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency per document: p50 5.003 ms, p95 6.816 ms (Node v23.11.0).
+False-alarm rate (clean documents with any detection): 0.0 (0.0–0.0)%. Latency per document: p50 4.779 ms, p95 6.441 ms (Node v23.11.0).
 
 | Category | Labels | Precision | Recall | F1 | Fully masked |
 |---|---|---|---|---|---|
