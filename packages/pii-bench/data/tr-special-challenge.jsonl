@@ -1,0 +1,65 @@
+{"id":"special-001","domain":"support","set":"pii","text":"Nermin Aydın geçen ay pankreas kanseri teşhisi aldı, kemoterapiye başlıyor.","spans":[{"start":0,"end":12,"category":"person_name"},{"start":22,"end":38,"category":"health"}]}
+{"id":"special-002","domain":"support","set":"pii","text":"Hastanın hipertansiyonu var, insülin kullanıyor; kontrolü 3 ay sonra.","spans":[{"start":9,"end":23,"category":"health"},{"start":29,"end":36,"category":"health"}]}
+{"id":"special-003","domain":"support","set":"pii","text":"Okan Bey'in alzheimer başlangıcı olduğu için imza yetkisi gözden geçirilecek.","spans":[{"start":0,"end":4,"category":"person_name"},{"start":12,"end":21,"category":"health"}]}
+{"id":"special-004","domain":"chat","set":"pii","text":"dün migren krizim tuttu, bugün de gelemiyorum","spans":[{"start":4,"end":10,"category":"health"}]}
+{"id":"special-005","domain":"support","set":"pii","text":"Employee Laura Chen disclosed a bipolar disorder diagnosis to HR.","spans":[{"start":9,"end":19,"category":"person_name"},{"start":32,"end":48,"category":"health"}]}
+{"id":"special-006","domain":"support","set":"pii","text":"Çalışanın HIV pozitif olduğu bilgisi yalnızca işyeri hekiminde kalmalı.","spans":[{"start":10,"end":21,"category":"health"}]}
+{"id":"special-007","domain":"support","set":"pii","text":"Tuncay Erdem'in kalp krizi geçirdiği ve bypass olduğu öğrenildi.","spans":[{"start":0,"end":12,"category":"person_name"},{"start":16,"end":26,"category":"health"}]}
+{"id":"special-008","domain":"support","set":"pii","text":"Öğrenci Ece'nin DEHB tanısı nedeniyle sınavda ek süre verilecek.","spans":[{"start":8,"end":11,"category":"person_name"},{"start":16,"end":20,"category":"health"}]}
+{"id":"special-009","domain":"support","set":"pii","text":"Mihail Dimitriadis Ortodoks olduğu için Paskalya'da izin istiyor.","spans":[{"start":0,"end":18,"category":"person_name"},{"start":19,"end":27,"category":"religion_belief"}]}
+{"id":"special-010","domain":"support","set":"pii","text":"Başvurucu ateist olduğunu ve din dersinden muaf tutulmak istediğini belirtti.","spans":[{"start":10,"end":16,"category":"religion_belief"}]}
+{"id":"special-011","domain":"support","set":"pii","text":"Leyla Hanım Cemevi'ne gittiği için cuma günleri erken çıkıyor.","spans":[{"start":0,"end":5,"category":"person_name"},{"start":12,"end":21,"category":"religion_belief"}]}
+{"id":"special-012","domain":"chat","set":"pii","text":"babam namaz kıldığı için toplantıyı 13.30'a alalım","spans":[{"start":6,"end":19,"category":"religion_belief"}]}
+{"id":"special-013","domain":"support","set":"pii","text":"The applicant, Daniel Cohen, keeps kosher and asked for a separate meal.","spans":[{"start":15,"end":27,"category":"person_name"},{"start":35,"end":41,"category":"religion_belief"}]}
+{"id":"special-014","domain":"support","set":"pii","text":"Aram Bedrosyan Ermeni asıllı olduğunu, bu yüzden terfi alamadığını söylüyor.","spans":[{"start":0,"end":14,"category":"person_name"},{"start":15,"end":28,"category":"ethnic_origin"}]}
+{"id":"special-015","domain":"support","set":"pii","text":"Müşteri Çingene olduğu gerekçesiyle mağazaya alınmadığını iddia etti.","spans":[{"start":8,"end":15,"category":"ethnic_origin"}]}
+{"id":"special-016","domain":"support","set":"pii","text":"Zelal'in annesi Zaza, babası Kürt.","spans":[{"start":0,"end":5,"category":"person_name"},{"start":16,"end":20,"category":"ethnic_origin"},{"start":29,"end":33,"category":"ethnic_origin"}]}
+{"id":"special-017","domain":"support","set":"pii","text":"Personel dosyasında Suriyeli Türkmen kökenli olduğu not edilmiş: Ahmet Halil.","spans":[{"start":20,"end":36,"category":"ethnic_origin"},{"start":65,"end":76,"category":"person_name"}]}
+{"id":"special-018","domain":"support","set":"pii","text":"Cengiz Aksoy geçen seçimde belediye meclis üyeliğine aday olmuştu, sosyal medyada paylaşılmasın.","spans":[{"start":0,"end":12,"category":"person_name"},{"start":53,"end":65,"category":"political_opinion"}]}
+{"id":"special-019","domain":"support","set":"pii","text":"Çalışan Gökhan'ın komünist görüşleri yüzünden ekipte gerginlik var.","spans":[{"start":8,"end":14,"category":"person_name"},{"start":18,"end":26,"category":"political_opinion"}]}
+{"id":"special-020","domain":"support","set":"pii","text":"Rana Tekin parti il başkan yardımcısı olarak görev yapıyor.","spans":[{"start":0,"end":10,"category":"person_name"},{"start":11,"end":37,"category":"political_opinion"}]}
+{"id":"special-021","domain":"chat","set":"pii","text":"eşim mitinge katıldı diye işten uyarı aldı","spans":[{"start":5,"end":12,"category":"political_opinion"}]}
+{"id":"special-022","domain":"support","set":"pii","text":"Hasan Polat sendikaya üye olduktan iki hafta sonra işten çıkarıldı.","spans":[{"start":0,"end":11,"category":"person_name"},{"start":12,"end":34,"category":"union_membership"}]}
+{"id":"special-023","domain":"support","set":"pii","text":"Derya Hanım'ın sendika aidatı maaşından kesiliyor.","spans":[{"start":0,"end":5,"category":"person_name"},{"start":15,"end":29,"category":"union_membership"}]}
+{"id":"special-024","domain":"support","set":"pii","text":"Union steward Mark Evans is a member of Unite.","spans":[{"start":14,"end":24,"category":"person_name"},{"start":30,"end":45,"category":"union_membership"}]}
+{"id":"special-025","domain":"support","set":"pii","text":"Çalışan işyeri sendika temsilcisi seçildi, adı Kerem Aslan.","spans":[{"start":8,"end":33,"category":"union_membership"},{"start":47,"end":58,"category":"person_name"}]}
+{"id":"special-026","domain":"support","set":"pii","text":"Volkan Uçar'ın adli sicil kaydında karşılıksız çek var.","spans":[{"start":0,"end":11,"category":"person_name"},{"start":15,"end":34,"category":"criminal_record"}]}
+{"id":"special-027","domain":"support","set":"pii","text":"Aday Serdar, hapis yattığını mülakatta kendisi söyledi.","spans":[{"start":5,"end":11,"category":"person_name"},{"start":13,"end":28,"category":"criminal_record"}]}
+{"id":"special-028","domain":"support","set":"pii","text":"Sanığın daha önce iki kez hırsızlıktan hüküm giydiği anlaşılmıştır.","spans":[{"start":26,"end":52,"category":"criminal_record"}]}
+{"id":"special-029","domain":"support","set":"pii","text":"Melike Aras hakkında denetimli serbestlik kararı devam ediyor.","spans":[{"start":0,"end":11,"category":"person_name"},{"start":21,"end":41,"category":"criminal_record"}]}
+{"id":"special-030","domain":"support","set":"pii","text":"The candidate, Tom Baker, has a prior conviction for fraud.","spans":[{"start":15,"end":24,"category":"person_name"},{"start":32,"end":48,"category":"criminal_record"}]}
+{"id":"special-031","domain":"support","set":"pii","text":"Kaan iş arkadaşlarına gey olduğunu açıklamış, bu bilgi dosyaya girmesin.","spans":[{"start":0,"end":4,"category":"person_name"},{"start":22,"end":25,"category":"sex_life"}]}
+{"id":"special-032","domain":"support","set":"pii","text":"Danışan, eşcinsel bireylere yönelik ayrımcılığı anlatırken kendisinin de eşcinsel bir ilişki yaşadığını söyledi.","spans":[{"start":73,"end":92,"category":"sex_life"}]}
+{"id":"special-033","domain":"support","set":"pii","text":"Pınar Sezer'in lezbiyen olduğu söylentisi yayılmış.","spans":[{"start":0,"end":11,"category":"person_name"},{"start":15,"end":23,"category":"sex_life"}]}
+{"id":"special-034","domain":"support","set":"pii","text":"Oya Kurt'un yüz geometrisi verisi turnike sistemine kaydedildi.","spans":[{"start":0,"end":8,"category":"person_name"},{"start":12,"end":33,"category":"biometric"}]}
+{"id":"special-035","domain":"support","set":"pii","text":"Çalışanın parmak izi şablonu işten ayrılınca silinmedi.","spans":[{"start":10,"end":28,"category":"biometric"}]}
+{"id":"special-036","domain":"support","set":"pii","text":"Personel Sinan Bey'in iris taraması giriş sistemi için alındı.","spans":[{"start":9,"end":14,"category":"person_name"},{"start":22,"end":35,"category":"biometric"}]}
+{"id":"special-037","domain":"support","set":"pii","text":"Fiona Walsh's voiceprint was enrolled for phone banking.","spans":[{"start":0,"end":11,"category":"person_name"},{"start":14,"end":24,"category":"biometric"}]}
+{"id":"special-038","domain":"support","set":"pii","text":"Begüm Ilgaz BRCA2 taşıyıcısı çıktı, kız kardeşine de test öneriliyor.","spans":[{"start":0,"end":11,"category":"person_name"},{"start":12,"end":28,"category":"genetic"}]}
+{"id":"special-039","domain":"support","set":"pii","text":"Hastanın DNA testi sonucunda Down sendromu riski yüksek bulundu.","spans":[{"start":9,"end":18,"category":"genetic"},{"start":29,"end":42,"category":"genetic"}]}
+{"id":"special-040","domain":"support","set":"pii","text":"Halil'in orak hücre taşıyıcısı olduğu sigorta şirketine bildirilmemeli.","spans":[{"start":0,"end":5,"category":"person_name"},{"start":9,"end":30,"category":"genetic"}]}
+{"id":"special-041","domain":"support","set":"pii","text":"Neslihan Hanım'ın genetik testinde APOE4 varyantı bulundu.","spans":[{"start":0,"end":8,"category":"person_name"},{"start":18,"end":34,"category":"genetic"},{"start":35,"end":40,"category":"genetic"}]}
+{"id":"special-042","domain":"support","set":"clean","text":"Diyabet hastaları için beslenme rehberi güncellendi.","spans":[]}
+{"id":"special-043","domain":"support","set":"clean","text":"Kanser taramaları 40 yaş üstü için ücretsiz.","spans":[]}
+{"id":"special-044","domain":"support","set":"clean","text":"Sendika üyeliği hakkında bilgilendirme toplantısı cuma günü yapılacak.","spans":[]}
+{"id":"special-045","domain":"support","set":"clean","text":"KVKK 6. madde uyarınca sağlık verisi özel nitelikli kişisel veridir.","spans":[]}
+{"id":"special-046","domain":"support","set":"clean","text":"Parmak izi okuyuculu turnikelerin teklifini satın alma birimine iletin.","spans":[]}
+{"id":"special-047","domain":"support","set":"clean","text":"Ses izi doğrulaması 2027 başında kullanıma açılacak.","spans":[]}
+{"id":"special-048","domain":"support","set":"clean","text":"Alevi kültürü üzerine panel Kadıköy'de düzenlenecek.","spans":[]}
+{"id":"special-049","domain":"support","set":"clean","text":"Ermeni mimarisi sergisi ziyaretçilere açıldı.","spans":[]}
+{"id":"special-050","domain":"support","set":"clean","text":"Seçim sonuçları gece yarısından sonra açıklanacak.","spans":[]}
+{"id":"special-051","domain":"support","set":"clean","text":"Adli sicil kaydı belgesi e-Devlet'ten alınabilir.","spans":[]}
+{"id":"special-052","domain":"support","set":"clean","text":"Genetik test fiyatları geçen yıla göre arttı.","spans":[]}
+{"id":"special-053","domain":"support","set":"clean","text":"Depresyon belirtileri ve tedavi seçenekleri broşürü hazırlandı.","spans":[]}
+{"id":"special-054","domain":"support","set":"clean","text":"Roman dilinde yazılmış bir roman ödül aldı.","spans":[]}
+{"id":"special-055","domain":"support","set":"clean","text":"Laz böreği tarifi menüye eklendi.","spans":[]}
+{"id":"special-056","domain":"support","set":"clean","text":"Covid-19 aşı kampanyası nisanda sona erdi.","spans":[]}
+{"id":"special-057","domain":"support","set":"clean","text":"Yeni sendika yasası mecliste görüşülüyor.","spans":[]}
+{"id":"special-058","domain":"support","set":"clean","text":"Tip 1 ve tip 2 diyabet arasındaki farklar eğitimde anlatılacak.","spans":[]}
+{"id":"special-059","domain":"support","set":"clean","text":"HIV testleri anonim olarak yapılmaktadır.","spans":[]}
+{"id":"special-060","domain":"support","set":"clean","text":"Eşcinsel evlilik konusundaki anket sonuçları yayımlandı.","spans":[]}
+{"id":"special-061","domain":"support","set":"clean","text":"DNA dizileme cihazının bakım sözleşmesi yenilenecek.","spans":[]}
+{"id":"special-062","domain":"support","set":"pii","text":"Ramazan Yılmaz faturayı ödedi, makbuzu gönderelim.","spans":[{"start":0,"end":14,"category":"person_name"}]}
+{"id":"special-063","domain":"support","set":"pii","text":"İslam Çelik yarın depoya uğrayacak.","spans":[{"start":0,"end":11,"category":"person_name"}]}
+{"id":"special-064","domain":"support","set":"pii","text":"Kürşat Bey toplantıya gelemeyecek.","spans":[{"start":0,"end":6,"category":"person_name"}]}
+{"id":"special-065","domain":"support","set":"pii","text":"Hristo Petrov siparişini iptal etti.","spans":[{"start":0,"end":13,"category":"person_name"}]}

@@ -1,4 +1,4 @@
-import { PERSONAL_DATA_CATEGORIES, detectTopics, maskPiiInValue, scanToolResult } from "@guardbee/guard-core";
+import { MODEL_PII, PERSONAL_DATA_CATEGORIES, SPECIAL_CATEGORIES, detectTopics, maskPiiInValue, scanToolResult } from "@guardbee/guard-core";
 import { piiScopesFor } from "../gateway/pii-scope.js";
 import type { AuditLogger } from "../audit/logger.js";
 import type { GatewayConfig } from "../gateway/config.js";
@@ -31,7 +31,7 @@ export interface AfterDecision {
   context?: string;
 }
 
-const PERSONAL = new Set<string>(PERSONAL_DATA_CATEGORIES);
+const PERSONAL = new Set<string>([...PERSONAL_DATA_CATEGORIES, ...MODEL_PII, ...SPECIAL_CATEGORIES]);
 const PREFIX = "[GuardBee]";
 
 /**

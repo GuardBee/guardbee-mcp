@@ -80,7 +80,7 @@ describe("enable / disable", () => {
 describe("validation", () => {
   it("rejects an unknown preset or detector name", () => {
     expect(piiSelectionErrors({ preset: "GDPR" as never, enable: ["tckn"], disable: ["emial"] })).toEqual([
-      'unknown PII preset "GDPR" (one of ALL, KVKK, IDENTITY, IDENTIFIERS, SECRETS)',
+      'unknown PII preset "GDPR" (one of ALL, KVKK, KVKK_SENSITIVE, IDENTITY, IDENTIFIERS, SECRETS)',
       'enable: unknown PII detector "tckn"',
       'disable: unknown PII detector "emial"',
     ]);

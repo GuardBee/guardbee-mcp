@@ -1,6 +1,6 @@
 import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { maskPiiInText, type ModelDetector, type ModelSpan, type SpanLookup } from "@guardbee/guard-core";
+import { SPECIAL_CATEGORIES, maskPiiInText, type ModelDetector, type ModelSpan, type SpanLookup } from "@guardbee/guard-core";
 
 /** One span a system flags; `category` is its own name for it (guard-core's detector name). */
 export interface Detection {
@@ -26,7 +26,7 @@ const MARK = /\uE000([\uE100-\uF8FF])\uE001/g;
  * matches recovers where each one was. A match a later pattern swallowed
  * (it holds a marker) is expanded, and the swallowed one kept as its own span.
  */
-export function guardCoreSpans(text: string, spans?: SpanLookup): Detection[] {
+export function guardCoreSpans(text: string, spans?: SpanLookup, include?: ReadonlySet<string>): Detection[] {
   const found: { name: string; match: string }[] = [];
   const masked = maskPiiInText(
     text,
@@ -34,7 +34,7 @@ export function guardCoreSpans(text: string, spans?: SpanLookup): Detection[] {
       found.push({ name, match });
       return OPEN + String.fromCharCode(0xe100 + found.length - 1) + CLOSE;
     },
-    undefined,
+    include,
     undefined,
     spans,
   );
@@ -63,14 +63,14 @@ export function guardCoreSpans(text: string, spans?: SpanLookup): Detection[] {
  * guard-core's masking with a model's spans: the same path the proxy takes,
  * so a model-found name inside an e-mail address is left to the regex.
  */
-export function withModel(name: string, description: string, load: () => Promise<ModelDetector>): System {
+export function withModel(name: string, description: string, load: () => Promise<ModelDetector>, include?: ReadonlySet<string>): System {
   let model: Promise<ModelDetector> | undefined;
   return {
     name,
     description,
     async detect(text) {
       const [found] = await (await (model ??= load())).detect([text]);
-      return guardCoreSpans(text, () => found as ModelSpan[]);
+      return guardCoreSpans(text, () => found as ModelSpan[], include);
     },
   };
 }
@@ -95,6 +95,13 @@ export function onnxNerSystem(dir: string): System {
   });
 }
 
+/** The KVKK Art. 6 detectors, which are opt-in: on top of the defaults. */
+const SPECIAL = new Set<string>(SPECIAL_CATEGORIES);
+const loadDefaultModel = async () => {
+  const { NerModel } = await import("@guardbee/ner");
+  return NerModel.load();
+};
+
 export const SYSTEMS: Record<string, () => System> = {
   "guard-core-regex": () => ({
     name: "guard-core-regex",
@@ -103,8 +110,17 @@ export const SYSTEMS: Record<string, () => System> = {
   }),
   // The default model, from GUARDBEE_NER_CACHE or ~/.cache/guardbee/ner (`guardbee-ner download`)
   "guard-core+ner": () =>
-    withModel("guard-core+ner", "@guardbee/guard-core regex + @guardbee/ner default model (akdeniz27/bert-base-turkish-cased-ner, int8)", async () => {
-      const { NerModel } = await import("@guardbee/ner");
-      return NerModel.load();
-    }),
+    withModel("guard-core+ner", "@guardbee/guard-core regex + @guardbee/ner default model (akdeniz27/bert-base-turkish-cased-ner, int8)", loadDefaultModel),
+  "guard-core+special": () => ({
+    name: "guard-core+special",
+    description: "@guardbee/guard-core default detectors + the KVKK Art. 6 term lists (context: identifiers and person words, no names)",
+    detect: (text) => guardCoreSpans(text, undefined, SPECIAL),
+  }),
+  "guard-core+ner+special": () =>
+    withModel(
+      "guard-core+ner+special",
+      "@guardbee/guard-core default detectors + @guardbee/ner default model + the KVKK Art. 6 term lists (preset KVKK_SENSITIVE's detectors)",
+      loadDefaultModel,
+      SPECIAL,
+    ),
 };

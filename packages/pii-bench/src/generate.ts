@@ -32,6 +32,7 @@ import {
   type Rand,
 } from "./identities.js";
 import { CHALLENGE_LINES } from "./challenge.js";
+import { SPECIAL_CHALLENGE_LINES } from "./special-challenge.js";
 import { CLEAN_TEMPLATES, PII_TEMPLATES } from "./templates.js";
 
 export const DATASET_SEED = 20261019;
@@ -207,22 +208,25 @@ export function generateDataset(seed = DATASET_SEED): Doc[] {
   return docs;
 }
 
-/** The hand-written name challenge (challenge.ts): a line with a label is a PII document, one without is clean. */
-export function generateChallenge(): Doc[] {
-  return CHALLENGE_LINES.map((line, i) => {
+/** A hand-written challenge (challenge.ts, special-challenge.ts): a line with a label is a PII document, one without is clean. */
+export function generateChallenge(lines: readonly string[] = CHALLENGE_LINES, prefix = "challenge"): Doc[] {
+  return lines.map((line, i) => {
     const { text, spans } = render(line, rng(i));
     const domain: Domain = text === text.toLocaleUpperCase("tr") ? "legal" : /^\p{Ll}/u.test(text) ? "chat" : "support";
-    return { id: `challenge-${String(i + 1).padStart(3, "0")}`, domain, set: spans.length > 0 ? "pii" : "clean", text, spans };
+    return { id: `${prefix}-${String(i + 1).padStart(3, "0")}`, domain, set: spans.length > 0 ? "pii" : "clean", text, spans };
   });
 }
+
+export const generateSpecialChallenge = (): Doc[] => generateChallenge(SPECIAL_CHALLENGE_LINES, "special");
 
 export const toJsonl = (docs: Doc[]): string => docs.map((doc) => JSON.stringify(doc)).join("\n") + "\n";
 
 export const DATASET_PATH = fileURLToPath(new URL("../data/tr-pii-v1.jsonl", import.meta.url));
 export const CHALLENGE_PATH = fileURLToPath(new URL("../data/tr-names-challenge.jsonl", import.meta.url));
+export const SPECIAL_CHALLENGE_PATH = fileURLToPath(new URL("../data/tr-special-challenge.jsonl", import.meta.url));
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  for (const [path, docs] of [[DATASET_PATH, generateDataset()], [CHALLENGE_PATH, generateChallenge()]] as const) {
+  for (const [path, docs] of [[DATASET_PATH, generateDataset()], [CHALLENGE_PATH, generateChallenge()], [SPECIAL_CHALLENGE_PATH, generateSpecialChallenge()]] as const) {
     writeFileSync(path, toJsonl(docs));
     console.log(`wrote ${docs.length} documents to ${path}`);
   }

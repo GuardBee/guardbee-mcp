@@ -14,6 +14,8 @@ import {
   maskPiiInValue,
   MODEL_PII,
   MODEL_PII_REPLACEMENT,
+  SPECIAL_CATEGORIES,
+  SPECIAL_CATEGORY_REPLACEMENT,
   OPT_IN_PII,
   PiiPatternTimeoutError,
   type OrgPatternEvent,
@@ -61,7 +63,7 @@ export interface CallerIdentity {
 }
 
 /** Pattern names that are personal data; every other PII pattern is a credential and counts as "secret". */
-const PERSONAL_DATA = new Set<string>([...PERSONAL_DATA_CATEGORIES, ...MODEL_PII]);
+const PERSONAL_DATA = new Set<string>([...PERSONAL_DATA_CATEGORIES, ...MODEL_PII, ...SPECIAL_CATEGORIES]);
 
 /** Base64 bytes in a content item: an image, an embedded resource or a resource's blob. */
 function blobOf(item: { type?: string }): { data: string; label: string } | null {
@@ -77,7 +79,7 @@ function blobOf(item: { type?: string }): { data: string; label: string } | null
   }
   return null;
 }
-const PLACEHOLDER = new Map<string, string>([...PII_PATTERNS.map((p) => [p.name, p.replacement] as const), ...Object.entries(MODEL_PII_REPLACEMENT)]);
+const PLACEHOLDER = new Map<string, string>([...PII_PATTERNS.map((p) => [p.name, p.replacement] as const), ...Object.entries(MODEL_PII_REPLACEMENT), ...Object.entries(SPECIAL_CATEGORY_REPLACEMENT)]);
 
 type PiiHits = Record<string, number>;
 

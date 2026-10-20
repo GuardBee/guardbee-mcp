@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { performance } from "node:perf_hooks";
 import { CATEGORIES, IDENTIFIER_CATEGORIES, type Doc } from "./categories.js";
 import { bootstrap, countDoc, metrics, percentile, type Interval, type Metrics } from "./evaluate.js";
-import { CHALLENGE_PATH, DATASET_PATH } from "./generate.js";
+import { CHALLENGE_PATH, DATASET_PATH, SPECIAL_CHALLENGE_PATH } from "./generate.js";
 import { onnxNerSystem, SYSTEMS, type Detection, type System } from "./systems.js";
 
 export const BOOTSTRAP_SEED = 7;
@@ -89,11 +89,11 @@ export function toMarkdown(report: Report): string {
     const name = (IDENTIFIER_CATEGORIES as readonly string[]).includes(category) ? category : `${category} †`;
     lines.push(`| ${name} | ${c.support} | ${withCi(report, `${key}.precision`, c.precision)} | ${withCi(report, `${key}.recall`, c.recall)} | ${withCi(report, `${key}.f1`, c.f1)} | ${withCi(report, `${key}.coverage`, c.coverage)} |`);
   }
-  lines.push("", "† No regex detector: person names come from the NER model when the system has one; the KVKK Art. 6 categories have no detector yet.", "");
+  lines.push("", "† No regex detector: person names come from the NER model, and the KVKK Art. 6 categories from guard-core's opt-in term lists, when the system has them.", "");
   return lines.join("\n");
 }
 
-const DATASETS: Record<string, string> = { "tr-pii-v1": DATASET_PATH, "tr-names-challenge": CHALLENGE_PATH };
+const DATASETS: Record<string, string> = { "tr-pii-v1": DATASET_PATH, "tr-names-challenge": CHALLENGE_PATH, "tr-special-challenge": SPECIAL_CHALLENGE_PATH };
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const { values } = parseArgs({

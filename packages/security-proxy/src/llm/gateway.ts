@@ -3,6 +3,8 @@ import { createHash, timingSafeEqual } from "crypto";
 import {
   MODEL_PII,
   MODEL_PII_REPLACEMENT,
+  SPECIAL_CATEGORIES,
+  SPECIAL_CATEGORY_REPLACEMENT,
   PERSONAL_DATA_CATEGORIES,
   PII_PATTERNS,
   PiiPatternTimeoutError,
@@ -32,8 +34,8 @@ type Json = Record<string, unknown>;
 const MAX_BODY_BYTES = 32 * 1024 * 1024;
 /** `guardbee` in a request body: the request's own block patterns (allow patterns are refused later, by name). */
 const requestPatternsSchema = z.object(orgPatternShape).strict();
-const PERSONAL_DATA = new Set<string>([...PERSONAL_DATA_CATEGORIES, ...MODEL_PII]);
-const PLACEHOLDER = new Map<string, string>([...PII_PATTERNS.map((p) => [p.name, p.replacement] as const), ...Object.entries(MODEL_PII_REPLACEMENT)]);
+const PERSONAL_DATA = new Set<string>([...PERSONAL_DATA_CATEGORIES, ...MODEL_PII, ...SPECIAL_CATEGORIES]);
+const PLACEHOLDER = new Map<string, string>([...PII_PATTERNS.map((p) => [p.name, p.replacement] as const), ...Object.entries(MODEL_PII_REPLACEMENT), ...Object.entries(SPECIAL_CATEGORY_REPLACEMENT)]);
 /** Text from these roles is scanned for injection; the app's own system prompt and the model's turns are not. */
 const UNTRUSTED_ROLES = new Set(["user", "tool", "function"]);
 const ALL_ROLES = new Set(["system", "developer", "user", "assistant", "tool", "function"]);

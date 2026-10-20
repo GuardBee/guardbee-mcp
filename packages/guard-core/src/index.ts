@@ -1,5 +1,7 @@
 export { isValidTcKimlik, isValidLuhn, isValidIban, isValidVkn, isValidTrPhone } from "./validators.js";
 export { PII_PATTERNS, PERSONAL_DATA_CATEGORIES, OPT_IN_PII, MODEL_PII, MODEL_PII_REPLACEMENT, maskPiiInText, maskPiiInValue } from "./pii.js";
+export { SPECIAL_CATEGORIES, SPECIAL_CATEGORY_REPLACEMENT } from "./special.js";
+export type { SpecialCategory } from "./special.js";
 export type { PiiPattern, PiiReplacer, PiiInclude, ModelDetector, ModelSpan, SpanLookup } from "./pii.js";
 export { PII_DETECTORS, PII_PRESETS, PII_PRESET_NAMES, PiiScope, piiScope, piiSelectionErrors, piiSelectionSchema, piiSelectionShape, checkPiiDetectorNames } from "./presets.js";
 export type { PiiPresetName, PiiSelection } from "./presets.js";
