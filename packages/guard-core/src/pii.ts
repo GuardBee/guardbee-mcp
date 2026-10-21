@@ -1,3 +1,4 @@
+import { MAX_ENCODED_DEPTH, maskEncodedRuns } from "./encoded.js";
 import { NormalizedText, needsNormalization } from "./normalize.js";
 import type { OrgPatterns } from "./org-patterns.js";
 import { SECRET_RULES } from "./secrets.js";
@@ -201,6 +202,15 @@ export const PII_PATTERNS: PiiPattern[] = [
     validate: isValidTcKimlik,
   },
   {
+    // Written with separators after its label: "TC: 100 000 001 46", "T.C. Kimlik No 100-000-001-46"
+    name: "tc_kimlik",
+    // The lookahead goes first: V8 tries a lookbehind at every position, so the cheap digit test gates it
+    pattern: /(?<!\d)(?=[1-9](?:[\s.-]?\d){10}(?!\d))(?<=\b(?:T\.?C\.?(?:\s*(?:kimlik|K[İI]ML[İI]K))?|TCKN|kimlik|K[İI]ML[İI]K)(?:\s*(?:no|numaras[ıi]|NUMARASI))?\.?\s*[:#]?\s*)[1-9](?:[\s.-]?\d){10}(?!\d)/gi,
+    replacement: "[TC-KİMLİK]",
+    // Without a separator the pattern above has it already
+    validate: (match) => /[\s.-]/.test(match) && isValidTcKimlik(match.replace(/[\s.-]/g, "")),
+  },
+  {
     // A bare 10-digit number is too common to call a tax number; require the label.
     name: "vkn",
     pattern: /(?<=\b(?:VKN|V\.K\.N\.?|[Vv]ergi\s+(?:[Kk]imlik\s+)?[Nn](?:o|umaras[ıi])\.?)\s*[:#]?\s*)\d{10}(?!\d)/g,
@@ -231,14 +241,24 @@ export const PII_PATTERNS: PiiPattern[] = [
     replacement: "***@[EMAIL]",
   },
   {
+    // Spelled out to dodge scrapers: "ahmet [at] example [dot] com", "ahmet(at)example.com",
+    // "ahmet at example dot com", Turkish "nokta"
+    name: "email",
+    pattern:
+      /\b[A-Za-z0-9._%+-]+\s*(?:[[({]\s*(?:at|@)\s*[\])}]|\s(?:at|AT)\s)\s*[A-Za-z0-9-]+(?:\s*(?:\.|[[({]\s*(?:dot|nokta|\.)\s*[\])}]|\s(?:dot|DOT|nokta)\s)\s*[A-Za-z0-9-]+)*\s*(?:\.|[[({]\s*(?:dot|nokta|\.)\s*[\])}]|\s(?:dot|DOT|nokta)\s)\s*[A-Za-z]{2,6}\b/g,
+    replacement: "***@[EMAIL]",
+    // "at" and "dot" both spelled out with spaces, or a bracket somewhere: "meet at home. Com…" is not one
+    validate: (match) => /[[({]/.test(match) || /\s(?:dot|DOT|nokta)\s/.test(match),
+  },
+  {
     name: "phone_tr",
     // Not glued to letters, `/` or `-` (ids in URLs), and written with a +90 / 0
     // prefix, an area code in parentheses ("(0532) 123 45 67"), or grouped with
-    // spaces/dashes: a bare 10-digit run is more often an id or an integer IP
+    // spaces, dashes or dots: a bare 10-digit run is more often an id or an integer IP
     // (2130706433) than a phone number. The next pattern takes the bare ones.
-    pattern: /(?<![\w+/.#-])(?:(?:\+90|0090|0)[\s-]?)?(?:\(0?\d{3}\)|\d{3})[\s-]?\d{3}[\s-]?\d{2}[\s-]?\d{2}(?![\w/-])/g,
+    pattern: /(?<![\w+/.#-])(?:(?:\+90|0090|0)[\s.-]?)?(?:\(0?\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{2}[\s.-]?\d{2}(?![\w/-]|\.\d)/g,
     replacement: "+90-***-***-**[TELEFON]",
-    validate: (match) => isValidTrPhone(match) && (/^(?:\+90|0|\()/.test(match) || /[\s-]/.test(match)),
+    validate: (match) => isValidTrPhone(match) && (/^(?:\+90|0|\()/.test(match) || /[\s.-]/.test(match)),
   },
   {
     // A bare mobile number (5xx, ten digits) shortly after a word that says it is one:
@@ -355,10 +375,12 @@ function maskSpecial(text: string, original: string, replace: PiiReplacer | unde
   return out + text.slice(cursor);
 }
 
-/** Built-in detectors only. */
-function maskBuiltIn(text: string, replace: PiiReplacer | undefined, include: PiiInclude | undefined, spans?: SpanLookup): string {
+/** Built-in detectors only. `depth` counts the encoded runs (base64, hex) this text was decoded from. */
+function maskBuiltIn(text: string, replace: PiiReplacer | undefined, include: PiiInclude | undefined, spans?: SpanLookup, depth = 0): string {
   const original = text;
   text = maskModelSpans(text, spans, replace, include);
+  // The model saw only the text as sent: a decoded run gets the regex detectors
+  if (depth < MAX_ENCODED_DEPTH) text = maskEncodedRuns(text, (decoded) => maskBuiltIn(decoded, replace, include, undefined, depth + 1));
   const masked = (name: string, replacement: string, validate: PiiPattern["validate"]) => (match: string) =>
     validate && !validate(match) ? match : (replace?.(name, match) ?? replacement);
 
