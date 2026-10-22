@@ -1,0 +1,13 @@
+# Add to .gitlab-ci.yml. Fails the pipeline on high/critical findings.
+guardbee:
+  image: node:22
+  stage: test
+  variables:
+    GIT_DEPTH: 0   # the secret scan reads git history
+  script:
+    - npx -y @guardbee/mcp-owasp-scan@0 scan . --fail-on=high
+    - npx -y @guardbee/mcp-secret-scanner@1 scan . --history --fail-on=high
+    - npx -y @guardbee/mcp-dependency-auditor@0 audit . --fail-on=critical
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

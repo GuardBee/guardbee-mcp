@@ -1,0 +1,44 @@
+# A coding agent with GitHub, a browser-like fetch and the filesystem.
+# Also used by guardbee-hook (Claude Code / Cursor), which applies the same rules
+# to the agent's own Bash, Read and WebFetch tools:
+#   guardbee-hook install --claude-code --config ~/.guardbee/guardbee-proxy.yaml
+version: 1
+
+upstreams:
+  github:
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-github"]
+    env: { GITHUB_PERSONAL_ACCESS_TOKEN: "${GITHUB_TOKEN}" }
+  fetch:
+    command: uvx
+    args: ["mcp-server-fetch"]
+  filesystem:
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "."]
+
+labels:                                   # override the name heuristics where you know better
+  github__get_issue: [untrusted]          # issue text is written by anyone
+  fetch__fetch: [untrusted, egress]
+
+tools:
+  hide: ["*__delete_*", "github__fork_repository"]   # the agent never sees these
+
+rules:                                    # first match wins
+  - { id: no-force-push, match: { tool: Bash, args: { command: "*push*--force*" } }, action: deny }
+  - { id: ask-destructive, match: { label: destructive }, action: approve }
+  - { id: ask-pr, match: { tool: "github__create_pull_request" }, action: approve }
+
+taint:
+  mode: approve      # after untrusted + sensitive reads, ask before any egress call
+
+interceptors:
+  anomaly:
+    enabled: true
+    action: block
+    callBurst: { count: 60, windowSeconds: 60 }
+
+hooks: {}            # guardbee-hook reads this file too
+
+audit:
+  sink: file
+  filePath: ./guardbee-audit.jsonl
