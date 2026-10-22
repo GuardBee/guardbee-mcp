@@ -1,5 +1,13 @@
 # @guardbee/mcp-owasp-scan
 
+## 0.3.3
+
+### Patch Changes
+
+- [#208](https://github.com/GuardBee/guardbee-mcp/pull/208) [`103a94b`](https://github.com/GuardBee/guardbee-mcp/commit/103a94bd39d17e616e75878e03d406575dec82e9) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - oauth-auditor checks the attacks the MCP spec's Security Best Practices name that it did not cover ([#203](https://github.com/GuardBee/guardbee-mcp/issues/203)): predictable or unbound state/session handles (state handle hijacking), authorization codes redeemed without an `iss` check (mix-up, RFC 9207), authorization URLs opened without a scheme check or through a shell, and HTTP MCP servers with no authentication, no Host/Origin check (DNS rebinding) or bound to 0.0.0.0. Every finding links its spec section (SARIF `helpUri`) and carries its OWASP MCP Top 10 id; owasp-scan now reports the shell-open rule under MCP05. New `guardbee-oauth-auditor probe <url>`: a read-only check of a running local or private HTTP MCP endpoint for unauthenticated access and foreign Host/Origin acceptance.
+- Updated dependencies [[`103a94b`](https://github.com/GuardBee/guardbee-mcp/commit/103a94bd39d17e616e75878e03d406575dec82e9)]:
+  - @guardbee/mcp-oauth-auditor@0.3.0
+
 ## 0.3.2
 
 ### Patch Changes
