@@ -69,6 +69,15 @@ jobs:
           # Do not set NODE_AUTH_TOKEN / NPM_TOKEN — that forces the staging-only
           # classic token path and blocks trusted publishing.
 
+      # changesets/action@v1 reads tags from the changeset v2 CLI's output; v3 prints
+      # them differently, so the action pushes no tags and makes no releases. This
+      # creates the tag and GitHub release for every package version that is on npm
+      # and has none yet (idempotent, like the registry step below).
+      - name: GitHub releases
+        run: node scripts/github-releases.mjs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       # Bring the official MCP Registry up to npm (scripts/publish-registry.mjs
       # works from registry/npm state, not changesets' output, so a skipped run
       # is caught up by the next). GitHub OIDC proves this repo, so names live
