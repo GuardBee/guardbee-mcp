@@ -5,12 +5,12 @@
   "description": "MCP security gateway: several MCP servers behind one policy, with toxic-flow (lethal trifecta) blocking, approvals, PII masking and a hash-chained audit log",
   "author": "GuardBee <hello@guardbee.ai>",
   "license": "MIT",
-  "homepage": "https://github.com/GuardBee/guardbee-mcp/tree/main/packages/security-proxy#readme",
   "repository": {
     "type": "git",
     "url": "https://github.com/GuardBee/guardbee-mcp.git",
     "directory": "packages/security-proxy"
   },
+  "homepage": "https://guardbee.ai/en/what-is-mcp-security-proxy/",
   "bugs": {
     "url": "https://github.com/GuardBee/guardbee-mcp/issues"
   },
@@ -41,7 +41,9 @@
     "KO.md",
     "PT-BR.md",
     "ES.md",
-    "DE.md"
+    "DE.md",
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "engines": {
     "node": ">=18"

@@ -24,7 +24,9 @@
     "KO.md",
     "PT-BR.md",
     "ES.md",
-    "DE.md"
+    "DE.md",
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsc",
@@ -50,13 +52,16 @@
   ],
   "license": "MIT",
   "author": "GuardBee <hello@guardbee.ai>",
-  "homepage": "https://github.com/GuardBee/guardbee-mcp/tree/main/packages/llm-redteam#readme",
   "repository": {
     "type": "git",
     "url": "https://github.com/GuardBee/guardbee-mcp.git",
     "directory": "packages/llm-redteam"
   },
+  "homepage": "https://guardbee.ai/en/what-is-mcp-llm-red-team/",
   "bugs": {
     "url": "https://github.com/GuardBee/guardbee-mcp/issues"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

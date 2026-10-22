@@ -6,7 +6,7 @@ MCP (Model Context Protocol) sunucusu — agent kodunu **memory poisoning** içi
 
 `prompt-injection-scanner` modelin bir kez okuduğu içerikte (bir doküman, scrape edilmiş bir sayfa) oturan bir injection payload'ını yakalar. Bu paket yapısal olarak farklı bir şeyi yakalıyor: bir injection payload'ının modelin kendi uzun-vadeli bilgisinin bir parçası haline gelmesine izin veren kod kalıbını — reflected ile stored XSS arasındaki aynı boşluk, bir tarayıcının DOM'u yerine bir agent'ın hafızasına uygulanmış.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler, taranan kod hiçbir zaman dahil değil — bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
 ```
 Claude ──► memory-poisoning-scanner ──► Agent'ınızın kaynağı
@@ -117,3 +117,7 @@ npm test             # 17 unit test
 ## Lisans
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

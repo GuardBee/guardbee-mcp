@@ -2,11 +2,15 @@
 
 **🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
+[![npm version](https://img.shields.io/npm/v/@guardbee/mcp-elicitation-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-elicitation-auditor)
+[![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-elicitation-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-elicitation-auditor)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 An MCP server that scans MCP server source for **elicitation anti-patterns in the 2026-07-28 specification**.
 
 That revision deprecated sampling and roots. Elicitation is the remaining way a server asks the client for something. Form mode collects structured data through the client. URL mode sends the user to a page the client must not read. The spec draws a hard line between them.
 
-> This package sends usage telemetry by default (tool name + short parameters, scanned code is never included — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](../telemetry/README.md).
 
 ```
 Claude ──► elicitation-auditor ──► MCP server source
@@ -55,3 +59,7 @@ elicitation-auditor:
 ```
 
 No API key. Static analysis only.
+
+## Feedback
+
+Questions, ideas, or a false positive? Start a thread in [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) or [open an issue](https://github.com/GuardBee/guardbee-mcp/issues). If GuardBee is useful to you, a ⭐ on [the repository](https://github.com/GuardBee/guardbee-mcp) helps others find it.

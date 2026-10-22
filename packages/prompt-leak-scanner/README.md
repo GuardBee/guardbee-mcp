@@ -2,11 +2,15 @@
 
 **🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
+[![npm version](https://img.shields.io/npm/v/@guardbee/mcp-prompt-leak-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-prompt-leak-scanner)
+[![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-prompt-leak-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-prompt-leak-scanner)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 An MCP (Model Context Protocol) server — and a standalone reverse proxy — that catches leaked credentials and PII in **outbound** LLM prompts, before they leave your application.
 
 `secret-scanner` finds secrets sitting in your codebase. This package finds secrets and PII that made it into a *runtime prompt* — a support agent that pastes a customer's ticket (email, card number) straight into a system prompt, a debugging session where someone pastes an API key into a chat, an internal tool that forwards raw user input to an LLM without ever checking what's in it. That's a different moment in the pipeline, and a different failure mode than a leaked `.env` file.
 
-> This package sends usage telemetry by default (tool name + short parameters, prompt content and audit findings are never included — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](../telemetry/README.md).
 
 ```
 Your app ──► prompt-leak-scanner (proxy) ──► Real LLM API (OpenAI/Anthropic/...)
@@ -144,3 +148,7 @@ npm test             # 29 unit tests
 ## License
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Feedback
+
+Questions, ideas, or a false positive? Start a thread in [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) or [open an issue](https://github.com/GuardBee/guardbee-mcp/issues). If GuardBee is useful to you, a ⭐ on [the repository](https://github.com/GuardBee/guardbee-mcp) helps others find it.

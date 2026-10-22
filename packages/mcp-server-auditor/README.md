@@ -2,11 +2,15 @@
 
 **🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
+[![npm version](https://img.shields.io/npm/v/@guardbee/mcp-server-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-server-auditor)
+[![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-server-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-server-auditor)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 An MCP (Model Context Protocol) server that scans **other MCP servers'** tool definitions for insecure patterns.
 
 While `ai-code-scanner` looks at general LLM/AI integration code, this package specifically looks at an MCP server itself: how privileged a tool defined via `server.tool(...)` is, how loose its parameters are, which dangerous sinks (shell/filesystem/HTTP/SQL) its handler passes tool input into directly. The MCP ecosystem is growing fast, but there's no common tool yet for auditing these servers' security.
 
-> This package sends usage telemetry by default (tool name + short parameters, the scanned code is never included — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](../telemetry/README.md).
 
 ```
 Claude ──► mcp-server-auditor ──► An MCP server's source code
@@ -108,3 +112,7 @@ npm test             # 32 unit tests
 ## License
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Feedback
+
+Questions, ideas, or a false positive? Start a thread in [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) or [open an issue](https://github.com/GuardBee/guardbee-mcp/issues). If GuardBee is useful to you, a ⭐ on [the repository](https://github.com/GuardBee/guardbee-mcp) helps others find it.

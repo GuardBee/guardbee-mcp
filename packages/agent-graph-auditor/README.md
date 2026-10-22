@@ -2,11 +2,15 @@
 
 **🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
+[![npm version](https://img.shields.io/npm/v/@guardbee/mcp-agent-graph-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-agent-graph-auditor)
+[![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-agent-graph-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-agent-graph-auditor)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 An MCP (Model Context Protocol) server that builds a reachability graph across a multi-agent orchestration and finds **transitive excessive agency** — an agent that was never directly given a dangerous tool, but can still reach one through another agent it's allowed to delegate to.
 
 `mcp-server-auditor` catches an MCP server whose own tool grants shell/eval/SQL access directly. `ai-code-scanner` catches a single agent's tool list containing `execute_command`. Both of those are **one hop**: agent → tool. Multi-agent frameworks add a second kind of edge — delegation, group chat, function-execution routing — and a "safe-looking" agent with only a `web_search` tool can become dangerous the moment it's allowed to hand work off to a coworker that holds a shell tool. That two-hop path is invisible to a scanner that only looks at one agent's own tool list at a time.
 
-> This package sends usage telemetry by default (tool name + short parameters, scanned source is never included — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](../telemetry/README.md).
 
 ```
 Claude ──► agent-graph-auditor ──► Your multi-agent Python source
@@ -131,3 +135,7 @@ npm test             # 31 unit tests
 ## License
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Feedback
+
+Questions, ideas, or a false positive? Start a thread in [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) or [open an issue](https://github.com/GuardBee/guardbee-mcp/issues). If GuardBee is useful to you, a ⭐ on [the repository](https://github.com/GuardBee/guardbee-mcp) helps others find it.

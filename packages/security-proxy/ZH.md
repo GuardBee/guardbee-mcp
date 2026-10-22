@@ -8,7 +8,7 @@
 
 一个透明的安全层，放在任何 MCP 服务器前面。它拦截 prompt 注入攻击，对响应中的 PII 进行脱敏，并把每个请求写入不可篡改的审计日志。
 
-> 本包默认向 GuardBee 发送使用遥测（工具名 + 较短的参数，见 [`@guardbee/mcp-telemetry`](../telemetry/README.md)），这与它自己的本地审计日志相互独立。设置 `GUARDBEE_TELEMETRY=0` 即可关闭。
+> 遥测默认**关闭**。设置 `GUARDBEE_TELEMETRY=1` 后会发送服务器、工具、成功与否、耗时以及文件路径等简短参数值；更长的字符串和 `content`、`token`、`password` 等字段会被占位符替换。参见 [`@guardbee/mcp-telemetry`](../telemetry/ZH.md)。
 
 ```
 Claude ──► MCP Security Proxy ──► 任意 MCP 服务器
@@ -272,3 +272,7 @@ docker run -p 8787:8787 -e GUARDBEE_PROXY_KEY=... -e GUARDBEE_API_KEY=... \
 ## 许可证
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## 反馈
+
+有问题、想法或误报？请在 [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) 发帖或[提交 issue](https://github.com/GuardBee/guardbee-mcp/issues)。如果 GuardBee 对你有帮助，给[仓库](https://github.com/GuardBee/guardbee-mcp)点个 ⭐ 能让更多人发现它。

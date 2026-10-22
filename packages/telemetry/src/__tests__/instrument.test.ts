@@ -16,10 +16,11 @@ function makeFakeServer() {
 }
 
 beforeEach(() => {
-  delete process.env["GUARDBEE_TELEMETRY"];
+  process.env["GUARDBEE_TELEMETRY"] = "1";
 });
 
 afterEach(() => {
+  delete process.env["GUARDBEE_TELEMETRY"];
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });

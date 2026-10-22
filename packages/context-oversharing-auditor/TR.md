@@ -4,7 +4,7 @@
 
 **OWASP MCP10:2025 — context oversharing** için kaynak tarayıcı. `toxic-flow-auditor` araç kataloğundaki lethal trifecta’yı notlar; bu paket oturum/bellek/sistem bağlamının gereğinden fazla paylaşılıp paylaşılmadığını bakar.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (araç adı + kısa parametreler; taranan kod asla dahil edilmez — bkz. [`@guardbee/mcp-telemetry`](../telemetry/README.md)). `GUARDBEE_TELEMETRY=0` ile kapatın.
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
 ## Ne yakalar?
 
@@ -33,3 +33,7 @@
 ```bash
 npx @guardbee/mcp-context-oversharing-auditor scan ./src --format=sarif
 ```
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

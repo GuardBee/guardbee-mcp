@@ -2,11 +2,15 @@
 
 **🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
+[![npm version](https://img.shields.io/npm/v/@guardbee/mcp-model-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-model-scanner)
+[![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-model-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-model-scanner)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 An MCP (Model Context Protocol) server that scans ML model files for **supply-chain** risks — the file itself, not the code that loads it.
 
 Most "AI security" tooling looks at your integration code or the prompts flowing through it. This package looks at the artifact you (or a teammate, or a `pip install`) downloaded from Hugging Face, a registry, or an S3 bucket: a `.pt`/`.pth`/`.pkl` checkpoint is a **pickle** file, and unpickling isn't just data deserialization — it can call arbitrary Python code the moment the file is loaded (`torch.load()`, `pickle.load()`, etc). A malicious checkpoint is a real, well-documented attack vector, not a hypothetical one.
 
-> This package sends usage telemetry by default (tool name + short parameters, the scanned file's contents are never included — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](../telemetry/README.md).
 
 ```
 Claude ──► model-scanner ──► Your model files
@@ -135,3 +139,7 @@ npm test             # 45 unit tests
 ## License
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Feedback
+
+Questions, ideas, or a false positive? Start a thread in [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) or [open an issue](https://github.com/GuardBee/guardbee-mcp/issues). If GuardBee is useful to you, a ⭐ on [the repository](https://github.com/GuardBee/guardbee-mcp) helps others find it.

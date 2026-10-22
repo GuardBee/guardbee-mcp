@@ -2,9 +2,13 @@
 
 **🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
 
+[![npm version](https://img.shields.io/npm/v/@guardbee/mcp-document-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-document-scanner)
+[![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-document-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-document-scanner)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 An MCP server and CLI that finds **personal data and credentials inside documents** — PDFs, screenshots, scanned pages — before they are handed to an LLM. Text checks in a proxy or a DLP see a PDF attachment or an image as an opaque blob; this package reads it: the PDF text layer first, and OCR (Turkish and English) for images and for PDF pages that have no text.
 
-> This package sends usage telemetry by default (tool name + short parameters; document contents and findings are never included — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](../telemetry/README.md).
 
 ```
 document ──► type from the bytes (PDF, PNG, JPEG, GIF, WebP, BMP, TIFF, text)
@@ -78,3 +82,7 @@ interceptors:
 ## License
 
 MIT
+
+## Feedback
+
+Questions, ideas, or a false positive? Start a thread in [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) or [open an issue](https://github.com/GuardBee/guardbee-mcp/issues). If GuardBee is useful to you, a ⭐ on [the repository](https://github.com/GuardBee/guardbee-mcp) helps others find it.

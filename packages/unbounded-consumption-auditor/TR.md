@@ -4,7 +4,7 @@
 
 LLM/agent uygulama kodunu **Unbounded Consumption** ("sınırsız tüketim") için tarayan bir MCP (Model Context Protocol) sunucusu — OWASP LLM Top 10 2026'nın #6 kategorisi, "denial of wallet" (cüzdan hizmet reddi) olarak da bilinir: uygulamanın sınırsız sayıda faturalanabilir çağrı yapmasını hiçbir şey durdurmuyor.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (araç adı + kısa parametreler, taranan kod asla dahil edilmez — bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). `GUARDBEE_TELEMETRY=0` ile kapatabilirsiniz.
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
 ```
 Claude ──► unbounded-consumption-auditor ──► LLM/agent kaynağınız
@@ -124,3 +124,7 @@ npm test             # 25 birim testi
 ## Lisans
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

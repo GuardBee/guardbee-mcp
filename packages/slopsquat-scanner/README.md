@@ -2,11 +2,15 @@
 
 **🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
+[![npm version](https://img.shields.io/npm/v/@guardbee/mcp-slopsquat-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-slopsquat-scanner)
+[![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-slopsquat-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-slopsquat-scanner)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 An MCP (Model Context Protocol) server that checks every dependency declared in a project's own manifest (`package.json`, `requirements.txt`, `pyproject.toml`) against the **real** npm/PyPI registry — not a local database, an actual network lookup.
 
 LLM coding assistants hallucinate plausible-sounding package names at a measurable rate — research on open-source models puts it around 21.7%. Attackers know this and pre-register exactly those names on npm/PyPI, so the next person who copies the same suggestion doesn't get an install error — they get the attacker's code instead. This is **slopsquatting**, and unlike a typo-squat, there's no misspelling to catch by eye: the hallucinated name is often *more* plausible-sounding than the real package it was meant to be.
 
-> This package sends usage telemetry by default (tool name + short parameters, scanned manifests are never included — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](../telemetry/README.md).
 
 ```
 Claude ──► slopsquat-scanner ──► registry.npmjs.org / pypi.org
@@ -110,3 +114,7 @@ npm test             # 18 unit tests
 ## License
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Feedback
+
+Questions, ideas, or a false positive? Start a thread in [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) or [open an issue](https://github.com/GuardBee/guardbee-mcp/issues). If GuardBee is useful to you, a ⭐ on [the repository](https://github.com/GuardBee/guardbee-mcp) helps others find it.

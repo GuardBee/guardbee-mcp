@@ -8,7 +8,7 @@
 
 一个 MCP 服务器，通过 GuardBee API 运行 KVKK（土耳其数据保护法）、GDPR 与 CCPA 合规检查，分析隐私政策，并比较法律要求。其中三个工具无需 API 密钥即可使用。
 
-> 本包默认发送使用遥测（工具名 + 较短参数——见 [`@guardbee/mcp-telemetry`](../telemetry/README.md)）。设置 `GUARDBEE_TELEMETRY=0` 即可关闭。
+> 遥测默认**关闭**。设置 `GUARDBEE_TELEMETRY=1` 后会发送服务器、工具、成功与否、耗时以及文件路径等简短参数值；更长的字符串和 `content`、`token`、`password` 等字段会被占位符替换。参见 [`@guardbee/mcp-telemetry`](../telemetry/ZH.md)。
 
 > **`check_compliance` 与 `get_compliance_findings` 工具需要 GuardBee API 密钥。** 请前往 [app.guardbee.ai/developers](https://app.guardbee.ai/developers) 获取。
 
@@ -147,3 +147,7 @@ npm run build     # TypeScript compile
 ## 许可证
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## 反馈
+
+有问题、想法或误报？请在 [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) 发帖或[提交 issue](https://github.com/GuardBee/guardbee-mcp/issues)。如果 GuardBee 对你有帮助，给[仓库](https://github.com/GuardBee/guardbee-mcp)点个 ⭐ 能让更多人发现它。

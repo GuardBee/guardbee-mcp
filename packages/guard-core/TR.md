@@ -48,3 +48,7 @@ Tespit açılmış bir kopya üzerinde çalışır; maskeleme değerin yazıldı
 ## Kesin ve genel kurallar
 
 Injection ve secret kuralları, sıradan metinde de eşleşen kalıplar için bir `broad` bayrağı taşır: "act as", "developer mode", 40 karakterlik herhangi bir base64 dizisi, yayınlanabilir (publishable) bir Stripe anahtarı. Bulguyu bir kişiye gösteren statik tarayıcılar genel injection kurallarını atlar; çalışma anındaki proxy ise genel bir kurala dayanarak asla engelleme veya maskeleme yapmaz, çünkü oradaki yanlış bir eşleşme oturumu hassas veri tutuyor diye de işaretler ya da meşru bir çağrıyı durdurur.
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

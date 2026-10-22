@@ -2,6 +2,10 @@
 
 **🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
 
+[![npm version](https://img.shields.io/npm/v/@guardbee/ner.svg)](https://www.npmjs.com/package/@guardbee/ner)
+[![npm downloads](https://img.shields.io/npm/dm/@guardbee/ner.svg)](https://www.npmjs.com/package/@guardbee/ner)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 Finds Turkish person names, which no regex can, so GuardBee can mask them next to TC Kimlik numbers, IBANs and e-mail addresses. A local BERTurk NER model runs on CPU with ONNX Runtime: offline, on-prem, and nothing leaves the host.
 
 It is optional. GuardBee's regex detectors need none of this. Add it where names matter: support tickets, HR notes, legal text, chat logs.
@@ -72,3 +76,7 @@ It was picked out of five Turkish NER models on the [pii-bench](../pii-bench/REA
 - **Lower-case names** in chat were all found in the hard-names set except one written together with its suffix (`elifle`). The model is cased, though, so expect more misses in chat than in edited text.
 - **Person names inside institution names** ("Mimar Sinan Güzel Sanatlar Üniversitesi") are sometimes masked. That is a false alarm, and it errs toward masking.
 - **Turkish only.** Foreign names in Turkish text are found ("John Smith"); text in other languages is not the target.
+
+## Feedback
+
+Questions, ideas, or a false positive? Start a thread in [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) or [open an issue](https://github.com/GuardBee/guardbee-mcp/issues). If GuardBee is useful to you, a ⭐ on [the repository](https://github.com/GuardBee/guardbee-mcp) helps others find it.

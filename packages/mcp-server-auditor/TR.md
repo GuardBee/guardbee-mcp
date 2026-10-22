@@ -6,7 +6,7 @@ MCP (Model Context Protocol) sunucusu — **başka MCP server'ların** tool tan�
 
 `ai-code-scanner` genel LLM/AI entegrasyon koduna bakarken, bu paket özellikle bir MCP server'ın kendisine bakar: `server.tool(...)` ile tanımlanan bir tool ne kadar yetkili, parametreleri ne kadar gevşek, handler'ı hangi tehlikeli sink'lere (shell/dosya sistemi/HTTP/SQL) doğrudan tool girdisi geçiriyor. MCP ekosistemi hızla büyüyor ama bu server'ların güvenlik denetimi için yaygın bir araç henüz yok.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler, taranan kod hiçbir zaman dahil değil — bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
 ```
 Claude ──► mcp-server-auditor ──► Bir MCP server'ın kaynak kodu
@@ -108,3 +108,7 @@ npm test             # 32 unit test
 ## Lisans
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

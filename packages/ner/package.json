@@ -18,7 +18,9 @@
   "files": [
     "dist",
     "README.md",
-    "TR.md"
+    "TR.md",
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsc",
@@ -39,7 +41,9 @@
     "turkish",
     "person-name",
     "onnx",
-    "berturk"
+    "berturk",
+    "mcp",
+    "security"
   ],
   "author": "GuardBee <hello@guardbee.ai>",
   "license": "MIT",

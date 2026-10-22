@@ -34,7 +34,7 @@ GuardBee の MCP サーバー群です。AI エージェントとアプリケー
 - [`@guardbee/security-suite`](packages/security-suite/JA.md) — 主要な GuardBee セキュリティツールをひとつのパッケージにまとめたものです：シークレットスキャナー、依存関係監査、SSL インスペクター、DNS インテリジェンス。
 - [`@guardbee/mcp-slopsquat-scanner`](packages/slopsquat-scanner/JA.md) — package.json・requirements.txt・pyproject.toml の依存関係を実際の npm/PyPI レジストリと照合し、存在しない名前（LLM が幻覚した依存関係で、攻撃者が先に登録しうるもの＝スロップスクワッティング）とごく最近公開された名前を報告します。
 - [`@guardbee/mcp-ssl-inspector`](packages/ssl-inspector/JA.md) — 任意のドメインの TLS 証明書・暗号スイート・プロトコル設定を検査します。追加のハンドシェイクで、サーバーがまだ受け入れる TLS 1.0/1.1、RSA 鍵交換、弱い DH や暗号を見つけます。
-- [`@guardbee/mcp-telemetry`](packages/telemetry/JA.md) — GuardBee MCP サーバー共通の、オプトアウト可能な利用テレメトリクライアントです。
+- [`@guardbee/mcp-telemetry`](packages/telemetry/JA.md) — GuardBee MCP サーバー共通の、オプトイン方式（デフォルト無効）の利用テレメトリクライアントです。
 - [`@guardbee/mcp-threat-rules`](packages/threat-rules/JA.md) — Agent Threat Rules（ATR）への GuardBee MCP ブリッジです。プロンプトインジェクション、ツールポイズニング、コンテキスト持ち出し、MCP 攻撃のためのオープンな Sigma 風検出標準でエージェント/MCP のイベントを評価します。
 - [`@guardbee/mcp-tool-poisoning-scanner`](packages/tool-poisoning-scanner/JA.md) — 他の MCP サーバーのツール定義で、ツールポイズニング（呼び出し側 LLM が信頼して読む説明文に隠された指示）と、読み取り専用をうたいながらシェルやファイル書き込みを行う「混乱した代理人」の不一致を検出します。
 - [`@guardbee/mcp-toxic-flow-auditor`](packages/toxic-flow-auditor/JA.md) — MCP ツールカタログ全体で有害なデータフロー（lethal trifecta）を検出します：信頼できないコンテンツ、機密データ、外部送信や破壊的操作が同じサーバーにそろう組み合わせ。

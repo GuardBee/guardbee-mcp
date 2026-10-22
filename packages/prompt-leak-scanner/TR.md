@@ -6,7 +6,7 @@ MCP (Model Context Protocol) sunucusu — ve bağımsız bir reverse proxy — *
 
 `secret-scanner` kod tabanınızda duran sırları bulur. Bu paket ise bir *runtime prompt*'a giren sır ve PII'yi bulur — bir müşteri destek agent'ının bir ticket'ı (email, kart no) doğrudan system prompt'a yapıştırması, birinin debug sırasında bir chat'e API key yapıştırması, ham kullanıcı girdisini hiç kontrol etmeden LLM'e ileten bir internal tool. Bu, pipeline'da farklı bir an ve sızmış bir `.env` dosyasından farklı bir hata modu.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler, prompt içeriği ve audit bulguları hiçbir zaman dahil değil — bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
 ```
 Uygulamanız ──► prompt-leak-scanner (proxy) ──► Gerçek LLM API (OpenAI/Anthropic/...)
@@ -144,3 +144,7 @@ npm test             # 29 unit test
 ## Lisans
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

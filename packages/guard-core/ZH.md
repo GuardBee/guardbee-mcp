@@ -35,3 +35,7 @@
 ## 精确规则与通用规则
 
 注入规则和密钥规则都带有一个 `broad` 标记，用于那些在普通文本中也会匹配的模式："act as"、"developer mode"、任意 40 个字符的 base64 串、可公开的 Stripe publishable key。把结果展示给人看的静态扫描器会跳过通用注入规则；运行时代理则从不基于通用规则进行拦截或脱敏，因为在那里一次误匹配还会把会话标记为持有敏感数据，或拦下一次正常调用。
+
+## 反馈
+
+有问题、想法或误报？请在 [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) 发帖或[提交 issue](https://github.com/GuardBee/guardbee-mcp/issues)。如果 GuardBee 对你有帮助，给[仓库](https://github.com/GuardBee/guardbee-mcp)点个 ⭐ 能让更多人发现它。

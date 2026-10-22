@@ -72,3 +72,7 @@ Beş Türkçe NER modeli arasından [pii-bench](../pii-bench/README.md#choosing-
 - **Sohbetteki küçük harfli adlar** zor isimler setinde, ekiyle bitişik yazılan biri (`elifle`) dışında bulundu. Ancak model büyük/küçük harf duyarlı olduğu için sohbette düzenli yazılmış metne göre daha fazla kaçırma beklenmeli.
 - **Kurum adlarının içindeki kişi adları** ("Mimar Sinan Güzel Sanatlar Üniversitesi") bazen maskeleniyor. Bu bir yanlış alarm, ama hata maskeleme yönünde.
 - **Yalnızca Türkçe.** Türkçe metindeki yabancı adlar bulunuyor ("John Smith"). Başka dillerdeki metinler hedeflenmiyor.
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

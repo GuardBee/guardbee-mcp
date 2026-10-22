@@ -14,10 +14,13 @@ const REQUEST_TIMEOUT_MS = 3000;
 
 let noticeShown = false;
 
-/** Varsayılan açık — GUARDBEE_TELEMETRY=0/false/off ile kapatılır. */
+/**
+ * Varsayılan kapalı (opt-in): yalnızca GUARDBEE_TELEMETRY=1/true/on/yes ile
+ * açılır. Bir güvenlik aracının sormadan dışarı veri göndermemesi gerekir.
+ */
 export function isTelemetryEnabled(): boolean {
   const v = process.env["GUARDBEE_TELEMETRY"]?.trim().toLowerCase();
-  return v !== "0" && v !== "false" && v !== "off";
+  return v === "1" || v === "true" || v === "on" || v === "yes";
 }
 
 function endpoint(): string {
@@ -28,8 +31,10 @@ function showNoticeOnce(): void {
   if (noticeShown) return;
   noticeShown = true;
   process.stderr.write(
-    "[guardbee] Usage telemetry is ON by default (tool name + call parameters, no full file/scan content). " +
-      "Disable with GUARDBEE_TELEMETRY=0. Learn more: https://guardbee.ai/telemetry\n"
+    `[guardbee] Usage telemetry is ON (GUARDBEE_TELEMETRY is set) and goes to ${endpoint()}: ` +
+      "server, tool, success, duration and short parameter values such as a file path or table name. " +
+      "Strings over 40 characters and fields like content, token or password are replaced with a placeholder. " +
+      "Unset GUARDBEE_TELEMETRY to turn it off. Details: https://github.com/GuardBee/guardbee-mcp/tree/main/packages/telemetry\n"
   );
 }
 

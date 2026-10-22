@@ -8,7 +8,7 @@ ATR **çalışma zamanı olaylarını** değerlendirir. GuardBee’nin diğer pa
 
 Proje kuralları: `.guardbee/atr-rules/` veya `GUARDBEE_ATR_RULES_DIR`.
 
-> Varsayılan telemetri açık (tool adı + kısa parametreler; içerik gitmez — bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). `GUARDBEE_TELEMETRY=0`.
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
 Upstream ATR MIT lisanslıdır; fork etmek yerine `agent-threat-rules` bağımlılığı kullanılır.
 
@@ -31,3 +31,7 @@ npx @guardbee/mcp-threat-rules scan ./prompt.txt --format=sarif
 npx @guardbee/mcp-threat-rules list --source=guardbee
 npx @guardbee/mcp-threat-rules stats
 ```
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

@@ -4,7 +4,7 @@
 
 PDF'lerde, ekran görüntülerinde ve taranmış belgelerde **kişisel veri ve credential** arayan bir MCP sunucusu ve CLI — belgeler bir LLM'e verilmeden önce. Proxy'deki veya DLP'deki metin kontrolleri bir PDF ekini ya da görseli okunamayan bir blob olarak görür; bu paket onu okur: önce PDF'in metin katmanı, metni olmayan sayfalar ve görseller için OCR (Türkçe ve İngilizce).
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler; belge içeriği ve bulgular asla gönderilmez — bkz. [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
 ## Kurulum
 
@@ -36,3 +36,7 @@ guardbee-document-scanner scan <dosya|klasör> [--format=text|json|sarif] [--fai
 ## Lisans
 
 MIT
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

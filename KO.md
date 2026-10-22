@@ -34,7 +34,7 @@ GuardBee의 MCP 서버 모음입니다. AI 에이전트와 애플리케이션 �
 - [`@guardbee/security-suite`](packages/security-suite/KO.md) — 주요 GuardBee 보안 도구를 하나의 패키지로 묶었습니다: 시크릿 스캐너, 의존성 감사, SSL 검사기, DNS 인텔리전스.
 - [`@guardbee/mcp-slopsquat-scanner`](packages/slopsquat-scanner/KO.md) — package.json, requirements.txt, pyproject.toml의 의존성을 실제 npm/PyPI 레지스트리와 대조해, 존재하지 않는 이름(LLM이 환각한 의존성으로 공격자가 먼저 등록할 수 있는 것, 즉 슬롭스쿼팅)과 아주 최근에 게시된 이름을 보고합니다.
 - [`@guardbee/mcp-ssl-inspector`](packages/ssl-inspector/KO.md) — 모든 도메인의 TLS 인증서, 암호 스위트, 프로토콜 설정을 검사합니다. 추가 핸드셰이크로 서버가 아직 허용하는 TLS 1.0/1.1, RSA 키 교환, 약한 DH와 암호를 찾습니다.
-- [`@guardbee/mcp-telemetry`](packages/telemetry/KO.md) — GuardBee MCP 서버가 공유하는, 끌 수 있는 사용 원격 측정 클라이언트입니다.
+- [`@guardbee/mcp-telemetry`](packages/telemetry/KO.md) — GuardBee MCP 서버가 공유하는, 옵트인 방식(기본값 꺼짐)의 사용 원격 측정 클라이언트입니다.
 - [`@guardbee/mcp-threat-rules`](packages/threat-rules/KO.md) — Agent Threat Rules(ATR)에 대한 GuardBee MCP 브리지입니다. 프롬프트 인젝션, 도구 포이즈닝, 컨텍스트 유출, MCP 공격을 위한 개방형 Sigma 스타일 탐지 표준으로 에이전트/MCP 이벤트를 평가합니다.
 - [`@guardbee/mcp-tool-poisoning-scanner`](packages/tool-poisoning-scanner/KO.md) — 다른 MCP 서버의 도구 정의에서 도구 포이즈닝(호출하는 LLM이 신뢰하고 읽는 설명에 숨긴 지시)과, 읽기 전용이라면서 셸이나 파일 쓰기를 하는 '혼동된 대리인' 불일치를 찾습니다.
 - [`@guardbee/mcp-toxic-flow-auditor`](packages/toxic-flow-auditor/KO.md) — MCP 도구 카탈로그 전체에서 유해 데이터 흐름(lethal trifecta)을 찾습니다: 신뢰할 수 없는 콘텐츠, 민감한 데이터, 외부 전송이나 파괴적 작업이 같은 서버에 함께 있는 조합.

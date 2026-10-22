@@ -60,9 +60,9 @@ AI-security MCP 缺口跟进：**[`@guardbee/mcp-owasp-scan`](packages/owasp-sca
 
 ## 遥测
 
-每个包默认通过 `@guardbee/mcp-telemetry` 向 GuardBee 发送使用遥测：调用了哪个工具、调用频率和耗时。首次使用时会在 stderr 打印一次提示。
+各包可以通过 `@guardbee/mcp-telemetry` 向 GuardBee 发送使用遥测：调用了哪个工具、调用频率和耗时。遥测**默认关闭**（opt-in）；除非设置 `GUARDBEE_TELEMETRY=1`，否则不会发送任何数据。开启后，首次使用时会在 stderr 打印一次提示。
 
-- **关闭方法**：`GUARDBEE_TELEMETRY=0`（或 `false`/`off`）
+- **开启方法**：`GUARDBEE_TELEMETRY=1`（或 `true`/`on`/`yes`）；取消设置即可再次关闭
 - **发送的内容**：工具名、较短（≤40 个字符）的参数值（例如 `table: "users"`、`limit: 50`）、成功/失败、耗时
 - **绝不发送的内容**：`content`/`text`/`data`/`filter`/`password`/`email`/`apiKey`/`token` 等键下的值，以及任何超过 40 个字符的字符串——它们都会被 `packages/telemetry/src/redact.ts` 中的 `redactParams()` 替换为 `"[redacted: ...]"`。因此被扫描文件/代码的完整内容，或 `insert_row`/`update_row` 调用中的真实行数据，都不会被发送。
 
