@@ -101,8 +101,44 @@ function verifyReportCommand(args: string[]): void {
   process.exit(1);
 }
 
+function version(): string {
+  try {
+    return (JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8")) as { version: string }).version;
+  } catch {
+    return "unknown";
+  }
+}
+
+const HELP = `guardbee-proxy: MCP security gateway
+
+Usage:
+  guardbee-proxy [--config <guardbee-proxy.yaml>]   Run the gateway (stdio, or HTTP when listen is set)
+  guardbee-proxy -- <command> [args...]            Single-server mode: wrap one stdio MCP server
+  guardbee-proxy init (--client ${CLIENTS.join("|")} | --file <mcp.json>) [--out <file>] [--dry-run] [--force]
+                                                   Move a client's MCP servers behind the gateway
+  guardbee-proxy validate [--config <file>]        Check a config without starting anything
+  guardbee-proxy verify-audit <audit.jsonl>        Check an audit log's hash chain
+  guardbee-proxy report <audit.jsonl> [--days 30 | --from <date> --to <date>] [--format md|html|json]
+                 [--lang en|tr] [--key ed25519.pem] [--out <file>]
+                                                   Signed OWASP / MITRE ATLAS report from an audit log
+  guardbee-proxy verify-report <report> [--pubkey ed25519.pub.pem]
+                                                   Check a report's signature
+  guardbee-proxy --help | --version
+
+Config: --config, else GUARDBEE_PROXY_CONFIG, else ./guardbee-proxy.yaml (.yml); with none, the -- form or PROXY_COMMAND.
+Docs and examples: https://github.com/GuardBee/guardbee-mcp/tree/main/packages/security-proxy#readme
+`;
+
 async function main() {
   const [command, ...rest] = process.argv.slice(2);
+  if (command === "--help" || command === "-h" || command === "help") {
+    process.stdout.write(HELP);
+    return;
+  }
+  if (command === "--version" || command === "-v") {
+    process.stdout.write(`${version()}\n`);
+    return;
+  }
   if (command === "verify-audit") return verifyAudit(rest[0]);
   if (command === "init") return init(rest);
   if (command === "report") return report(rest);

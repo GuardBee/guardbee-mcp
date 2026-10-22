@@ -16,6 +16,7 @@ jobs:
       contents: write
       pull-requests: write
       id-token: write
+      actions: write   # start CI for the Version Packages PR
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -75,6 +76,14 @@ jobs:
           pnpm_config_verify_deps_before_run: "false"
           # Do not set NODE_AUTH_TOKEN / NPM_TOKEN — that forces the staging-only
           # classic token path and blocks trusted publishing.
+
+      # A PR opened with GITHUB_TOKEN triggers no workflows, so the Version Packages PR
+      # would have no CI (and branch protection would wait for it): start CI on its branch.
+      - name: CI for the Version Packages PR
+        if: steps.changesets.outputs.pr-number != ''
+        run: gh workflow run ci.yml --ref changeset-release/main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # changesets/action finds new versions by reading the changeset CLI's output, which
       # changed in changeset v3, so it made no releases. This creates the tag and GitHub
