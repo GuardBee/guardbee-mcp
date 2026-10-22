@@ -87,7 +87,7 @@ export const AI_CODE_PATTERNS: AiCodePattern[] = [
     id: "excessive_agency_tool_name",
     name: "Agent tool grants shell/arbitrary code execution",
     category: "excessive-agency",
-    pattern: /(?:\.tool\(\s*|\bname\s*:\s*)["'](?:run_shell|execute_command|run_command|execute_shell|eval_code|execute_code|run_script|shell_exec)["']/gi,
+    pattern: /(?:\.(?:tool|registerTool)\(\s*|\bname\s*:\s*)["'](?:run_shell|execute_command|run_command|execute_shell|eval_code|execute_code|run_script|shell_exec)["']/gi,
     severity: "high",
     recommendation:
       "A tool the model can call to run arbitrary shell/code is a critical blast-radius risk if the model is ever manipulated via prompt injection. Restrict to a narrow allowlist of specific, parameterized actions instead.",

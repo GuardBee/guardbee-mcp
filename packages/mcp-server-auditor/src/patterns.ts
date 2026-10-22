@@ -52,7 +52,7 @@ export const MCP_AUDITOR_PATTERNS: McpAuditPattern[] = [
     name: "Tool name grants shell/arbitrary code or SQL execution",
     category: "excessive-agency",
     pattern:
-      /\.tool\(\s*["'](?:run_shell|execute_command|run_command|execute_shell|eval_code|execute_code|run_script|shell_exec|run_sql|execute_sql|run_query)["']/gi,
+      /\.(?:tool|registerTool)\(\s*["'](?:run_shell|execute_command|run_command|execute_shell|eval_code|execute_code|run_script|shell_exec|run_sql|execute_sql|run_query)["']/gi,
     severity: "high",
     owasp: "MCP05:2025",
     recommendation:
@@ -148,7 +148,7 @@ export const MCP_AUDITOR_PATTERNS: McpAuditPattern[] = [
     id: "overly_permissive_tool_schema",
     name: "Tool parameter typed z.any()/z.unknown()",
     category: "loose-schema",
-    pattern: /\.tool\(\s*["'][\w-]+["'][\s\S]{0,300}?:\s*z\.(?:any|unknown)\(\)/g,
+    pattern: /\.(?:tool|registerTool)\(\s*["'][\w-]+["'][\s\S]{0,300}?:\s*z\.(?:any|unknown)\(\)/g,
     severity: "medium",
     recommendation:
       "A parameter typed z.any()/z.unknown() accepts anything, including shapes the handler doesn't expect — this often becomes an injection point downstream (a NoSQL/SQL filter, a shell arg). Give every parameter the narrowest schema that covers legitimate input.",
