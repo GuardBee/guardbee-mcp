@@ -7,12 +7,12 @@
     "source": "github",
     "subfolder": "packages/security-proxy"
   },
-  "version": "1.25.2",
+  "version": "1.25.3",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@guardbee/mcp-security-proxy",
-      "version": "1.25.2",
+      "version": "1.25.3",
       "transport": {
         "type": "stdio"
       }
