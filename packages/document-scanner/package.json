@@ -19,7 +19,9 @@
   "files": [
     "dist",
     "README.md",
-    "TR.md"
+    "TR.md",
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsc",
@@ -71,5 +73,9 @@
     "type": "git",
     "url": "https://github.com/GuardBee/guardbee-mcp.git",
     "directory": "packages/document-scanner"
+  },
+  "homepage": "https://guardbee.ai/en/mcp-servers/",
+  "bugs": {
+    "url": "https://github.com/GuardBee/guardbee-mcp/issues"
   }
 }

@@ -24,7 +24,9 @@
     "KO.md",
     "PT-BR.md",
     "ES.md",
-    "DE.md"
+    "DE.md",
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsc",
@@ -46,12 +48,20 @@
     "ccpa",
     "privacy",
     "guardbee",
-    "devtools"
+    "devtools",
+    "security"
   ],
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/GuardBee/guardbee-mcp.git",
     "directory": "packages/compliance-checker"
+  },
+  "homepage": "https://guardbee.ai/en/what-is-mcp-compliance-checker/",
+  "bugs": {
+    "url": "https://github.com/GuardBee/guardbee-mcp/issues"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

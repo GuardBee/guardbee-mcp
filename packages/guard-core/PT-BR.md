@@ -17,3 +17,7 @@ npm install @guardbee/guard-core
 ## Licença
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Feedback
+
+Dúvidas, ideias ou um falso positivo? Abra um tópico no [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) ou [uma issue](https://github.com/GuardBee/guardbee-mcp/issues). Se o GuardBee for útil para você, uma ⭐ no [repositório](https://github.com/GuardBee/guardbee-mcp) ajuda outras pessoas a encontrá-lo.

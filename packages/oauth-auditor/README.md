@@ -2,11 +2,15 @@
 
 **🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
+[![npm version](https://img.shields.io/npm/v/@guardbee/mcp-oauth-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-oauth-auditor)
+[![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-oauth-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-oauth-auditor)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 An MCP (Model Context Protocol) server that scans an MCP server's own authorization code for **OAuth 2.1 anti-patterns named in the MCP specification's own Security Considerations section**.
 
 The MCP spec doesn't leave this to guesswork — it explicitly calls out **token passthrough** (forwarding a client's token to a downstream API unchanged, instead of exchanging/re-scoping it) and **missing audience validation** (accepting a token whose `aud` claim was never issued for this server) as the central authorization failure modes for a server acting as an OAuth resource server. This package checks for exactly those two, plus three related anti-patterns in the same family.
 
-> This package sends usage telemetry by default (tool name + short parameters, scanned code is never included — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](../telemetry/README.md).
 
 ```
 Claude ──► oauth-auditor ──► Your MCP server's auth code
@@ -120,3 +124,7 @@ npm test             # 18 unit tests
 ## License
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Feedback
+
+Questions, ideas, or a false positive? Start a thread in [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) or [open an issue](https://github.com/GuardBee/guardbee-mcp/issues). If GuardBee is useful to you, a ⭐ on [the repository](https://github.com/GuardBee/guardbee-mcp) helps others find it.

@@ -6,7 +6,7 @@ MCP (Model Context Protocol) sunucusu — bir MCP server'ın kendi authorization
 
 MCP spec'i bunu tahmine bırakmıyor — bir OAuth resource server olarak davranan bir server için **token passthrough**'u (bir client'ın token'ını değiştirmeden, exchange/re-scope etmeden downstream bir API'ye forward etmek) ve **eksik audience doğrulamasını** (`aud` claim'i bu server için hiç issue edilmemiş bir token'ı kabul etmek) merkezi authorization hata modları olarak açıkça adlandırıyor. Bu paket tam olarak bu ikisini, artı aynı ailenin 3 ilişkili anti-pattern'ini kontrol ediyor.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler, taranan kod hiçbir zaman dahil değil — bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
 ```
 Claude ──► oauth-auditor ──► MCP server'ınızın auth kodu
@@ -120,3 +120,7 @@ npm test             # 18 unit test
 ## Lisans
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

@@ -43,3 +43,7 @@ npx @guardbee/mcp-config-auditor --help
 ## Lizenz
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Feedback
+
+Fragen, Ideen oder ein Fehlalarm? Starte eine Diskussion in [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) oder [öffne ein Issue](https://github.com/GuardBee/guardbee-mcp/issues). Wenn GuardBee dir hilft, hilft ein ⭐ für [das Repository](https://github.com/GuardBee/guardbee-mcp) anderen, es zu finden.

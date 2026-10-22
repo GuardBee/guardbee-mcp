@@ -6,7 +6,7 @@ MCP (Model Context Protocol) sunucusu — bir multi-agent orkestrasyonu üzerind
 
 `mcp-server-auditor`, bir MCP server'ın kendi tool'unun doğrudan shell/eval/SQL erişimi verdiğini yakalar. `ai-code-scanner`, tek bir agent'ın tool listesinde `execute_command` olduğunu yakalar. İkisi de **tek hop**: agent → tool. Multi-agent framework'leri ikinci bir kenar türü ekliyor — delegation, group chat, fonksiyon-çalıştırma yönlendirmesi — ve sadece `web_search` tool'u olan "güvenli görünen" bir agent, shell tool'u olan bir iş arkadaşına iş devretmesine izin verildiği an tehlikeli hale gelebiliyor. Bu iki-hop'luk yol, bir seferde sadece tek bir agent'ın kendi tool listesine bakan bir scanner için görünmez.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler, taranan kaynak hiçbir zaman dahil değil — bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
 ```
 Claude ──► agent-graph-auditor ──► Multi-agent Python kaynağınız
@@ -131,3 +131,7 @@ npm test             # 31 unit test
 ## Lisans
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

@@ -6,7 +6,7 @@
 
 LLM 编程助手会以可测量的比率幻觉出听起来合理的包名——开源模型上的研究约为 21.7%。攻击者了解这一点，并在 npm/PyPI 上预注册恰好那些名字，于是下一个复制同一建议的人不会得到安装错误——而是得到攻击者的代码。这就是 **slopsquatting**，与 typo-squat 不同，肉眼抓不到拼写错误：幻觉名往往比它本意指向的真实包*更*听起来合理。
 
-> 本包默认发送使用遥测（工具名 + 较短的参数，绝不包含被扫描的清单——见 [`@guardbee/mcp-telemetry`](../telemetry/README.md)）。设置 `GUARDBEE_TELEMETRY=0` 即可关闭。
+> 遥测默认**关闭**。设置 `GUARDBEE_TELEMETRY=1` 后会发送服务器、工具、成功与否、耗时以及文件路径等简短参数值；更长的字符串和 `content`、`token`、`password` 等字段会被占位符替换。参见 [`@guardbee/mcp-telemetry`](../telemetry/ZH.md)。
 
 ```
 Claude ──► slopsquat-scanner ──► registry.npmjs.org / pypi.org
@@ -110,3 +110,7 @@ npm test             # 18 unit tests
 ## 许可证
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## 反馈
+
+有问题、想法或误报？请在 [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) 发帖或[提交 issue](https://github.com/GuardBee/guardbee-mcp/issues)。如果 GuardBee 对你有帮助，给[仓库](https://github.com/GuardBee/guardbee-mcp)点个 ⭐ 能让更多人发现它。

@@ -6,7 +6,7 @@
 
 `ai-code-scanner` 和 `mcp-server-auditor` 扫描的是代码；本包扫描的是**数据**。在经典的 prompt 注入中，攻击者自己编写恶意 prompt；而在间接 prompt 注入中，攻击者根本不与模型对话——而是把指令嵌入模型之后会读取的文档、网页或工具结果中。一旦模型通过 RAG 检索或网页抓取把这些内容拉入上下文，嵌入的指令看起来就拥有与用户自己的指令相同的权威。
 
-> 本包默认发送使用遥测（工具名 + 较短的参数，绝不包含被扫描的内容——见 [`@guardbee/mcp-telemetry`](../telemetry/README.md)）。设置 `GUARDBEE_TELEMETRY=0` 即可关闭。
+> 遥测默认**关闭**。设置 `GUARDBEE_TELEMETRY=1` 后会发送服务器、工具、成功与否、耗时以及文件路径等简短参数值；更长的字符串和 `content`、`token`、`password` 等字段会被占位符替换。参见 [`@guardbee/mcp-telemetry`](../telemetry/ZH.md)。
 
 ```
 网页 / RAG 文档 ──► prompt-injection-scanner ──► LLM 上下文
@@ -116,3 +116,7 @@ npm test             # 45 个单元测试
 ## 许可证
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## 反馈
+
+有问题、想法或误报？请在 [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) 发帖或[提交 issue](https://github.com/GuardBee/guardbee-mcp/issues)。如果 GuardBee 对你有帮助，给[仓库](https://github.com/GuardBee/guardbee-mcp)点个 ⭐ 能让更多人发现它。

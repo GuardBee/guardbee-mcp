@@ -6,7 +6,7 @@
 
 大多数“AI 安全”工具看的是你的集成代码或流经其中的提示。本包看的是你（或同事，或 `pip install`）从 Hugging Face、注册表或 S3 桶下载的产物：`.pt`/`.pth`/`.pkl` checkpoint 是 **pickle** 文件，反序列化不只是数据反序列化——文件加载瞬间就可以调用任意 Python 代码（`torch.load()`、`pickle.load()` 等）。恶意 checkpoint 是真实、有充分文档记载的攻击向量，而非假想。
 
-> 本包默认发送使用遥测（工具名 + 较短的参数，绝不包含被扫描文件的内容——见 [`@guardbee/mcp-telemetry`](../telemetry/README.md)）。设置 `GUARDBEE_TELEMETRY=0` 即可关闭。
+> 遥测默认**关闭**。设置 `GUARDBEE_TELEMETRY=1` 后会发送服务器、工具、成功与否、耗时以及文件路径等简短参数值；更长的字符串和 `content`、`token`、`password` 等字段会被占位符替换。参见 [`@guardbee/mcp-telemetry`](../telemetry/ZH.md)。
 
 ```
 Claude ──► model-scanner ──► Your model files
@@ -135,3 +135,7 @@ npm test             # 45 unit tests
 ## 许可证
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## 反馈
+
+有问题、想法或误报？请在 [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) 发帖或[提交 issue](https://github.com/GuardBee/guardbee-mcp/issues)。如果 GuardBee 对你有帮助，给[仓库](https://github.com/GuardBee/guardbee-mcp)点个 ⭐ 能让更多人发现它。

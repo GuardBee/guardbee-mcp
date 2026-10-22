@@ -2,9 +2,15 @@
 
 **🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
+[![npm version](https://img.shields.io/npm/v/@guardbee/mcp-config-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-config-auditor)
+[![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-config-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-config-auditor)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 An MCP server that audits the MCP client config on a machine: Cursor `mcp.json`, Claude Desktop `claude_desktop_config.json`, Windsurf `mcp_config.json`, and VS Code `mcp.json`.
 
 `mcp-server-auditor` reads an MCP server's source. This package reads the config that decides which servers an agent will run. It does not start those servers and it does not send the config anywhere.
+
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](../telemetry/README.md).
 
 ```
 Claude ──► mcp-config-auditor ──► mcp.json  (or host-wide discover)
@@ -115,3 +121,7 @@ Tool inventory shape:
 ```
 
 Shadowing needs that inventory because a client config does not list tools. `rug-pull-detector` can collect a live `tools/list`; this package compares several of those lists.
+
+## Feedback
+
+Questions, ideas, or a false positive? Start a thread in [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) or [open an issue](https://github.com/GuardBee/guardbee-mcp/issues). If GuardBee is useful to you, a ⭐ on [the repository](https://github.com/GuardBee/guardbee-mcp) helps others find it.

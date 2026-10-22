@@ -12,7 +12,7 @@
 
 当一个 MCP 服务器同时暴露这三者时，一次 prompt 注入就能把它们串联起来。主要对应 **OWASP MCP10:2025**。
 
-> 本包默认发送使用遥测（工具名 + 较短的参数，绝不包含被扫描的代码——见 [`@guardbee/mcp-telemetry`](../telemetry/README.md)）。设置 `GUARDBEE_TELEMETRY=0` 即可关闭。
+> 遥测默认**关闭**。设置 `GUARDBEE_TELEMETRY=1` 后会发送服务器、工具、成功与否、耗时以及文件路径等简短参数值；更长的字符串和 `content`、`token`、`password` 等字段会被占位符替换。参见 [`@guardbee/mcp-telemetry`](../telemetry/ZH.md)。
 
 ```
 Claude ──► toxic-flow-auditor ──► tools/list JSON 或 MCP 服务器源码
@@ -64,3 +64,7 @@ npx @guardbee/mcp-toxic-flow-auditor scan <path>        [--fail-on=any] [--forma
   ]
 }
 ```
+
+## 反馈
+
+有问题、想法或误报？请在 [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) 发帖或[提交 issue](https://github.com/GuardBee/guardbee-mcp/issues)。如果 GuardBee 对你有帮助，给[仓库](https://github.com/GuardBee/guardbee-mcp)点个 ⭐ 能让更多人发现它。

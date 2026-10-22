@@ -25,7 +25,9 @@
     "KO.md",
     "PT-BR.md",
     "ES.md",
-    "DE.md"
+    "DE.md",
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsc",
@@ -63,5 +65,12 @@
     "type": "git",
     "url": "https://github.com/GuardBee/guardbee-mcp.git",
     "directory": "packages/threat-rules"
+  },
+  "homepage": "https://guardbee.ai/en/what-is-mcp-threat-rules/",
+  "bugs": {
+    "url": "https://github.com/GuardBee/guardbee-mcp/issues"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

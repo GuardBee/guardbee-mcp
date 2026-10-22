@@ -4,11 +4,15 @@
 
 **🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
+[![npm version](https://img.shields.io/npm/v/@guardbee/mcp-a2a-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-a2a-auditor)
+[![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-a2a-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-a2a-auditor)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 An MCP (Model Context Protocol) server that scans an agent's own **Agent2Agent (A2A) protocol implementation** for anti-patterns — not invented from the spec text, but read directly out of the reference SDKs (`@a2a-js/sdk`, `a2a-sdk`) and their own official sample code.
 
 A2A doesn't have an MCP-style "Security Considerations" section yet to quote. So instead of guessing, this package's patterns come from three things found in the reference SDK source itself: the official push-notification sender fetches a client-supplied webhook URL with no host check at all, the official *sample* agent ships with an empty security scheme and a literal `noAuthentication` request handler, and the Python SDK's `AgentCard(...)` constructor treats its two security kwargs as fully optional — silently meaning "no auth" if you don't pass them.
 
-> This package sends usage telemetry by default (tool name + short parameters, scanned code is never included — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](../telemetry/README.md).
 
 ```
 Claude ──► a2a-auditor ──► Your A2A agent's source
@@ -120,3 +124,7 @@ npm test             # 18 unit tests
 ## License
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Feedback
+
+Questions, ideas, or a false positive? Start a thread in [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) or [open an issue](https://github.com/GuardBee/guardbee-mcp/issues). If GuardBee is useful to you, a ⭐ on [the repository](https://github.com/GuardBee/guardbee-mcp) helps others find it.

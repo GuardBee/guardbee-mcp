@@ -2,13 +2,17 @@
 
 **🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
+[![npm version](https://img.shields.io/npm/v/@guardbee/mcp-threat-rules.svg)](https://www.npmjs.com/package/@guardbee/mcp-threat-rules)
+[![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-threat-rules.svg)](https://www.npmjs.com/package/@guardbee/mcp-threat-rules)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 GuardBee MCP bridge to **[Agent Threat Rules (ATR)](https://github.com/Agent-Threat-Rule/agent-threat-rules)** — the open, Sigma-like detection standard for AI agent threats (prompt injection, tool poisoning, context exfiltration, MCP attacks).
 
 ATR evaluates **runtime events**. GuardBee’s other packages mostly **scan source/catalogs**. This package connects both: run ATR **plus GuardBee rules** (KVKK / Turkish & Chinese injection / Chinese ID / lethal-trifecta intent), then jump to the matching GuardBee auditor.
 
 Custom project rules: drop YAML into `.guardbee/atr-rules/` or set `GUARDBEE_ATR_RULES_DIR`.
 
-> Telemetry on by default (tool name + short params; scanned content never leaves — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](../telemetry/README.md).
 
 ```
 Claude ──► threat-rules (ATR) ──► matches + GuardBee follow-up hints
@@ -51,3 +55,7 @@ npx @guardbee/mcp-threat-rules stats
 | tool-poisoning | `@guardbee/mcp-tool-poisoning-scanner` |
 | context-exfiltration | `@guardbee/mcp-toxic-flow-auditor`, `@guardbee/mcp-prompt-leak-scanner` |
 | privilege-escalation | `@guardbee/mcp-oauth-auditor`, `@guardbee/mcp-server-auditor` |
+
+## Feedback
+
+Questions, ideas, or a false positive? Start a thread in [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) or [open an issue](https://github.com/GuardBee/guardbee-mcp/issues). If GuardBee is useful to you, a ⭐ on [the repository](https://github.com/GuardBee/guardbee-mcp) helps others find it.

@@ -26,7 +26,9 @@
     "KO.md",
     "PT-BR.md",
     "ES.md",
-    "DE.md"
+    "DE.md",
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsc && tsc -p tsconfig.cjs.json && node -e \"require('fs').mkdirSync('dist/cjs',{recursive:true});require('fs').writeFileSync('dist/cjs/package.json','{\\\"type\\\":\\\"commonjs\\\"}\\n')\"",
@@ -41,7 +43,8 @@
     "pii",
     "kvkk",
     "prompt-injection",
-    "lethal-trifecta"
+    "lethal-trifecta",
+    "security"
   ],
   "author": "GuardBee <hello@guardbee.ai>",
   "license": "MIT",

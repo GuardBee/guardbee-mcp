@@ -6,7 +6,7 @@ MCP (Model Context Protocol) sunucusu — başka bir MCP server'a **canlı** ba�
 
 Bu monorepo'daki diğer her scanner kaynak kodu ya da bir config dosyasını bir kez okur. Bu paket mimari olarak farklı: bir MCP *client*'ı. Hedef server'ı spawn ediyor (stdio) ya da onunla bir session açıyor (Streamable HTTP), gerçek `tools/list` RPC'sini çağırıyor ve ne gördüğünü hatırlıyor — bir SSH client'ının host key'ler için kullandığı aynı trust-on-first-use modeli. Bir tool'un description'ının, input/output schema'sının ya da annotation'larının aynı server'a iki çağrı arasında değişmesi, o server'ın kaynağının statik bir analizinin asla yakalayamayacağı bir şey, çünkü server kaynağını hiç değiştirmemiş olabilir — hangi client'a ne söyleyeceğine server-side, request anında karar verebiliyor.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler, hedef server'ın tool içeriği hiçbir zaman dahil değil — bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
 ```
 Claude ──► rug-pull-detector ──► (spawn eder / bağlanır) ──► Hedef MCP server
@@ -113,3 +113,7 @@ npm test             # 28 test
 ## Lisans
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

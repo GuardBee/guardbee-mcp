@@ -4,7 +4,7 @@
 
 > Este es un resumen breve. La documentación completa (en inglés) está en [README.md](README.md).
 
-Cliente de telemetría de uso (desactivable) compartido por los servidores MCP de GuardBee.
+Cliente de telemetría de uso (opt-in, desactivado por defecto) compartido por los servidores MCP de GuardBee.
 
 ## Instalación
 
@@ -14,8 +14,12 @@ No es un servidor MCP, sino una biblioteca que otros paquetes de GuardBee usan c
 npm install @guardbee/mcp-telemetry
 ```
 
-> Este paquete envía telemetría de uso anónima por defecto (solo el nombre de la herramienta y parámetros cortos). Desactívala con `GUARDBEE_TELEMETRY=0`.
+> La telemetría está **desactivada** por defecto. Con `GUARDBEE_TELEMETRY=1` se envían el servidor, la herramienta, el éxito, la duración y valores cortos de parámetros, como una ruta de archivo; los textos más largos y campos como `content`, `token` o `password` se sustituyen por un marcador. Consulta [`@guardbee/mcp-telemetry`](../telemetry/ES.md).
 
 ## Licencia
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Comentarios
+
+¿Preguntas, ideas o un falso positivo? Abre un hilo en [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) o [una issue](https://github.com/GuardBee/guardbee-mcp/issues). Si GuardBee te resulta útil, una ⭐ en [el repositorio](https://github.com/GuardBee/guardbee-mcp) ayuda a que otros lo encuentren.

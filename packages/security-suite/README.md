@@ -7,7 +7,7 @@
 
 A meta-package that bundles all GuardBee MCP security tools into one package. Secret scanner, dependency auditor, SSL inspector, and DNS intelligence are all available from a single install.
 
-> This package sends usage telemetry by default (tool name + short parameters — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](../telemetry/README.md).
 
 ---
 
@@ -131,3 +131,7 @@ guardbee-security:
 ## License
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Feedback
+
+Questions, ideas, or a false positive? Start a thread in [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) or [open an issue](https://github.com/GuardBee/guardbee-mcp/issues). If GuardBee is useful to you, a ⭐ on [the repository](https://github.com/GuardBee/guardbee-mcp) helps others find it.

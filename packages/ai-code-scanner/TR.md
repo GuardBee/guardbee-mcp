@@ -6,7 +6,7 @@ MCP (Model Context Protocol) sunucusu — kod tabanınızı, LLM/AI entegrasyonl
 
 `secret-scanner` sırlar/API key'ler ararken, bu paket **kalıp** arar: modelin çıktısına ne kadar güvenildiği, modelin çağırabildiği tool'ların ne kadar yetkili olduğu, hangi verinin üçüncü taraf bir LLM'e gönderildiği gibi, statik bir credential taramasıyla yakalanamayan riskler.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler, taranan kod hiçbir zaman dahil değil — bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
 ```
 Claude ──► ai-code-scanner ──► Kod tabanınız
@@ -142,3 +142,7 @@ npm test             # 36 unit test
 ## Lisans
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

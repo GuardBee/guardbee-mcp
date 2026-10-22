@@ -5,12 +5,12 @@
   "description": "KVKK/GDPR-compliant MCP server gateway between LLMs and databases",
   "author": "GuardBee <hello@guardbee.ai>",
   "license": "MIT",
-  "homepage": "https://github.com/GuardBee/guardbee-mcp/tree/main/packages/db-gateway#readme",
   "repository": {
     "type": "git",
     "url": "https://github.com/GuardBee/guardbee-mcp.git",
     "directory": "packages/db-gateway"
   },
+  "homepage": "https://guardbee.ai/en/what-is-mcp-db-gateway/",
   "bugs": {
     "url": "https://github.com/GuardBee/guardbee-mcp/issues"
   },
@@ -25,7 +25,8 @@
     "database",
     "security",
     "prisma",
-    "claude"
+    "claude",
+    "guardbee"
   ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -41,7 +42,9 @@
     "KO.md",
     "PT-BR.md",
     "ES.md",
-    "DE.md"
+    "DE.md",
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "engines": {
     "node": ">=18"

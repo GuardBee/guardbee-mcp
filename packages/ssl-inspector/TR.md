@@ -8,7 +8,7 @@
 
 TLS sertifikası, cipher suite ve protokol konfigürasyonlarını herhangi bir domain için inceleyen MCP sunucusu. Node.js yerleşik `tls` modülü kullanır — harici bağımlılık yoktur.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler — bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
 ---
 
@@ -224,3 +224,7 @@ npm run build     # TypeScript derleme
 ## Lisans
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

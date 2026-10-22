@@ -6,7 +6,7 @@ MCP (Model Context Protocol) sunucusu — ML model dosyalarını **tedarik zinci
 
 Çoğu "AI security" aracı entegrasyon kodunuza veya prompt'lara bakar. Bu paket sizin (veya bir takım arkadaşınızın, ya da bir `pip install`'ın) Hugging Face'ten, bir registry'den ya da bir S3 bucket'ından indirdiği asıl dosyaya bakar: bir `.pt`/`.pth`/`.pkl` checkpoint bir **pickle** dosyasıdır ve unpickling sadece veri deserialization'ı değildir — dosya yüklendiği an (`torch.load()`, `pickle.load()` vb.) keyfi Python kodu çalıştırabilir. Zararlı bir checkpoint, hipotetik değil, iyi belgelenmiş gerçek bir saldırı vektörüdür.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler, taranan dosyanın içeriği hiçbir zaman dahil değil — bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
 ```
 Claude ──► model-scanner ──► Model dosyalarınız
@@ -135,3 +135,7 @@ npm test             # 45 unit test
 ## Lisans
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

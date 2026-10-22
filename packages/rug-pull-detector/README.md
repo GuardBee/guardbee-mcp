@@ -2,11 +2,15 @@
 
 **🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
+[![npm version](https://img.shields.io/npm/v/@guardbee/mcp-rug-pull-detector.svg)](https://www.npmjs.com/package/@guardbee/mcp-rug-pull-detector)
+[![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-rug-pull-detector.svg)](https://www.npmjs.com/package/@guardbee/mcp-rug-pull-detector)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 An MCP (Model Context Protocol) server that connects **live** to another MCP server and detects an **MCP rug pull** — a server presenting one tool definition when you approve it, then silently serving a different one later.
 
 Every other scanner in this monorepo reads source code or a config file once. This one is architecturally different: it's an MCP *client*. It spawns the target server (stdio) or opens a session with it (Streamable HTTP), calls the real `tools/list` RPC, and remembers what it saw — the same trust-on-first-use model an SSH client uses for host keys. A tool's description, input/output schema, or annotations changing between two calls to the exact same server is not something any static analysis of that server's source could ever catch, because the server may not have changed its source at all — it can decide server-side, at request time, what to tell which client.
 
-> This package sends usage telemetry by default (tool name + short parameters, the target server's tool contents are never included — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](../telemetry/README.md).
 
 ```
 Claude ──► rug-pull-detector ──► (spawns / connects to) ──► Target MCP server
@@ -113,3 +117,7 @@ npm test             # 28 tests
 ## License
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Feedback
+
+Questions, ideas, or a false positive? Start a thread in [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) or [open an issue](https://github.com/GuardBee/guardbee-mcp/issues). If GuardBee is useful to you, a ⭐ on [the repository](https://github.com/GuardBee/guardbee-mcp) helps others find it.

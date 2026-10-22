@@ -6,7 +6,7 @@
 
 该修订版弃用了 sampling 与 roots。Elicitation 是服务器向客户端请求信息的剩余方式。Form 模式通过客户端收集结构化数据。URL 模式把用户送到客户端不得读取的页面。规范在两者之间划了硬线。
 
-> 本包默认发送使用遥测（工具名 + 较短参数；绝不包含被扫描的代码——见 [`@guardbee/mcp-telemetry`](../telemetry/README.md)）。设置 `GUARDBEE_TELEMETRY=0` 即可关闭。
+> 遥测默认**关闭**。设置 `GUARDBEE_TELEMETRY=1` 后会发送服务器、工具、成功与否、耗时以及文件路径等简短参数值；更长的字符串和 `content`、`token`、`password` 等字段会被占位符替换。参见 [`@guardbee/mcp-telemetry`](../telemetry/ZH.md)。
 
 ```
 Claude ──► elicitation-auditor ──► MCP server source
@@ -55,3 +55,7 @@ elicitation-auditor:
 ```
 
 无需 API 密钥。仅做静态分析。
+
+## 反馈
+
+有问题、想法或误报？请在 [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) 发帖或[提交 issue](https://github.com/GuardBee/guardbee-mcp/issues)。如果 GuardBee 对你有帮助，给[仓库](https://github.com/GuardBee/guardbee-mcp)点个 ⭐ 能让更多人发现它。

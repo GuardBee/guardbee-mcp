@@ -6,7 +6,7 @@ MCP (Model Context Protocol) sunucusu — bir vektör veritabanı (ya da vektör
 
 Her RAG pipeline'ının embedding'leri bir yerde yaşar. O vektör store ağda auth'suz erişilebilirse, onu bulan herkes retrieval pipeline'ınıza verilmiş her belgeyi okuyabilir (çoğu zaman yazabilir de) — bir chunk'a giren hassas herhangi bir şey dahil.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler, prob'lanan host/response içeriği hiçbir zaman dahil değil — bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
 ```
 Claude ──► vector-store-scanner ──► Vektör store endpoint'iniz
@@ -126,3 +126,7 @@ npm test             # 22 unit test
 ## Lisans
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

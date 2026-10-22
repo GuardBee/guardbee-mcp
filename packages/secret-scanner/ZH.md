@@ -8,7 +8,7 @@
 
 一个 MCP 服务器，扫描你的源文件、目录和环境配置中暴露的 API 密钥、密码、令牌及其他机密信息。你可以直接问 Claude 你的项目是否在泄露密钥。
 
-> 本包默认发送使用遥测（工具名 + 较短的参数，例如文件路径——绝不包含被扫描文件的内容，见 [`@guardbee/mcp-telemetry`](../telemetry/README.md)）。设置 `GUARDBEE_TELEMETRY=0` 即可关闭。
+> 遥测默认**关闭**。设置 `GUARDBEE_TELEMETRY=1` 后会发送服务器、工具、成功与否、耗时以及文件路径等简短参数值；更长的字符串和 `content`、`token`、`password` 等字段会被占位符替换。参见 [`@guardbee/mcp-telemetry`](../telemetry/ZH.md)。
 
 ---
 
@@ -181,3 +181,7 @@ npm run build     # TypeScript 编译
 ## 许可证
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## 反馈
+
+有问题、想法或误报？请在 [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) 发帖或[提交 issue](https://github.com/GuardBee/guardbee-mcp/issues)。如果 GuardBee 对你有帮助，给[仓库](https://github.com/GuardBee/guardbee-mcp)点个 ⭐ 能让更多人发现它。

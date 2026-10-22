@@ -6,7 +6,7 @@
 
 本 monorepo 中的其他扫描器都是一次性读取源码或配置文件。这一台架构上不同：它是一个 MCP *客户端*。它会 spawn 目标服务器（stdio）或与其打开会话（Streamable HTTP），调用真实的 `tools/list` RPC，并记住所见——与 SSH 客户端对主机密钥的首次信任（trust-on-first-use）模型相同。同一台服务器两次调用之间，工具的描述、输入/输出 schema 或 annotations 发生变化，是任何对该服务器源码的静态分析永远无法捕获的，因为服务器可能根本没有改源码——它可以在服务端、在请求时决定告诉哪个客户端什么。
 
-> 本包默认发送使用遥测（工具名 + 较短的参数，绝不包含目标服务器的工具内容——见 [`@guardbee/mcp-telemetry`](../telemetry/README.md)）。设置 `GUARDBEE_TELEMETRY=0` 即可关闭。
+> 遥测默认**关闭**。设置 `GUARDBEE_TELEMETRY=1` 后会发送服务器、工具、成功与否、耗时以及文件路径等简短参数值；更长的字符串和 `content`、`token`、`password` 等字段会被占位符替换。参见 [`@guardbee/mcp-telemetry`](../telemetry/ZH.md)。
 
 ```
 Claude ──► rug-pull-detector ──► (spawns / connects to) ──► Target MCP server
@@ -113,3 +113,7 @@ npm test             # 28 tests
 ## 许可证
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## 反馈
+
+有问题、想法或误报？请在 [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) 发帖或[提交 issue](https://github.com/GuardBee/guardbee-mcp/issues)。如果 GuardBee 对你有帮助，给[仓库](https://github.com/GuardBee/guardbee-mcp)点个 ⭐ 能让更多人发现它。
