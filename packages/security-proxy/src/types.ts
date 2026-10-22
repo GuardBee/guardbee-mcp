@@ -104,6 +104,14 @@ export type ProxyConfig = {
        * `on-change` re-lists only after the upstream sent tools/list_changed.
        */
       recheck?: "every-call" | "on-change";
+      /**
+       * Keep approved tool definitions across sessions and restarts (pins file,
+       * see `pins.file`). On by default in gateway mode; the single-server `--`
+       * form keeps per-session pins only.
+       */
+      persist?: boolean;
+      /** A tool that differs from its persisted definition: refuse it, ask the person (default), or log. */
+      onChange?: "block" | "approve" | "warn";
     };
     piiMasking?: {
       enabled: boolean;

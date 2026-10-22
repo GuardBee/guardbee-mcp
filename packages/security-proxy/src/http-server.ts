@@ -9,6 +9,7 @@ import type { Gateway } from "./gateway/gateway.js";
 import { QuotaStore } from "./gateway/quota.js";
 import type { Upstream } from "./gateway/upstream.js";
 import { createGatewayServer } from "./proxy.js";
+import type { PinStore } from "./gateway/pin-store.js";
 import { createLlmHandler, type LlmHandler } from "./llm/gateway.js";
 import { createDirectory, withDirectoryGroups, type ClientFactory } from "./directory.js";
 
@@ -71,7 +72,7 @@ export async function startHttpGateway(
   config: GatewayConfig,
   audit: AuditLogger,
   listen: HttpListen,
-  options: { authenticate?: Authenticate; fetchImpl?: typeof fetch; ldapClient?: ClientFactory } = {},
+  options: { authenticate?: Authenticate; fetchImpl?: typeof fetch; ldapClient?: ClientFactory; pinStore?: PinStore } = {},
 ): Promise<HttpGateway> {
   const sessions = new Map<string, Session>();
   // One set of quota counters for every session of this process
@@ -120,6 +121,7 @@ export async function startHttpGateway(
     const { gateway, server } = createGatewayServer(upstreams, config, audit, {
       sessionId,
       quotas,
+      ...(options.pinStore ? { pinStore: options.pinStore } : {}),
       ...(identity.user ? { identity: { user: identity.user, groups: identity.groups } } : {}),
     });
     const transport = new StreamableHTTPServerTransport({

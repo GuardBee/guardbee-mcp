@@ -14,6 +14,7 @@ import { chainApprovers, dashboardApprover, elicitationApprover, type Approver }
 import { fromLegacyConfig, type GatewayConfig } from "./gateway/config.js";
 import { Gateway, type CallerIdentity, type Sampler } from "./gateway/gateway.js";
 import { connectUpstream, type Upstream } from "./gateway/upstream.js";
+import { PinStore, defaultPinFile } from "./gateway/pin-store.js";
 import { PolicySync } from "./gateway/policy-sync.js";
 import type { QuotaStore } from "./gateway/quota.js";
 import { readFileSync } from "fs";
@@ -59,7 +60,7 @@ export function createGatewayServer(
   upstreams: Upstream[],
   config: GatewayConfig,
   audit: AuditLogger,
-  options: { sessionId?: string; identity?: CallerIdentity; quotas?: QuotaStore } = {}
+  options: { sessionId?: string; identity?: CallerIdentity; quotas?: QuotaStore; pinStore?: PinStore } = {}
 ): { gateway: Gateway; server: Server } {
   let server: Server | undefined;
   // Read approval settings on every request: a dashboard policy update can change them mid-session.
@@ -83,6 +84,17 @@ export function createGatewayServer(
   return { gateway, server };
 }
 
+/**
+ * The persistent pin store, when tool definitions are pinned across restarts:
+ * gateway mode with definitionDrift on (persist defaults to true). The
+ * single-server `--` form keeps per-session pins only.
+ */
+function persistentPins(config: GatewayConfig): PinStore | undefined {
+  const drift = config.interceptors.definitionDrift;
+  if (!config.namespaced || drift?.enabled === false || drift?.persist === false) return undefined;
+  return new PinStore(config.pins?.file ?? defaultPinFile());
+}
+
 export async function startGateway(config: GatewayConfig): Promise<void> {
   const { version } = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf8")) as { version: string };
   // OTLP export when OTEL_EXPORTER_OTLP_ENDPOINT is set and the SDK is installed
@@ -92,6 +104,7 @@ export async function startGateway(config: GatewayConfig): Promise<void> {
   if (config.policy.source === "dashboard" && config.audit.dashboard) {
     await new PolicySync(config, config.audit.dashboard, config.policy.refreshSeconds).start();
   }
+  const pinStore = persistentPins(config);
   const upstreams: Upstream[] = [];
   for (const [name, server] of Object.entries(config.upstreams)) {
     upstreams.push(await connectUpstream(name, server, { sampling: config.interceptors.sampling?.enabled === true }));
@@ -100,7 +113,7 @@ export async function startGateway(config: GatewayConfig): Promise<void> {
   if (config.listen.transport === "http") {
     // Imported here: http-server.ts imports this module for createGatewayServer.
     const { startHttpGateway } = await import("./http-server.js");
-    const http = await startHttpGateway(upstreams, config, audit, config.listen);
+    const http = await startHttpGateway(upstreams, config, audit, config.listen, { ...(pinStore ? { pinStore } : {}) });
     process.stderr.write(`[guardbee-proxy] listening on ${http.url}\n`);
     if (http.llmUrl) process.stderr.write(`[guardbee-proxy] LLM gateway on ${http.llmUrl} (chat/completions, messages, models)\n`);
     const shutdown = async () => {
@@ -115,7 +128,7 @@ export async function startGateway(config: GatewayConfig): Promise<void> {
     return;
   }
 
-  const { gateway, server } = createGatewayServer(upstreams, config, audit);
+  const { gateway, server } = createGatewayServer(upstreams, config, audit, { ...(pinStore ? { pinStore } : {}) });
   await server.connect(new StdioServerTransport());
 
   // The client usually just closes stdin; without this the process ended with

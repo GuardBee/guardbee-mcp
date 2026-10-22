@@ -32,6 +32,7 @@ import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { activeCallSpan, tracer, withCallSpan } from "../tracing.js";
 import type { AuditLogger } from "../audit/logger.js";
 import { ToolDefinitionPin, type ToolRecord } from "../interceptors/definition-drift.js";
+import { describeChange, type PinChange, type PinStore } from "./pin-store.js";
 import type { AuditEvent } from "../types.js";
 import { orgPatternsFor, piiScopesFor, type PiiScopes } from "./pii-scope.js";
 import { AnomalyDetector, type AnomalyConfig } from "./anomaly.js";
@@ -125,6 +126,10 @@ export class Gateway {
   private anomalyConfig?: AnomalyConfig;
   private readonly now?: () => number;
   private readonly pins = new Map<string, ToolDefinitionPin>();
+  /** Shared by every session of the process; absent when definitions are not persisted. */
+  private readonly pinStore?: PinStore;
+  /** Tools whose definition differs from the persisted one, per upstream, until approved. */
+  private readonly unpinned = new Map<string, Map<string, PinChange>>();
   private readonly tools = new Map<string, ToolRoute>();
   private readonly resources = new Map<string, Upstream>();
   private readonly prompts = new Map<string, { upstream: Upstream; name: string }>();
@@ -149,8 +154,9 @@ export class Gateway {
     private readonly config: GatewayConfig,
     private readonly audit: AuditLogger,
     private readonly approver?: Approver,
-    options: { sessionId?: string; identity?: CallerIdentity; sampler?: Sampler; quotas?: QuotaStore; now?: () => number } = {},
+    options: { sessionId?: string; identity?: CallerIdentity; sampler?: Sampler; quotas?: QuotaStore; now?: () => number; pinStore?: PinStore } = {},
   ) {
+    this.pinStore = options.pinStore;
     this.quotas = options.quotas ?? new QuotaStore(options.now);
     this.sessionId = options.sessionId;
     this.identity = options.identity;
@@ -263,6 +269,50 @@ export class Gateway {
 
   private get driftAction(): "block" | "warn" {
     return this.interceptors.definitionDrift?.action ?? this.interceptors.promptInjection?.action ?? "block";
+  }
+
+  private get pinAction(): "block" | "approve" | "warn" {
+    return this.interceptors.definitionDrift?.onChange ?? "approve";
+  }
+
+  /**
+   * Compare an upstream's list with its persisted pins. A changed tool is shown
+   * with its approved definition and an added one left out (block) or shown
+   * (approve: the call asks first); warn logs and shows the new list.
+   */
+  private checkPersistentPins(upstream: Upstream, tools: Tool[]): Tool[] {
+    if (!this.pinStore || !this.driftEnabled) return tools;
+    const { firstUse, changes } = this.pinStore.check(upstream.name, tools as ToolRecord[]);
+    // First use: the store pinned the list as it is
+    if (firstUse) return tools;
+    const pending = new Map<string, PinChange>();
+    for (const change of changes) {
+      const tool = this.exposed(upstream, change.tool);
+      const hashes = change.kind === "changed" ? ` (pinned ${change.pinned.hash.slice(0, 12)}, now ${change.currentHash.slice(0, 12)})` : "";
+      const action = change.kind === "removed" ? "warn" : this.pinAction;
+      this.log({
+        type: action === "block" ? "blocked" : "warn",
+        tool,
+        server: upstream.name,
+        upstream: upstream.name,
+        ruleId: `pin:${change.kind}`,
+        reason: `${describeChange(change).split("\n")[0]}${hashes} (MCP03:2025)${action === "warn" ? "" : ` — run: guardbee-proxy pins approve ${upstream.name} ${change.tool}`}`,
+        // Hashed in the audit log unless audit.includePayloads
+        input: { change: describeChange(change) },
+      });
+      if (change.kind !== "removed" && this.pinAction !== "warn") pending.set(change.tool, change);
+    }
+    this.unpinned.set(upstream.name, pending);
+    if (this.pinAction === "warn") return tools;
+    const out: Tool[] = [];
+    for (const tool of tools) {
+      const change = pending.get(tool.name);
+      if (!change) out.push(tool);
+      // The agent keeps seeing what was approved, not the rewritten description
+      else if (change.kind === "changed") out.push({ ...tool, ...change.pinned.snapshot } as Tool);
+      else if (this.pinAction === "approve") out.push(tool);
+    }
+    return out;
   }
 
   private get resultAction(): "block" | "warn" {
@@ -443,6 +493,7 @@ export class Gateway {
         continue;
       }
       this.stale.delete(upstream.name);
+      tools = this.checkPersistentPins(upstream, tools);
       if (this.driftEnabled) {
         const observed = this.pinFor(upstream).observe(tools as ToolRecord[], this.driftAction);
         for (const finding of observed.findings) {
@@ -585,6 +636,20 @@ export class Gateway {
       const scan = scanForPromptInjection(args, this.interceptors.promptInjection?.action ?? "block");
       if (scan.action === "block") return block(scan.reason);
       if (scan.action === "warn") this.log({ ...base, type: "warn", input: args, reason: scan.reason });
+    }
+
+    // 1b. A definition that changed since it was approved (persistent pins)
+    const unpinned = this.unpinned.get(upstream.name)?.get(route.name);
+    if (unpinned && unpinned.kind !== "removed" && this.pinStore) {
+      const reason = `${describeChange(unpinned)}\n(MCP03:2025; or run: guardbee-proxy pins approve ${upstream.name} ${route.name})`;
+      if (this.pinAction === "block") return block(reason.replace(/\n/g, " "), { ruleId: `pin:${unpinned.kind}` });
+      const refused = await askApproval(reason, { ruleId: `pin:${unpinned.kind}` });
+      if (refused) return refused;
+      // The approval event above is the record; from now on this definition is the pinned one
+      this.pinStore.approve(upstream.name, [unpinned.current]);
+      this.unpinned.get(upstream.name)?.delete(route.name);
+      // The session pinned the approved definition the agent was shown; it now holds the new one
+      this.pinFor(upstream).repin(unpinned.current as ToolRecord & { name: string });
     }
 
     // 2. The live definition must still match the session pin

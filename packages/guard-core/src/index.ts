@@ -37,3 +37,5 @@ export { annotationContradicts, matchSurface, scanToolCatalog } from "./tool-cat
 export type { CatalogFinding, CatalogTool, SurfaceHit } from "./tool-catalog.js";
 export { OWASP_LLM, MITRE_ATLAS, THREAT_CATEGORIES, classifyEvent } from "./frameworks.js";
 export type { FrameworkRef, ThreatCategory, ThreatCategoryKey, ClassifiableEvent } from "./frameworks.js";
+export { hashToolDefinition, canonicalJson, toolSnapshot } from "./tool-hash.js";
+export type { ToolDefinition } from "./tool-hash.js";

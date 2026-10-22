@@ -90,6 +90,11 @@ export class ToolDefinitionPin {
     return { tools: advertised, findings };
   }
 
+  /** Take a definition the person approved as this session's pin for the tool. */
+  repin(tool: ToolRecord & { name: string }): void {
+    this.pinned.set(tool.name, { hash: hashToolDefinition(tool), tool });
+  }
+
   /** Pin the current list when the session has not listed tools yet. Does not emit findings. */
   ensurePinned(tools: ToolRecord[]): void {
     if (!this.ready) this.observe(tools, "block");
