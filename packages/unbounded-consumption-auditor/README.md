@@ -1,14 +1,14 @@
 # @guardbee/mcp-unbounded-consumption-auditor
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/unbounded-consumption-auditor/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/unbounded-consumption-auditor/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/unbounded-consumption-auditor/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/unbounded-consumption-auditor/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/unbounded-consumption-auditor/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/unbounded-consumption-auditor/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/unbounded-consumption-auditor/DE.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-unbounded-consumption-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-unbounded-consumption-auditor)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-unbounded-consumption-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-unbounded-consumption-auditor)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/unbounded-consumption-auditor/LICENSE)
 
 An MCP (Model Context Protocol) server that scans LLM/agent application code for **Unbounded Consumption** — OWASP LLM Top 10 2026's #6 category, also known as "denial of wallet": nothing stops the application from making unlimited billable calls.
 
-> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](../telemetry/README.md).
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/telemetry/README.md).
 
 ```
 Claude ──► unbounded-consumption-auditor ──► your LLM/agent source

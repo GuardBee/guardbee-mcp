@@ -2,7 +2,7 @@
   "name": "@guardbee/mcp-owasp-scan",
   "version": "0.3.0",
   "mcpName": "io.github.GuardBee/owasp-scan",
-  "description": "Unified OWASP MCP Top 10 scanner — one CLI/MCP that orchestrates GuardBee auditors against a path or a live tools/list, maps findings to MCP01–MCP10, and grades A–F",
+  "description": "OWASP MCP Top 10 scanner: one CLI and MCP server that runs GuardBee's auditors over a codebase or a live MCP server, maps findings to MCP01–MCP10 and grades A–F",
   "type": "module",
   "bin": {
     "guardbee-owasp-scan": "./dist/cli.js"
@@ -18,15 +18,10 @@
   "files": [
     "dist",
     "README.md",
-    "TR.md",
-    "ZH.md",
-    "JA.md",
-    "KO.md",
-    "PT-BR.md",
-    "ES.md",
-    "DE.md",
     "LICENSE",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "!dist/**/*.map",
+    "!dist/**/__tests__"
   ],
   "scripts": {
     "build": "tsc",
@@ -56,7 +51,11 @@
     "owasp",
     "owasp-mcp-top-10",
     "guardbee",
-    "devtools"
+    "devtools",
+    "security-scanner",
+    "mcp-scanner",
+    "sarif",
+    "ci"
   ],
   "license": "MIT",
   "publishConfig": {

@@ -1,20 +1,20 @@
 # @guardbee/mcp-secret-scanner
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/secret-scanner/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/secret-scanner/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/secret-scanner/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/secret-scanner/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/secret-scanner/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/secret-scanner/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/secret-scanner/DE.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-secret-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-secret-scanner)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-secret-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-secret-scanner)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/secret-scanner/LICENSE)
 
 An MCP server that scans your source files, directories, and environment configs for exposed API keys, passwords, tokens, and other secrets. Ask Claude directly whether your project is leaking secrets.
 
-> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](../telemetry/README.md).
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/telemetry/README.md).
 
 ---
 
 ## Features
 
-- **76 Secret Patterns** — AWS, Azure, GCP, GitHub, GitLab, Stripe, OpenAI, Anthropic, OpenRouter, Groq, Hugging Face, Slack, Twilio, SendGrid, DigitalOcean, Cloudflare, Supabase, Vault, PyPI, Shopify, Linear, Notion, Atlassian and more — plus the Turkish providers iyzico, PayTR, Netgsm and İleti Merkezi, matched on their variable names since their keys have no prefix. The rules live in [`@guardbee/guard-core`](../guard-core/README.md), so `@guardbee/mcp-security-proxy` masks the same formats in tool results at runtime
+- **76 Secret Patterns** — AWS, Azure, GCP, GitHub, GitLab, Stripe, OpenAI, Anthropic, OpenRouter, Groq, Hugging Face, Slack, Twilio, SendGrid, DigitalOcean, Cloudflare, Supabase, Vault, PyPI, Shopify, Linear, Notion, Atlassian and more — plus the Turkish providers iyzico, PayTR, Netgsm and İleti Merkezi, matched on their variable names since their keys have no prefix. The rules live in [`@guardbee/guard-core`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/guard-core/README.md), so `@guardbee/mcp-security-proxy` masks the same formats in tool results at runtime
 - **File & Directory Scanning** — a single file or an entire project tree
 - **Git History & Staged Scanning** — `--history` scans every line any commit added, so a key deleted from the files but still in the repository is found, reported once at the commit that added it (with author and date); `--staged` scans only what you are about to commit
 - **Baseline** — `--write-baseline` records today's findings as hashes (never the secrets, safe to commit); `--baseline` then reports only new ones, so an existing repo can adopt the scanner in CI without fixing everything first. SARIF results carry a stable `partialFingerprints` value

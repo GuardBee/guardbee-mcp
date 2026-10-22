@@ -1,14 +1,14 @@
 # @guardbee/security-suite
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/security-suite/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/security-suite/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/security-suite/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/security-suite/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/security-suite/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/security-suite/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/security-suite/DE.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/security-suite.svg)](https://www.npmjs.com/package/@guardbee/security-suite)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/security-suite.svg)](https://www.npmjs.com/package/@guardbee/security-suite)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/security-suite/LICENSE)
 
 Every GuardBee MCP security tool from one install. `guardbee serve` is one MCP server with the tools of the packages you pick; `guardbee <package> …` runs any package's CLI. 29 packages, 124 MCP tools.
 
-> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](../telemetry/README.md).
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/telemetry/README.md).
 
 ## Quick start
 
@@ -76,7 +76,7 @@ That serves the **recommended** set (31 tools): a one-pass OWASP MCP Top 10 scan
 | `vulnerability-scanner` | `vuln_` | GuardBee platform security scans and their findings | platform |
 | `compliance-checker` | `compliance_` | KVKK, GDPR and CCPA compliance of a website via the GuardBee API | platform |
 
-`guardbee list` prints this table. The proxy ([`mcp-security-proxy`](../security-proxy)) and the database gateway ([`mcp-db-gateway`](../db-gateway)) are not in the suite: they sit in front of other servers rather than answering tool calls.
+`guardbee list` prints this table. The proxy ([`mcp-security-proxy`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/security-proxy)) and the database gateway ([`mcp-db-gateway`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/db-gateway)) are not in the suite: they sit in front of other servers rather than answering tool calls.
 
 ## CLI
 

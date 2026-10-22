@@ -1,7 +1,7 @@
 {
   "name": "@guardbee/guard-core",
   "version": "1.0.0",
-  "description": "Shared detectors for GuardBee MCP packages — checksum-validated PII masking, prompt injection patterns, and lethal-trifecta tool classification",
+  "description": "PII masking and prompt injection detection library: checksum-validated Turkish and international identifiers, KVKK special categories, secrets, and lethal-trifecta tool classification",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -20,15 +20,10 @@
   "files": [
     "dist",
     "README.md",
-    "TR.md",
-    "ZH.md",
-    "JA.md",
-    "KO.md",
-    "PT-BR.md",
-    "ES.md",
-    "DE.md",
     "LICENSE",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "!dist/**/*.map",
+    "!dist/**/__tests__"
   ],
   "scripts": {
     "build": "tsc && tsc -p tsconfig.cjs.json && node -e \"require('fs').mkdirSync('dist/cjs',{recursive:true});require('fs').writeFileSync('dist/cjs/package.json','{\\\"type\\\":\\\"commonjs\\\"}\\n')\"",
@@ -44,7 +39,14 @@
     "kvkk",
     "prompt-injection",
     "lethal-trifecta",
-    "security"
+    "security",
+    "pii-detection",
+    "pii-masking",
+    "data-masking",
+    "gdpr",
+    "secrets-detection",
+    "guardrails",
+    "llm-security"
   ],
   "author": "GuardBee <hello@guardbee.ai>",
   "license": "MIT",

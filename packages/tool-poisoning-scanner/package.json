@@ -2,7 +2,7 @@
   "name": "@guardbee/mcp-tool-poisoning-scanner",
   "version": "0.3.0",
   "mcpName": "io.github.GuardBee/tool-poisoning-scanner",
-  "description": "MCP server that scans other MCP servers' tool definitions for tool poisoning (hidden instructions embedded in a tool's description, read as trusted context by the calling LLM) and confused-deputy mismatches (a tool's name/description promises read-only behavior while its handler has a shell/eval/file-write/env-dump sink)",
+  "description": "MCP tool poisoning scanner: finds hidden instructions in tool descriptions and schemas, and tools whose handler does more than their description promises",
   "type": "module",
   "bin": {
     "guardbee-tool-poisoning-scanner": "./dist/cli.js"
@@ -18,15 +18,10 @@
   "files": [
     "dist",
     "README.md",
-    "TR.md",
-    "ZH.md",
-    "JA.md",
-    "KO.md",
-    "PT-BR.md",
-    "ES.md",
-    "DE.md",
     "LICENSE",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "!dist/**/*.map",
+    "!dist/**/__tests__"
   ],
   "scripts": {
     "build": "tsc",
@@ -49,7 +44,10 @@
     "tool-poisoning",
     "prompt-injection",
     "guardbee",
-    "devtools"
+    "devtools",
+    "mcp-scanner",
+    "llm-security",
+    "agent-security"
   ],
   "license": "MIT",
   "repository": {

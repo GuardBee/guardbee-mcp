@@ -2,7 +2,7 @@
   "name": "@guardbee/mcp-prompt-leak-scanner",
   "version": "1.0.0",
   "mcpName": "io.github.GuardBee/prompt-leak-scanner",
-  "description": "MCP server and reverse proxy that catches leaked credentials and PII (API keys, TC Kimlik No, credit cards, IBANs) in outbound LLM prompts before they leave your application",
+  "description": "PII and secret leak scanner for LLM prompts: catches API keys, TC Kimlik No, cards and IBANs in outbound prompts before they leave your app; MCP server and reverse proxy",
   "type": "module",
   "bin": {
     "guardbee-prompt-leak-scanner": "./dist/cli.js"
@@ -18,15 +18,10 @@
   "files": [
     "dist",
     "README.md",
-    "TR.md",
-    "ZH.md",
-    "JA.md",
-    "KO.md",
-    "PT-BR.md",
-    "ES.md",
-    "DE.md",
     "LICENSE",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "!dist/**/*.map",
+    "!dist/**/__tests__"
   ],
   "scripts": {
     "build": "tsc",
@@ -50,7 +45,11 @@
     "kvkk",
     "gdpr",
     "guardbee",
-    "devtools"
+    "devtools",
+    "pii",
+    "dlp",
+    "secret-scanner",
+    "guardrails"
   ],
   "license": "MIT",
   "repository": {

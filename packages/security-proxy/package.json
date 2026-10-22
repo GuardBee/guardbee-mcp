@@ -2,7 +2,7 @@
   "name": "@guardbee/mcp-security-proxy",
   "version": "1.25.2",
   "mcpName": "io.github.GuardBee/security-proxy",
-  "description": "MCP security gateway: several MCP servers behind one policy, with toxic-flow (lethal trifecta) blocking, approvals, PII masking and a hash-chained audit log",
+  "description": "MCP gateway and LLM firewall: masks PII and secrets, blocks prompt injection and toxic flows (lethal trifecta), approves risky calls and keeps a hash-chained audit log, for MCP servers and LLM APIs",
   "author": "GuardBee <hello@guardbee.ai>",
   "license": "MIT",
   "repository": {
@@ -24,7 +24,18 @@
     "audit",
     "guardbee",
     "llm",
-    "claude"
+    "claude",
+    "mcp-gateway",
+    "llm-gateway",
+    "ai-gateway",
+    "guardrails",
+    "firewall",
+    "llm-firewall",
+    "dlp",
+    "pii-masking",
+    "data-masking",
+    "openai",
+    "anthropic"
   ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -35,15 +46,10 @@
   "files": [
     "dist",
     "README.md",
-    "TR.md",
-    "ZH.md",
-    "JA.md",
-    "KO.md",
-    "PT-BR.md",
-    "ES.md",
-    "DE.md",
     "LICENSE",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "!dist/**/*.map",
+    "!dist/**/__tests__"
   ],
   "engines": {
     "node": ">=18"

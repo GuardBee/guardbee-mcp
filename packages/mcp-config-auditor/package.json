@@ -2,7 +2,7 @@
   "name": "@guardbee/mcp-config-auditor",
   "version": "0.6.0",
   "mcpName": "io.github.GuardBee/mcp-config-auditor",
-  "description": "MCP server that audits installed MCP client configs (Cursor, Claude Desktop, Windsurf, VS Code) and agent SKILL.md files for unpinned packages, secrets, wildcard auto-approve, unauthenticated remote endpoints, typosquats, unrestricted skill tools, cross-server or cross-skill shadowing, and OWASP MCP09 Shadow MCP host discovery against an organization allowlist",
+  "description": "MCP config auditor for Cursor, Claude Desktop, Windsurf and VS Code: unpinned packages, secrets, auto-approve wildcards, typosquats, shadow MCP servers and agent skills",
   "type": "module",
   "bin": {
     "guardbee-mcp-config-auditor": "./dist/cli.js"
@@ -18,15 +18,10 @@
   "files": [
     "dist",
     "README.md",
-    "TR.md",
-    "ZH.md",
-    "JA.md",
-    "KO.md",
-    "PT-BR.md",
-    "ES.md",
-    "DE.md",
     "LICENSE",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "!dist/**/*.map",
+    "!dist/**/__tests__"
   ],
   "scripts": {
     "build": "tsc",
@@ -47,7 +42,12 @@
     "ai-security",
     "supply-chain",
     "guardbee",
-    "devtools"
+    "devtools",
+    "mcp-config",
+    "shadow-ai",
+    "cursor",
+    "claude-desktop",
+    "mcp-scanner"
   ],
   "license": "MIT",
   "repository": {

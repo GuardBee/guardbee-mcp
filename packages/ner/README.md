@@ -1,10 +1,10 @@
 # @guardbee/ner
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ner/TR.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/ner.svg)](https://www.npmjs.com/package/@guardbee/ner)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/ner.svg)](https://www.npmjs.com/package/@guardbee/ner)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ner/LICENSE)
 
 Finds Turkish person names, which no regex can, so GuardBee can mask them next to TC Kimlik numbers, IBANs and e-mail addresses. A local BERTurk NER model runs on CPU with ONNX Runtime: offline, on-prem, and nothing leaves the host.
 
@@ -52,7 +52,7 @@ curl -s localhost:8765/v1/detect -H 'authorization: Bearer change-me' \
 
 [akdeniz27/bert-base-turkish-cased-ner](https://huggingface.co/akdeniz27/bert-base-turkish-cased-ner) (MIT), in the author's int8 build, pinned to one revision. It is BERTurk, fine-tuned on a reviewed Turkish news NER corpus.
 
-It was picked out of five Turkish NER models on the [pii-bench](../pii-bench/README.md#choosing-the-ner-model) numbers:
+It was picked out of five Turkish NER models on the [pii-bench](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/pii-bench/README.md#choosing-the-ner-model) numbers:
 
 | | Score |
 |---|---|

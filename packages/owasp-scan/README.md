@@ -1,14 +1,14 @@
 # @guardbee/mcp-owasp-scan
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/owasp-scan/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/owasp-scan/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/owasp-scan/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/owasp-scan/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/owasp-scan/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/owasp-scan/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/owasp-scan/DE.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-owasp-scan.svg)](https://www.npmjs.com/package/@guardbee/mcp-owasp-scan)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-owasp-scan.svg)](https://www.npmjs.com/package/@guardbee/mcp-owasp-scan)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/owasp-scan/LICENSE)
 
 One CLI and MCP server for a **unified [OWASP MCP Top 10](https://owasp.org/www-project-mcp-top-10/) check**. It runs seven GuardBee auditors over a codebase in one pass, or grades a live MCP server's tool list, and reports every finding under its OWASP id with an A–F grade. Output as text, JSON or SARIF for GitHub code scanning.
 
-> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](../telemetry/README.md).
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/telemetry/README.md).
 
 ## Quick start
 
@@ -54,9 +54,9 @@ As an MCP server (Claude Desktop, Cursor, VS Code):
 | MCP01 | Token / credential exposure | secret-scanner, mcp-server-auditor |
 | MCP02 | Privilege / excessive agency | mcp-server-auditor |
 | MCP03 | Tool poisoning / rug pull surface | tool-poisoning-scanner (`scan`, `live`, `catalog`) |
-| MCP04 | Supply chain | Not in this meta-scan: use [`mcp-dependency-auditor`](../dependency-auditor) and [`mcp-slopsquat-scanner`](../slopsquat-scanner), which need the network |
+| MCP04 | Supply chain | Not in this meta-scan: use [`mcp-dependency-auditor`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/dependency-auditor) and [`mcp-slopsquat-scanner`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/slopsquat-scanner), which need the network |
 | MCP05 | Command / code injection via tools | mcp-server-auditor |
-| MCP06 | Prompt / context injection | Not in this meta-scan: use [`mcp-prompt-injection-scanner`](../prompt-injection-scanner) on the content an agent reads |
+| MCP06 | Prompt / context injection | Not in this meta-scan: use [`mcp-prompt-injection-scanner`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/prompt-injection-scanner) on the content an agent reads |
 | MCP07 | Auth / OAuth misconfiguration | oauth-auditor |
 | MCP08 | Lack of audit and telemetry | audit-gap-auditor |
 | MCP09 | Shadow MCP servers | mcp-config-auditor (`--discover-shadow`) |
@@ -105,7 +105,7 @@ Exit codes: `0` clean (or below `--fail-on`), `1` findings at or above `--fail-o
 
 ## Related packages
 
-Each auditor is also its own package with more options: [`mcp-secret-scanner`](../secret-scanner), [`mcp-server-auditor`](../mcp-server-auditor), [`mcp-oauth-auditor`](../oauth-auditor), [`mcp-audit-gap-auditor`](../audit-gap-auditor), [`mcp-context-oversharing-auditor`](../context-oversharing-auditor), [`mcp-toxic-flow-auditor`](../toxic-flow-auditor), [`mcp-tool-poisoning-scanner`](../tool-poisoning-scanner), [`mcp-config-auditor`](../mcp-config-auditor). To enforce these rules at runtime instead of finding them in code, put [`mcp-security-proxy`](../security-proxy) in front of your MCP servers.
+Each auditor is also its own package with more options: [`mcp-secret-scanner`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/secret-scanner), [`mcp-server-auditor`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/mcp-server-auditor), [`mcp-oauth-auditor`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/oauth-auditor), [`mcp-audit-gap-auditor`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/audit-gap-auditor), [`mcp-context-oversharing-auditor`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/context-oversharing-auditor), [`mcp-toxic-flow-auditor`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/toxic-flow-auditor), [`mcp-tool-poisoning-scanner`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/tool-poisoning-scanner), [`mcp-config-auditor`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/mcp-config-auditor). To enforce these rules at runtime instead of finding them in code, put [`mcp-security-proxy`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/security-proxy) in front of your MCP servers.
 
 ## Feedback
 

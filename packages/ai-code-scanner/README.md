@@ -1,16 +1,16 @@
 # @guardbee/mcp-ai-code-scanner
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ai-code-scanner/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ai-code-scanner/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ai-code-scanner/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ai-code-scanner/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ai-code-scanner/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ai-code-scanner/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ai-code-scanner/DE.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-ai-code-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-ai-code-scanner)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-ai-code-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-ai-code-scanner)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ai-code-scanner/LICENSE)
 
 An MCP (Model Context Protocol) server that scans your codebase for security patterns commonly found in LLM/AI integrations.
 
 While `secret-scanner` looks for leaked secrets/API keys, this package looks for **patterns**: how much a model's output is trusted, how privileged the tools it can call are, what data is sent to a third-party LLM — risks that a static credential scan can't catch.
 
-> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](../telemetry/README.md).
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/telemetry/README.md).
 
 ```
 Claude ──► ai-code-scanner ──► Your codebase

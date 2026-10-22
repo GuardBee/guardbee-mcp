@@ -1,16 +1,16 @@
 # @guardbee/mcp-prompt-injection-scanner
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/prompt-injection-scanner/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/prompt-injection-scanner/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/prompt-injection-scanner/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/prompt-injection-scanner/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/prompt-injection-scanner/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/prompt-injection-scanner/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/prompt-injection-scanner/DE.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-prompt-injection-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-prompt-injection-scanner)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-prompt-injection-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-prompt-injection-scanner)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/prompt-injection-scanner/LICENSE)
 
 An MCP (Model Context Protocol) server that scans **content** — a RAG chunk, a scraped web page, a document — for indirect prompt injection payloads.
 
 `ai-code-scanner` and `mcp-server-auditor` scan code; this package scans **data**. In classic prompt injection, the attacker writes a malicious prompt themselves; in indirect prompt injection, the attacker never talks to the model at all — instead they embed instructions in a document, web page, or tool result the model will later read. The moment the model pulls this content into its context via a RAG retrieval or a web fetch, the embedded instruction appears to carry the same authority as the user's own instructions.
 
-> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](../telemetry/README.md).
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/telemetry/README.md).
 
 ```
 Web page/RAG document ──► prompt-injection-scanner ──► LLM context
@@ -27,7 +27,7 @@ Web page/RAG document ──► prompt-injection-scanner ──► LLM context
 ## Features
 
 - **17 patterns, 5 categories** — instruction-override, role-spoofing, hidden-text, direct-address, exfiltration. English and Turkish phrasing
-- The rules live in [`@guardbee/guard-core`](../guard-core/README.md), shared with `@guardbee/mcp-security-proxy`, so a phrase this scanner reports is the same phrase the proxy blocks at runtime
+- The rules live in [`@guardbee/guard-core`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/guard-core/README.md), shared with `@guardbee/mcp-security-proxy`, so a phrase this scanner reports is the same phrase the proxy blocks at runtime
 - Every finding includes **why it's risky and what to do about it** (`recommendation`) — not just "found it"
 - SARIF 2.1.0 output — CI/CD integration (e.g. auto-scanning a knowledge-base repo on every PR)
 - Config file support via `guardbee.yml`

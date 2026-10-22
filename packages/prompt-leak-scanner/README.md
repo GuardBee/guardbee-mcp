@@ -1,16 +1,16 @@
 # @guardbee/mcp-prompt-leak-scanner
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/prompt-leak-scanner/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/prompt-leak-scanner/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/prompt-leak-scanner/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/prompt-leak-scanner/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/prompt-leak-scanner/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/prompt-leak-scanner/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/prompt-leak-scanner/DE.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-prompt-leak-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-prompt-leak-scanner)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-prompt-leak-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-prompt-leak-scanner)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/prompt-leak-scanner/LICENSE)
 
 An MCP (Model Context Protocol) server — and a standalone reverse proxy — that catches leaked credentials and PII in **outbound** LLM prompts, before they leave your application.
 
 `secret-scanner` finds secrets sitting in your codebase. This package finds secrets and PII that made it into a *runtime prompt* — a support agent that pastes a customer's ticket (email, card number) straight into a system prompt, a debugging session where someone pastes an API key into a chat, an internal tool that forwards raw user input to an LLM without ever checking what's in it. That's a different moment in the pipeline, and a different failure mode than a leaked `.env` file.
 
-> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](../telemetry/README.md).
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/telemetry/README.md).
 
 ```
 Your app ──► prompt-leak-scanner (proxy) ──► Real LLM API (OpenAI/Anthropic/...)
@@ -43,7 +43,7 @@ A bare regex for "11 digits" or "16 digits" would flag order numbers, phone exte
 - **Credit card numbers** — Luhn checksum
 - **IBAN** — ISO 7064 MOD97-10 checksum
 
-A random 11-digit number has roughly a 1-in-10 chance of passing the TC Kimlik checksum by coincidence — regex alone would be far noisier. Credential patterns (API keys, JWTs, private keys) are matched against real provider-specific prefixes/structure (`sk-`, `AKIA`, `ghp_`, `-----BEGIN...PRIVATE KEY-----`, JWT's three-segment base64url shape), the same low-false-positive approach `secret-scanner` uses. The checksum validators come from [`@guardbee/guard-core`](../guard-core/README.md), shared with `@guardbee/mcp-security-proxy`.
+A random 11-digit number has roughly a 1-in-10 chance of passing the TC Kimlik checksum by coincidence — regex alone would be far noisier. Credential patterns (API keys, JWTs, private keys) are matched against real provider-specific prefixes/structure (`sk-`, `AKIA`, `ghp_`, `-----BEGIN...PRIVATE KEY-----`, JWT's three-segment base64url shape), the same low-false-positive approach `secret-scanner` uses. The checksum validators come from [`@guardbee/guard-core`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/guard-core/README.md), shared with `@guardbee/mcp-security-proxy`.
 
 **Findings never echo the real value.** A finding's `maskedMatch` shows only the first 3 and last 2 characters (`sk-…wx`) — logging or displaying the very thing you just caught would defeat the point. The proxy's audit events go further: they record which pattern fired and where, never the matched text itself.
 
