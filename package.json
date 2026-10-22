@@ -29,7 +29,7 @@
     "secretlint": "^13.0.6",
     "tsx": "4.23.15",
     "turbo": "2.11.9",
-    "typescript": "5.9.3",
+    "typescript": "7.0.2",
     "vitest": "3.2.7"
   }
 }
