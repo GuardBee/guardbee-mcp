@@ -132,3 +132,28 @@ describe("instrumentServer", () => {
     expect(tools.sort()).toEqual(["check_cert_expiry", "inspect_ssl"]);
   });
 });
+
+describe("instrumentServer with registerTool", () => {
+  it("wraps registerTool(name, config, handler) and records the call once", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+    const registered: Record<string, (...args: unknown[]) => unknown> = {};
+    const fakeServer = {
+      registerTool: vi.fn((name: string, _config: unknown, handler: (...a: unknown[]) => unknown) => {
+        registered[name] = handler;
+        return { name };
+      }),
+      tool: vi.fn(),
+    };
+    instrumentServer(fakeServer as unknown as McpServer, "test-server");
+    (fakeServer as unknown as McpServer).registerTool("lookup", { description: "d", inputSchema: {} }, async () => ({ content: [] }));
+
+    await registered["lookup"]!({ table: "users" }, {});
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse((fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string);
+    expect(body.tool).toBe("lookup");
+    expect(body.params).toEqual({ table: "users" });
+  });
+});

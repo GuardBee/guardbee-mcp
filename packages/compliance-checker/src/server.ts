@@ -34,13 +34,15 @@ export async function startServer() {
 export function registerTools(server: McpServer): void {
   // ── check_compliance ────────────────────────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     "check_compliance",
-    "Run a full compliance scan for a URL against a regulatory framework (KVKK, GDPR, or CCPA) using the GuardBee scanner. Returns a gap analysis and action plan.",
     {
-      url: z.string().url().describe("Target URL to audit for compliance"),
-      framework: z.enum(FRAMEWORK_ENUM).describe("Regulatory framework: KVKK, GDPR, or CCPA"),
-      wait: z.boolean().optional().describe("Wait for scan to complete (default: true)"),
+      description: "Run a full compliance scan for a URL against a regulatory framework (KVKK, GDPR, or CCPA) using the GuardBee scanner. Returns a gap analysis and action plan.",
+      inputSchema: {
+        url: z.string().url().describe("Target URL to audit for compliance"),
+        framework: z.enum(FRAMEWORK_ENUM).describe("Regulatory framework: KVKK, GDPR, or CCPA"),
+        wait: z.boolean().optional().describe("Wait for scan to complete (default: true)"),
+      },
     },
     async ({ url, framework, wait = true }) => {
       try {
@@ -84,13 +86,15 @@ export function registerTools(server: McpServer): void {
 
   // ── get_compliance_findings ─────────────────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     "get_compliance_findings",
-    "Get compliance findings from a completed GuardBee scan, optionally filtered by severity",
     {
-      scanId: z.string().describe("Scan ID returned by check_compliance"),
-      framework: z.enum(FRAMEWORK_ENUM).optional().describe("Framework label for the report header"),
-      severity: z.enum(["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]).optional().describe("Filter by severity"),
+      description: "Get compliance findings from a completed GuardBee scan, optionally filtered by severity",
+      inputSchema: {
+        scanId: z.string().describe("Scan ID returned by check_compliance"),
+        framework: z.enum(FRAMEWORK_ENUM).optional().describe("Framework label for the report header"),
+        severity: z.enum(["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]).optional().describe("Filter by severity"),
+      },
     },
     async ({ scanId, framework = "GDPR", severity }) => {
       try {
@@ -109,11 +113,13 @@ export function registerTools(server: McpServer): void {
 
   // ── analyze_privacy_policy ──────────────────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     "analyze_privacy_policy",
-    "Fetch and analyze a privacy policy page for completeness against GDPR/KVKK requirements. Works without an API key.",
     {
-      url: z.string().url().describe("Direct URL to the privacy policy page (or homepage to auto-detect)"),
+      description: "Fetch and analyze a privacy policy page for completeness against GDPR/KVKK requirements. Works without an API key.",
+      inputSchema: {
+        url: z.string().url().describe("Direct URL to the privacy policy page (or homepage to auto-detect)"),
+      },
     },
     async ({ url }) => {
       try {
@@ -194,15 +200,17 @@ export function registerTools(server: McpServer): void {
 
   // ── list_requirements ───────────────────────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     "list_requirements",
-    "List all compliance requirements for a framework with legal basis references",
     {
-      framework: z.enum(FRAMEWORK_ENUM).describe("Framework: KVKK, GDPR, or CCPA"),
-      severity: z
-        .enum(["critical", "high", "medium", "low"])
-        .optional()
-        .describe("Filter by severity"),
+      description: "List all compliance requirements for a framework with legal basis references",
+      inputSchema: {
+        framework: z.enum(FRAMEWORK_ENUM).describe("Framework: KVKK, GDPR, or CCPA"),
+        severity: z
+          .enum(["critical", "high", "medium", "low"])
+          .optional()
+          .describe("Filter by severity"),
+      },
     },
     async ({ framework, severity }) => {
       let reqs = getRequirements([framework as Framework]);
@@ -235,10 +243,12 @@ export function registerTools(server: McpServer): void {
 
   // ── compare_frameworks ──────────────────────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     "compare_frameworks",
-    "Compare KVKK, GDPR, and CCPA requirements side by side to understand overlaps and gaps",
-    {},
+    {
+      description: "Compare KVKK, GDPR, and CCPA requirements side by side to understand overlaps and gaps",
+      inputSchema: {},
+    },
     async () => {
       const lines = [
         "Regulatory Framework Comparison",

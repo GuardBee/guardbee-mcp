@@ -48,16 +48,18 @@ export async function startServer() {
 
 /** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
 export function registerTools(server: McpServer): void {
-  server.tool(
+  server.registerTool(
     "audit_npm",
-    "Audit npm dependencies for known CVEs using the OSV database. Reads exact versions from package-lock.json, npm-shrinkwrap.json, pnpm-lock.yaml, yarn.lock (v1 and berry) or bun.lock, falling back to package.json ranges",
     {
-      directory: z.string().describe("Path to the directory containing package.json"),
-      includeDevDeps: z
-        .boolean()
-        .optional()
-        .describe("Include devDependencies in the audit (default: false)"),
-      exploitData: exploitDataParam,
+      description: "Audit npm dependencies for known CVEs using the OSV database. Reads exact versions from package-lock.json, npm-shrinkwrap.json, pnpm-lock.yaml, yarn.lock (v1 and berry) or bun.lock, falling back to package.json ranges",
+      inputSchema: {
+        directory: z.string().describe("Path to the directory containing package.json"),
+        includeDevDeps: z
+          .boolean()
+          .optional()
+          .describe("Include devDependencies in the audit (default: false)"),
+        exploitData: exploitDataParam,
+      },
     },
     async ({ directory, includeDevDeps = false, exploitData = true }) => {
       const start = Date.now();
@@ -78,16 +80,18 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "audit_pip",
-    "Audit Python dependencies for known CVEs using the OSV database. Reads exact versions from uv.lock, poetry.lock or Pipfile.lock, falling back to requirements.txt / pyproject.toml",
     {
-      directory: z.string().describe("Path to the directory containing requirements.txt or pyproject.toml"),
-      includeDevDeps: z
-        .boolean()
-        .optional()
-        .describe("Include dev groups from poetry.lock, uv.lock or Pipfile.lock (default: false)"),
-      exploitData: exploitDataParam,
+      description: "Audit Python dependencies for known CVEs using the OSV database. Reads exact versions from uv.lock, poetry.lock or Pipfile.lock, falling back to requirements.txt / pyproject.toml",
+      inputSchema: {
+        directory: z.string().describe("Path to the directory containing requirements.txt or pyproject.toml"),
+        includeDevDeps: z
+          .boolean()
+          .optional()
+          .describe("Include dev groups from poetry.lock, uv.lock or Pipfile.lock (default: false)"),
+        exploitData: exploitDataParam,
+      },
     },
     async ({ directory, includeDevDeps = false, exploitData = true }) => {
       const start = Date.now();
@@ -107,16 +111,18 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "audit_package",
-    "Audit a single package by name, version, and ecosystem",
     {
-      name: z.string().describe("Package name"),
-      version: z.string().describe("Package version (e.g. 1.2.3)"),
-      ecosystem: z
-        .enum(["npm", "PyPI", "crates.io", "Maven", "Go", "RubyGems", "Packagist"])
-        .describe("Package ecosystem"),
-      exploitData: exploitDataParam,
+      description: "Audit a single package by name, version, and ecosystem",
+      inputSchema: {
+        name: z.string().describe("Package name"),
+        version: z.string().describe("Package version (e.g. 1.2.3)"),
+        ecosystem: z
+          .enum(["npm", "PyPI", "crates.io", "Maven", "Go", "RubyGems", "Packagist"])
+          .describe("Package ecosystem"),
+        exploitData: exploitDataParam,
+      },
     },
     async ({ name, version, ecosystem, exploitData = true }) => {
       const start = Date.now();
@@ -126,13 +132,15 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "audit_directory",
-    "Auto-detect and audit every supported project in a directory: npm (package-lock, pnpm, yarn, bun), Python (uv, Poetry, Pipenv, requirements), Rust (Cargo.lock), Go (go.mod), Ruby (Gemfile.lock) and PHP (composer.lock)",
     {
-      directory: z.string().describe("Path to the project root directory"),
-      includeDevDeps: z.boolean().optional().describe("Include dev dependencies (default: false)"),
-      exploitData: exploitDataParam,
+      description: "Auto-detect and audit every supported project in a directory: npm (package-lock, pnpm, yarn, bun), Python (uv, Poetry, Pipenv, requirements), Rust (Cargo.lock), Go (go.mod), Ruby (Gemfile.lock) and PHP (composer.lock)",
+      inputSchema: {
+        directory: z.string().describe("Path to the project root directory"),
+        includeDevDeps: z.boolean().optional().describe("Include dev dependencies (default: false)"),
+        exploitData: exploitDataParam,
+      },
     },
     async ({ directory, includeDevDeps = false, exploitData = true }) => {
       const start = Date.now();

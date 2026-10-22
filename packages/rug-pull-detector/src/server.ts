@@ -74,10 +74,12 @@ export async function startServer() {
 
 /** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
 export function registerTools(server: McpServer): void {
-  server.tool(
+  server.registerTool(
     "baseline_server",
-    "Connect to an MCP server (stdio command or Streamable HTTP URL), read its current tools/list response, and store it as the trusted baseline for future drift checks. Call this once, right after you've reviewed and approved a server's tools.",
-    targetShape,
+    {
+      description: "Connect to an MCP server (stdio command or Streamable HTTP URL), read its current tools/list response, and store it as the trusted baseline for future drift checks. Call this once, right after you've reviewed and approved a server's tools.",
+      inputSchema: targetShape,
+    },
     async (args) => {
       const { target, label } = resolveTarget(args);
       const result = await baselineServer(target, label, DEFAULT_BASE_DIR);
@@ -85,10 +87,12 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "check_server",
-    "Connect to an MCP server and compare its current tools/list response against the stored baseline. A tool whose description, schema, or annotations changed since baseline is a 'rug pull' — approved once, silently different now. If no baseline exists yet, one is captured automatically (set autoBaseline=false to require an explicit baseline_server call first).",
-    { ...targetShape, autoBaseline: z.boolean().optional().describe("Automatically capture a baseline if none exists yet (default: true)") },
+    {
+      description: "Connect to an MCP server and compare its current tools/list response against the stored baseline. A tool whose description, schema, or annotations changed since baseline is a 'rug pull' — approved once, silently different now. If no baseline exists yet, one is captured automatically (set autoBaseline=false to require an explicit baseline_server call first).",
+      inputSchema: { ...targetShape, autoBaseline: z.boolean().optional().describe("Automatically capture a baseline if none exists yet (default: true)") },
+    },
     async (args) => {
       const { target, label } = resolveTarget(args);
       const result = await checkServer(target, label, DEFAULT_BASE_DIR, { autoBaseline: args.autoBaseline });
@@ -96,10 +100,12 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "list_baselines",
-    "List every server this scanner has a stored baseline for",
-    {},
+    {
+      description: "List every server this scanner has a stored baseline for",
+      inputSchema: {},
+    },
     async () => {
       const baselines = listBaselines(DEFAULT_BASE_DIR);
       if (baselines.length === 0) {

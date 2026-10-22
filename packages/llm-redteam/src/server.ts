@@ -82,10 +82,12 @@ export async function startServer() {
 
 /** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
 export function registerTools(server: McpServer): void {
-  server.tool(
+  server.registerTool(
     "list_probes",
-    "List all red-team probes this tool can run against a target LLM/chatbot, grouped by category. Every probe is canary-based (safe) — none ask the target to produce genuinely harmful content.",
-    {},
+    {
+      description: "List all red-team probes this tool can run against a target LLM/chatbot, grouped by category. Every probe is canary-based (safe) — none ask the target to produce genuinely harmful content.",
+      inputSchema: {},
+    },
     async () => {
       const byCategory = new Map<string, typeof PROBES>();
       for (const p of PROBES) {
@@ -103,19 +105,21 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "run_probe_suite",
-    "Run canary-based red-team probes against a live LLM endpoint or chatbot you control, to test whether known jailbreak/extraction/obfuscation techniques bypass its guardrails. ONLY point this at an endpoint you own or are explicitly authorized to test — every probe consumes API quota on the target. Probes never request genuinely harmful content; success is measured by whether the target reproduces a random one-time token, proving an override instruction was obeyed.",
     {
-      target: TargetConfigSchema,
-      categories: z
-        .array(z.enum(["instruction-override", "extraction", "obfuscation", "refusal-suppression", "multilingual"]))
-        .optional()
-        .describe("Only run probes in these categories"),
-      probeIds: z.array(z.string()).optional().describe("Only run these specific probe IDs (see list_probes)"),
-      maxProbes: z.number().int().positive().optional().describe("Cap the number of probes run, to limit API cost"),
+      description: "Run canary-based red-team probes against a live LLM endpoint or chatbot you control, to test whether known jailbreak/extraction/obfuscation techniques bypass its guardrails. ONLY point this at an endpoint you own or are explicitly authorized to test — every probe consumes API quota on the target. Probes never request genuinely harmful content; success is measured by whether the target reproduces a random one-time token, proving an override instruction was obeyed.",
+      inputSchema: {
+        target: TargetConfigSchema,
+        categories: z
+          .array(z.enum(["instruction-override", "extraction", "obfuscation", "refusal-suppression", "multilingual"]))
+          .optional()
+          .describe("Only run probes in these categories"),
+        probeIds: z.array(z.string()).optional().describe("Only run these specific probe IDs (see list_probes)"),
+        maxProbes: z.number().int().positive().optional().describe("Cap the number of probes run, to limit API cost"),
+      },
+      annotations: { openWorldHint: true, readOnlyHint: false, idempotentHint: false },
     },
-    { openWorldHint: true, readOnlyHint: false, idempotentHint: false },
     async ({ target: targetConfig, categories, probeIds, maxProbes }) => {
       const target = buildTarget(targetConfig);
       const result = await runSuite(target, { categories, probeIds, maxProbes });

@@ -44,12 +44,14 @@ export async function startServer() {
 
 /** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
 export function registerTools(server: McpServer): void {
-  server.tool(
+  server.registerTool(
     "scan_text",
-    "Scan a Python snippet defining a multi-agent orchestration (LangGraph, CrewAI, or AutoGen/ag2) for excessive agency reachable through delegation or group membership — an agent with no dangerous tool of its own that can still reach one (shell/code-exec/file-write/network/credentials) through another agent it can hand off to.",
     {
-      content: z.string().describe("The Python source to scan"),
-      label: z.string().optional().describe("Optional label shown in findings (e.g. filename)"),
+      description: "Scan a Python snippet defining a multi-agent orchestration (LangGraph, CrewAI, or AutoGen/ag2) for excessive agency reachable through delegation or group membership — an agent with no dangerous tool of its own that can still reach one (shell/code-exec/file-write/network/credentials) through another agent it can hand off to.",
+      inputSchema: {
+        content: z.string().describe("The Python source to scan"),
+        label: z.string().optional().describe("Optional label shown in findings (e.g. filename)"),
+      },
     },
     async ({ content, label }) => {
       const findings = scanText(content, label);
@@ -57,10 +59,12 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "scan_file",
-    "Scan a single Python file for excessive-agency paths across LangGraph/CrewAI/AutoGen orchestration constructs",
-    { path: z.string().describe("Absolute or relative path to the .py file to scan") },
+    {
+      description: "Scan a single Python file for excessive-agency paths across LangGraph/CrewAI/AutoGen orchestration constructs",
+      inputSchema: { path: z.string().describe("Absolute or relative path to the .py file to scan") },
+    },
     async ({ path: filePath }) => {
       const { findings, skipped } = scanFile(filePath);
       if (skipped) {
@@ -70,14 +74,16 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "scan_directory",
-    "Recursively scan a directory of Python files and report excessive-agency paths found in each. Each file's agent/tool graph is analyzed independently — variable references don't resolve across files, so a Crew/GroupChat whose members are defined in a different file than the assembling call won't be connected.",
     {
-      path: z.string().describe("Absolute or relative path to the directory to scan"),
-      maxFiles: z.number().int().positive().optional().describe("Maximum number of files to scan (default: 2000)"),
-      include: z.array(z.string()).optional().describe("Only scan files whose path contains one of these strings"),
-      exclude: z.array(z.string()).optional().describe("Skip files/dirs whose path contains one of these strings"),
+      description: "Recursively scan a directory of Python files and report excessive-agency paths found in each. Each file's agent/tool graph is analyzed independently — variable references don't resolve across files, so a Crew/GroupChat whose members are defined in a different file than the assembling call won't be connected.",
+      inputSchema: {
+        path: z.string().describe("Absolute or relative path to the directory to scan"),
+        maxFiles: z.number().int().positive().optional().describe("Maximum number of files to scan (default: 2000)"),
+        include: z.array(z.string()).optional().describe("Only scan files whose path contains one of these strings"),
+        exclude: z.array(z.string()).optional().describe("Skip files/dirs whose path contains one of these strings"),
+      },
     },
     async ({ path: dirPath, maxFiles, include, exclude }) => {
       const result = scanDirectory(dirPath, { maxFiles, include, exclude });
@@ -85,10 +91,12 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "list_patterns",
-    "List every dangerous-capability rule this auditor looks for at the end of a delegation path, grouped by category",
-    {},
+    {
+      description: "List every dangerous-capability rule this auditor looks for at the end of a delegation path, grouped by category",
+      inputSchema: {},
+    },
     async () => {
       const lines = ["Dangerous capability catalog (what a tool at the end of a delegation path grants):\n"];
       const byCategory = new Map<string, typeof CAPABILITY_RULES>();
