@@ -38,8 +38,8 @@ export function buildSarif(toolVersion: string, findings: Finding[]): object {
         name: f.patternName.replace(/[^a-zA-Z0-9]/g, ""),
         shortDescription: { text: f.patternName },
         fullDescription: { text: f.recommendation },
-        helpUri: "https://guardbee.ai/docs/oauth-auditor",
-        properties: { "problem.severity": f.severity, tags: ["security", "ai-security", "mcp-security", "oauth", f.category] },
+        helpUri: f.reference,
+        properties: { "problem.severity": f.severity, tags: ["security", "ai-security", "mcp-security", "oauth", f.category, f.owasp] },
       });
     }
 

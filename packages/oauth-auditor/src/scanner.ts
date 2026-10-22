@@ -1,6 +1,6 @@
 import { readFileSync, statSync, readdirSync } from "fs";
 import { join, relative, extname } from "path";
-import { OAUTH_AUDIT_PATTERNS, type OAuthAuditCategory } from "./patterns.js";
+import { OAUTH_AUDIT_PATTERNS, SPEC_SECTION, type OAuthAuditCategory } from "./patterns.js";
 
 export interface Finding {
   patternId: string;
@@ -13,6 +13,10 @@ export interface Finding {
   column: number;
   match: string;
   context: string;
+  /** OWASP MCP Top 10 id. */
+  owasp: string;
+  /** The MCP spec Security Best Practices section the rule comes from. */
+  reference: string;
 }
 
 export interface ScanResult {
@@ -89,6 +93,8 @@ function checkMissingAudienceValidation(text: string, filePath?: string): Findin
         column,
         match: callSpan.trim().replace(/\s+/g, " ").slice(0, MAX_CONTEXT_LENGTH),
         context: "",
+        owasp: "MCP07:2025",
+        reference: SPEC_SECTION["token-validation"],
       });
     }
     re.lastIndex = m.index + 1;
@@ -114,6 +120,8 @@ function checkMissingAudienceValidation(text: string, filePath?: string): Findin
         column,
         match: callSpan.trim().replace(/\s+/g, " ").slice(0, MAX_CONTEXT_LENGTH),
         context: "",
+        owasp: "MCP07:2025",
+        reference: SPEC_SECTION["token-validation"],
       });
     }
     pyRe.lastIndex = m.index + 1;
@@ -147,8 +155,133 @@ function checkMissingPkce(text: string, filePath?: string): Finding[] {
         column,
         match: text.slice(Math.max(0, m.index - 40), m.index + 40).trim().replace(/\s+/g, " ").slice(0, MAX_CONTEXT_LENGTH),
         context: "",
+        owasp: "MCP07:2025",
+        reference: SPEC_SECTION.pkce,
       });
     }
+  }
+  return findings;
+}
+
+
+type Draft = Omit<Finding, "owasp" | "reference" | "file" | "line" | "column" | "context"> & { owasp?: string };
+
+function finding(text: string, index: number, draft: Draft, filePath?: string): Finding {
+  const { line, column } = locationOf(text, index);
+  return { owasp: "MCP07:2025", reference: SPEC_SECTION[draft.category], context: "", file: filePath, line, column, ...draft } as Finding;
+}
+
+const clean = (s: string) => s.trim().replace(/\s+/g, " ").slice(0, MAX_CONTEXT_LENGTH);
+
+/**
+ * A client that redeems an authorization code without checking the `iss`
+ * response parameter (RFC 9207) cannot tell which authorization server sent
+ * it, so a malicious server it also talks to can mix the flows up.
+ */
+function checkMissingIssValidation(text: string, filePath?: string): Finding[] {
+  const codeRead = /(?:searchParams|params|query)\.get\(\s*["']code["']\s*\)|\b(?:req|request)\.query\.code\b|\brequest\.args\.get\(\s*["']code["']\s*\)/.exec(text);
+  if (!codeRead) return [];
+  const exchanges = /authorization_code/.test(text);
+  const checksIss = /["'`]iss["'`]|\.iss\b|\biss\s*[:=!]=|\bauthorization_response_iss_parameter_supported\b/.test(text);
+  if (!exchanges || checksIss) return [];
+  return [
+    finding(text, codeRead.index, {
+      patternId: "missing_iss_validation",
+      patternName: "Authorization response handled without checking the iss parameter (RFC 9207)",
+      category: "mix-up",
+      severity: "medium",
+      recommendation: "Compare the authorization response's `iss` parameter with the issuer this flow was started against before redeeming the code (RFC 9207). Without it a client that talks to more than one authorization server can be tricked into sending a code to the wrong one (MCP spec: mix-up attacks).",
+      match: clean(codeRead[0]),
+    }, filePath),
+  ];
+}
+
+/**
+ * A URL the server handed over (the authorization URL) opened in a browser
+ * with no check of its scheme: javascript:, data: or file: URLs run or read
+ * things locally.
+ */
+function checkAuthUrlScheme(text: string, filePath?: string): Finding[] {
+  const findings: Finding[] = [];
+  const re = /(?:(?<![.\w])open|\bopenExternal|\bwebbrowser\.open(?:_new_tab)?|(?<![.\w])opn)\s*\(\s*([A-Za-z_$][\w$.]*)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const arg = m[1]!;
+    if (!/url|uri|href|link|authoriz/i.test(arg)) continue;
+    const before = text.slice(Math.max(0, m.index - 600), m.index);
+    if (/\.protocol\b|startsWith\(\s*["'`]https?:|scheme\s*(?:===?|in|!==?)|urlparse\(|["'`]https:["'`]/.test(before)) continue;
+    findings.push(finding(text, m.index, {
+      patternId: "auth_url_scheme_not_validated",
+      patternName: "URL opened in a browser without checking its scheme",
+      category: "auth-url",
+      severity: "high",
+      recommendation: "Parse the URL and allow only https: (and http: for localhost) before opening it. A malicious MCP server can return `javascript:`, `data:` or `file:` as its authorization URL (MCP spec: OAuth authorization URL validation).",
+      match: clean(m[0]),
+    }, filePath));
+  }
+  return findings;
+}
+
+/**
+ * A record looked up by a handle that came in as a tool argument, with no
+ * check that it belongs to the caller: any user who learns (or guesses) the
+ * handle resumes someone else's flow.
+ */
+function checkStateHandleBinding(text: string, filePath?: string): Finding[] {
+  const findings: Finding[] = [];
+  const re = /\b[\w$]+\.get\(\s*(?:args|params|input|arguments|request\.params(?:\.arguments)?)\.([\w$]*(?:[Hh]andle|[Ss]ession_?[Ii]d|[Ss]tate)[\w$]*)\s*\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const after = text.slice(m.index, Math.min(text.length, m.index + 500));
+    if (/\b(?:userId|user_id|ownerId|owner|\.sub\b|authInfo|extra\.authInfo|clientId|principal|currentUser)\b/.test(after)) continue;
+    findings.push(finding(text, m.index, {
+      patternId: "state_handle_not_bound_to_user",
+      patternName: "Handle from a tool argument used without checking it belongs to the caller",
+      category: "state-handle",
+      severity: "medium",
+      recommendation: "Store the user (token subject, authInfo) with every handle you hand out, and refuse a lookup when the caller is not that user. A handle passed back as a tool argument is otherwise a bearer secret for someone else's session (MCP spec: state handle hijacking).",
+      match: clean(m[0]),
+    }, filePath));
+  }
+  return findings;
+}
+
+/** An MCP server reachable over HTTP: no auth, no Host/Origin check (DNS rebinding), or bound to every interface. */
+function checkLocalHttpExposure(text: string, filePath?: string): Finding[] {
+  const transport = /\b(?:StreamableHTTPServerTransport|SSEServerTransport)\b|\b(?:mcp|server|app)\.run\(\s*transport\s*=\s*["'](?:streamable-http|sse|http)["']/.exec(text);
+  const findings: Finding[] = [];
+  if (transport) {
+    if (!/authorization|bearer|requireBearerAuth|verifyToken|verifyAccessToken|authInfo|apiKey|api_key|auth_settings|token_verifier|AuthSettings/i.test(text)) {
+      findings.push(finding(text, transport.index, {
+        patternId: "local_http_server_unauthenticated",
+        patternName: "HTTP MCP server with no authentication",
+        category: "local-exposure",
+        severity: "high",
+        recommendation: "Require a bearer token (the SDK's requireBearerAuth / auth settings) on the HTTP endpoint, even on localhost: any page the user visits and any process on the machine can call an unauthenticated local server (MCP spec: local MCP server compromise).",
+        match: clean(transport[0]),
+      }, filePath));
+    }
+    if (!/enableDnsRebindingProtection|allowedHosts|allowedOrigins|headers\.origin|headers\[["']origin["']\]|headers\.host|["']Origin["']|TrustedHostMiddleware|allowed_hosts/i.test(text)) {
+      findings.push(finding(text, transport.index, {
+        patternId: "missing_host_origin_check",
+        patternName: "HTTP MCP server does not check Host or Origin (DNS rebinding)",
+        category: "local-exposure",
+        severity: "medium",
+        recommendation: "Validate the Host and Origin headers (enableDnsRebindingProtection with allowedHosts / allowedOrigins in the TypeScript SDK, TrustedHostMiddleware in Starlette). Without it a web page can rebind its domain to 127.0.0.1 and talk to the local server from the user's browser.",
+        match: clean(transport[0]),
+      }, filePath));
+    }
+  }
+  const listenAll = /\.listen\(\s*[\w$.]+\s*,\s*["']0\.0\.0\.0["']|\bhost\s*[:=]\s*["']0\.0\.0\.0["']/.exec(text);
+  if (listenAll && (transport || /\bMcpServer\b|\bFastMCP\b|modelcontextprotocol/.test(text))) {
+    findings.push(finding(text, listenAll.index, {
+      patternId: "listen_all_interfaces",
+      patternName: "MCP server listens on all interfaces (0.0.0.0)",
+      category: "local-exposure",
+      severity: "medium",
+      recommendation: "Bind a local MCP server to 127.0.0.1. 0.0.0.0 exposes it to every network the machine is on; if it has to be reachable, put authentication and a host allowlist in front of it.",
+      match: clean(listenAll[0]),
+    }, filePath));
   }
   return findings;
 }
@@ -174,6 +307,8 @@ export function scanText(text: string, filePath?: string): Finding[] {
         column,
         match: matchStr.trim().replace(/\s+/g, " ").slice(0, MAX_CONTEXT_LENGTH),
         context: "",
+        owasp: p.owasp ?? "MCP07:2025",
+        reference: SPEC_SECTION[p.category],
       });
 
       if (m.index === re.lastIndex) re.lastIndex++;
@@ -182,6 +317,10 @@ export function scanText(text: string, filePath?: string): Finding[] {
 
   findings.push(...checkMissingAudienceValidation(text, filePath));
   findings.push(...checkMissingPkce(text, filePath));
+  findings.push(...checkMissingIssValidation(text, filePath));
+  findings.push(...checkAuthUrlScheme(text, filePath));
+  findings.push(...checkStateHandleBinding(text, filePath));
+  findings.push(...checkLocalHttpExposure(text, filePath));
 
   return findings;
 }
