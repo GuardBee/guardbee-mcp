@@ -6,6 +6,8 @@ import { verifyAuditChain } from "./audit/logger.js";
 import { loadGatewayConfig } from "./gateway/config.js";
 import { clientConfigPath, runInit, type ClientName } from "./init.js";
 import { startGateway } from "./proxy.js";
+import { PinStore, defaultPinFile } from "./gateway/pin-store.js";
+import { connectUpstream } from "./gateway/upstream.js";
 import { buildReport, signReport, verifyReport } from "./report/report.js";
 import { extractSigned, renderHtml, renderMarkdown, type Lang } from "./report/render.js";
 
@@ -109,6 +111,69 @@ function version(): string {
   }
 }
 
+const PINS_USAGE = `Usage:
+  guardbee-proxy pins list [--config <file>]
+  guardbee-proxy pins approve <upstream> [tool] [--config <file>]   Trust the server's current definitions
+  guardbee-proxy pins reset [upstream] [tool] [--config <file>]     Forget pins (trusted again on first use)
+  guardbee-proxy pins import <baseline.json> --upstream <name>      Seed from an mcp-rug-pull-detector baseline`;
+
+/** The pins file the gateway would use with this config. */
+function pinStore(): PinStore {
+  let file: string | undefined;
+  try {
+    file = loadGatewayConfig().pins?.file;
+  } catch {
+    // No config: the default file
+  }
+  return new PinStore(file ?? defaultPinFile());
+}
+
+async function pins(args: string[]): Promise<void> {
+  const positional = args.filter((arg, i) => !arg.startsWith("--") && !args[i - 1]?.startsWith("--"));
+  const [action, first, second] = positional;
+  if (action === "list") {
+    const store = pinStore();
+    const upstreams = Object.entries(store.upstreams());
+    if (upstreams.length === 0) process.stdout.write(`No pins in ${store.file}\n`);
+    for (const [name, entry] of upstreams) {
+      process.stdout.write(`${name}${entry.serverInfo ? ` (${entry.serverInfo.name} ${entry.serverInfo.version})` : ""}\n`);
+      for (const [tool, pin] of Object.entries(entry.tools)) process.stdout.write(`  ${tool}  ${pin.hash.slice(0, 12)}  since ${pin.firstSeen}\n`);
+    }
+    return;
+  }
+  if (action === "approve" && first) {
+    const config = loadGatewayConfig();
+    const server = config.upstreams[first];
+    if (!server) throw new Error(`No upstream "${first}" in the config (${Object.keys(config.upstreams).join(", ") || "none"})`);
+    const upstream = await connectUpstream(first, server);
+    try {
+      const listed = (await upstream.listTools()).filter((tool) => !second || tool.name === second);
+      if (second && listed.length === 0) throw new Error(`"${first}" has no tool "${second}"`);
+      const store = new PinStore(config.pins?.file ?? defaultPinFile());
+      store.approve(first, listed);
+      process.stdout.write(`Pinned ${listed.length} tool definition(s) of ${first} in ${store.file}\n`);
+    } finally {
+      await upstream.close();
+    }
+    return;
+  }
+  if (action === "reset") {
+    const store = pinStore();
+    const count = store.reset(first, second);
+    process.stdout.write(`Removed ${count} pin entr${count === 1 ? "y" : "ies"} from ${store.file}\n`);
+    return;
+  }
+  if (action === "import" && first) {
+    const upstream = flag(args, "--upstream");
+    if (!upstream) throw new Error("pins import needs --upstream <name>: the baseline does not know the proxy's name for the server");
+    const store = pinStore();
+    const count = store.importBaseline(upstream, JSON.parse(fs.readFileSync(first, "utf8")));
+    process.stdout.write(`Imported ${count} tool definition(s) for ${upstream} into ${store.file}\n`);
+    return;
+  }
+  throw new Error(PINS_USAGE);
+}
+
 const HELP = `guardbee-proxy: MCP security gateway
 
 Usage:
@@ -118,6 +183,8 @@ Usage:
                                                    Move a client's MCP servers behind the gateway
   guardbee-proxy validate [--config <file>]        Check a config without starting anything
   guardbee-proxy verify-audit <audit.jsonl>        Check an audit log's hash chain
+  guardbee-proxy pins list | approve <upstream> [tool] | reset [upstream] [tool] | import <baseline.json> --upstream <name>
+                                                   Tool definitions pinned across restarts
   guardbee-proxy report <audit.jsonl> [--days 30 | --from <date> --to <date>] [--format md|html|json]
                  [--lang en|tr] [--key ed25519.pem] [--out <file>]
                                                    Signed OWASP / MITRE ATLAS report from an audit log
@@ -140,6 +207,7 @@ async function main() {
     return;
   }
   if (command === "verify-audit") return verifyAudit(rest[0]);
+  if (command === "pins") return pins(rest);
   if (command === "init") return init(rest);
   if (command === "report") return report(rest);
   if (command === "verify-report") return verifyReportCommand(rest);

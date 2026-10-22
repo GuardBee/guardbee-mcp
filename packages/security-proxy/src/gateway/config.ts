@@ -73,6 +73,8 @@ export interface GatewayConfig {
   llm?: LlmConfig;
   /** The person-name model (@guardbee/ner) that masking asks before it runs; absent → names are not detected. */
   ner?: NerConfig;
+  /** Where persistent tool pins live (interceptors.definitionDrift.persist); default ~/.guardbee/pins.json. */
+  pins?: { file?: string };
 }
 
 
@@ -283,6 +285,7 @@ const yamlSchema = z
     listen: listenSchema.default({ transport: "stdio", host: "127.0.0.1", port: 8787, path: "/mcp", apiKeys: [], maxSessions: 100 }),
     llm: llmSchema.optional(),
     ner: nerSchema.optional(),
+    pins: z.object({ file: z.string().min(1).optional() }).strict().optional(),
     /** This file also (or only) serves guardbee-hook, the policy for coding agents' own tools. */
     hooks: z.object({}).strict().optional(),
   })
@@ -413,6 +416,7 @@ export function parseGatewayYaml(source: string, fileLabel = "guardbee-proxy.yam
     interceptors: cfg.interceptors,
     ...(cfg.llm ? { llm: resolveLlmConfig(cfg.llm) } : {}),
     ...(cfg.ner ? { ner: resolveNer(cfg.ner) } : {}),
+    ...(cfg.pins ? { pins: cfg.pins } : {}),
   };
 }
 

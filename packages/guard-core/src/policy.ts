@@ -121,7 +121,15 @@ export const policyShape = {
     .object({
       promptInjection: interceptorSchema.optional(),
       toolResultInjection: interceptorSchema.optional(),
-      definitionDrift: interceptorSchema.extend({ recheck: z.enum(["every-call", "on-change"]).optional() }).optional(),
+      definitionDrift: interceptorSchema
+        .extend({
+          recheck: z.enum(["every-call", "on-change"]).optional(),
+          /** Keep approved definitions across sessions and restarts (gateway mode default: on). */
+          persist: z.boolean().optional(),
+          /** A definition that differs from the persisted one: refuse, ask the person, or log (default: approve). */
+          onChange: z.enum(["block", "approve", "warn"]).optional(),
+        })
+        .optional(),
       /** Poisoned tool definitions in tools/list (injected instructions, hidden characters, read-only lies). */
       toolPoisoning: interceptorSchema.optional(),
       /** Credentials (provider keys, private keys, DB URLs with passwords) in the arguments of an egress tool. */
