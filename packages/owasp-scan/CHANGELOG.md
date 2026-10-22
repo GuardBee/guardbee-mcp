@@ -1,5 +1,23 @@
 # @guardbee/mcp-owasp-scan
 
+## 0.3.2
+
+### Patch Changes
+
+- [#189](https://github.com/GuardBee/guardbee-mcp/pull/189) [`d6b75fe`](https://github.com/GuardBee/guardbee-mcp/commit/d6b75fe26af9f074d87d92d063b6f355fdcc61d3) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - - **Node 22 for the proxy, document-scanner and security-suite** (`engines.node: ">=22"`): ldapts 9 and unpdf, which they depend on, require it. Node 18 and 20 are past end of life; the other packages still run on Node 18.
+  - **`require()` works for every ESM package**: each `exports` entry gains a `default` condition next to `import` (Node 20.19+ / 22.12+ can `require()` ESM), so `require("@guardbee/mcp-secret-scanner")` no longer fails with ERR_PACKAGE_PATH_NOT_EXPORTED.
+  - **`guardbee-proxy --help` / `--version`** print usage and the version instead of failing with "No proxy target configured"; **`guardbee-gateway --help` / `--version`** no longer start the stdio server, and an unknown argument is an error.
+  - The proxy's npm description starts with "MCP security gateway" again.
+- Updated dependencies [[`d6b75fe`](https://github.com/GuardBee/guardbee-mcp/commit/d6b75fe26af9f074d87d92d063b6f355fdcc61d3)]:
+  - @guardbee/mcp-audit-gap-auditor@0.3.2
+  - @guardbee/mcp-context-oversharing-auditor@0.3.2
+  - @guardbee/mcp-config-auditor@0.6.2
+  - @guardbee/mcp-server-auditor@0.2.2
+  - @guardbee/mcp-oauth-auditor@0.2.2
+  - @guardbee/mcp-secret-scanner@1.0.2
+  - @guardbee/mcp-tool-poisoning-scanner@0.3.2
+  - @guardbee/mcp-toxic-flow-auditor@1.0.2
+
 ## 0.3.1
 
 ### Patch Changes
