@@ -2,7 +2,7 @@
   "name": "@guardbee/mcp-dependency-auditor",
   "version": "0.7.0",
   "mcpName": "io.github.GuardBee/dependency-auditor",
-  "description": "OSV CVE checks for npm and pip manifests. Single-package lookups also cover PyPI, crates.io, Maven, Go, and RubyGems.",
+  "description": "Dependency vulnerability scanner (OSV) for npm and pip manifests, with single-package lookups for PyPI, crates.io, Maven, Go and RubyGems; CLI and MCP server",
   "type": "module",
   "bin": {
     "guardbee-dependency-auditor": "./dist/cli.js"
@@ -18,15 +18,10 @@
   "files": [
     "dist",
     "README.md",
-    "TR.md",
-    "ZH.md",
-    "JA.md",
-    "KO.md",
-    "PT-BR.md",
-    "ES.md",
-    "DE.md",
     "LICENSE",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "!dist/**/*.map",
+    "!dist/**/__tests__"
   ],
   "scripts": {
     "build": "tsc",
@@ -49,7 +44,11 @@
     "cve",
     "osv",
     "guardbee",
-    "devtools"
+    "devtools",
+    "vulnerability-scanner",
+    "sca",
+    "npm-audit",
+    "supply-chain"
   ],
   "license": "MIT",
   "repository": {

@@ -2,7 +2,7 @@
   "name": "@guardbee/mcp-toxic-flow-auditor",
   "version": "1.0.0",
   "mcpName": "io.github.GuardBee/toxic-flow-auditor",
-  "description": "MCP server that detects toxic flows (lethal trifecta) across an MCP tool catalog — untrusted content + private/sensitive data + exfiltration or destruction on the same server",
+  "description": "Lethal trifecta detector for MCP tool catalogs: flags servers that combine untrusted content, sensitive data and exfiltration or destructive tools",
   "type": "module",
   "bin": {
     "guardbee-toxic-flow-auditor": "./dist/cli.js"
@@ -18,15 +18,10 @@
   "files": [
     "dist",
     "README.md",
-    "TR.md",
-    "ZH.md",
-    "JA.md",
-    "KO.md",
-    "PT-BR.md",
-    "ES.md",
-    "DE.md",
     "LICENSE",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "!dist/**/*.map",
+    "!dist/**/__tests__"
   ],
   "scripts": {
     "build": "tsc",
@@ -51,7 +46,10 @@
     "owasp-mcp-top-10",
     "kvkk",
     "guardbee",
-    "devtools"
+    "devtools",
+    "agent-security",
+    "llm-security",
+    "mcp-scanner"
   ],
   "license": "MIT",
   "publishConfig": {

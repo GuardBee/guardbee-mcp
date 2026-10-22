@@ -2,7 +2,7 @@
   "name": "@guardbee/mcp-secret-scanner",
   "version": "1.0.0",
   "mcpName": "io.github.GuardBee/secret-scanner",
-  "description": "MCP server that scans files and directories for exposed secrets, API keys, and credentials",
+  "description": "Secret scanner for code, git history and AI agent transcripts: 76 provider patterns, entropy checks, live key verification and SARIF, as a CLI and an MCP server",
   "type": "module",
   "bin": {
     "guardbee-secret-scanner": "./dist/cli.js"
@@ -18,15 +18,10 @@
   "files": [
     "dist",
     "README.md",
-    "TR.md",
-    "ZH.md",
-    "JA.md",
-    "KO.md",
-    "PT-BR.md",
-    "ES.md",
-    "DE.md",
     "LICENSE",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "!dist/**/*.map",
+    "!dist/**/__tests__"
   ],
   "scripts": {
     "build": "tsc",
@@ -46,7 +41,14 @@
     "security",
     "secret-scanning",
     "guardbee",
-    "devtools"
+    "devtools",
+    "secret-scanner",
+    "credential-scanner",
+    "gitleaks-alternative",
+    "secrets-detection",
+    "api-keys",
+    "git-history",
+    "sarif"
   ],
   "license": "MIT",
   "repository": {
