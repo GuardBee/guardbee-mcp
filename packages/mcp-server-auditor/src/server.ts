@@ -45,12 +45,14 @@ export async function startServer() {
 
 /** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
 export function registerTools(server: McpServer): void {
-  server.tool(
+  server.registerTool(
     "scan_text",
-    "Scan a text string or code snippet for insecure MCP server/tool-definition patterns (excessive-agency tool names, shell/eval/SQL/SSRF sinks fed by raw tool input, overly permissive schemas, hardcoded secrets, wildcard CORS).",
     {
-      content: z.string().describe("The code content to scan"),
-      label: z.string().optional().describe("Optional label shown in findings (e.g. filename)"),
+      description: "Scan a text string or code snippet for insecure MCP server/tool-definition patterns (excessive-agency tool names, shell/eval/SQL/SSRF sinks fed by raw tool input, overly permissive schemas, hardcoded secrets, wildcard CORS).",
+      inputSchema: {
+        content: z.string().describe("The code content to scan"),
+        label: z.string().optional().describe("Optional label shown in findings (e.g. filename)"),
+      },
     },
     async ({ content, label }) => {
       const findings = scanText(content, label);
@@ -58,11 +60,13 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "scan_file",
-    "Scan a single file for insecure MCP server/tool-definition patterns",
     {
-      path: z.string().describe("Absolute or relative path to the file to scan"),
+      description: "Scan a single file for insecure MCP server/tool-definition patterns",
+      inputSchema: {
+        path: z.string().describe("Absolute or relative path to the file to scan"),
+      },
     },
     async ({ path: filePath }) => {
       const { findings, skipped } = scanFile(filePath);
@@ -77,20 +81,22 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "scan_directory",
-    "Recursively scan an MCP server's codebase for insecure tool-definition patterns. Automatically skips node_modules, .git, dist, and binary files.",
     {
-      path: z.string().describe("Absolute or relative path to the directory to scan"),
-      maxFiles: z.number().int().positive().optional().describe("Maximum number of files to scan (default: 5000)"),
-      include: z
-        .array(z.string())
-        .optional()
-        .describe("Only scan files whose path contains one of these strings (e.g. [\".ts\", \"src/tools\"])"),
-      exclude: z
-        .array(z.string())
-        .optional()
-        .describe("Skip files/dirs whose path contains one of these strings"),
+      description: "Recursively scan an MCP server's codebase for insecure tool-definition patterns. Automatically skips node_modules, .git, dist, and binary files.",
+      inputSchema: {
+        path: z.string().describe("Absolute or relative path to the directory to scan"),
+        maxFiles: z.number().int().positive().optional().describe("Maximum number of files to scan (default: 5000)"),
+        include: z
+          .array(z.string())
+          .optional()
+          .describe("Only scan files whose path contains one of these strings (e.g. [\".ts\", \"src/tools\"])"),
+        exclude: z
+          .array(z.string())
+          .optional()
+          .describe("Skip files/dirs whose path contains one of these strings"),
+      },
     },
     async ({ path: dirPath, maxFiles, include, exclude }) => {
       const result = scanDirectory(dirPath, { maxFiles, include, exclude });
@@ -98,10 +104,12 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "list_patterns",
-    "List all MCP server security patterns that the auditor can detect, grouped by category",
-    {},
+    {
+      description: "List all MCP server security patterns that the auditor can detect, grouped by category",
+      inputSchema: {},
+    },
     async () => {
       const lines = ["Supported MCP server security patterns:\n"];
       const byCategory = new Map<string, typeof MCP_AUDITOR_PATTERNS>();

@@ -84,15 +84,17 @@ export async function startServer() {
 
 /** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
 export function registerTools(server: McpServer): void {
-  server.tool(
+  server.registerTool(
     "evaluate_text",
-    "Evaluate free text against Agent Threat Rules (ATR) plus GuardBee KVKK/TR rules. Returns matches with follow-up scanner hints.",
     {
-      content: z.string().describe("Text to evaluate"),
-      type: eventTypeSchema.describe("ATR event type (default: llm_input)"),
-      lane: z.enum(["enforce", "alert", "hunt"]).optional().describe("Detection lane (default: hunt)"),
-      scanContext: z.enum(["mcp", "skill"]).optional(),
-      format: z.enum(["text", "json", "sarif"]).optional(),
+      description: "Evaluate free text against Agent Threat Rules (ATR) plus GuardBee KVKK/TR rules. Returns matches with follow-up scanner hints.",
+      inputSchema: {
+        content: z.string().describe("Text to evaluate"),
+        type: eventTypeSchema.describe("ATR event type (default: llm_input)"),
+        lane: z.enum(["enforce", "alert", "hunt"]).optional().describe("Detection lane (default: hunt)"),
+        scanContext: z.enum(["mcp", "skill"]).optional(),
+        format: z.enum(["text", "json", "sarif"]).optional(),
+      },
     },
     async ({ content, type, lane, scanContext, format }) => {
       const text = await runEval(content, {
@@ -105,14 +107,16 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "evaluate_file",
-    "Read a local file and evaluate its contents against ATR + GuardBee rules",
     {
-      path: z.string().describe("Path to a text file (max 2MB)"),
-      type: eventTypeSchema,
-      lane: z.enum(["enforce", "alert", "hunt"]).optional(),
-      format: z.enum(["text", "json", "sarif"]).optional(),
+      description: "Read a local file and evaluate its contents against ATR + GuardBee rules",
+      inputSchema: {
+        path: z.string().describe("Path to a text file (max 2MB)"),
+        type: eventTypeSchema,
+        lane: z.enum(["enforce", "alert", "hunt"]).optional(),
+        format: z.enum(["text", "json", "sarif"]).optional(),
+      },
     },
     async ({ path: filePath, type, lane, format }) => {
       try {
@@ -132,15 +136,17 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "evaluate_event",
-    "Evaluate a structured ATR AgentEvent JSON (type, content, fields, sessionId, …).",
     {
-      event: z
-        .string()
-        .describe("JSON AgentEvent: { type, content, fields?, sessionId?, agentId?, scanContext? }"),
-      lane: z.enum(["enforce", "alert", "hunt"]).optional(),
-      format: z.enum(["text", "json", "sarif"]).optional(),
+      description: "Evaluate a structured ATR AgentEvent JSON (type, content, fields, sessionId, …).",
+      inputSchema: {
+        event: z
+          .string()
+          .describe("JSON AgentEvent: { type, content, fields?, sessionId?, agentId?, scanContext? }"),
+        lane: z.enum(["enforce", "alert", "hunt"]).optional(),
+        format: z.enum(["text", "json", "sarif"]).optional(),
+      },
     },
     async ({ event, lane, format }) => {
       let parsed: {
@@ -176,25 +182,27 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "list_rules",
-    "List loaded ATR + GuardBee detection rules (optionally filter by category or source).",
     {
-      category: z
-        .enum([
-          "prompt-injection",
-          "tool-poisoning",
-          "context-exfiltration",
-          "agent-manipulation",
-          "privilege-escalation",
-          "excessive-autonomy",
-          "data-poisoning",
-          "model-abuse",
-          "skill-compromise",
-        ])
-        .optional(),
-      source: z.enum(["atr", "guardbee"]).optional(),
-      lane: z.enum(["enforce", "alert", "hunt"]).optional(),
+      description: "List loaded ATR + GuardBee detection rules (optionally filter by category or source).",
+      inputSchema: {
+        category: z
+          .enum([
+            "prompt-injection",
+            "tool-poisoning",
+            "context-exfiltration",
+            "agent-manipulation",
+            "privilege-escalation",
+            "excessive-autonomy",
+            "data-poisoning",
+            "model-abuse",
+            "skill-compromise",
+          ])
+          .optional(),
+        source: z.enum(["atr", "guardbee"]).optional(),
+        lane: z.enum(["enforce", "alert", "hunt"]).optional(),
+      },
     },
     async ({ category, source, lane }) => {
       const { engine } = await getEngine((lane as Lane | undefined) ?? "hunt");
@@ -214,11 +222,13 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "rule_stats",
-    "Summarize loaded rule counts by category and source (ATR vs GuardBee)",
     {
-      lane: z.enum(["enforce", "alert", "hunt"]).optional(),
+      description: "Summarize loaded rule counts by category and source (ATR vs GuardBee)",
+      inputSchema: {
+        lane: z.enum(["enforce", "alert", "hunt"]).optional(),
+      },
     },
     async ({ lane }) => {
       const { engine } = await getEngine((lane as Lane | undefined) ?? "hunt");
@@ -228,10 +238,12 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "explain_bridge",
-    "Explain how Agent Threat Rules (ATR) complements GuardBee static MCP auditors",
-    {},
+    {
+      description: "Explain how Agent Threat Rules (ATR) complements GuardBee static MCP auditors",
+      inputSchema: {},
+    },
     async () => {
       const lines = [
         "ATR (agent-threat-rules) is a Sigma-like runtime detection layer for agent events.",
@@ -250,10 +262,12 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "framework_map",
-    "Show how GuardBee's runtime findings map to OWASP Top 10 for LLM Applications (2025) and MITRE ATLAS — the mapping guardbee-proxy report uses",
-    {},
+    {
+      description: "Show how GuardBee's runtime findings map to OWASP Top 10 for LLM Applications (2025) and MITRE ATLAS — the mapping guardbee-proxy report uses",
+      inputSchema: {},
+    },
     async () => {
       const lines = Object.values(THREAT_CATEGORIES).map(
         (c) => `• ${c.title}\n    OWASP: ${c.owasp.map((o) => `${o.id} ${o.name}`).join("; ")}\n    ATLAS: ${c.atlas.map((a) => `${a.id} ${a.name}`).join("; ")}`,

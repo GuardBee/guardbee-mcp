@@ -3,4 +3,4 @@ packages:
 
 catalog:
   zod: ^4.5.4
-  "@modelcontextprotocol/sdk": ^1.0.0
+  "@modelcontextprotocol/sdk": ^1.30.0

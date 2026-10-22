@@ -21,20 +21,24 @@ export async function startServer(version = "0.1.0") {
 
 /** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
 export function registerTools(server: McpServer): void {
-  server.tool(
+  server.registerTool(
     "scan_document",
-    "Find PII (TC Kimlik No, IBAN, card, passport, e-mail, phone, address…) and credentials inside a PDF, an image (screenshot, scanned page) or a text file on disk, before it is given to an LLM. PDFs are read from their text layer; images and scanned pages with OCR (Turkish and English).",
-    { path: z.string().describe("Path to a file, or a folder to scan every PDF and image in it"), ...common },
+    {
+      description: "Find PII (TC Kimlik No, IBAN, card, passport, e-mail, phone, address…) and credentials inside a PDF, an image (screenshot, scanned page) or a text file on disk, before it is given to an LLM. PDFs are read from their text layer; images and scanned pages with OCR (Turkish and English).",
+      inputSchema: { path: z.string().describe("Path to a file, or a folder to scan every PDF and image in it"), ...common },
+    },
     async ({ path, ocr, languages, include }) => {
       const result = await scanDirectory(path, { ...(ocr !== undefined ? { ocr } : {}), ...(languages ? { languages } : {}), ...(include ? { include } : {}) });
       return { content: [{ type: "text", text: formatResults(result.documents, result.durationMs) }] };
     },
   );
 
-  server.tool(
+  server.registerTool(
     "scan_base64",
-    "Scan a document given as base64 (an attachment, an image a tool returned) for PII and credentials. The type is detected from the bytes.",
-    { data: z.string().describe("Base64 bytes (a data: URL prefix is allowed)"), label: z.string().optional(), ...common },
+    {
+      description: "Scan a document given as base64 (an attachment, an image a tool returned) for PII and credentials. The type is detected from the bytes.",
+      inputSchema: { data: z.string().describe("Base64 bytes (a data: URL prefix is allowed)"), label: z.string().optional(), ...common },
+    },
     async ({ data, label, ocr, languages, include }) => {
       const bytes = new Uint8Array(Buffer.from(data.replace(/^data:[^,]*,/, ""), "base64"));
       const result = await scanBytes(bytes, label ?? "<base64>", { ...(ocr !== undefined ? { ocr } : {}), ...(languages ? { languages } : {}), ...(include ? { include } : {}) });
@@ -42,11 +46,18 @@ export function registerTools(server: McpServer): void {
     },
   );
 
-  server.tool("list_detectors", "List the PII and credential detectors this scanner runs", {}, async () => {
+  server.registerTool(
+    "list_detectors",
+    {
+      description: "List the PII and credential detectors this scanner runs",
+      inputSchema: {},
+    },
+    async () => {
     const personal = PERSONAL_DATA_CATEGORIES.map((c) => `  • ${c}${(OPT_IN_PII as readonly string[]).includes(c) ? " (opt-in)" : ""}`);
     const credentials = PII_PATTERNS.filter((p) => !(PERSONAL_DATA_CATEGORIES as readonly string[]).includes(p.name)).length;
     return {
       content: [{ type: "text", text: [`Personal data:`, ...personal, "", `Credentials: ${credentials} provider key, token, private key and connection-string formats`].join("\n") }],
     };
-  });
+  }
+  );
 }
