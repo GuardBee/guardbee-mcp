@@ -1,5 +1,13 @@
 # @guardbee/mcp-rug-pull-detector
 
+## 0.3.3
+
+### Patch Changes
+
+- [#207](https://github.com/GuardBee/guardbee-mcp/pull/207) [`1aac3f9`](https://github.com/GuardBee/guardbee-mcp/commit/1aac3f92917ec078542a73a8a05b57033a6b13d9) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Persistent tool pins ([#201](https://github.com/GuardBee/guardbee-mcp/issues/201)): in gateway mode the proxy pins each server's tool definitions (SHA-256 of name, description, input/output schema, annotations) in `~/.guardbee/pins.json` and checks them on every start, so a tool rewritten between two runs is caught, not just one rewritten within a session. `interceptors.definitionDrift.onChange` decides what happens: `approve` (default) keeps showing the approved definition and asks the person before the first call, with the old and new description; `block` refuses; `warn` logs. New CLI: `guardbee-proxy pins list | approve | reset | import` (imports an mcp-rug-pull-detector baseline). guard-core exports the shared `hashToolDefinition`; rug-pull-detector now uses it, with the same hashes as before.
+- Updated dependencies [[`1aac3f9`](https://github.com/GuardBee/guardbee-mcp/commit/1aac3f92917ec078542a73a8a05b57033a6b13d9)]:
+  - @guardbee/guard-core@1.1.0
+
 ## 0.3.2
 
 ### Patch Changes
