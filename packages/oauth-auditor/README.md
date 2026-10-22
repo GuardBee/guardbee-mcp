@@ -81,14 +81,33 @@ npx @guardbee/mcp-oauth-auditor scan ./src --fail-on=high --format=sarif > resul
 
 ## Detected Patterns
 
-| Category | Pattern | Severity |
-|---|---|---|
-| token-passthrough | `token_passthrough_to_downstream` | critical |
-| token-validation | `missing_audience_validation` | high |
-| discovery-ssrf | `oauth_discovery_ssrf` | critical |
-| pkce | `missing_pkce_on_auth_request` | high |
-| redirect-validation | `loose_redirect_uri_validation` | high |
-| secrets-exposure | `hardcoded_oauth_client_secret` | high |
+| Category | Pattern | Severity | OWASP |
+|---|---|---|---|
+| token-passthrough | `token_passthrough_to_downstream` | critical | MCP07 |
+| token-validation | `missing_audience_validation` | high | MCP07 |
+| discovery-ssrf | `oauth_discovery_ssrf` | critical | MCP07 |
+| pkce | `missing_pkce_on_auth_request` | high | MCP07 |
+| redirect-validation | `loose_redirect_uri_validation` | high | MCP07 |
+| secrets-exposure | `hardcoded_oauth_client_secret` | high | MCP07 |
+| state-handle | `predictable_state_handle` (+ Python) — state / session handle from `Math.random`, `Date.now`, a counter | high | MCP07 |
+| state-handle | `state_handle_not_bound_to_user` — a handle from a tool argument looked up with no check that it is the caller's | medium | MCP07 |
+| mix-up | `missing_iss_validation` — authorization code redeemed without checking `iss` (RFC 9207) | medium | MCP07 |
+| auth-url | `auth_url_scheme_not_validated` — a server-provided URL opened with no scheme check (`javascript:`, `data:`, `file:`) | high | MCP07 |
+| auth-url | `auth_url_opened_via_shell` — URL interpolated into `open` / `xdg-open` / `start` through a shell | critical | MCP05 |
+| local-exposure | `local_http_server_unauthenticated` — HTTP MCP transport with no authentication | high | MCP07 |
+| local-exposure | `missing_host_origin_check` — no Host / Origin validation (DNS rebinding) | medium | MCP07 |
+| local-exposure | `listen_all_interfaces` — MCP server bound to `0.0.0.0` | medium | MCP07 |
+
+Every finding links its section of the [MCP spec Security Best Practices](https://modelcontextprotocol.io/specification/draft/basic/security_best_practices) (SARIF `helpUri`) and carries its OWASP MCP Top 10 id as a SARIF tag. The newer rules are heuristics over one file at a time: a check done in another module (an auth middleware, an `iss` comparison in a helper) is not seen.
+
+### Live probe
+
+```bash
+npx @guardbee/mcp-oauth-auditor probe http://127.0.0.1:3000/mcp
+```
+
+Read-only checks of a running HTTP MCP endpoint: does it answer an `initialize` without credentials (`probe_unauthenticated_access`), and does it accept a foreign `Host` (`probe_dns_rebinding_host_accepted`) or `Origin` (`probe_foreign_origin_accepted`)? It sends no credentials, calls nothing beyond `initialize`, closes any session it opened, and refuses a host that resolves to a public address unless `--allow-public`. CLI only: an agent cannot start it through the MCP tools.
+
 
 ---
 

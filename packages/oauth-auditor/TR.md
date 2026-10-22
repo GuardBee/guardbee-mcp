@@ -77,14 +77,33 @@ npx @guardbee/mcp-oauth-auditor scan ./src --fail-on=high --format=sarif > resul
 
 ## Tespit Edilen Kalıplar
 
-| Kategori | Kalıp | Önem |
-|---|---|---|
-| token-passthrough | `token_passthrough_to_downstream` | critical |
-| token-validation | `missing_audience_validation` | high |
-| discovery-ssrf | `oauth_discovery_ssrf` | critical |
-| pkce | `missing_pkce_on_auth_request` | high |
-| redirect-validation | `loose_redirect_uri_validation` | high |
-| secrets-exposure | `hardcoded_oauth_client_secret` | high |
+| Kategori | Kalıp | Önem | OWASP |
+|---|---|---|---|
+| token-passthrough | `token_passthrough_to_downstream` | critical | MCP07 |
+| token-validation | `missing_audience_validation` | high | MCP07 |
+| discovery-ssrf | `oauth_discovery_ssrf` | critical | MCP07 |
+| pkce | `missing_pkce_on_auth_request` | high | MCP07 |
+| redirect-validation | `loose_redirect_uri_validation` | high | MCP07 |
+| secrets-exposure | `hardcoded_oauth_client_secret` | high | MCP07 |
+| state-handle | `predictable_state_handle` (+ Python) — state / oturum handle'ı `Math.random`, `Date.now` ya da sayaçla üretilmiş | high | MCP07 |
+| state-handle | `state_handle_not_bound_to_user` — tool argümanından gelen handle, çağıranın olup olmadığı kontrol edilmeden kullanılıyor | medium | MCP07 |
+| mix-up | `missing_iss_validation` — authorization code `iss` kontrol edilmeden kullanılıyor (RFC 9207) | medium | MCP07 |
+| auth-url | `auth_url_scheme_not_validated` — sunucunun verdiği URL scheme kontrolü olmadan açılıyor (`javascript:`, `data:`, `file:`) | high | MCP07 |
+| auth-url | `auth_url_opened_via_shell` — URL kabuk üzerinden `open` / `xdg-open` / `start` komutuna ekleniyor | critical | MCP05 |
+| local-exposure | `local_http_server_unauthenticated` — kimlik doğrulaması olmayan HTTP MCP transport'u | high | MCP07 |
+| local-exposure | `missing_host_origin_check` — Host / Origin kontrolü yok (DNS rebinding) | medium | MCP07 |
+| local-exposure | `listen_all_interfaces` — MCP sunucusu `0.0.0.0` adresinde dinliyor | medium | MCP07 |
+
+Her bulgu [MCP spesifikasyonu Security Best Practices](https://modelcontextprotocol.io/specification/draft/basic/security_best_practices) belgesindeki bölümüne bağlanır (SARIF `helpUri`) ve OWASP MCP Top 10 kimliğini SARIF etiketi olarak taşır. Yeni kurallar dosya bazında çalışan sezgisel kontrollerdir: başka bir modülde yapılan kontrol (auth middleware'i, yardımcı fonksiyondaki `iss` karşılaştırması) görülmez.
+
+### Canlı yoklama
+
+```bash
+npx @guardbee/mcp-oauth-auditor probe http://127.0.0.1:3000/mcp
+```
+
+Çalışan bir HTTP MCP uç noktasını salt okunur kontrol eder: kimlik bilgisi olmadan `initialize`'a cevap veriyor mu (`probe_unauthenticated_access`), yabancı bir `Host` (`probe_dns_rebinding_host_accepted`) ya da `Origin` (`probe_foreign_origin_accepted`) kabul ediliyor mu? Kimlik bilgisi göndermez, `initialize` dışında hiçbir şey çağırmaz, açtığı oturumu kapatır ve `--allow-public` verilmedikçe genel bir adrese çözülen host'u reddeder. Yalnızca CLI'dan çalışır; bir ajan MCP tool'ları üzerinden başlatamaz.
+
 
 ---
 

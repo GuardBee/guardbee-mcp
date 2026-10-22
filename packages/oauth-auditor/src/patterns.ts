@@ -4,7 +4,26 @@ export type OAuthAuditCategory =
   | "discovery-ssrf"
   | "pkce"
   | "redirect-validation"
-  | "secrets-exposure";
+  | "secrets-exposure"
+  | "state-handle"
+  | "mix-up"
+  | "auth-url"
+  | "local-exposure";
+
+const SPEC = "https://modelcontextprotocol.io/specification/draft/basic/security_best_practices";
+/** The MCP spec Security Best Practices section each finding comes from. */
+export const SPEC_SECTION: Record<OAuthAuditCategory, string> = {
+  "token-passthrough": `${SPEC}#token-passthrough`,
+  "token-validation": `${SPEC}#confused-deputy-problem`,
+  "discovery-ssrf": `${SPEC}#ssrf-against-authorization-servers`,
+  pkce: `${SPEC}#confused-deputy-problem`,
+  "redirect-validation": `${SPEC}#localhost-redirect-uri-impersonation`,
+  "secrets-exposure": `${SPEC}#token-passthrough`,
+  "state-handle": `${SPEC}#state-handle-hijacking`,
+  "mix-up": `${SPEC}#mix-up-attacks`,
+  "auth-url": `${SPEC}#oauth-authorization-url-validation`,
+  "local-exposure": `${SPEC}#local-mcp-server-compromise`,
+};
 
 export interface OAuthAuditPattern {
   id: string;
@@ -13,6 +32,8 @@ export interface OAuthAuditPattern {
   pattern: RegExp;
   severity: "critical" | "high" | "medium";
   recommendation: string;
+  /** OWASP MCP Top 10 id; MCP07:2025 (insufficient authentication & authorization) unless set. */
+  owasp?: string;
 }
 
 /**
@@ -88,5 +109,30 @@ export const OAUTH_AUDIT_PATTERNS: OAuthAuditPattern[] = [
     pattern: /\bclient_secret\s*[:=]\s*["'][^"']{8,}["']/g,
     severity: "high",
     recommendation: "A hardcoded client_secret ships with the source/config and is visible to anyone who can read it. Load it from environment/secret storage at runtime instead — and for a public client (a CLI, a browser app, an MCP client without a secure backend), use PKCE with no client_secret at all rather than embedding one.",
+  },
+  {
+    id: "predictable_state_handle",
+    name: "OAuth state / session handle generated with Math.random, Date.now or a counter",
+    category: "state-handle",
+    pattern: /\b(?:state|handle|sessionId|session_id|stateHandle)\s*[:=]\s*(?:String\(\s*|`\$\{\s*)?(?:Math\.random\(\)|Date\.now\(\)|\+\+\w+|\w+\+\+|uuidv1\(\)|uuid\.v1\(\))/g,
+    severity: "high",
+    recommendation: "A handle an attacker can guess or enumerate lets them resume or hijack another user's authorization flow (MCP spec: state handle hijacking). Generate it with a CSPRNG (crypto.randomUUID(), crypto.randomBytes(32)) and bind it to the user who started the flow.",
+  },
+  {
+    id: "python_predictable_state_handle",
+    name: "Python: OAuth state / session handle generated with random, time or a counter",
+    category: "state-handle",
+    pattern: /\b(?:state|handle|session_id)\s*=\s*(?:str\(\s*)?(?:random\.(?:random|randint|choice)\(|time\.time\(\)|uuid\.uuid1\(\))/g,
+    severity: "high",
+    recommendation: "Use secrets.token_urlsafe() for state and session handles, and bind them to the user who started the flow; random, time and uuid1 values can be guessed.",
+  },
+  {
+    id: "auth_url_opened_via_shell",
+    name: "Authorization URL opened through a shell command (open / xdg-open / start)",
+    category: "auth-url",
+    pattern: /\b(?:exec|execSync|spawn|spawnSync)\s*\(\s*(?:`(?:open|xdg-open|start|cmd(?:\.exe)?\s+\/c\s+start)\s[^`]*\$\{|["'](?:open|xdg-open|start|cmd(?:\.exe)?\s+\/c\s+start)\s+["']?\s*\+)|\bos\.system\s*\(\s*f?["'](?:open|xdg-open|start)\s|\bsubprocess\.\w+\s*\(\s*f["'](?:open|xdg-open|start)\s[^"']*\{/g,
+    severity: "critical",
+    recommendation: "A server-supplied authorization URL interpolated into a shell command is command injection: a URL with `\"; rm -rf ~` or `&calc` runs on the user's machine (MCP spec: OAuth authorization URL validation). Validate the URL (https only) and open it without a shell: the `open` package, execFile/spawn with an argument array, or webbrowser.open in Python.",
+    owasp: "MCP05:2025",
   },
 ];

@@ -7,6 +7,7 @@ import { loadConfig, configFilePath } from "./config.js";
 import { statSync, readFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
+import { probeEndpoint } from "./probe.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 function getVersion(): string {
@@ -118,6 +119,21 @@ async function runCli(rawArgs: string[]): Promise<void> {
   process.exit(shouldFail(findings, cfg.failOn) ? 1 : 0);
 }
 
+async function runProbe(rawArgs: string[]): Promise<void> {
+  const { positionals, failOn, format } = parseArgs(rawArgs);
+  const target = positionals[0];
+  if (!target) {
+    console.error("Usage: guardbee-oauth-auditor probe <http://127.0.0.1:port/mcp> [--allow-public] [--fail-on=any] [--format=text|json|sarif]");
+    process.exit(2);
+  }
+  const start = Date.now();
+  const findings = await probeEndpoint(target, { allowPublic: rawArgs.includes("--allow-public") });
+  if (format === "json") console.log(JSON.stringify({ findings, target }, null, 2));
+  else if (format === "sarif") console.log(JSON.stringify(buildSarif(getVersion(), findings), null, 2));
+  else printText(findings, 1, Date.now() - start);
+  process.exit(shouldFail(findings, failOn) ? 1 : 0);
+}
+
 function printHelp(): void {
   console.log(`@guardbee/mcp-oauth-auditor
 
@@ -126,6 +142,9 @@ Usage (MCP server):
 
 Usage (CLI):
   guardbee-oauth-auditor scan <path>   Scan MCP server source for OAuth/token-handling anti-patterns
+  guardbee-oauth-auditor probe <url>   Read-only check of a running HTTP MCP endpoint: answers without
+                                       credentials? accepts a foreign Host / Origin (DNS rebinding)?
+                                       Local and private addresses only, unless --allow-public
 
 Options:
   --fail-on=<level>   Exit 1 if issues at this severity or above are found
@@ -150,6 +169,11 @@ if (!firstArg || firstArg === "serve") {
 } else if (firstArg === "--help" || firstArg === "-h") {
   printHelp();
   process.exit(0);
+} else if (firstArg === "probe") {
+  runProbe(rest).catch((err) => {
+    console.error("Error:", (err as Error).message);
+    process.exit(2);
+  });
 } else if (firstArg === "scan") {
   runCli(rest).catch((err) => {
     console.error("Error:", (err as Error).message);

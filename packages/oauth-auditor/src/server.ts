@@ -116,6 +116,16 @@ export function registerTools(server: McpServer): void {
       lines.push("");
       lines.push("[pkce] (checked separately — flags an *absence*, not a fixed pattern)");
       lines.push("  • response_type=code authorization request with no code_challenge nearby (missing_pkce_on_auth_request, high)");
+      lines.push("");
+      lines.push("[MCP spec Security Best Practices] (checked separately — flag an *absence*)");
+      lines.push("  • handle from a tool argument used with no check it is the caller's (state_handle_not_bound_to_user, medium)");
+      lines.push("  • authorization code redeemed with no iss check, RFC 9207 (missing_iss_validation, medium)");
+      lines.push("  • URL opened in a browser with no scheme check (auth_url_scheme_not_validated, high)");
+      lines.push("  • HTTP MCP transport with no authentication (local_http_server_unauthenticated, high)");
+      lines.push("  • HTTP MCP transport with no Host/Origin check, DNS rebinding (missing_host_origin_check, medium)");
+      lines.push("  • MCP server bound to 0.0.0.0 (listen_all_interfaces, medium)");
+      lines.push("");
+      lines.push("Live: `guardbee-oauth-auditor probe <url>` (CLI only) checks a running endpoint for unauthenticated access and DNS rebinding.");
       return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );

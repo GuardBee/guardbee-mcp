@@ -168,6 +168,7 @@ export function scanPath(targetPath: string, options: PathScanOptions = {}): Owa
   pushNormalized(
     findings,
     oauth.findings.map((f) => ({
+      owasp: f.owasp,
       patternId: f.patternId,
       patternName: f.patternName,
       severity: f.severity,
@@ -291,6 +292,7 @@ function scanSingleFile(filePath: string, start: number): OwaspReport {
   pushNormalized(
     findings,
     oauthScanFile(filePath).findings.map((f) => ({
+      owasp: f.owasp,
       patternId: f.patternId,
       patternName: f.patternName,
       severity: f.severity,
