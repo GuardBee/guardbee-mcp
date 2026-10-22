@@ -64,18 +64,22 @@ jobs:
       - uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
         id: changesets
         with:
-          version: node scripts/version.mjs
-          publish: npx changeset publish
+          # v2 renamed these inputs (version/publish); with the old names the step fails
+          version-script: node scripts/version.mjs
+          publish-script: npx changeset publish
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          # The "GitHub releases" step below owns releases
+          create-github-releases: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           pnpm_config_verify_deps_before_run: "false"
           # Do not set NODE_AUTH_TOKEN / NPM_TOKEN — that forces the staging-only
           # classic token path and blocks trusted publishing.
 
-      # changesets/action@v1 reads tags from the changeset v2 CLI's output; v3 prints
-      # them differently, so the action pushes no tags and makes no releases. This
-      # creates the tag and GitHub release for every package version that is on npm
-      # and has none yet (idempotent, like the registry step below).
+      # changesets/action finds new versions by reading the changeset CLI's output, which
+      # changed in changeset v3, so it made no releases. This creates the tag and GitHub
+      # release for every package version that is on npm and has none yet (idempotent,
+      # like the registry step below).
       - name: GitHub releases
         run: node scripts/github-releases.mjs
         env:
