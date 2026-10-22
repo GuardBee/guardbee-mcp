@@ -22,7 +22,13 @@ export async function startServer() {
     version: "0.1.0",
   });
   instrumentServer(server, "dns-intelligence");
+  registerTools(server);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
+/** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
+export function registerTools(server: McpServer): void {
   server.tool(
     "enumerate_dns",
     "Enumerate all DNS records for a domain and detect misconfigurations: SPF, DMARC, DKIM key strength, MTA-STS/TLS-RPT, MX, DNSSEC (signed / broken / weak algorithms) and CAA (including whether it blocks the CA of the live certificate) and nameservers (lame delegation, anonymous zone transfer, open recursion)",
@@ -276,7 +282,4 @@ export async function startServer() {
       }
     }
   );
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }

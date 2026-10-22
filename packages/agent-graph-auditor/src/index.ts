@@ -7,3 +7,4 @@ export type { GraphNode, GraphEdge, ExtractedGraph, ReachabilityFinding, NodeKin
 export { extractLangGraph } from "./extractors/langgraph.js";
 export { extractCrewAI } from "./extractors/crewai.js";
 export { extractAutoGen } from "./extractors/autogen.js";
+export { registerTools } from "./server.js";

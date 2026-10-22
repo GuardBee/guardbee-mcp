@@ -38,7 +38,13 @@ export async function startServer() {
     version: "0.1.0",
   });
   instrumentServer(server, "tool-poisoning-scanner");
+  registerTools(server);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
+/** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
+export function registerTools(server: McpServer): void {
   server.tool(
     "scan_text",
     "Scan MCP server source for tool poisoning (hidden instructions embedded in a tool's `description` string, read by the calling LLM as trusted context) and confused-deputy tools (a name/description promising read-only behavior while the handler has a shell/eval/file-write/env-dump sink).",
@@ -93,7 +99,4 @@ export async function startServer() {
       return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }

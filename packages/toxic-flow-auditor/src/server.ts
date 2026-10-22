@@ -39,7 +39,13 @@ export async function startServer() {
     version: "0.1.0",
   });
   instrumentServer(server, "toxic-flow-auditor");
+  registerTools(server);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
+/** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
+export function registerTools(server: McpServer): void {
   server.tool(
     "audit_catalog",
     "Audit a tools/list-shaped JSON catalog for the lethal trifecta (toxic flow): untrusted content + sensitive/private data + exfiltration or destruction on the same MCP server. Returns an A–F grade.",
@@ -123,9 +129,6 @@ export async function startServer() {
       ],
     })
   );
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }
 
 export type { Finding };

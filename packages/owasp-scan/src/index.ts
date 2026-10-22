@@ -11,3 +11,4 @@ export type {
   Grade,
   ConnectionTarget,
 } from "./types.js";
+export { registerTools } from "./server.js";

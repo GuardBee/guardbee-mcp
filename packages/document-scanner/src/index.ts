@@ -3,3 +3,4 @@ export type { DocumentKind, ExtractMethod, ExtractOptions, ExtractedPage, Extrac
 export { scanBytes, scanFile, scanDirectory } from "./scanner.js";
 export type { DocumentResult, DirectoryResult, Finding, ScanOptions, Severity } from "./scanner.js";
 export { buildSarif, formatResults, shouldFail } from "./report.js";
+export { registerTools } from "./server.js";

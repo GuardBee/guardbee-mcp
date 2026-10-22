@@ -37,7 +37,13 @@ export async function startServer() {
     version: "0.1.0",
   });
   instrumentServer(server, "prompt-leak-scanner");
+  registerTools(server);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
+/** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
+export function registerTools(server: McpServer): void {
   server.tool(
     "scan_text",
     "Scan a raw text string (e.g. a prompt you're about to send to an LLM) for leaked credentials (API keys, private keys, JWTs) and PII (TC Kimlik No, credit card, IBAN, email, phone) — checksum-validated where applicable to keep false positives low.",
@@ -114,7 +120,4 @@ export async function startServer() {
       return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }

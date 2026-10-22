@@ -7,3 +7,4 @@ export { connectAndListTools } from "./mcpClient.js";
 export type { LiveServerInfo } from "./mcpClient.js";
 export { loadBaseline, saveBaseline, baselinePath } from "./baselineStore.js";
 export type { ConnectionTarget, ToolSnapshot, ServerBaseline, ToolBaselineEntry } from "./types.js";
+export { registerTools } from "./server.js";

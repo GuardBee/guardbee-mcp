@@ -7,3 +7,4 @@ export type { DangerousGlobalRule, GlobalRiskCategory, GlobalClassification } fr
 export { scanSafetensorsFile } from "./safetensorsScanner.js";
 export { scanH5File } from "./h5Scanner.js";
 export { scanOnnxFile } from "./onnxScanner.js";
+export { registerTools } from "./server.js";

@@ -38,7 +38,13 @@ export async function startServer() {
     version: "0.1.0",
   });
   instrumentServer(server, "audit-gap-auditor");
+  registerTools(server);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
+/** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
+export function registerTools(server: McpServer): void {
   server.tool(
     "scan_text",
     "Scan MCP server source for OWASP MCP08:2025 (Lack of Audit and Telemetry) gaps: tools registered with no audit trail, raw args/results logged, audit hard-disabled, silent catch blocks, audit events without a session/request id.",
@@ -102,7 +108,4 @@ export async function startServer() {
       return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }

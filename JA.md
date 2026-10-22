@@ -31,7 +31,7 @@ GuardBee の MCP サーバー群です。AI エージェントとアプリケー
 - [`@guardbee/mcp-rug-pull-detector`](packages/rug-pull-detector/JA.md) — 別の MCP サーバー（stdio または Streamable HTTP）に接続して tools/list の応答を基準として記録し、承認後にツールの説明・スキーマ・注釈がひそかに変わる「ラグプル」を検出します。
 - [`@guardbee/mcp-secret-scanner`](packages/secret-scanner/JA.md) — ファイル、ディレクトリ、git 履歴、コーディングエージェントの会話記録から、漏えいしたシークレット・API キー・認証情報を検出します（76 種のルール、エントロピー検出、ベースライン、CLI での有効性確認）。
 - [`@guardbee/mcp-security-proxy`](packages/security-proxy/JA.md) — MCP セキュリティゲートウェイです。複数の MCP サーバーをひとつのポリシーの背後に置き、有害なデータフロー（lethal trifecta）の遮断、承認、個人情報のマスキング、OIDC ユーザー、クォータ、OpenTelemetry、ハッシュチェーン監査ログを提供します。
-- [`@guardbee/security-suite`](packages/security-suite/JA.md) — 主要な GuardBee セキュリティツールをひとつのパッケージにまとめたものです：シークレットスキャナー、依存関係監査、SSL インスペクター、DNS インテリジェンス。
+- [`@guardbee/security-suite`](packages/security-suite/JA.md) — すべての GuardBee スキャナーと監査ツールを 1 回のインストールで：選んだグループのツールを提供する 1 つの MCP サーバーと、任意のパッケージを実行する CLI。
 - [`@guardbee/mcp-slopsquat-scanner`](packages/slopsquat-scanner/JA.md) — package.json・requirements.txt・pyproject.toml の依存関係を実際の npm/PyPI レジストリと照合し、存在しない名前（LLM が幻覚した依存関係で、攻撃者が先に登録しうるもの＝スロップスクワッティング）とごく最近公開された名前を報告します。
 - [`@guardbee/mcp-ssl-inspector`](packages/ssl-inspector/JA.md) — 任意のドメインの TLS 証明書・暗号スイート・プロトコル設定を検査します。追加のハンドシェイクで、サーバーがまだ受け入れる TLS 1.0/1.1、RSA 鍵交換、弱い DH や暗号を見つけます。
 - [`@guardbee/mcp-telemetry`](packages/telemetry/JA.md) — GuardBee MCP サーバー共通の、オプトイン方式（デフォルト無効）の利用テレメトリクライアントです。

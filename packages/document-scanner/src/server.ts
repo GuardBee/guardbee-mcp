@@ -15,7 +15,12 @@ const common = {
 export async function startServer(version = "0.1.0") {
   const server = new McpServer({ name: "guardbee-document-scanner", version });
   instrumentServer(server, "document-scanner");
+  registerTools(server);
+  await server.connect(new StdioServerTransport());
+}
 
+/** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
+export function registerTools(server: McpServer): void {
   server.tool(
     "scan_document",
     "Find PII (TC Kimlik No, IBAN, card, passport, e-mail, phone, address…) and credentials inside a PDF, an image (screenshot, scanned page) or a text file on disk, before it is given to an LLM. PDFs are read from their text layer; images and scanned pages with OCR (Turkish and English).",
@@ -44,6 +49,4 @@ export async function startServer(version = "0.1.0") {
       content: [{ type: "text", text: [`Personal data:`, ...personal, "", `Credentials: ${credentials} provider key, token, private key and connection-string formats`].join("\n") }],
     };
   });
-
-  await server.connect(new StdioServerTransport());
 }

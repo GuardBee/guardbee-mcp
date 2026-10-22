@@ -77,7 +77,13 @@ export async function startServer() {
     version: "0.1.0",
   });
   instrumentServer(server, "threat-rules");
+  registerTools(server);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
+/** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
+export function registerTools(server: McpServer): void {
   server.tool(
     "evaluate_text",
     "Evaluate free text against Agent Threat Rules (ATR) plus GuardBee KVKK/TR rules. Returns matches with follow-up scanner hints.",
@@ -255,7 +261,4 @@ export async function startServer() {
       return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }

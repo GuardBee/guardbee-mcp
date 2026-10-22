@@ -38,7 +38,7 @@ GuardBee 的 MCP（Model Context Protocol）服务器系列——一个 monorepo
 | [`packages/unbounded-consumption-auditor`](packages/unbounded-consumption-auditor) | `@guardbee/mcp-unbounded-consumption-auditor` | 扫描 LLM/智能体应用代码中的无限制资源消耗（"denial of wallet"，OWASP LLM Top 10 2026 #6）——缺少输出 token 上限、手写 LLM HTTP 调用缺少超时、无上限的工具调用/重试循环、显式关闭框架安全限制（LangChain max_iterations、openai-agents max_turns），以及看不出限流的 MCP 工具处理函数 |
 | [`packages/secret-scanner`](packages/secret-scanner) | `@guardbee/mcp-secret-scanner` | 扫描文件中泄露的密钥和 API key |
 | [`packages/security-proxy`](packages/security-proxy) | `@guardbee/mcp-security-proxy` | MCP 安全网关：把多个 MCP 服务器置于同一策略之后——有毒数据流（lethal trifecta）拦截、人工审批、PII 脱敏、哈希链审计日志 |
-| [`packages/security-suite`](packages/security-suite) | `@guardbee/security-suite` | secret-scanner + dependency-auditor + ssl-inspector + dns-intelligence 的组合包 |
+| [`packages/security-suite`](packages/security-suite) | `@guardbee/security-suite` | 一次安装获得下列全部扫描器和审计工具：一个按所选分组提供工具的 MCP 服务器，以及可运行任意包的 CLI |
 | [`packages/ssl-inspector`](packages/ssl-inspector) | `@guardbee/mcp-ssl-inspector` | TLS 证书/加密套件/协议检查 |
 | [`packages/vulnerability-scanner`](packages/vulnerability-scanner) | `@guardbee/mcp-vulnerability-scanner` | 触发 GuardBee 扫描、查询发现结果、AI 辅助的修复建议 |
 | [`packages/guard-core`](packages/guard-core) | `@guardbee/guard-core` | （内部）共享检测规则库——PII/密钥脱敏、prompt 注入规则、工具分类；本身不是 MCP 服务器 |
@@ -94,6 +94,6 @@ pnpm changeset
 
 ## 结构
 
-- **pnpm workspaces** —— `packages/*`，真实的 `workspace:*` 依赖（例如 `security-suite` 直接从工作区依赖其他 4 个包，而不是注册表上的版本）
+- **pnpm workspaces** —— `packages/*`，真实的 `workspace:*` 依赖（例如 `security-suite` 直接从工作区依赖其他包，而不是注册表上的版本）
 - **Turborepo** —— `build`/`test`/`type-check` 流水线，按依赖图排序并缓存
 - **共享配置** —— 根目录的 `tsconfig.base.json` 和 `vitest.shared.ts`；每个包在其上叠加自己的设置

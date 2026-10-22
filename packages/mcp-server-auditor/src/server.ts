@@ -38,7 +38,13 @@ export async function startServer() {
     version: "0.1.0",
   });
   instrumentServer(server, "mcp-server-auditor");
+  registerTools(server);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
+/** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
+export function registerTools(server: McpServer): void {
   server.tool(
     "scan_text",
     "Scan a text string or code snippet for insecure MCP server/tool-definition patterns (excessive-agency tool names, shell/eval/SQL/SSRF sinks fed by raw tool input, overly permissive schemas, hardcoded secrets, wildcard CORS).",
@@ -112,7 +118,4 @@ export async function startServer() {
       return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }
