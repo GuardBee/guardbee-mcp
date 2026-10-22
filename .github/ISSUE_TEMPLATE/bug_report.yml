@@ -1,0 +1,30 @@
+name: Bug report
+description: Something does not work as documented (a crash, a wrong option, a broken install)
+labels: [bug]
+body:
+  - type: input
+    id: package
+    attributes:
+      label: Package and version
+      placeholder: "@guardbee/mcp-security-proxy 1.25.2"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The command, config or input, as small as you can make it. Remove real secrets and personal data.
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: "Node 22.12, macOS 15, Claude Desktop / Cursor / CLI"
