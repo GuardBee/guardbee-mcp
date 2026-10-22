@@ -18,6 +18,10 @@ npx -y @guardbee/mcp-security-proxy@^1 init --client claude-desktop   # ya da cu
 npx -y @guardbee/mcp-owasp-scan scan . --fail-on=high
 ```
 
+![Bir ajan GuardBee üzerinden bir CRM'i çağırıyor: kişisel veri maskeleniyor, prompt injection engelleniyor, güvenilmeyen ve hassas içerik okunduktan sonra veri dışarı gönderilemiyor](docs/demo.gif)
+
+<sub>Kendiniz çalıştırın: [`examples/demo`](examples/demo) (`npm install && npm start`).</sub>
+
 ## Hangi paketi kullanmalıyım?
 
 | Amacınız… | Kurun | Nasıl |
