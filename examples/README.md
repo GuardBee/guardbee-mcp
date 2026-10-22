@@ -2,6 +2,10 @@
 
 Copy, adjust the paths and server names, and go.
 
+## Demo (`demo/`)
+
+An agent calls a stand-in CRM MCP server through the published proxy: personal data in a record is masked, a ticket carrying a prompt injection is blocked, and an e-mail after reading untrusted and sensitive content is refused as a lethal trifecta. `cd examples/demo && npm install && npm start`. [`demo.tape`](demo/demo.tape) records the README's GIF with [vhs](https://github.com/charmbracelet/vhs).
+
 ## Proxy policies (`proxy/`)
 
 Every file here is checked by the proxy's tests, so it stays valid. Check yours with `npx -y @guardbee/mcp-security-proxy@^1 validate --config <file>`.

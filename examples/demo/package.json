@@ -1,0 +1,14 @@
+{
+  "name": "guardbee-demo",
+  "private": true,
+  "type": "module",
+  "description": "An agent calling a CRM MCP server through GuardBee: masked personal data, a blocked injection, a blocked exfiltration",
+  "scripts": {
+    "start": "node run.mjs"
+  },
+  "dependencies": {
+    "@guardbee/mcp-security-proxy": "^1.25.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.0.0"
+  }
+}
