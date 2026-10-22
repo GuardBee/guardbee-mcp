@@ -166,6 +166,19 @@ pnpm changeset
 
 `main`'e merge sonrası CI otomatik olarak sürüm PR'ı açar; o PR merge edildiğinde değişen paketler npm'e publish edilir (bkz. `.github/workflows/release.yml`).
 
+### Kararlılık
+
+**1.0 ve sonrası** sürümdeki paketler [semantik sürümlemeye](https://semver.org) uyar: CLI'da, MCP tool adlarında ve parametrelerinde, config biçiminde veya dışa açık API'de geriye uyumsuz bir değişiklik yalnızca yeni bir major sürümle gelir ve paketin `CHANGELOG.md` dosyasında yazılır. Yeni kurallar ve dedektörler minor sürümlerle gelir; önceki sürümün bulmadığı bulguları raporlayabilirler. Hâlâ 0.x'teki paketler minor sürümler arasında değişebilir.
+
+| Paket | Kararlı olduğu sürüm |
+|---|---|
+| `@guardbee/mcp-security-proxy` | 1.0 |
+| `@guardbee/guard-core` | 1.0 |
+| `@guardbee/mcp-secret-scanner` | 1.0 |
+| `@guardbee/mcp-prompt-injection-scanner` | 1.0 |
+| `@guardbee/mcp-prompt-leak-scanner` | 1.0 |
+| `@guardbee/mcp-toxic-flow-auditor` | 1.0 |
+
 ## Yapı
 
 - **pnpm workspaces** — `packages/*`, gerçek `workspace:*` bağımlılıkları (örn. `security-suite` diğer 4 paketi registry sürümü yerine doğrudan workspace'ten kullanır)

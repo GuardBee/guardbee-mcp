@@ -167,6 +167,19 @@ pnpm changeset
 
 After merging to `main`, CI automatically opens a version PR; merging that PR publishes the changed packages to npm (see `.github/workflows/release.yml`).
 
+### Stability
+
+Packages at **1.0 or later** follow [semantic versioning](https://semver.org): a breaking change to the CLI, the MCP tool names and parameters, the config format or the exported API comes only with a new major version, and is listed in the package's `CHANGELOG.md`. New rules and detectors arrive in minor versions; they can report findings an earlier version did not. Packages still at 0.x may change between minor versions.
+
+| Package | Stable since |
+|---|---|
+| `@guardbee/mcp-security-proxy` | 1.0 |
+| `@guardbee/guard-core` | 1.0 |
+| `@guardbee/mcp-secret-scanner` | 1.0 |
+| `@guardbee/mcp-prompt-injection-scanner` | 1.0 |
+| `@guardbee/mcp-prompt-leak-scanner` | 1.0 |
+| `@guardbee/mcp-toxic-flow-auditor` | 1.0 |
+
 ## Structure
 
 - **pnpm workspaces** — `packages/*`, real `workspace:*` dependencies (e.g. `security-suite` depends on the other 4 packages directly from the workspace, not a registry version)
