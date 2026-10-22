@@ -1,5 +1,17 @@
 # @guardbee/mcp-unbounded-consumption-auditor
 
+## 0.2.1
+
+### Patch Changes
+
+- [#177](https://github.com/GuardBee/guardbee-mcp/pull/177) [`ee8718b`](https://github.com/GuardBee/guardbee-mcp/commit/ee8718b0ab9a169473a365818089f84c6b1080b7) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Source scans now see tools registered with `server.registerTool("name", { description, inputSchema }, handler)`, the MCP TypeScript SDK's current form, not only the deprecated `server.tool(...)`. Before, a server written with `registerTool` got no findings from these rules: toxic-flow-auditor's lethal-trifecta check, tool-poisoning-scanner's description and parameter checks (the description is read from the config object), mcp-server-auditor's shell-tool-name and `z.any()` rules, audit-gap-auditor's "tools without an audit trail", unbounded-consumption-auditor's missing rate limit, and ai-code-scanner's excessive-agency tool name.
+
+- [#178](https://github.com/GuardBee/guardbee-mcp/pull/178) [`c89dc93`](https://github.com/GuardBee/guardbee-mcp/commit/c89dc93bd04e53bc8b72806f279531676b8defcc) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - MCP tools are registered with `server.registerTool(name, { description, inputSchema, annotations }, handler)` instead of the deprecated `server.tool(...)` (132 registrations, no change to tool names, descriptions or parameters). `@modelcontextprotocol/sdk` is now required at `^1.30.0` instead of `^1.0.0` / `>=1.0.0`, so an install cannot resolve an old SDK the code was never tested with. `@guardbee/mcp-telemetry`'s `instrumentServer` wraps `registerTool` as well as `tool`.
+
+- [#175](https://github.com/GuardBee/guardbee-mcp/pull/175) [`341a283`](https://github.com/GuardBee/guardbee-mcp/commit/341a2839d56a312f1cb1998a523eb7ea985345db) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Smaller npm packages (55% less unpacked in total; the proxy 944 → 513 kB): source maps and compiled tests are no longer published (the sources they point at never were), and the translated READMEs stay on GitHub, linked from the English one. Package descriptions now start with what people search for ("MCP gateway and LLM firewall", "Secret scanner for code, git history and AI agent transcripts") and carry more search keywords.
+- Updated dependencies [[`12487ab`](https://github.com/GuardBee/guardbee-mcp/commit/12487abec2f0a8bc00b04fee1f8b62e64329c98b), [`c89dc93`](https://github.com/GuardBee/guardbee-mcp/commit/c89dc93bd04e53bc8b72806f279531676b8defcc), [`341a283`](https://github.com/GuardBee/guardbee-mcp/commit/341a2839d56a312f1cb1998a523eb7ea985345db)]:
+  - @guardbee/mcp-telemetry@0.3.0
+
 ## 0.2.0
 
 ### Minor Changes

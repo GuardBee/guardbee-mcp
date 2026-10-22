@@ -1,5 +1,46 @@
 # @guardbee/security-suite
 
+## 0.3.1
+
+### Patch Changes
+
+- [#185](https://github.com/GuardBee/guardbee-mcp/pull/185) [`12487ab`](https://github.com/GuardBee/guardbee-mcp/commit/12487abec2f0a8bc00b04fee1f8b62e64329c98b) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - `mcp-security-proxy` and `mcp-db-gateway` get an `exports` map (the package root, `./dist/*` for existing deep imports, `package.json`); db-gateway also exports `./adapters/*`, so the documented `import { createPrismaAdapter } from "@guardbee/mcp-db-gateway/adapters/prisma"` now resolves. The proxy moves to ldapts 9 (its older uuid had an advisory). The telemetry package description now says opt-in, the suite's starts with "MCP security suite", and document-scanner's homepage is its README.
+
+- [#178](https://github.com/GuardBee/guardbee-mcp/pull/178) [`c89dc93`](https://github.com/GuardBee/guardbee-mcp/commit/c89dc93bd04e53bc8b72806f279531676b8defcc) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - MCP tools are registered with `server.registerTool(name, { description, inputSchema, annotations }, handler)` instead of the deprecated `server.tool(...)` (132 registrations, no change to tool names, descriptions or parameters). `@modelcontextprotocol/sdk` is now required at `^1.30.0` instead of `^1.0.0` / `>=1.0.0`, so an install cannot resolve an old SDK the code was never tested with. `@guardbee/mcp-telemetry`'s `instrumentServer` wraps `registerTool` as well as `tool`.
+
+- [#175](https://github.com/GuardBee/guardbee-mcp/pull/175) [`341a283`](https://github.com/GuardBee/guardbee-mcp/commit/341a2839d56a312f1cb1998a523eb7ea985345db) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Smaller npm packages (55% less unpacked in total; the proxy 944 → 513 kB): source maps and compiled tests are no longer published (the sources they point at never were), and the translated READMEs stay on GitHub, linked from the English one. Package descriptions now start with what people search for ("MCP gateway and LLM firewall", "Secret scanner for code, git history and AI agent transcripts") and carry more search keywords.
+- Updated dependencies [[`ee8718b`](https://github.com/GuardBee/guardbee-mcp/commit/ee8718b0ab9a169473a365818089f84c6b1080b7), [`12487ab`](https://github.com/GuardBee/guardbee-mcp/commit/12487abec2f0a8bc00b04fee1f8b62e64329c98b), [`c89dc93`](https://github.com/GuardBee/guardbee-mcp/commit/c89dc93bd04e53bc8b72806f279531676b8defcc), [`341a283`](https://github.com/GuardBee/guardbee-mcp/commit/341a2839d56a312f1cb1998a523eb7ea985345db)]:
+  - @guardbee/mcp-toxic-flow-auditor@1.0.1
+  - @guardbee/mcp-tool-poisoning-scanner@0.3.1
+  - @guardbee/mcp-server-auditor@0.2.1
+  - @guardbee/mcp-audit-gap-auditor@0.3.1
+  - @guardbee/mcp-unbounded-consumption-auditor@0.2.1
+  - @guardbee/mcp-ai-code-scanner@0.4.1
+  - @guardbee/mcp-telemetry@0.3.0
+  - @guardbee/mcp-document-scanner@0.2.1
+  - @guardbee/mcp-a2a-auditor@0.2.1
+  - @guardbee/mcp-agent-graph-auditor@0.2.1
+  - @guardbee/mcp-compliance-checker@0.3.1
+  - @guardbee/mcp-context-oversharing-auditor@0.3.1
+  - @guardbee/mcp-dependency-auditor@0.7.1
+  - @guardbee/mcp-dns-intelligence@0.9.1
+  - @guardbee/mcp-elicitation-auditor@0.2.1
+  - @guardbee/mcp-llm-redteam@0.2.1
+  - @guardbee/mcp-config-auditor@0.6.1
+  - @guardbee/mcp-memory-poisoning-scanner@0.2.1
+  - @guardbee/mcp-model-scanner@0.2.1
+  - @guardbee/mcp-oauth-auditor@0.2.1
+  - @guardbee/mcp-owasp-scan@0.3.1
+  - @guardbee/mcp-prompt-injection-scanner@1.0.1
+  - @guardbee/mcp-prompt-leak-scanner@1.0.1
+  - @guardbee/mcp-rug-pull-detector@0.3.1
+  - @guardbee/mcp-secret-scanner@1.0.1
+  - @guardbee/mcp-slopsquat-scanner@0.2.1
+  - @guardbee/mcp-ssl-inspector@0.4.1
+  - @guardbee/mcp-threat-rules@0.4.1
+  - @guardbee/mcp-vector-store-scanner@0.2.1
+  - @guardbee/mcp-vulnerability-scanner@0.3.1
+
 ## 0.3.0
 
 ### Minor Changes

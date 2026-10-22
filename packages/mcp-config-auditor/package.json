@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-config-auditor",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "mcpName": "io.github.GuardBee/mcp-config-auditor",
   "description": "MCP config auditor for Cursor, Claude Desktop, Windsurf and VS Code: unpinned packages, secrets, auto-approve wildcards, typosquats, shadow MCP servers and agent skills",
   "type": "module",
