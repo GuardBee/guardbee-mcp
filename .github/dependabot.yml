@@ -6,6 +6,11 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # TypeScript 7 is the native (Go) compiler: it drops moduleResolution node10, which the
+      # CommonJS packages (proxy, db-gateway, telemetry) build with. A migration of its own.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
     groups:
       minor-and-patch:
         update-types: [minor, patch]

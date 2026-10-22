@@ -75,7 +75,7 @@
     "url": "https://github.com/GuardBee/guardbee-mcp.git",
     "directory": "packages/document-scanner"
   },
-  "homepage": "https://guardbee.ai/en/mcp-servers/",
+  "homepage": "https://github.com/GuardBee/guardbee-mcp/tree/main/packages/document-scanner#readme",
   "bugs": {
     "url": "https://github.com/GuardBee/guardbee-mcp/issues"
   }
