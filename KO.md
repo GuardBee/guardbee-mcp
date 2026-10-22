@@ -31,7 +31,7 @@ GuardBee의 MCP 서버 모음입니다. AI 에이전트와 애플리케이션 �
 - [`@guardbee/mcp-rug-pull-detector`](packages/rug-pull-detector/KO.md) — 다른 MCP 서버(stdio 또는 Streamable HTTP)에 연결해 tools/list 응답을 기준선으로 저장하고, 승인 후 도구 설명·스키마·주석이 몰래 바뀌는 '러그 풀'을 탐지합니다.
 - [`@guardbee/mcp-secret-scanner`](packages/secret-scanner/KO.md) — 파일, 디렉터리, git 기록, 코딩 에이전트 대화 기록에서 노출된 시크릿·API 키·자격 증명을 찾습니다(76개 규칙, 엔트로피 탐지, 베이스라인, CLI 유효성 확인).
 - [`@guardbee/mcp-security-proxy`](packages/security-proxy/KO.md) — MCP 보안 게이트웨이입니다. 여러 MCP 서버를 하나의 정책 뒤에 두고, 유해 데이터 흐름(lethal trifecta) 차단, 승인, 개인정보 마스킹, OIDC 사용자, 할당량, OpenTelemetry, 해시 체인 감사 로그를 제공합니다.
-- [`@guardbee/security-suite`](packages/security-suite/KO.md) — 주요 GuardBee 보안 도구를 하나의 패키지로 묶었습니다: 시크릿 스캐너, 의존성 감사, SSL 검사기, DNS 인텔리전스.
+- [`@guardbee/security-suite`](packages/security-suite/KO.md) — 모든 GuardBee 스캐너와 감사 도구를 한 번에 설치합니다: 선택한 그룹의 도구를 제공하는 하나의 MCP 서버와 어떤 패키지든 실행하는 CLI.
 - [`@guardbee/mcp-slopsquat-scanner`](packages/slopsquat-scanner/KO.md) — package.json, requirements.txt, pyproject.toml의 의존성을 실제 npm/PyPI 레지스트리와 대조해, 존재하지 않는 이름(LLM이 환각한 의존성으로 공격자가 먼저 등록할 수 있는 것, 즉 슬롭스쿼팅)과 아주 최근에 게시된 이름을 보고합니다.
 - [`@guardbee/mcp-ssl-inspector`](packages/ssl-inspector/KO.md) — 모든 도메인의 TLS 인증서, 암호 스위트, 프로토콜 설정을 검사합니다. 추가 핸드셰이크로 서버가 아직 허용하는 TLS 1.0/1.1, RSA 키 교환, 약한 DH와 암호를 찾습니다.
 - [`@guardbee/mcp-telemetry`](packages/telemetry/KO.md) — GuardBee MCP 서버가 공유하는, 옵트인 방식(기본값 꺼짐)의 사용 원격 측정 클라이언트입니다.

@@ -4,3 +4,4 @@ export { runProbe, runSuite, generateCanary } from "./runner.js";
 export type { ProbeResult, SuiteResult } from "./runner.js";
 export { createOpenAiTarget, createAnthropicTarget, createWebhookTarget } from "./target.js";
 export type { ProbeTarget, OpenAiTargetOptions, AnthropicTargetOptions, WebhookTargetOptions } from "./target.js";
+export { registerTools } from "./server.js";

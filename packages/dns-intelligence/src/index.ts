@@ -1,4 +1,4 @@
-export { startServer } from "./server.js";
+export { startServer, registerTools } from "./server.js";
 export {
   enumerateDomain,
   enumerateSubdomains,

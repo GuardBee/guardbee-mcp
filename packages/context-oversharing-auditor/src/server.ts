@@ -38,7 +38,13 @@ export async function startServer() {
     version: "0.1.0",
   });
   instrumentServer(server, "context-oversharing-auditor");
+  registerTools(server);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
+/** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
+export function registerTools(server: McpServer): void {
   server.tool(
     "scan_text",
     "Scan agent/MCP source for OWASP MCP10:2025 context oversharing — full conversation dumps, unscoped memory tools, shared global session stores, system-prompt leaks via tools, cross-session tool-result bleed, and unfiltered vector queries.",
@@ -102,7 +108,4 @@ export async function startServer() {
       return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }

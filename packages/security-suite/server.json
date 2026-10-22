@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.GuardBee/security-suite",
-  "description": "Bundle of secret-scanner, dependency-auditor, ssl-inspector, and dns-intelligence",
+  "description": "Every GuardBee MCP security tool in one server: OWASP MCP Top 10, secrets, supply chain, TLS/DNS",
   "repository": {
     "url": "https://github.com/GuardBee/guardbee-mcp",
     "source": "github",
@@ -15,7 +15,21 @@
       "version": "0.2.19",
       "transport": {
         "type": "stdio"
-      }
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "serve"
+        },
+        {
+          "type": "named",
+          "name": "--tools",
+          "description": "Groups or package ids, comma-separated (recommended, code, supply-chain, network, platform, all)",
+          "default": "recommended",
+          "isRequired": false,
+          "format": "string"
+        }
+      ]
     }
   ]
 }

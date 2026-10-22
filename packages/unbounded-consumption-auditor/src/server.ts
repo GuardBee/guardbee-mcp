@@ -38,7 +38,13 @@ export async function startServer() {
     version: "0.1.0",
   });
   instrumentServer(server, "unbounded-consumption-auditor");
+  registerTools(server);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
+/** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
+export function registerTools(server: McpServer): void {
   server.tool(
     "scan_text",
     "Scan LLM/agent application code for Unbounded Consumption (\"denial of wallet\") anti-patterns from OWASP LLM Top 10 2026's #6 category: LLM calls with no output token limit, hand-rolled HTTP calls to an LLM endpoint with no timeout, agent tool-calling or retry loops with no iteration cap, framework safety limits (LangChain max_iterations, openai-agents max_turns) explicitly disabled, and MCP tool handlers that make billable calls with no visible rate limiting.",
@@ -112,7 +118,4 @@ export async function startServer() {
       return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }

@@ -38,7 +38,13 @@ export async function startServer() {
     version: "0.1.0",
   });
   instrumentServer(server, "oauth-auditor");
+  registerTools(server);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
+/** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
+export function registerTools(server: McpServer): void {
   server.tool(
     "scan_text",
     "Scan an MCP server's authorization code for OAuth 2.1 anti-patterns named in the MCP spec's own Security Considerations: token passthrough (forwarding a client's token to a downstream API unchanged), missing audience validation on JWT verification, OAuth/OIDC discovery SSRF, missing PKCE, loose redirect_uri validation, and hardcoded client secrets.",
@@ -105,7 +111,4 @@ export async function startServer() {
       return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }

@@ -37,7 +37,13 @@ export async function startServer() {
     version: "0.1.0",
   });
   instrumentServer(server, "agent-graph-auditor");
+  registerTools(server);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
+/** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
+export function registerTools(server: McpServer): void {
   server.tool(
     "scan_text",
     "Scan a Python snippet defining a multi-agent orchestration (LangGraph, CrewAI, or AutoGen/ag2) for excessive agency reachable through delegation or group membership — an agent with no dangerous tool of its own that can still reach one (shell/code-exec/file-write/network/credentials) through another agent it can hand off to.",
@@ -100,7 +106,4 @@ export async function startServer() {
       return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }

@@ -7,7 +7,9 @@
 
 > Dies ist eine kurze Zusammenfassung. Die vollständige Dokumentation (Englisch) steht in [README.md](README.md).
 
-Die wichtigsten GuardBee-Sicherheitstools in einem Paket: Secret-Scanner, Dependency-Auditor, SSL-Inspector und DNS-Intelligence.
+Alle GuardBee-MCP-Sicherheitstools mit einer Installation: ein MCP-Server mit den Tools der Pakete deiner Wahl und eine CLI, die jedes Paket ausführt. 29 Pakete, 124 MCP-Tools.
+
+> Telemetrie ist standardmäßig **aus**. Mit `GUARDBEE_TELEMETRY=1` werden Server, Tool, Erfolg, Dauer und kurze Parameterwerte wie ein Dateipfad gesendet; längere Strings und Felder wie `content`, `token` oder `password` werden durch einen Platzhalter ersetzt. Siehe [`@guardbee/mcp-telemetry`](../telemetry/DE.md).
 
 ## Installation
 
@@ -17,17 +19,15 @@ npm install -g @guardbee/security-suite
 
 ## MCP-Tools
 
-`scan_directory`, `scan_file`, `audit_dependencies`, `inspect_ssl`, `check_dns`
+`guardbee serve` stellt standardmäßig die Gruppe **recommended** bereit (31 Tools): OWASP-MCP-Top-10-Scan in einem Durchlauf, Secrets, Prompt Injection, toxische Datenflüsse, MCP-Client-Konfigurationen und Dependency-CVEs. Andere wählst du mit `--tools=code,network` (Gruppen oder Paket-IDs) oder `--tools=all` (124 Tools). Toolnamen tragen das Paketpräfix: `secrets_scan_text`, `injection_scan_text`. `guardbee list` zeigt Pakete und Gruppen.
 
-Details zu jedem Tool stehen in [README.md](README.md).
+```json
+{ "mcpServers": { "guardbee": { "command": "npx", "args": ["-y", "@guardbee/security-suite", "serve", "--tools=recommended"] } } }
+```
 
 ## CLI
 
-```bash
-npx @guardbee/security-suite --help
-```
-
-> Telemetrie ist standardmäßig **aus**. Mit `GUARDBEE_TELEMETRY=1` werden Server, Tool, Erfolg, Dauer und kurze Parameterwerte wie ein Dateipfad gesendet; längere Strings und Felder wie `content`, `token` oder `password` werden durch einen Platzhalter ersetzt. Siehe [`@guardbee/mcp-telemetry`](../telemetry/DE.md).
+`guardbee <paket-id> <args>` startet die CLI dieses Pakets, z. B. `guardbee owasp-scan scan . --fail-on=high`.
 
 ## Lizenz
 

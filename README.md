@@ -6,6 +6,20 @@
 
 GuardBee's family of MCP (Model Context Protocol) servers — a single monorepo, independent npm packages.
 
+## Which package should I use?
+
+| You want to… | Install | How |
+|---|---|---|
+| Protect agents at runtime: mask personal data, block injection and toxic flows, approve risky calls, keep an audit log | [`@guardbee/mcp-security-proxy`](packages/security-proxy) | Put it in front of your MCP servers (`guardbee-proxy init` imports your client config) |
+| Check a codebase against the OWASP MCP Top 10 in one pass, in CI | [`@guardbee/mcp-owasp-scan`](packages/owasp-scan) | `npx @guardbee/mcp-owasp-scan scan . --format=sarif --fail-on=high` |
+| Give an agent many GuardBee checks from one MCP server | [`@guardbee/security-suite`](packages/security-suite) | `guardbee serve` (recommended set), `--tools=code,network` or `all` |
+| Find leaked keys in files, git history or agent transcripts | [`@guardbee/mcp-secret-scanner`](packages/secret-scanner) | `npx @guardbee/mcp-secret-scanner scan . --history` |
+| Audit the MCP servers configured on developer machines | [`@guardbee/mcp-config-auditor`](packages/mcp-config-auditor) | `npx @guardbee/mcp-config-auditor discover` |
+| Let an agent query a database without seeing raw personal data | [`@guardbee/mcp-db-gateway`](packages/db-gateway) | Point it at your database with a policy |
+| Use the detectors in your own code | [`@guardbee/guard-core`](packages/guard-core) | `import { maskPiiInText } from "@guardbee/guard-core"` |
+
+Every other package is a single check (one OWASP risk, one protocol, one file type); each is in `security-suite` too. `npx @guardbee/security-suite list` shows them with what they check.
+
 ## Packages
 
 | Package | npm | Description |
@@ -39,7 +53,7 @@ GuardBee's family of MCP (Model Context Protocol) servers — a single monorepo,
 | [`packages/unbounded-consumption-auditor`](packages/unbounded-consumption-auditor) | `@guardbee/mcp-unbounded-consumption-auditor` | Scans LLM/agent application code for Unbounded Consumption ("denial of wallet", OWASP LLM Top 10 2026 #6) — missing output token limits, missing timeouts on hand-rolled LLM HTTP calls, unbounded agent tool-calling/retry loops, explicitly disabled framework safety limits (LangChain max_iterations, openai-agents max_turns), and MCP tool handlers with no visible rate limiting |
 | [`packages/secret-scanner`](packages/secret-scanner) | `@guardbee/mcp-secret-scanner` | Scans files for leaked secrets and API keys |
 | [`packages/security-proxy`](packages/security-proxy) | `@guardbee/mcp-security-proxy` | MCP security gateway: several MCP servers behind one policy, with toxic-flow (lethal trifecta) blocking, approvals, PII masking and a hash-chained audit log |
-| [`packages/security-suite`](packages/security-suite) | `@guardbee/security-suite` | Bundle of secret-scanner + dependency-auditor + ssl-inspector + dns-intelligence |
+| [`packages/security-suite`](packages/security-suite) | `@guardbee/security-suite` | Every scanner and auditor below from one install: one MCP server with the groups you pick, and a CLI that runs any package |
 | [`packages/ssl-inspector`](packages/ssl-inspector) | `@guardbee/mcp-ssl-inspector` | TLS certificate/cipher/protocol inspection |
 | [`packages/vulnerability-scanner`](packages/vulnerability-scanner) | `@guardbee/mcp-vulnerability-scanner` | Triggers GuardBee scans, queries findings, AI-assisted remediation guidance |
 | [`packages/guard-core`](packages/guard-core) | `@guardbee/guard-core` | (internal) Shared detector library — PII/secret masking, prompt injection rules, tool classification; not an MCP server on its own |
@@ -169,6 +183,6 @@ After merging to `main`, CI automatically opens a version PR; merging that PR pu
 
 ## Structure
 
-- **pnpm workspaces** — `packages/*`, real `workspace:*` dependencies (e.g. `security-suite` depends on the other 4 packages directly from the workspace, not a registry version)
+- **pnpm workspaces** — `packages/*`, real `workspace:*` dependencies (e.g. `security-suite` depends on the other packages directly from the workspace, not a registry version)
 - **Turborepo** — `build`/`test`/`type-check` pipeline, dependency-graph-aware ordering and caching
 - **Shared config** — `tsconfig.base.json` and `vitest.shared.ts` at the root; each package layers its own settings on top

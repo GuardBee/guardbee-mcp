@@ -67,7 +67,13 @@ function formatCheckResult(result: CheckResult): string {
 export async function startServer() {
   const server = new McpServer({ name: "guardbee-rug-pull-detector", version: "0.1.0" });
   instrumentServer(server, "rug-pull-detector");
+  registerTools(server);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
+/** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
+export function registerTools(server: McpServer): void {
   server.tool(
     "baseline_server",
     "Connect to an MCP server (stdio command or Streamable HTTP URL), read its current tools/list response, and store it as the trusted baseline for future drift checks. Call this once, right after you've reviewed and approved a server's tools.",
@@ -103,7 +109,4 @@ export async function startServer() {
       return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }

@@ -464,21 +464,96 @@ importers:
 
   packages/security-suite:
     dependencies:
+      '@guardbee/mcp-a2a-auditor':
+        specifier: workspace:^
+        version: link:../a2a-auditor
+      '@guardbee/mcp-agent-graph-auditor':
+        specifier: workspace:^
+        version: link:../agent-graph-auditor
+      '@guardbee/mcp-ai-code-scanner':
+        specifier: workspace:^
+        version: link:../ai-code-scanner
+      '@guardbee/mcp-audit-gap-auditor':
+        specifier: workspace:^
+        version: link:../audit-gap-auditor
+      '@guardbee/mcp-compliance-checker':
+        specifier: workspace:^
+        version: link:../compliance-checker
+      '@guardbee/mcp-config-auditor':
+        specifier: workspace:^
+        version: link:../mcp-config-auditor
+      '@guardbee/mcp-context-oversharing-auditor':
+        specifier: workspace:^
+        version: link:../context-oversharing-auditor
       '@guardbee/mcp-dependency-auditor':
         specifier: workspace:^
         version: link:../dependency-auditor
       '@guardbee/mcp-dns-intelligence':
         specifier: workspace:^
         version: link:../dns-intelligence
+      '@guardbee/mcp-document-scanner':
+        specifier: workspace:^
+        version: link:../document-scanner
+      '@guardbee/mcp-elicitation-auditor':
+        specifier: workspace:^
+        version: link:../elicitation-auditor
+      '@guardbee/mcp-llm-redteam':
+        specifier: workspace:^
+        version: link:../llm-redteam
+      '@guardbee/mcp-memory-poisoning-scanner':
+        specifier: workspace:^
+        version: link:../memory-poisoning-scanner
+      '@guardbee/mcp-model-scanner':
+        specifier: workspace:^
+        version: link:../model-scanner
+      '@guardbee/mcp-oauth-auditor':
+        specifier: workspace:^
+        version: link:../oauth-auditor
+      '@guardbee/mcp-owasp-scan':
+        specifier: workspace:^
+        version: link:../owasp-scan
+      '@guardbee/mcp-prompt-injection-scanner':
+        specifier: workspace:^
+        version: link:../prompt-injection-scanner
+      '@guardbee/mcp-prompt-leak-scanner':
+        specifier: workspace:^
+        version: link:../prompt-leak-scanner
+      '@guardbee/mcp-rug-pull-detector':
+        specifier: workspace:^
+        version: link:../rug-pull-detector
       '@guardbee/mcp-secret-scanner':
         specifier: workspace:^
         version: link:../secret-scanner
+      '@guardbee/mcp-server-auditor':
+        specifier: workspace:^
+        version: link:../mcp-server-auditor
+      '@guardbee/mcp-slopsquat-scanner':
+        specifier: workspace:^
+        version: link:../slopsquat-scanner
       '@guardbee/mcp-ssl-inspector':
         specifier: workspace:^
         version: link:../ssl-inspector
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
+      '@guardbee/mcp-threat-rules':
+        specifier: workspace:^
+        version: link:../threat-rules
+      '@guardbee/mcp-tool-poisoning-scanner':
+        specifier: workspace:^
+        version: link:../tool-poisoning-scanner
+      '@guardbee/mcp-toxic-flow-auditor':
+        specifier: workspace:^
+        version: link:../toxic-flow-auditor
+      '@guardbee/mcp-unbounded-consumption-auditor':
+        specifier: workspace:^
+        version: link:../unbounded-consumption-auditor
+      '@guardbee/mcp-vector-store-scanner':
+        specifier: workspace:^
+        version: link:../vector-store-scanner
+      '@guardbee/mcp-vulnerability-scanner':
+        specifier: workspace:^
+        version: link:../vulnerability-scanner
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
         version: 1.30.0(zod@4.6.2)

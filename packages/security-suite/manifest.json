@@ -3,8 +3,8 @@
   "name": "@guardbee/security-suite",
   "display_name": "GuardBee Security Suite",
   "version": "0.1.2",
-  "description": "All GuardBee MCP security tools in one package \u2014 secret scanner, dependency auditor, SSL inspector, DNS intelligence",
-  "long_description": "Bundles secret scanning, dependency CVE auditing, TLS/SSL inspection, and DNS intelligence into a single combined MCP server. Run `guardbee serve` (this is what the Smithery integration does) to expose all 5 tools at once. No API key required.",
+  "description": "Every GuardBee MCP security tool in one server: pick the groups or packages you want",
+  "long_description": "One MCP server with the tools of the GuardBee packages you choose: a one-pass OWASP MCP Top 10 scan, secrets, prompt injection, toxic flows, MCP client configs, dependency CVEs by default, and code, supply-chain, network and platform groups on request (29 packages, 124 tools). Tool names carry their package's prefix (secrets_scan_text, injection_scan_text). No API key needed except for the platform group.",
   "author": {
     "name": "GuardBee",
     "email": "hello@guardbee.ai",
@@ -17,14 +17,17 @@
   "homepage": "https://guardbee.ai",
   "license": "MIT",
   "keywords": [
-    "mcp",
-    "security",
-    "secret-scanner",
     "dependency-audit",
-    "ssl",
+    "devtools",
     "dns",
     "guardbee",
-    "devtools"
+    "mcp",
+    "owasp",
+    "prompt-injection",
+    "secret-scanner",
+    "security",
+    "ssl",
+    "supply-chain"
   ],
   "compatibility": {
     "platforms": [
@@ -43,10 +46,19 @@
       "command": "node",
       "args": [
         "${__dirname}/dist/cli.js",
-        "serve"
+        "serve",
+        "--tools=${user_config.tools}"
       ]
     }
   },
-  "user_config": {},
+  "user_config": {
+    "tools": {
+      "type": "string",
+      "title": "Tools",
+      "description": "Groups or package ids, comma-separated: recommended, code, supply-chain, network, platform, all",
+      "default": "recommended",
+      "required": false
+    }
+  },
   "tools_generated": true
 }

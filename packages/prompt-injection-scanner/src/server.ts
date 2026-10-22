@@ -38,7 +38,13 @@ export async function startServer() {
     version: "0.1.0",
   });
   instrumentServer(server, "prompt-injection-scanner");
+  registerTools(server);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
+/** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
+export function registerTools(server: McpServer): void {
   server.tool(
     "scan_text",
     "Scan a text string — a RAG chunk, a scraped web page, a document, a tool result — for indirect prompt injection payloads (instruction-override phrases, spoofed chat-template roles, hidden/invisible text, content addressing 'the AI' directly, data-exfiltration attempts) before it reaches a model's context.",
@@ -112,7 +118,4 @@ export async function startServer() {
       return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }

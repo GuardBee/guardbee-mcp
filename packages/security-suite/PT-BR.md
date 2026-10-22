@@ -7,7 +7,9 @@
 
 > Este é um resumo curto. A documentação completa (em inglês) está em [README.md](README.md).
 
-As principais ferramentas de segurança da GuardBee em um só pacote: scanner de segredos, auditor de dependências, inspetor SSL e inteligência de DNS.
+Todas as ferramentas de segurança MCP da GuardBee em uma só instalação: um servidor MCP com as ferramentas dos pacotes que você escolher e uma CLI que executa qualquer pacote. 29 pacotes, 124 ferramentas MCP.
+
+> A telemetria vem **desativada** por padrão. Com `GUARDBEE_TELEMETRY=1`, são enviados o servidor, a ferramenta, o sucesso, a duração e valores curtos de parâmetros, como um caminho de arquivo; textos mais longos e campos como `content`, `token` ou `password` são substituídos por um marcador. Veja [`@guardbee/mcp-telemetry`](../telemetry/PT-BR.md).
 
 ## Instalação
 
@@ -17,17 +19,15 @@ npm install -g @guardbee/security-suite
 
 ## Ferramentas MCP
 
-`scan_directory`, `scan_file`, `audit_dependencies`, `inspect_ssl`, `check_dns`
+`guardbee serve` oferece por padrão o grupo **recommended** (31 ferramentas): varredura OWASP MCP Top 10 de uma vez, segredos, prompt injection, fluxos tóxicos, configs de clientes MCP e CVEs de dependências. Escolha outros com `--tools=code,network` (grupos ou ids de pacotes) ou `--tools=all` (124 ferramentas). Os nomes das ferramentas levam o prefixo do pacote: `secrets_scan_text`, `injection_scan_text`. `guardbee list` mostra pacotes e grupos.
 
-Os detalhes de cada ferramenta estão em [README.md](README.md).
+```json
+{ "mcpServers": { "guardbee": { "command": "npx", "args": ["-y", "@guardbee/security-suite", "serve", "--tools=recommended"] } } }
+```
 
 ## CLI
 
-```bash
-npx @guardbee/security-suite --help
-```
-
-> A telemetria vem **desativada** por padrão. Com `GUARDBEE_TELEMETRY=1`, são enviados o servidor, a ferramenta, o sucesso, a duração e valores curtos de parâmetros, como um caminho de arquivo; textos mais longos e campos como `content`, `token` ou `password` são substituídos por um marcador. Veja [`@guardbee/mcp-telemetry`](../telemetry/PT-BR.md).
+`guardbee <id-do-pacote> <args>` executa a CLI desse pacote, por exemplo `guardbee owasp-scan scan . --fail-on=high`.
 
 ## Licença
 

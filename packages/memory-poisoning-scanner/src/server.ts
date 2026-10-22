@@ -38,7 +38,13 @@ export async function startServer() {
     version: "0.1.0",
   });
   instrumentServer(server, "memory-poisoning-scanner");
+  registerTools(server);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
+/** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
+export function registerTools(server: McpServer): void {
   server.tool(
     "scan_text",
     "Scan agent code for memory-poisoning risks: untrusted input written into persistent, cross-session memory (MemGPT-style archival/core memory, or a vector store used as a long-term knowledge base) without visible sanitization, and memory retrievals fed into a system/assistant-role message or prompt template as trusted context.",
@@ -100,7 +106,4 @@ export async function startServer() {
       return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }

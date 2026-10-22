@@ -75,7 +75,13 @@ export async function startServer() {
     version: "0.1.0",
   });
   instrumentServer(server, "llm-redteam");
+  registerTools(server);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
+/** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
+export function registerTools(server: McpServer): void {
   server.tool(
     "list_probes",
     "List all red-team probes this tool can run against a target LLM/chatbot, grouped by category. Every probe is canary-based (safe) — none ask the target to produce genuinely harmful content.",
@@ -116,7 +122,4 @@ export async function startServer() {
       return { content: [{ type: "text", text: formatSuiteResult(result) }] };
     }
   );
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }

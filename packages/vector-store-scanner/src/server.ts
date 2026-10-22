@@ -37,7 +37,13 @@ export async function startServer() {
     version: "0.1.0",
   });
   instrumentServer(server, "vector-store-scanner");
+  registerTools(server);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
+/** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
+export function registerTools(server: McpServer): void {
   server.tool(
     "scan_endpoint",
     "Probe a vector-database (or vector-index-capable) endpoint for unauthenticated exposure — Weaviate, Qdrant, Chroma, Elasticsearch/OpenSearch (HTTP fingerprinting, escalating from instance info → collection/schema listing → actual stored data), Redis (RESP PING without AUTH), and Postgres/pgvector (wire-protocol SSLRequest + StartupMessage handshake, no real credentials sent). Read-only — never writes or authenticates with real credentials.",
@@ -92,7 +98,4 @@ export async function startServer() {
       return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }

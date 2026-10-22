@@ -39,7 +39,13 @@ export async function startServer() {
     version: "0.1.0",
   });
   instrumentServer(server, "model-scanner");
+  registerTools(server);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
+/** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
+export function registerTools(server: McpServer): void {
   server.tool(
     "scan_file",
     "Scan a single ML model file for supply-chain risks: dangerous Python globals reachable during pickle deserialization (os/subprocess/eval/socket/etc, including inside PyTorch's zip checkpoint container), a malformed or disguised .safetensors header, a Keras Lambda-layer RCE pattern in .h5/.keras files, or a path-traversal external_data reference in .onnx files.",
@@ -101,7 +107,4 @@ export async function startServer() {
       return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }

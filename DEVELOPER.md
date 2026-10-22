@@ -158,6 +158,6 @@ After merging to `main`, CI automatically opens a version PR; merging that PR pu
 
 ## Structure
 
-- **pnpm workspaces** — `packages/*`, real `workspace:*` dependencies (e.g. `security-suite` depends on the other 4 packages directly from the workspace, not a registry version)
+- **pnpm workspaces** — `packages/*`, real `workspace:*` dependencies (e.g. `security-suite` depends on the other packages directly from the workspace, not a registry version)
 - **Turborepo** — `build`/`test`/`type-check` pipeline, dependency-graph-aware ordering and caching
 - **Shared config** — `tsconfig.base.json` and `vitest.shared.ts` at the root; each package layers its own settings on top

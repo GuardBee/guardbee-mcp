@@ -49,7 +49,13 @@ const inventoryShape = z.object({
 export async function startServer() {
   const server = new McpServer({ name: "guardbee-mcp-config-auditor", version: "0.1.0" });
   instrumentServer(server, "mcp-config-auditor");
+  registerTools(server);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
+/** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
+export function registerTools(server: McpServer): void {
   server.tool(
     "scan_config_text",
     "Scan an MCP client config JSON string (Cursor mcp.json, Claude Desktop, Windsurf, or VS Code) for unpinned packages, secrets, wildcard auto-approve, unauthenticated remote endpoints, and typosquats.",
@@ -217,7 +223,4 @@ export async function startServer() {
       return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }

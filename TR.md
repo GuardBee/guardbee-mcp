@@ -6,6 +6,20 @@
 
 GuardBee'nin MCP (Model Context Protocol) server ailesi — tek monorepo, bağımsız npm paketleri.
 
+## Hangi paketi kullanmalıyım?
+
+| Amacınız… | Kurun | Nasıl |
+|---|---|---|
+| Ajanları çalışma anında korumak: kişisel veriyi maskelemek, injection ve zehirli akışları engellemek, riskli çağrıları onaya bağlamak, audit log tutmak | [`@guardbee/mcp-security-proxy`](packages/security-proxy) | MCP sunucularınızın önüne koyun (`guardbee-proxy init` istemci config'inizi içe aktarır) |
+| Bir kod tabanını CI'da tek geçişte OWASP MCP Top 10'a göre kontrol etmek | [`@guardbee/mcp-owasp-scan`](packages/owasp-scan) | `npx @guardbee/mcp-owasp-scan scan . --format=sarif --fail-on=high` |
+| Bir ajana birçok GuardBee kontrolünü tek MCP sunucusundan vermek | [`@guardbee/security-suite`](packages/security-suite) | `guardbee serve` (önerilen set), `--tools=code,network` ya da `all` |
+| Dosyalarda, git geçmişinde veya ajan kayıtlarında sızmış anahtarları bulmak | [`@guardbee/mcp-secret-scanner`](packages/secret-scanner) | `npx @guardbee/mcp-secret-scanner scan . --history` |
+| Geliştirici makinelerinde yapılandırılmış MCP sunucularını denetlemek | [`@guardbee/mcp-config-auditor`](packages/mcp-config-auditor) | `npx @guardbee/mcp-config-auditor discover` |
+| Bir ajanın veritabanını ham kişisel veriyi görmeden sorgulamasını sağlamak | [`@guardbee/mcp-db-gateway`](packages/db-gateway) | Bir politika ile veritabanınıza bağlayın |
+| Dedektörleri kendi kodunuzda kullanmak | [`@guardbee/guard-core`](packages/guard-core) | `import { maskPiiInText } from "@guardbee/guard-core"` |
+
+Diğer paketlerin her biri tek bir kontroldür (bir OWASP riski, bir protokol, bir dosya türü) ve hepsi `security-suite` içinde de var. `npx @guardbee/security-suite list` hepsini ne kontrol ettikleriyle listeler.
+
 ## Paketler
 
 | Paket | npm | Açıklama |
@@ -38,7 +52,7 @@ GuardBee'nin MCP (Model Context Protocol) server ailesi — tek monorepo, bağı
 | [`packages/unbounded-consumption-auditor`](packages/unbounded-consumption-auditor) | `@guardbee/mcp-unbounded-consumption-auditor` | LLM/agent uygulama kodunu Unbounded Consumption ("denial of wallet", OWASP LLM Top 10 2026 #6) için tarar — eksik output token limitleri, elle yazılmış LLM HTTP çağrılarında eksik timeout'lar, sınırsız agent tool-calling/retry döngüleri, bilinçli olarak devre dışı bırakılmış framework güvenlik limitleri (LangChain max_iterations, openai-agents max_turns), ve görünür rate limiting'i olmayan MCP tool handler'ları |
 | [`packages/secret-scanner`](packages/secret-scanner) | `@guardbee/mcp-secret-scanner` | Dosyalarda sızmış secret/API key taraması |
 | [`packages/security-proxy`](packages/security-proxy) | `@guardbee/mcp-security-proxy` | MCP güvenlik gateway'i: birden fazla MCP server'ı tek politikanın arkasına koyar; toxic-flow (lethal trifecta) engelleme, onay, PII maskeleme ve hash zincirli audit log |
-| [`packages/security-suite`](packages/security-suite) | `@guardbee/security-suite` | secret-scanner + dependency-auditor + ssl-inspector + dns-intelligence bundle'ı |
+| [`packages/security-suite`](packages/security-suite) | `@guardbee/security-suite` | Aşağıdaki tüm tarayıcı ve denetçiler tek kurulumla: seçtiğiniz grupları sunan tek MCP sunucusu ve herhangi bir paketi çalıştıran CLI |
 | [`packages/ssl-inspector`](packages/ssl-inspector) | `@guardbee/mcp-ssl-inspector` | TLS sertifika/cipher/protokol denetimi |
 | [`packages/vulnerability-scanner`](packages/vulnerability-scanner) | `@guardbee/mcp-vulnerability-scanner` | GuardBee tarama tetikleme, bulgu sorgulama, AI destekli düzeltme önerisi |
 | [`packages/guard-core`](packages/guard-core) | `@guardbee/guard-core` | (internal) Paylaşılan dedektör kütüphanesi — PII/secret maskeleme, prompt injection kuralları, tool sınıflandırma; kendi başına bir MCP server değil |
@@ -168,6 +182,6 @@ pnpm changeset
 
 ## Yapı
 
-- **pnpm workspaces** — `packages/*`, gerçek `workspace:*` bağımlılıkları (örn. `security-suite` diğer 4 paketi registry sürümü yerine doğrudan workspace'ten kullanır)
+- **pnpm workspaces** — `packages/*`, gerçek `workspace:*` bağımlılıkları (örn. `security-suite` diğer paketleri registry sürümü yerine doğrudan workspace'ten kullanır)
 - **Turborepo** — `build`/`test`/`type-check` pipeline'ı, bağımlılık grafiğine göre sıralama ve cache
 - **Ortak config** — `tsconfig.base.json` ve `vitest.shared.ts` kökte; her paket kendi özel ayarlarını üstüne ekler

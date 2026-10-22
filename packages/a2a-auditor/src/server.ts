@@ -38,7 +38,13 @@ export async function startServer() {
     version: "0.1.0",
   });
   instrumentServer(server, "a2a-auditor");
+  registerTools(server);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
+/** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
+export function registerTools(server: McpServer): void {
   server.tool(
     "scan_text",
     "Scan Agent2Agent (A2A) protocol implementation code for anti-patterns found in the reference SDKs and sample agents: an Agent Card fetching a client-supplied push-notification webhook URL with no host allowlist (SSRF), a request handler wired up with no authentication at all, and a literal credential embedded directly in Agent Card metadata (which is served publicly).",
@@ -109,7 +115,4 @@ export async function startServer() {
       return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }
