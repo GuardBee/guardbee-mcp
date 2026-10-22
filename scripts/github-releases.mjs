@@ -32,7 +32,8 @@ function notesFor(changelog, version) {
   return lines.slice(start + 1, end === -1 ? undefined : end).join("\n").trim();
 }
 
-const created = [];
+/** Package versions without a release yet. */
+const pending = [];
 for (const dir of readdirSync(packagesDir).sort()) {
   const manifestPath = join(packagesDir, dir, "package.json");
   if (!existsSync(manifestPath)) continue;
@@ -40,10 +41,28 @@ for (const dir of readdirSync(packagesDir).sort()) {
   if (isPrivate) continue;
   const tag = `${name}@${version}`;
   if (succeeds("gh", ["release", "view", tag])) continue;
-  if (!succeeds("npm", ["view", tag, "version"])) continue;
-  const changelogPath = join(packagesDir, dir, "CHANGELOG.md");
-  const notes = (existsSync(changelogPath) && notesFor(readFileSync(changelogPath, "utf8"), version)) || `Published to npm: https://www.npmjs.com/package/${name}/v/${version}`;
-  run("gh", ["release", "create", tag, "--target", target, "--title", tag, "--notes-file", "-", `--latest=${name === LATEST}`], notes);
-  created.push(tag);
+  pending.push({ dir, name, version, tag });
+}
+
+// npm's metadata lags a fresh publish by up to a minute or two: a version the run
+// just published can read as missing. Check again before skipping it.
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const created = [];
+let waiting = pending;
+for (let attempt = 0; attempt < 5 && waiting.length > 0; attempt++) {
+  if (attempt > 0) await sleep(30_000);
+  const notYet = [];
+  for (const entry of waiting) {
+    if (!succeeds("npm", ["view", entry.tag, "version"])) {
+      notYet.push(entry);
+      continue;
+    }
+    const changelogPath = join(packagesDir, entry.dir, "CHANGELOG.md");
+    const notes = (existsSync(changelogPath) && notesFor(readFileSync(changelogPath, "utf8"), entry.version)) || `Published to npm: https://www.npmjs.com/package/${entry.name}/v/${entry.version}`;
+    run("gh", ["release", "create", entry.tag, "--target", target, "--title", entry.tag, "--notes-file", "-", `--latest=${entry.name === LATEST}`], notes);
+    created.push(entry.tag);
+  }
+  waiting = notYet;
 }
 console.log(created.length ? `created releases: ${created.join(", ")}` : "no new releases");
+if (waiting.length) console.log(`not on npm yet, left for the next run: ${waiting.map((e) => e.tag).join(", ")}`);

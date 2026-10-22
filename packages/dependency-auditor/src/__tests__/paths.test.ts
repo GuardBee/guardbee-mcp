@@ -1,8 +1,7 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { mkdirSync, writeFileSync } from "fs";
-import { join, dirname } from "path";
+import { join } from "path";
 import { tmpdir } from "os";
-import { fileURLToPath } from "url";
 import { parseNpmManifest } from "../parsers/npm.js";
 import { parsePipRequirements } from "../parsers/pip.js";
 import { parsePnpmLock, toDeps } from "../parsers/npm-locks.js";
@@ -11,8 +10,8 @@ import { clearOsvCache } from "../osv.js";
 import { fixPlan, formatReport, formatPath } from "../report.js";
 import type { Dependency } from "../parsers/npm.js";
 import type { GraphNode } from "../parsers/graph.js";
+import { fixture } from "./fixtures.js";
 
-const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "lockfiles");
 
 function paths(deps: Dependency[]): Record<string, string | undefined> {
   return Object.fromEntries(deps.map((d) => [`${d.name}@${d.version}`, d.path?.join(" > ")]));
@@ -20,7 +19,7 @@ function paths(deps: Dependency[]): Record<string, string | undefined> {
 
 describe("dependency paths from real lockfiles", () => {
   it.each(["npm", "pnpm", "yarn1", "yarn4", "bun"])("%s: transitive ms comes via debug", (dir) => {
-    expect(paths(parseNpmManifest(join(FIXTURES, dir)))).toEqual({
+    expect(paths(parseNpmManifest(fixture(dir)))).toEqual({
       "debug@2.6.8": "debug@2.6.8",
       "lodash@4.17.15": "lodash@4.17.15",
       "minimist@1.2.0": "minimist@1.2.0",
@@ -29,14 +28,14 @@ describe("dependency paths from real lockfiles", () => {
   });
 
   it("uv: urllib3 comes via requests", () => {
-    const p = paths(parsePipRequirements(join(FIXTURES, "uv")));
+    const p = paths(parsePipRequirements(fixture("uv")));
     expect(p["urllib3@1.23"]).toBe("requests@2.19.0 > urllib3@1.23");
     expect(p["requests@2.19.0"]).toBe("requests@2.19.0");
     expect(p["py@1.4.34"]).toBe("py@1.4.34");
   });
 
   it.each(["poetry", "pipenv"])("%s: no graph, so no path", (dir) => {
-    expect(parsePipRequirements(join(FIXTURES, dir)).every((d) => d.path === undefined)).toBe(true);
+    expect(parsePipRequirements(fixture(dir)).every((d) => d.path === undefined)).toBe(true);
   });
 });
 

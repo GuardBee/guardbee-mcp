@@ -7,3 +7,6 @@ dist/
 *.mcpb
 *.js.map
 .env
+
+# The workspace has one lockfile (pnpm-lock.yaml); per-package npm lockfiles are stale copies
+packages/*/package-lock.json
