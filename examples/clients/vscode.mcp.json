@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "guardbee": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@guardbee/mcp-security-proxy@^1", "--config", "${workspaceFolder}/guardbee-proxy.yaml"]
+    }
+  }
+}

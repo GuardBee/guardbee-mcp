@@ -1,0 +1,29 @@
+# The proxy as an LLM API gateway: apps call it instead of OpenAI/Anthropic with a
+# gateway key; prompts are masked and checked before they leave, provider keys stay here.
+#   OPENAI_BASE_URL=http://localhost:8787/v1 OPENAI_API_KEY=$GB_KEY_APP node app.js
+version: 1
+listen: { transport: http, host: 127.0.0.1, port: 8787 }
+upstreams: {}
+
+llm:
+  path: /v1
+  providers:
+    openai:    { api: openai,    baseUrl: https://api.openai.com/v1, apiKeyEnv: OPENAI_API_KEY }
+    anthropic: { api: anthropic, baseUrl: https://api.anthropic.com, apiKeyEnv: ANTHROPIC_API_KEY }
+  routes:
+    - { model: "gpt-*",    provider: openai }
+    - { model: "claude-*", provider: anthropic }
+  keys:
+    - { keyEnv: GB_KEY_APP, user: my-app, groups: [apps] }
+  budgets:
+    - { id: per-user-daily, per: user, windowSeconds: 86400, requests: 2000 }
+  maskResponses: true    # also mask personal data the model writes back
+
+interceptors:
+  piiMasking:
+    enabled: true
+    preset: KVKK
+
+audit:
+  sink: file
+  filePath: ./guardbee-llm-audit.jsonl

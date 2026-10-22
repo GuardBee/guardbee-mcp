@@ -1,0 +1,49 @@
+# Copy to .github/workflows/guardbee.yml. Findings appear under Security → Code scanning.
+name: GuardBee
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  security-events: write   # upload SARIF
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the secret scan reads git history
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # OWASP MCP Top 10 in one pass: secrets, MCP server code, OAuth, audit gaps,
+      # context oversharing, toxic flows, tool poisoning. Fails on high or critical.
+      - name: OWASP MCP Top 10
+        run: npx -y @guardbee/mcp-owasp-scan@0 scan . --format=sarif --fail-on=high > owasp.sarif
+
+      # Keys anywhere in the history, not only in today's files. To adopt it on an
+      # existing repo, commit a baseline first (--write-baseline) and pass --baseline.
+      - name: Secrets in git history
+        if: always()
+        run: npx -y @guardbee/mcp-secret-scanner@1 scan . --history --format=sarif --fail-on=high > secrets.sarif
+
+      - name: Known CVEs in dependencies
+        if: always()
+        run: npx -y @guardbee/mcp-dependency-auditor@0 audit . --fail-on=critical
+
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: owasp.sarif
+          category: guardbee-owasp
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: secrets.sarif
+          category: guardbee-secrets

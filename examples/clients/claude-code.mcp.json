@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "guardbee": {
+      "command": "npx",
+      "args": ["-y", "@guardbee/mcp-security-proxy@^1", "--config", "./guardbee-proxy.yaml"]
+    },
+    "guardbee-scanners": {
+      "command": "npx",
+      "args": ["-y", "@guardbee/security-suite", "serve", "--tools=recommended"]
+    }
+  }
+}

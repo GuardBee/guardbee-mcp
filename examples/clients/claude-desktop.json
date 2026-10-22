@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "guardbee": {
+      "command": "npx",
+      "args": ["-y", "@guardbee/mcp-security-proxy@^1", "--config", "/Users/you/.guardbee/guardbee-proxy.yaml"]
+    }
+  }
+}

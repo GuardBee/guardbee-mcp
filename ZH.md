@@ -56,7 +56,7 @@ AI-security MCP 缺口跟进：**[`@guardbee/mcp-owasp-scan`](packages/owasp-sca
 
 ### 更早版本
 
-各版本的详细变更记录见英文 README 的 [Recent Changes](README.md#recent-changes-2026-10-06) 部分，以及各包的 `CHANGELOG.md`。
+各版本的详细变更记录见 [CHANGELOG.md](CHANGELOG.md)（英文）、各包的 `CHANGELOG.md` 以及 [GitHub Releases](https://github.com/GuardBee/guardbee-mcp/releases)。
 
 ## 遥测
 

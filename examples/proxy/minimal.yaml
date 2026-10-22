@@ -1,0 +1,21 @@
+# The smallest useful setup: two MCP servers behind one policy, with the defaults.
+# Run:   npx -y @guardbee/mcp-security-proxy@^1 --config examples/proxy/minimal.yaml
+# Check: npx -y @guardbee/mcp-security-proxy@^1 validate --config examples/proxy/minimal.yaml
+#
+# What the defaults already do: prompt-injection scan of every result, PII and secret
+# masking, tool-poisoning scan of tools/list, credential check on egress calls, and the
+# lethal-trifecta block (an egress call after untrusted + sensitive reads is refused).
+version: 1
+
+upstreams:
+  filesystem:
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "./workspace"]
+  github:
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-github"]
+    env: { GITHUB_PERSONAL_ACCESS_TOKEN: "${GITHUB_TOKEN}" }   # read from your environment
+
+audit:
+  sink: file
+  filePath: ./guardbee-audit.jsonl    # hash-chained; check with: guardbee-proxy verify-audit ./guardbee-audit.jsonl
