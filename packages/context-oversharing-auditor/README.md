@@ -1,16 +1,16 @@
 # @guardbee/mcp-context-oversharing-auditor
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/context-oversharing-auditor/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/context-oversharing-auditor/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/context-oversharing-auditor/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/context-oversharing-auditor/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/context-oversharing-auditor/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/context-oversharing-auditor/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/context-oversharing-auditor/DE.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-context-oversharing-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-context-oversharing-auditor)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-context-oversharing-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-context-oversharing-auditor)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/context-oversharing-auditor/LICENSE)
 
 An MCP server that audits agent/MCP source for **OWASP MCP10:2025 — context oversharing**.
 
-[`toxic-flow-auditor`](../toxic-flow-auditor) grades whether a *tool catalog* can chain the lethal trifecta. This package asks a different MCP10 question: does a handler return more session, memory, or system context than the current user/tenant should see?
+[`toxic-flow-auditor`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/toxic-flow-auditor) grades whether a *tool catalog* can chain the lethal trifecta. This package asks a different MCP10 question: does a handler return more session, memory, or system context than the current user/tenant should see?
 
-> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](../telemetry/README.md).
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/telemetry/README.md).
 
 ## What it flags
 

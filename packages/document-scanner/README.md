@@ -1,14 +1,14 @@
 # @guardbee/mcp-document-scanner
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/document-scanner/TR.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-document-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-document-scanner)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-document-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-document-scanner)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/document-scanner/LICENSE)
 
 An MCP server and CLI that finds **personal data and credentials inside documents** — PDFs, screenshots, scanned pages — before they are handed to an LLM. Text checks in a proxy or a DLP see a PDF attachment or an image as an opaque blob; this package reads it: the PDF text layer first, and OCR (Turkish and English) for images and for PDF pages that have no text.
 
-> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](../telemetry/README.md).
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/telemetry/README.md).
 
 ```
 document ──► type from the bytes (PDF, PNG, JPEG, GIF, WebP, BMP, TIFF, text)
@@ -65,7 +65,7 @@ Findings show only the first and last characters. `--format=sarif` gives SARIF 2
 
 ## In the security proxy
 
-[`@guardbee/mcp-security-proxy`](../security-proxy) uses this package for `interceptors.documents`: images and embedded PDFs in tool results and resource blobs are scanned before the model sees them, and a document holding personal data or a credential is withheld (`block`) or logged (`warn`).
+[`@guardbee/mcp-security-proxy`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/security-proxy) uses this package for `interceptors.documents`: images and embedded PDFs in tool results and resource blobs are scanned before the model sees them, and a document holding personal data or a credential is withheld (`block`) or logged (`warn`).
 
 ```yaml
 interceptors:

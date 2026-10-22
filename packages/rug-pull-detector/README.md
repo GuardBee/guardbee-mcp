@@ -1,16 +1,16 @@
 # @guardbee/mcp-rug-pull-detector
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/rug-pull-detector/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/rug-pull-detector/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/rug-pull-detector/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/rug-pull-detector/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/rug-pull-detector/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/rug-pull-detector/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/rug-pull-detector/DE.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-rug-pull-detector.svg)](https://www.npmjs.com/package/@guardbee/mcp-rug-pull-detector)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-rug-pull-detector.svg)](https://www.npmjs.com/package/@guardbee/mcp-rug-pull-detector)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/rug-pull-detector/LICENSE)
 
 An MCP (Model Context Protocol) server that connects **live** to another MCP server and detects an **MCP rug pull** — a server presenting one tool definition when you approve it, then silently serving a different one later.
 
 Every other scanner in this monorepo reads source code or a config file once. This one is architecturally different: it's an MCP *client*. It spawns the target server (stdio) or opens a session with it (Streamable HTTP), calls the real `tools/list` RPC, and remembers what it saw — the same trust-on-first-use model an SSH client uses for host keys. A tool's description, input/output schema, or annotations changing between two calls to the exact same server is not something any static analysis of that server's source could ever catch, because the server may not have changed its source at all — it can decide server-side, at request time, what to tell which client.
 
-> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](../telemetry/README.md).
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/telemetry/README.md).
 
 ```
 Claude ──► rug-pull-detector ──► (spawns / connects to) ──► Target MCP server
