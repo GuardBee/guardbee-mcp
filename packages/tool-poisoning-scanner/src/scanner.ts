@@ -55,16 +55,16 @@ interface ToolBlock {
 }
 
 /**
- * Finds every `.tool("name", ...)` registration (the MCP TypeScript SDK's
- * `McpServer.tool()` convenience form — the shape every GuardBee server in
- * this monorepo uses) and captures its name, description (if the very next
- * argument is a string literal), and a bounded window of following source as
+ * Finds every `.tool("name", ...)` and `.registerTool("name", { ... }, ...)`
+ * registration (the MCP TypeScript SDK's two forms) and captures its name,
+ * description (the next argument when it is a string literal, or the
+ * `description` field of registerTool's config object), and a bounded window of following source as
  * a stand-in for "the rest of this tool's definition". Each block is capped
  * at the next tool registration so a sink in tool B's handler is never
  * misattributed to tool A.
  */
 export function extractToolBlocks(text: string): ToolBlock[] {
-  const nameRe = /\.tool\(\s*["'`]([\w.-]+)["'`]\s*,\s*/g;
+  const nameRe = /\.(?:tool|registerTool)\(\s*["'`]([\w.-]+)["'`]\s*,\s*/g;
   const starts: Array<{ name: string; start: number; afterName: number }> = [];
   let m: RegExpExecArray | null;
   while ((m = nameRe.exec(text)) !== null) {
@@ -79,9 +79,14 @@ export function extractToolBlocks(text: string): ToolBlock[] {
     let description: string | null = null;
     let descriptionOffset = -1;
     const descMatch = /^(["'`])((?:\\.|(?!\1)[^\\])*)\1\s*,/.exec(rest);
+    // registerTool("name", { title?, description: "...", inputSchema, ... }, handler)
+    const configMatch = descMatch ? null : /^\{[^{}]*?\bdescription\s*:\s*(["'`])((?:\\.|(?!\1)[^\\])*)\1/.exec(rest);
     if (descMatch) {
       description = descMatch[2];
       descriptionOffset = entry.afterName + 1; // skip the opening quote
+    } else if (configMatch) {
+      description = configMatch[2];
+      descriptionOffset = entry.afterName + configMatch[0].length - configMatch[2].length - 1;
     }
 
     return { name: entry.name, description, descriptionOffset, body: rest, offset: entry.afterName };
@@ -119,6 +124,8 @@ export function scanText(text: string, filePath?: string): Finding[] {
     const surfaces: Array<{ text: string; index: number; field: string }> = [];
     if (block.description) surfaces.push({ text: block.description, index: block.descriptionOffset, field: "description" });
     for (const schema of extractSchemaStrings(block.body)) {
+      // registerTool's own `description:` field is the tool description, already added above
+      if (block.offset + schema.index === block.descriptionOffset) continue;
       surfaces.push({ text: schema.text, index: block.offset + schema.index, field: "parameter" });
     }
     for (const surface of surfaces) {

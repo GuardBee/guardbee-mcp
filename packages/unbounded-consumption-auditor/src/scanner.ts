@@ -264,11 +264,11 @@ const RATE_LIMIT_HINT = /rateLimit|RateLimit|TokenBucket|Bottleneck|@limits|limi
  */
 function checkMcpToolMissingRateLimit(text: string, filePath?: string): Finding[] {
   const findings: Finding[] = [];
-  const re = /server\.tool\s*\(|@mcp\.tool\s*\(\s*\)|@server\.tool\s*\(\s*\)/g;
+  const re = /server\.(?:tool|registerTool)\s*\(|@mcp\.tool\s*\(\s*\)|@server\.tool\s*\(\s*\)/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
     let span: string;
-    if (m[0].startsWith("server.tool")) {
+    if (m[0].startsWith("server.")) {
       const openParenIndex = m.index + m[0].length - 1;
       const callEnd = findMatchingEnd(text, openParenIndex, "(", ")");
       span = text.slice(m.index, callEnd);

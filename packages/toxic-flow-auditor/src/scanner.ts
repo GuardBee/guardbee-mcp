@@ -14,15 +14,17 @@ const SKIP_DIRS = new Set([
 const MAX_FILE_SIZE = 1 * 1024 * 1024;
 
 /**
- * Extract MCP SDK `.tool("name", "description", ...)` registrations from source.
+ * Extract MCP SDK registrations from source: `.tool("name", "description", ...)`
+ * and `.registerTool("name", { description: "...", ... }, ...)`.
  * Enough to rough-classify a server without a live tools/list.
  */
 export function extractToolsFromSource(text: string): ToolRecord[] {
   const tools: ToolRecord[] = [];
-  const re = /\.tool\s*\(\s*["'`]([^"'`]+)["'`]\s*(?:,\s*["'`]([^"'`]*)["'`])?/g;
+  // registerTool: the description is a field of the config object (not inside a nested one)
+  const re = /\.(?:tool|registerTool)\s*\(\s*["'`]([^"'`]+)["'`]\s*(?:,\s*(?:["'`]([^"'`]*)["'`]|\{[^{}]*?\bdescription\s*:\s*["'`]([^"'`]*)["'`]))?/g;
   let match: RegExpExecArray | null;
   while ((match = re.exec(text)) !== null) {
-    tools.push({ name: match[1] ?? "", description: match[2] });
+    tools.push({ name: match[1] ?? "", description: match[2] ?? match[3] });
     if (match.index === re.lastIndex) re.lastIndex++;
   }
   return tools;
