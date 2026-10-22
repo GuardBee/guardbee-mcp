@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-prompt-leak-scanner",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "mcpName": "io.github.GuardBee/prompt-leak-scanner",
   "description": "PII and secret leak scanner for LLM prompts: catches API keys, TC Kimlik No, cards and IBANs in outbound prompts before they leave your app; MCP server and reverse proxy",
   "type": "module",

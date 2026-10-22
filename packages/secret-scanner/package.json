@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-secret-scanner",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "mcpName": "io.github.GuardBee/secret-scanner",
   "description": "Secret scanner for code, git history and AI agent transcripts: 76 provider patterns, entropy checks, live key verification and SARIF, as a CLI and an MCP server",
   "type": "module",

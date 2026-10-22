@@ -7,12 +7,12 @@
     "source": "github",
     "subfolder": "packages/dns-intelligence"
   },
-  "version": "0.9.1",
+  "version": "0.9.2",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@guardbee/mcp-dns-intelligence",
-      "version": "0.9.1",
+      "version": "0.9.2",
       "transport": {
         "type": "stdio"
       }
