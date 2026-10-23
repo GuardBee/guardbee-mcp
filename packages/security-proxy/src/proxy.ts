@@ -8,13 +8,14 @@ import {
   GetPromptRequestSchema,
   ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import type { ProxyConfig } from "./types.js";
+import { isHttpUpstream, type McpServerConfig, type ProxyConfig } from "./types.js";
 import { AuditLogger } from "./audit/logger.js";
 import { chainApprovers, dashboardApprover, elicitationApprover, type Approver } from "./gateway/approval.js";
 import { fromLegacyConfig, type GatewayConfig } from "./gateway/config.js";
 import { Gateway, type CallerIdentity, type Sampler } from "./gateway/gateway.js";
 import { connectUpstream, type Upstream } from "./gateway/upstream.js";
 import { PinStore, defaultPinFile } from "./gateway/pin-store.js";
+import { ProvenanceCache, checkUpstreamProvenance, defaultProvenanceCache, sigstoreVerifier, type CheckOptions } from "./gateway/provenance.js";
 import { PolicySync } from "./gateway/policy-sync.js";
 import type { QuotaStore } from "./gateway/quota.js";
 import { readFileSync } from "fs";
@@ -95,6 +96,38 @@ function persistentPins(config: GatewayConfig): PinStore | undefined {
   return new PinStore(config.pins?.file ?? defaultPinFile());
 }
 
+export function provenanceChecker(config: GatewayConfig): CheckOptions {
+  const { offline, cacheFile, registry } = config.provenance;
+  return { verifyBundle: sigstoreVerifier({ offline }), cache: new ProvenanceCache(cacheFile ?? defaultProvenanceCache()), offline, ...(registry ? { registry } : {}) };
+}
+
+/**
+ * The stdio upstream as it may start: checked for build provenance and pinned
+ * to the checked version. Refused (require) or doubtful (warn) packages are
+ * audit events with ruleId provenance:<status>.
+ */
+async function checkedServer(name: string, server: McpServerConfig, config: GatewayConfig, audit: AuditLogger, options: CheckOptions): Promise<McpServerConfig> {
+  const mode = server.provenance ?? config.provenance.mode;
+  const checked = await checkUpstreamProvenance(server, mode, options);
+  const result = checked.result;
+  if (!result) return checked.server;
+  const where = `[guardbee-proxy] provenance ${name}: ${result.artifact}`;
+  if (checked.action === "allow") {
+    process.stderr.write(`${where} ${result.reason}\n`);
+    return checked.server;
+  }
+  audit.log({
+    ts: new Date().toISOString(),
+    type: checked.action === "block" ? "blocked" : "warn",
+    upstream: name,
+    ruleId: `provenance:${result.status}`,
+    reason: `${result.artifact}: ${result.reason}`,
+  });
+  if (checked.action === "block") throw new Error(`${where} refused (provenance: require): ${result.reason}`);
+  process.stderr.write(`${where} not verified: ${result.reason}\n`);
+  return checked.server;
+}
+
 export async function startGateway(config: GatewayConfig): Promise<void> {
   const { version } = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf8")) as { version: string };
   // OTLP export when OTEL_EXPORTER_OTLP_ENDPOINT is set and the SDK is installed
@@ -106,7 +139,9 @@ export async function startGateway(config: GatewayConfig): Promise<void> {
   }
   const pinStore = persistentPins(config);
   const upstreams: Upstream[] = [];
-  for (const [name, server] of Object.entries(config.upstreams)) {
+  const provenance = provenanceChecker(config);
+  for (const [name, original] of Object.entries(config.upstreams)) {
+    const server = isHttpUpstream(original) ? original : await checkedServer(name, original, config, audit, provenance);
     upstreams.push(
       await connectUpstream(name, server, {
         sampling: config.interceptors.sampling?.enabled === true,
