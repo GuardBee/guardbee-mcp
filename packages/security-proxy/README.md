@@ -238,6 +238,7 @@ upstreams:
   linear:
     url: https://mcp.linear.app/mcp     # a Streamable HTTP upstream
     headers: { Authorization: "Bearer ${LINEAR_TOKEN}" }
+    network: { mode: allowlist, allowHosts: ["mcp.linear.app"] }   # only these hosts, even through a redirect
 audit:
   sink: file
   filePath: /var/log/guardbee/audit.jsonl
@@ -248,6 +249,7 @@ audit:
 
 - **Sessions are isolated.** Each MCP session gets its own taint state, PII tokens and tool pins, so one agent's toxic flow never blocks another. All sessions share the upstream connections. Audit events carry the `sessionId`.
 - **No key, no network.** Listening on anything other than loopback without `listen.apiKeys` or `listen.oidc` is a config error. Keys are compared in constant time, and a wrong or missing key gets `401`.
+- **Network egress (`upstreams.<name>.network`):** every connection the proxy makes to an HTTP upstream, including each redirect hop, is checked at connect time: the name is resolved, every address is checked, and the socket connects to the checked address, so a DNS answer that changes between check and connect (rebinding) cannot reach an internal host. Link-local addresses (cloud metadata such as `169.254.169.254`), `0.0.0.0` and reserved ranges are always refused, in any encoding (octal/hex IPv4, IPv4-mapped or NAT64 IPv6). `blockPrivate` refuses loopback and private addresses (RFC 1918, CGNAT, `fc00::/7`); unset, it follows the configured URL: a server on `localhost` or a private address may stay there, a public one may not reach your network. `mode: allowlist` with `allowHosts` (`*.example.com` globs) limits the hosts. Refused connections are audit events `type: blocked`, `ruleId: network:private | network:metadata | network:reserved | network:host`, with `destination` (host and address, never the request), so they reach the SIEM exporters and the dashboard. Stdio servers open their own sockets; limiting those needs an OS sandbox and is not covered here.
 - **Directory groups (`listen.ldap`):** LDAP / Active Directory groups are added to the groups a caller already has — an OIDC user, or an LLM gateway key's user — so `group` matches in rules, quotas, `llm.access` and budgets can use the groups your organisation already maintains. The directory never makes a caller known: authentication stays with API keys, OIDC or gateway keys.
 
   ```yaml

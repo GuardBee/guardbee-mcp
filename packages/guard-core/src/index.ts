@@ -39,3 +39,5 @@ export { OWASP_LLM, MITRE_ATLAS, THREAT_CATEGORIES, classifyEvent } from "./fram
 export type { FrameworkRef, ThreatCategory, ThreatCategoryKey, ClassifiableEvent } from "./frameworks.js";
 export { hashToolDefinition, canonicalJson, toolSnapshot } from "./tool-hash.js";
 export type { ToolDefinition } from "./tool-hash.js";
+export { EgressBlockedError, checkAddress, checkHost, classifyAddress, guardedFetch, guardedLookup, hostAllowed, normalizeHost } from "./network.js";
+export type { AddressClass, EgressPolicy, EgressRule, GuardOptions, Resolver } from "./network.js";

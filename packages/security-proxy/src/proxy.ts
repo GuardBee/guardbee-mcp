@@ -107,7 +107,20 @@ export async function startGateway(config: GatewayConfig): Promise<void> {
   const pinStore = persistentPins(config);
   const upstreams: Upstream[] = [];
   for (const [name, server] of Object.entries(config.upstreams)) {
-    upstreams.push(await connectUpstream(name, server, { sampling: config.interceptors.sampling?.enabled === true }));
+    upstreams.push(
+      await connectUpstream(name, server, {
+        sampling: config.interceptors.sampling?.enabled === true,
+        onEgressBlocked: (error) =>
+          audit.log({
+            ts: new Date().toISOString(),
+            type: "blocked",
+            upstream: name,
+            ruleId: error.rule,
+            reason: error.message,
+            destination: { host: error.host, ...(error.address ? { address: error.address } : {}) },
+          }),
+      }),
+    );
   }
 
   if (config.listen.transport === "http") {
