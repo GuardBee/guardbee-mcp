@@ -5,7 +5,7 @@ import { z } from "zod";
 import { checkTopicReferences, policyShape, type TopicDefinition } from "@guardbee/guard-core";
 import { loadProxyConfig } from "../config.js";
 import os from "os";
-import type { AuditConfig, McpServerConfig, ProxyConfig, UpstreamConfig } from "../types.js";
+import type { AuditConfig, McpServerConfig, ProxyConfig, UpstreamConfig, UpstreamNetworkConfig } from "../types.js";
 import type { ExporterConfig } from "../audit/exporters.js";
 import type { Label } from "./labels.js";
 import type { PolicyAction, PolicyRule } from "./policy.js";
@@ -85,11 +85,25 @@ const upstreamSchema = z
     env: z.record(z.string(), z.string()).optional(),
     url: z.string().optional(),
     headers: z.record(z.string(), z.string()).optional(),
+    network: z
+      .object({
+        mode: z.enum(["open", "allowlist"]).optional(),
+        allowHosts: z.array(z.string().regex(/^[A-Za-z0-9*.:[\]-]+$/, "a host name, IP address or glob such as *.example.com")).optional(),
+        blockPrivate: z.boolean().optional(),
+      })
+      .strict()
+      .superRefine((network, ctx) => {
+        if (network.mode === "allowlist" && !network.allowHosts?.length) ctx.addIssue({ code: "custom", path: ["allowHosts"], message: "mode allowlist needs at least one host" });
+      })
+      .optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
     const stdio = value.command !== undefined || value.args !== undefined || value.env !== undefined;
     const http = value.url !== undefined || value.headers !== undefined;
+    if (stdio && value.network !== undefined) {
+      ctx.addIssue({ code: "custom", path: ["network"], message: "network rules apply to HTTP upstreams (url); a stdio server opens its own connections, which the proxy cannot see without a sandbox" });
+    }
     if (stdio && http) ctx.addIssue({ code: "custom", message: "an upstream is either command/args/env (stdio) or url/headers (HTTP), not both" });
     else if (http && value.url === undefined) ctx.addIssue({ code: "custom", message: "an HTTP upstream needs a url" });
     else if (!http && value.command === undefined) ctx.addIssue({ code: "custom", message: "an upstream needs a command or a url" });
@@ -339,11 +353,14 @@ function interpolateRecord(record: Record<string, string> | undefined, where: st
   return record ? Object.fromEntries(Object.entries(record).map(([k, v]) => [k, interpolate(v, where)])) : undefined;
 }
 
-function interpolateUpstream(name: string, upstream: { command?: string; args?: string[]; env?: Record<string, string>; url?: string; headers?: Record<string, string> }): UpstreamConfig {
+function interpolateUpstream(
+  name: string,
+  upstream: { command?: string; args?: string[]; env?: Record<string, string>; url?: string; headers?: Record<string, string>; network?: UpstreamNetworkConfig },
+): UpstreamConfig {
   const where = `upstreams.${name}`;
   if (upstream.url !== undefined) {
     const headers = interpolateRecord(upstream.headers, where);
-    return { url: interpolate(upstream.url, where), ...(headers ? { headers } : {}) };
+    return { url: interpolate(upstream.url, where), ...(headers ? { headers } : {}), ...(upstream.network ? { network: upstream.network } : {}) };
   }
   return {
     command: interpolate(upstream.command!, where),

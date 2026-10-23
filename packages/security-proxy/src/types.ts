@@ -12,6 +12,21 @@ export type McpServerConfig = {
 export type HttpUpstreamConfig = {
   url: string;
   headers?: Record<string, string>;
+  /** Which addresses the proxy's connections to this server may reach (SSRF guard). */
+  network?: UpstreamNetworkConfig;
+};
+
+/**
+ * `open` (default): any host; `allowlist`: only `allowHosts`. Link-local
+ * (cloud metadata), unspecified and reserved addresses are always refused.
+ * `blockPrivate` refuses loopback and private addresses; when unset it follows
+ * the configured URL: a server configured on a private address may stay there,
+ * one configured on a public address may not reach private ones.
+ */
+export type UpstreamNetworkConfig = {
+  mode?: "open" | "allowlist";
+  allowHosts?: string[];
+  blockPrivate?: boolean;
 };
 
 export type UpstreamConfig = McpServerConfig | HttpUpstreamConfig;
@@ -171,6 +186,8 @@ export type AuditEvent = {
   inputHash?: string;
   output?: unknown;
   reason?: string;
+  /** Where a refused network connection was going (ruleId network:*); never the request itself. */
+  destination?: { host: string; address?: string };
   /**
    * Personal data the proxy found in a tool response or resource, counted by
    * category (tc_kimlik, email, iban, …; credentials as "secret"). Counts
