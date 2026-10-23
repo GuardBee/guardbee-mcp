@@ -10,6 +10,7 @@ import type { ExporterConfig } from "../audit/exporters.js";
 import type { Label } from "./labels.js";
 import type { PolicyAction, PolicyRule } from "./policy.js";
 import type { OidcConfig } from "../auth.js";
+import type { ProvenanceConfig } from "./provenance.js";
 import type { DirectoryConfig } from "../directory.js";
 import type { QuotaRule } from "./quota.js";
 import type { TaintBasis, TaintMode } from "./taint.js";
@@ -75,6 +76,8 @@ export interface GatewayConfig {
   ner?: NerConfig;
   /** Where persistent tool pins live (interceptors.definitionDrift.persist); default ~/.guardbee/pins.json. */
   pins?: { file?: string };
+  /** Build provenance of the packages stdio upstreams run (npx); `warn` by default. */
+  provenance: ProvenanceConfig;
 }
 
 
@@ -83,6 +86,7 @@ const upstreamSchema = z
     command: z.string().min(1).optional(),
     args: z.array(z.string()).optional(),
     env: z.record(z.string(), z.string()).optional(),
+    provenance: z.enum(["off", "warn", "require"]).optional(),
     url: z.string().optional(),
     headers: z.record(z.string(), z.string()).optional(),
     network: z
@@ -101,6 +105,9 @@ const upstreamSchema = z
   .superRefine((value, ctx) => {
     const stdio = value.command !== undefined || value.args !== undefined || value.env !== undefined;
     const http = value.url !== undefined || value.headers !== undefined;
+    if (value.url !== undefined && value.provenance !== undefined) {
+      ctx.addIssue({ code: "custom", path: ["provenance"], message: "provenance applies to stdio upstreams (command): an HTTP server runs elsewhere, there is no package to check" });
+    }
     if (stdio && value.network !== undefined) {
       ctx.addIssue({ code: "custom", path: ["network"], message: "network rules apply to HTTP upstreams (url); a stdio server opens its own connections, which the proxy cannot see without a sandbox" });
     }
@@ -300,6 +307,15 @@ const yamlSchema = z
     llm: llmSchema.optional(),
     ner: nerSchema.optional(),
     pins: z.object({ file: z.string().min(1).optional() }).strict().optional(),
+    provenance: z
+      .object({
+        mode: z.enum(["off", "warn", "require"]).default("warn"),
+        offline: z.boolean().default(false),
+        cacheFile: z.string().min(1).optional(),
+        registry: httpUrl.optional(),
+      })
+      .strict()
+      .optional(),
     /** This file also (or only) serves guardbee-hook, the policy for coding agents' own tools. */
     hooks: z.object({}).strict().optional(),
   })
@@ -355,7 +371,7 @@ function interpolateRecord(record: Record<string, string> | undefined, where: st
 
 function interpolateUpstream(
   name: string,
-  upstream: { command?: string; args?: string[]; env?: Record<string, string>; url?: string; headers?: Record<string, string>; network?: UpstreamNetworkConfig },
+  upstream: { command?: string; args?: string[]; env?: Record<string, string>; provenance?: McpServerConfig["provenance"]; url?: string; headers?: Record<string, string>; network?: UpstreamNetworkConfig },
 ): UpstreamConfig {
   const where = `upstreams.${name}`;
   if (upstream.url !== undefined) {
@@ -364,6 +380,7 @@ function interpolateUpstream(
   }
   return {
     command: interpolate(upstream.command!, where),
+    ...(upstream.provenance ? { provenance: upstream.provenance } : {}),
     args: upstream.args?.map((arg) => interpolate(arg, where)),
     env: interpolateRecord(upstream.env, where),
   };
@@ -434,16 +451,18 @@ export function parseGatewayYaml(source: string, fileLabel = "guardbee-proxy.yam
     ...(cfg.llm ? { llm: resolveLlmConfig(cfg.llm) } : {}),
     ...(cfg.ner ? { ner: resolveNer(cfg.ner) } : {}),
     ...(cfg.pins ? { pins: cfg.pins } : {}),
+    provenance: cfg.provenance ?? { mode: "warn", offline: false },
   };
 }
 
 /**
  * The 0.x single-server config keeps its behavior: tool names are not prefixed,
- * payloads are logged, and a toxic flow only warns.
+ * payloads are logged, a toxic flow only warns, and no provenance check runs.
  */
 export function fromLegacyConfig(config: ProxyConfig): GatewayConfig {
   return {
     upstreams: { default: config.server },
+    provenance: { mode: "off", offline: false },
     policy: { source: "local" },
     listen: { transport: "stdio" },
     namespaced: false,

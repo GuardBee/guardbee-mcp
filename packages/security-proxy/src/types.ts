@@ -6,6 +6,8 @@ export type McpServerConfig = {
   command: string;
   args?: string[];
   env?: Record<string, string>;
+  /** Provenance check before start; overrides the top-level `provenance.mode`. */
+  provenance?: "off" | "warn" | "require";
 };
 
 /** A Streamable HTTP MCP server the proxy connects to as a client. */
