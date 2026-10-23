@@ -1,5 +1,11 @@
 # @guardbee/guard-core
 
+## 1.2.0
+
+### Minor Changes
+
+- [#211](https://github.com/GuardBee/guardbee-mcp/pull/211) [`ca38e72`](https://github.com/GuardBee/guardbee-mcp/commit/ca38e720987c386bb3088bb194b83ea23474ef0d) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Network egress control for HTTP upstreams (SSRF guard). Every connection the proxy makes to a Streamable HTTP upstream, including each redirect hop, is checked at connect time with the address pinned (no DNS rebinding window). Link-local (cloud metadata), unspecified and reserved addresses are always refused, in any encoding; `upstreams.<name>.network` adds `blockPrivate` (by default: a server configured on a public address may not reach private ones) and `mode: allowlist` with `allowHosts`. Refused connections are audit events (`ruleId: network:*`) with the destination. guard-core exports the shared guard: `classifyAddress`, `checkHost`, `checkAddress`, `guardedLookup`, `guardedFetch`.
+
 ## 1.1.0
 
 ### Minor Changes
