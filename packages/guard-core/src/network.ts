@@ -37,10 +37,11 @@ function ipv4Class(ip: string): AddressClass {
 /** The eight 16-bit groups of an IPv6 address (with an embedded dotted IPv4 tail, if any). */
 function ipv6Groups(ip: string): number[] {
   let text = ip.toLowerCase().split("%")[0]!;
-  const dotted = /(\d+\.\d+\.\d+\.\d+)$/.exec(text);
-  if (dotted) {
-    const [a, b, c, d] = dotted[1]!.split(".").map(Number) as [number, number, number, number];
-    text = `${text.slice(0, dotted.index)}${((a << 8) | b).toString(16)}:${((c << 8) | d).toString(16)}`;
+  // A dotted IPv4 tail is the part after the last colon (split, not a regex: no backtracking on long input)
+  const tailStart = text.lastIndexOf(":") + 1;
+  if (text.includes(".", tailStart)) {
+    const [a, b, c, d] = text.slice(tailStart).split(".").map(Number) as [number, number, number, number];
+    text = `${text.slice(0, tailStart)}${((a << 8) | b).toString(16)}:${((c << 8) | d).toString(16)}`;
   }
   const [head, tail] = text.split("::") as [string, string | undefined];
   const parse = (part: string) => (part ? part.split(":").map((g) => parseInt(g, 16)) : []);
