@@ -77,6 +77,8 @@ const TEXT = {
   },
 } as const;
 
+/** Text inside a Markdown table cell or list item: backslashes and pipes escaped. */
+const mdCell = (s: string) => s.replace(/\\/g, "\\\\").replace(/\|/g, "\\|");
 const refs = (list: { id: string; name: string }[]) => list.map((r) => `${r.id} ${r.name}`).join("; ");
 
 export function renderMarkdown(signed: SignedReport, lang: Lang = "en"): string {
@@ -107,7 +109,7 @@ export function renderMarkdown(signed: SignedReport, lang: Lang = "en"): string 
     lines.push("");
     for (const c of r.categories) {
       if (c.examples.length === 0) continue;
-      lines.push(`**${c.title}** — ${t.examples}:`, ...c.examples.map((e) => `- ${e.replace(/\|/g, "\\|")}`), "");
+      lines.push(`**${c.title}** — ${t.examples}:`, ...c.examples.map((e) => `- ${mdCell(e)}`), "");
     }
   }
   if (r.compliance) {
@@ -115,7 +117,7 @@ export function renderMarkdown(signed: SignedReport, lang: Lang = "en"): string 
     lines.push(`## ${t.compliance}: ${c.framework.name}`, "", `${c.framework.edition} · ${t.mapping} ${c.framework.mappingVersion}`, "", `| ${t.control} | ${t.evidence} | ${t.events} | ${t.blocked} |`, "|---|---|---|---|");
     for (const control of c.controls) {
       const evidence = [...control.capabilities, ...control.categories].join("; ") || t.noEvidence;
-      lines.push(`| **${control.id}** ${control.name} (${control.citation}) | ${evidence.replace(/\|/g, "\\|")} | ${control.findings} | ${control.blocked} |`);
+      lines.push(`| **${control.id}** ${control.name} (${control.citation}) | ${mdCell(evidence)} | ${control.findings} | ${control.blocked} |`);
     }
     lines.push("", `_${c.disclaimer}_`, "");
   }
