@@ -43,3 +43,5 @@ export { EgressBlockedError, checkAddress, checkHost, classifyAddress, guardedFe
 export type { AddressClass, EgressPolicy, EgressRule, GuardOptions, Resolver } from "./network.js";
 export { checkNpmProvenance, normalizeRepositoryUrl, parseLaunch, resolveNpmVersion, splitNpmSpec } from "./provenance.js";
 export type { BundleSigner, BundleVerifier, LaunchTarget, NpmProvenanceOptions, ProvenanceResult, ProvenanceStatus } from "./provenance.js";
+export { CAPABILITY_TITLES, COMPLIANCE_FRAMEWORKS, COMPLIANCE_FRAMEWORK_IDS, COMPLIANCE_MAPPING_VERSION } from "./compliance.js";
+export type { ComplianceCapability, ComplianceControl, ComplianceFramework, ComplianceFrameworkId } from "./compliance.js";

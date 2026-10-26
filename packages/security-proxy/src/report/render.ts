@@ -33,6 +33,11 @@ const TEXT = {
     signature: "Ed25519 signature",
     unsigned: "not signed",
     verify: "Check with: guardbee-proxy verify-report <this file> [--pubkey <key.pem>]",
+    compliance: "Compliance mapping",
+    control: "Requirement",
+    evidence: "Evidence in this period",
+    noEvidence: "none in this period",
+    mapping: "Mapping",
   },
   tr: {
     title: "GuardBee güvenlik raporu",
@@ -64,6 +69,11 @@ const TEXT = {
     signature: "Ed25519 imzası",
     unsigned: "imzasız",
     verify: "Doğrulama: guardbee-proxy verify-report <bu dosya> [--pubkey <anahtar.pem>]",
+    compliance: "Uyumluluk eşlemesi",
+    control: "Gereksinim",
+    evidence: "Bu dönemdeki kanıt",
+    noEvidence: "bu dönemde yok",
+    mapping: "Eşleme",
   },
 } as const;
 
@@ -99,6 +109,15 @@ export function renderMarkdown(signed: SignedReport, lang: Lang = "en"): string 
       if (c.examples.length === 0) continue;
       lines.push(`**${c.title}** — ${t.examples}:`, ...c.examples.map((e) => `- ${e.replace(/\|/g, "\\|")}`), "");
     }
+  }
+  if (r.compliance) {
+    const c = r.compliance;
+    lines.push(`## ${t.compliance}: ${c.framework.name}`, "", `${c.framework.edition} · ${t.mapping} ${c.framework.mappingVersion}`, "", `| ${t.control} | ${t.evidence} | ${t.events} | ${t.blocked} |`, "|---|---|---|---|");
+    for (const control of c.controls) {
+      const evidence = [...control.capabilities, ...control.categories].join("; ") || t.noEvidence;
+      lines.push(`| **${control.id}** ${control.name} (${control.citation}) | ${evidence.replace(/\|/g, "\\|")} | ${control.findings} | ${control.blocked} |`);
+    }
+    lines.push("", `_${c.disclaimer}_`, "");
   }
   if (Object.keys(r.personalData).length > 0) {
     lines.push(`## ${t.pii}`, "", ...Object.entries(r.personalData).map(([k, v]) => `- \`${k}\`: ${v}`), "");
@@ -155,6 +174,7 @@ ${esc(t.source)}: <code>${esc(r.source.file)}</code> · ${esc(t.chain)}: <span c
 <div class="stats">${stat(t.events, r.totals.events)}${stat(t.toolCalls, r.totals.toolCalls)}${stat(t.blocked, r.totals.blocked)}${stat(t.warnings, r.totals.warnings)}${stat(t.toxicFlows, r.totals.toxicFlows)}${stat(t.approvals, r.totals.approvals)}${stat(t.sessions, r.totals.sessions)}${stat(t.users, r.totals.users)}</div>
 <h2>${esc(t.findings)}</h2>
 ${r.categories.length ? `<table><thead><tr><th>${esc(t.category)}</th><th>${esc(t.owasp)}</th><th>${esc(t.atlas)}</th><th class="n">${esc(t.events)}</th><th class="n">${esc(t.blocked)}</th></tr></thead><tbody>${rows}</tbody></table>` : `<p>${esc(t.none)}</p>`}
+${r.compliance ? complianceHtml(r.compliance, t) : ""}
 ${Object.keys(r.personalData).length ? `<h2>${esc(t.pii)}</h2>${list(Object.entries(r.personalData))}` : ""}
 ${r.topRules.length ? `<h2>${esc(t.rules)}</h2>${list(r.topRules.map((x) => [x.ruleId, x.count]))}` : ""}
 ${r.topTools.length ? `<h2>${esc(t.tools)}</h2>${list(r.topTools.map((x) => [x.tool, x.blocked]))}` : ""}
@@ -164,6 +184,19 @@ ${r.topTools.length ? `<h2>${esc(t.tools)}</h2>${list(r.topTools.map((x) => [x.t
 <script type="application/json" id="guardbee-report">${JSON.stringify(signed).replace(/</g, "\\u003c")}</script>
 </body></html>
 `;
+}
+
+function complianceHtml(c: NonNullable<SecurityReport["compliance"]>, t: (typeof TEXT)[Lang]): string {
+  const rows = c.controls
+    .map((control) => {
+      const evidence = [...control.capabilities, ...control.categories];
+      return `<tr><td><code>${esc(control.id)}</code> ${esc(control.name)}<ul><li>${esc(control.citation)}</li></ul></td><td>${evidence.length ? evidence.map(esc).join("<br>") : `<span class="meta">${esc(t.noEvidence)}</span>`}</td><td class="n">${control.findings}</td><td class="n">${control.blocked}</td></tr>`;
+    })
+    .join("");
+  return `<h2>${esc(t.compliance)}: ${esc(c.framework.name)}</h2>
+<p class="meta">${esc(c.framework.edition)} · ${esc(t.mapping)} ${esc(c.framework.mappingVersion)}</p>
+<table><thead><tr><th>${esc(t.control)}</th><th>${esc(t.evidence)}</th><th class="n">${esc(t.events)}</th><th class="n">${esc(t.blocked)}</th></tr></thead><tbody>${rows}</tbody></table>
+<p class="meta"><em>${esc(c.disclaimer)}</em></p>`;
 }
 
 /** The signed report inside a .json, .md or .html file. */

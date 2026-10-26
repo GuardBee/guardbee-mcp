@@ -1,5 +1,15 @@
 import { createHash, createPrivateKey, createPublicKey, sign, verify } from "crypto";
-import { THREAT_CATEGORIES, classifyEvent, type FrameworkRef, type ThreatCategoryKey } from "@guardbee/guard-core";
+import {
+  CAPABILITY_TITLES,
+  COMPLIANCE_FRAMEWORKS,
+  COMPLIANCE_MAPPING_VERSION,
+  THREAT_CATEGORIES,
+  classifyEvent,
+  type ComplianceCapability,
+  type ComplianceFrameworkId,
+  type FrameworkRef,
+  type ThreatCategoryKey,
+} from "@guardbee/guard-core";
 import { verifyAuditChain } from "../audit/logger.js";
 import { stable } from "../interceptors/definition-drift.js";
 import type { AuditEvent } from "../types.js";
@@ -33,6 +43,62 @@ export interface SecurityReport {
   personalData: Record<string, number>;
   topRules: { ruleId: string; count: number }[];
   topTools: { tool: string; blocked: number }[];
+  /** With `--framework`: the period's findings and the gateway's controls as evidence for that framework's requirements. */
+  compliance?: ComplianceSection;
+}
+
+export interface ComplianceSection {
+  framework: { id: ComplianceFrameworkId; name: string; edition: string; mappingVersion: string };
+  /** Every control the mapping covers, with what this period shows for it. */
+  controls: {
+    id: string;
+    name: string;
+    citation: string;
+    /** Findings in threat categories mapped to this control. */
+    findings: number;
+    blocked: number;
+    categories: string[];
+    /** Gateway capabilities seen at work in this period that support the control. */
+    capabilities: string[];
+  }[];
+  disclaimer: string;
+}
+
+/** Which gateway capabilities the period's events show at work. */
+function capabilitiesSeen(events: AuditEvent[], chainOk: boolean): Set<ComplianceCapability> {
+  const seen = new Set<ComplianceCapability>();
+  if (chainOk && events.length > 0) seen.add("auditLog");
+  for (const event of events) {
+    const rule = event.ruleId ?? "";
+    if (event.type === "approval") seen.add("humanApproval");
+    if (event.user || /^quota:|^llm:access/.test(rule)) seen.add("accessControl");
+    if (/^(?:pin:|provenance:|poisoning:|sandbox:)/.test(rule) || /rug pull|definition (?:changed|drift)/i.test(event.reason ?? "")) seen.add("supplyChain");
+    if (event.piiHits && Object.keys(event.piiHits).length > 0) seen.add("dataMasking");
+    if (classifyEvent(event)) seen.add("monitoring");
+  }
+  return seen;
+}
+
+function complianceSection(
+  id: ComplianceFrameworkId,
+  byCategory: Map<ThreatCategoryKey, { events: number; blocked: number }>,
+  capabilities: Set<ComplianceCapability>,
+): ComplianceSection {
+  const framework = COMPLIANCE_FRAMEWORKS[id];
+  return {
+    framework: { id, name: framework.name, edition: framework.edition, mappingVersion: COMPLIANCE_MAPPING_VERSION },
+    controls: Object.values(framework.controls).map((control) => {
+      const categories = (Object.keys(framework.findings) as ThreatCategoryKey[]).filter((key) => framework.findings[key].includes(control.id) && byCategory.has(key));
+      return {
+        ...control,
+        findings: categories.reduce((n, key) => n + byCategory.get(key)!.events, 0),
+        blocked: categories.reduce((n, key) => n + byCategory.get(key)!.blocked, 0),
+        categories: categories.map((key) => THREAT_CATEGORIES[key].title),
+        capabilities: (Object.keys(framework.capabilities) as ComplianceCapability[]).filter((c) => capabilities.has(c) && framework.capabilities[c].includes(control.id)).map((c) => CAPABILITY_TITLES[c]),
+      };
+    }),
+    disclaimer: `GuardBee's mapping (${COMPLIANCE_MAPPING_VERSION}) of its controls and findings to ${framework.name}: evidence for an assessment, not a certification of compliance.`,
+  };
 }
 
 export interface Signature {
@@ -50,7 +116,7 @@ export interface SignedReport {
 const count = <K extends string>(into: Map<K, number>, key: K, by = 1) => into.set(key, (into.get(key) ?? 0) + by);
 const top = (map: Map<string, number>, n: number) => [...map].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, n);
 
-export function buildReport(jsonl: string, options: { from: Date; to: Date; file: string; now?: Date }): SecurityReport {
+export function buildReport(jsonl: string, options: { from: Date; to: Date; file: string; now?: Date; framework?: ComplianceFrameworkId }): SecurityReport {
   const chain = verifyAuditChain(jsonl);
   const events: AuditEvent[] = [];
   for (const line of jsonl.split("\n")) {
@@ -111,6 +177,7 @@ export function buildReport(jsonl: string, options: { from: Date; to: Date; file
     personalData: Object.fromEntries(top(pii, 50)),
     topRules: top(rules, 10).map(([ruleId, n]) => ({ ruleId, count: n })),
     topTools: top(tools, 10).map(([tool, n]) => ({ tool, blocked: n })),
+    ...(options.framework ? { compliance: complianceSection(options.framework, byCategory, capabilitiesSeen(events, chain.ok)) } : {}),
   };
 }
 

@@ -105,3 +105,32 @@ describe("CLI", () => {
     expect(tampered.stdout.toString()).toContain("FAILED");
   }, 30_000); // three node processes; CI runners are slower than a laptop
 });
+
+describe("--framework", () => {
+  it("adds the framework's controls with this period's evidence, signed with the rest", () => {
+    const report = buildReport(fs.readFileSync(log, "utf8"), { ...october, framework: "eu-ai-act" });
+    const c = report.compliance!;
+    expect(c.framework).toMatchObject({ id: "eu-ai-act", edition: "Regulation (EU) 2024/1689", mappingVersion: "2026-10" });
+    const art15 = c.controls.find((x) => x.id === "Art. 15")!;
+    expect(art15.citation).toContain("Article 15");
+    expect(art15.categories).toEqual(expect.arrayContaining(["Instructions hidden in tool results, resources and prompts", "Sensitive data or credentials on their way out"]));
+    expect(art15.findings).toBeGreaterThanOrEqual(2);
+    // The hash-chained log itself is the record-keeping evidence
+    expect(c.controls.find((x) => x.id === "Art. 12")!.capabilities).toEqual(["Hash-chained audit log of every tool call, refusal and approval"]);
+    expect(c.disclaimer).toMatch(/not a certification/);
+    const signed = signReport(report);
+    expect(verifyReport(extractSigned(renderHtml(signed)))).toEqual({ ok: true, signed: false });
+    expect(renderMarkdown(signed, "tr")).toContain("## Uyumluluk eşlemesi: EU AI Act");
+    expect(renderHtml(signed)).toContain("Compliance mapping: EU AI Act");
+  });
+
+  it.each(["iso42001", "soc2", "nist-ai-rmf"] as const)("renders %s", (framework) => {
+    const report = buildReport(fs.readFileSync(log, "utf8"), { ...october, framework });
+    expect(report.compliance!.controls.length).toBeGreaterThan(5);
+    expect(report.compliance!.controls.some((x) => x.findings > 0)).toBe(true);
+  });
+
+  it("leaves the report as it was without --framework", () => {
+    expect(buildReport(fs.readFileSync(log, "utf8"), october)).not.toHaveProperty("compliance");
+  });
+});
