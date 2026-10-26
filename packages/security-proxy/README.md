@@ -183,6 +183,45 @@ The single-server `--` form above keeps its 0.x behavior: tool names are not pre
 
 ---
 
+## Sandboxed Upstreams
+
+Policy, taint and masking see MCP messages. A stdio server is also a process with your privileges: a compromised package can read `~/.ssh` or a `.env` file and send it out without ever answering a tool call. `upstreams.<name>.sandbox` runs it in an OS sandbox instead:
+
+```yaml
+upstreams:
+  files:
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "/Users/me/projects/demo"]
+    sandbox:
+      runtime: sandbox-exec          # docker | podman | bwrap | sandbox-exec | none (default: no sandbox)
+      fs:
+        readWrite: ["/Users/me/projects/demo"]
+        readOnly: []                 # containers see only these two lists
+        deny: ["~/clients"]          # hidden on top of the built-in credential list
+      env: ["GITHUB_TOKEN"]          # host variables passed in; the upstream's own `env` always is
+      network: open                  # open (default) | none
+      limits: { cpus: 1, memory: 512m, pids: 128 }   # docker / podman only
+```
+
+What every runtime enforces:
+
+- **Read-only disk.** Writes go only to `fs.readWrite` and a private home, `~/.guardbee/sandbox/<name>` (HOME and TMPDIR point there, so the npm or uv cache of a sandboxed server is its own and cannot poison yours).
+- **Credentials hidden.** `~/.ssh`, `~/.aws`, `~/.azure`, `~/.config/gcloud`, `~/.kube`, `~/.docker`, `~/.gnupg`, `~/.netrc`, `~/.npmrc`, `~/.pypirc`, `~/.git-credentials`, `~/.config/gh`, password stores, browser profiles and keychains, `.env` files, the proxy's own pin and provenance files, and `fs.deny`.
+- **No host environment.** Only `PATH`, `LANG`, `LC_ALL`, `TERM`, `TZ`, the names in `env` and the upstream's `env`.
+- **`network: none`** cuts the network (the package must then already be installed: an image that has it, or a run with `open` first).
+
+| Runtime | OS | File system | Credentials hidden | Network none | Limits |
+| --- | --- | --- | --- | --- | --- |
+| `docker` / `podman` | Linux, macOS, Windows | only mounted paths; read-only root, `--cap-drop ALL`, `no-new-privileges` | inside mounts (tmpfs / `/dev/null`) | `--network none` | `cpus`, `memory`, `pids` |
+| `bwrap` (bubblewrap) | Linux | whole disk read-only, `--unshare-all` | tmpfs / `/dev/null` over them | no network namespace share | — |
+| `sandbox-exec` (Seatbelt) | macOS | whole disk readable, writes denied | `deny file-read*` (any depth for `.env`) | `deny network*` | — |
+
+Containers use `image`, or `node:22-alpine` for node/npx/npm/pnpm, `ghcr.io/astral-sh/uv:python3.12-alpine` for uvx/uv/python, `oven/bun:1-alpine` for bun/bunx. Environment values go to the container through the client's environment (`-e NAME`), never on the command line. On Linux the container runs as your user, so files it writes stay yours.
+
+- **No silent fallback.** A sandbox that cannot work on this host (runtime not on `PATH`, `sandbox-exec` on Linux, `limits` without a container, a `readWrite` of `~` or `/`, a path inside a credential store) stops the gateway with the reason, and `guardbee-proxy validate` lists the same problems. Start failures are audit events `ruleId: sandbox:invalid | sandbox:failed`.
+- **`guardbee-proxy init --sandbox [runtime]`** puts every imported stdio server in a sandbox (default: `sandbox-exec` on macOS, `bwrap` on Linux when installed, otherwise `docker`), with the directories it was given as arguments writable.
+- **Limits of the model.** `sandbox-exec` is deprecated by Apple but still the macOS mechanism; it does not limit CPU or memory. `bwrap` needs unprivileged user namespaces (some distributions restrict them with AppArmor). Neither hides files you did not list from reading on the non-container runtimes: only the credential list, `.env` files and `fs.deny` are hidden, everything else stays readable (use a container for an allowlist). `network: open` is all or nothing for stdio servers; host allowlists apply to HTTP upstreams (`upstreams.<name>.network`). Windows has no built-in runtime: use `docker` or `podman`.
+
 ## Security Reports
 
 `guardbee-proxy report` turns the audit log into a periodic report for a security team or an auditor: totals, the findings grouped and mapped to **OWASP Top 10 for LLM Applications (2025)** and **MITRE ATLAS**, personal-data counts, the rules and tools that blocked most, and the state of the hash chain. Payloads are never in it — only counts and the logged reasons.
