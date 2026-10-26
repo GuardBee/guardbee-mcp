@@ -1,0 +1,19 @@
+{
+  "name": "@guardbee/guard-core",
+  "version": "1.1.0",
+  "repository": {
+    "url": "https://github.com/GuardBee/guardbee-mcp.git",
+    "type": "git",
+    "directory": "packages/guard-core"
+  },
+  "dist": {
+    "integrity": "sha512-SkA+16DZt2v76CSrQqQ6RzKEKZI1ntkB9UQnZXMDCcZ7zKx3xIZJSUEX5Xs5MU0/ohE2/AR9+kCkfz49kcPirA==",
+    "tarball": "https://registry.npmjs.org/@guardbee/guard-core/-/guard-core-1.1.0.tgz",
+    "attestations": {
+      "url": "https://registry.npmjs.org/-/npm/v1/attestations/@guardbee%2fguard-core@1.1.0",
+      "provenance": {
+        "predicateType": "https://slsa.dev/provenance/v1"
+      }
+    }
+  }
+}

@@ -11,6 +11,9 @@ updates:
       # CommonJS packages (proxy, db-gateway, telemetry) build with. A migration of its own.
       - dependency-name: typescript
         update-types: ["version-update:semver-major"]
+      # The next Sigstore majors need Node ^22.22.2; the proxy supports >=22.9. Raise engines first.
+      - dependency-name: "@sigstore/*"
+        update-types: ["version-update:semver-major"]
     groups:
       minor-and-patch:
         update-types: [minor, patch]

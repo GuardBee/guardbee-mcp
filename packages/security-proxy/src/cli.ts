@@ -5,7 +5,9 @@ import path from "path";
 import { verifyAuditChain } from "./audit/logger.js";
 import { loadGatewayConfig } from "./gateway/config.js";
 import { clientConfigPath, runInit, type ClientName } from "./init.js";
-import { startGateway } from "./proxy.js";
+import { provenanceChecker, startGateway } from "./proxy.js";
+import { checkUpstreamProvenance } from "./gateway/provenance.js";
+import { isHttpUpstream } from "./types.js";
 import { PinStore, defaultPinFile } from "./gateway/pin-store.js";
 import { connectUpstream } from "./gateway/upstream.js";
 import { buildReport, signReport, verifyReport } from "./report/report.js";
@@ -183,6 +185,7 @@ Usage:
                                                    Move a client's MCP servers behind the gateway
   guardbee-proxy validate [--config <file>]        Check a config without starting anything
   guardbee-proxy verify-audit <audit.jsonl>        Check an audit log's hash chain
+  guardbee-proxy provenance [--config <file>]      Check the build provenance of the packages stdio upstreams run
   guardbee-proxy pins list | approve <upstream> [tool] | reset [upstream] [tool] | import <baseline.json> --upstream <name>
                                                    Tool definitions pinned across restarts
   guardbee-proxy report <audit.jsonl> [--days 30 | --from <date> --to <date>] [--format md|html|json]
@@ -196,6 +199,28 @@ Config: --config, else GUARDBEE_PROXY_CONFIG, else ./guardbee-proxy.yaml (.yml);
 Docs and examples: https://github.com/GuardBee/guardbee-mcp/tree/main/packages/security-proxy#readme
 `;
 
+/** What the gateway would decide for each stdio upstream, without starting any. Exit code 1 when one would be refused. */
+async function provenance(): Promise<void> {
+  const config = loadGatewayConfig();
+  const options = provenanceChecker(config);
+  let refused = 0;
+  for (const [name, server] of Object.entries(config.upstreams)) {
+    if (isHttpUpstream(server)) continue;
+    const mode = server.provenance ?? config.provenance.mode;
+    // Report even where the check is off, so the answer is known before turning it on
+    const checked = await checkUpstreamProvenance(server, mode === "off" ? "warn" : mode, options);
+    if (!checked.result) {
+      process.stdout.write(`${name}: no registry package (${server.command})\n`);
+      continue;
+    }
+    const verdict = mode === "off" ? "check off" : checked.action === "block" ? "REFUSED" : checked.action === "warn" ? "warn" : "ok";
+    if (mode !== "off" && checked.action === "block") refused++;
+    process.stdout.write(`${name}: ${checked.result.status} [${verdict}] ${checked.result.artifact}\n  ${checked.result.reason}\n`);
+    if (checked.server.args !== server.args && checked.server.args) process.stdout.write(`  runs as: ${checked.server.command} ${checked.server.args.join(" ")}\n`);
+  }
+  if (refused > 0) process.exitCode = 1;
+}
+
 async function main() {
   const [command, ...rest] = process.argv.slice(2);
   if (command === "--help" || command === "-h" || command === "help") {
@@ -208,6 +233,7 @@ async function main() {
   }
   if (command === "verify-audit") return verifyAudit(rest[0]);
   if (command === "pins") return pins(rest);
+  if (command === "provenance") return provenance();
   if (command === "init") return init(rest);
   if (command === "report") return report(rest);
   if (command === "verify-report") return verifyReportCommand(rest);
