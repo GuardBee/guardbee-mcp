@@ -7,8 +7,8 @@ settings:
 catalogs:
   default:
     '@modelcontextprotocol/sdk':
-      specifier: ^1.32.1
-      version: 1.32.1
+      specifier: ^1.32.2
+      version: 1.32.2
     zod:
       specifier: ^4.6.7
       version: 4.6.7
@@ -68,7 +68,7 @@ importers:
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -80,7 +80,7 @@ importers:
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -92,7 +92,7 @@ importers:
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -104,7 +104,7 @@ importers:
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -116,7 +116,7 @@ importers:
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -128,7 +128,7 @@ importers:
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -174,7 +174,7 @@ importers:
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       smol-toml:
         specifier: ^1.9.1
         version: 1.9.1
@@ -192,7 +192,7 @@ importers:
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -207,7 +207,7 @@ importers:
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       unpdf:
         specifier: ^1.8.1
         version: 1.9.1(@napi-rs/canvas@1.0.13)
@@ -229,7 +229,7 @@ importers:
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -254,7 +254,7 @@ importers:
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -266,7 +266,7 @@ importers:
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -278,7 +278,7 @@ importers:
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -290,7 +290,7 @@ importers:
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -302,7 +302,7 @@ importers:
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -326,7 +326,7 @@ importers:
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -362,7 +362,7 @@ importers:
         version: link:../toxic-flow-auditor
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -386,7 +386,7 @@ importers:
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -401,7 +401,7 @@ importers:
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -419,7 +419,7 @@ importers:
         version: link:../tool-poisoning-scanner
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -434,7 +434,7 @@ importers:
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -588,7 +588,7 @@ importers:
         version: link:../vulnerability-scanner
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -600,7 +600,7 @@ importers:
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -612,7 +612,7 @@ importers:
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -621,7 +621,7 @@ importers:
     devDependencies:
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
 
   packages/threat-rules:
     dependencies:
@@ -633,7 +633,7 @@ importers:
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       agent-threat-rules:
         specifier: ^4.0.0
         version: 4.2.1(zod@4.6.7)
@@ -651,7 +651,7 @@ importers:
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -666,7 +666,7 @@ importers:
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -678,7 +678,7 @@ importers:
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -690,7 +690,7 @@ importers:
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -702,7 +702,7 @@ importers:
         version: link:../telemetry
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
-        version: 1.32.1(zod@4.6.7)
+        version: 1.32.2(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -990,16 +990,6 @@ packages:
   '@manypkg/tools@2.1.2':
     resolution: {integrity: sha512-6QEf6yqFbETdwGITKq57aYoPfX/3K8XFNwsAlx0C1M7o8cb79sv1M3w+tWuWvIcSbNqrLF7OD7YpZMVVz335hQ==}
     engines: {node: '>=20.0.0'}
-
-  '@modelcontextprotocol/sdk@1.32.1':
-    resolution: {integrity: sha512-2DdE+SJDtzLEEWzY1ZjY7Q+VcPhcV1KisD3zI4u0XZyktsjHum1mwbMI+JaulUBi2OZk+KJAi2uPXzxichPkdw==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      '@cfworker/json-schema': ^4.1.1
-      zod: ^3.25 || ^4.0
-    peerDependenciesMeta:
-      '@cfworker/json-schema':
-        optional: true
 
   '@modelcontextprotocol/sdk@1.32.2':
     resolution: {integrity: sha512-SWsVtH/0vULSQStoZ6xxH2K09Li8fXYTMC64ZeogCdpZ3XSi1eCPOByV1OpuJxuI3OcmHhosDWYyii07tpPsLw==}
@@ -3115,28 +3105,6 @@ snapshots:
       tinyglobby: 0.2.17
       yaml: 2.9.1
 
-  '@modelcontextprotocol/sdk@1.32.1(zod@4.6.7)':
-    dependencies:
-      '@hono/node-server': 2.1.1(hono@4.13.13)
-      ajv: 8.20.0
-      ajv-formats: 3.0.1(ajv@8.20.0)
-      content-type: 1.0.5
-      cors: 2.8.6
-      cross-spawn: 7.0.6
-      eventsource: 3.0.7
-      eventsource-parser: 3.1.1
-      express: 5.2.1
-      express-rate-limit: 8.7.0(express@5.2.1)
-      hono: 4.13.13
-      jose: 6.2.13
-      json-schema-typed: 8.0.2
-      pkce-challenge: 5.0.1
-      raw-body: 3.0.2
-      zod: 4.6.7
-      zod-to-json-schema: 3.25.2(zod@4.6.7)
-    transitivePeerDependencies:
-      - supports-color
-
   '@modelcontextprotocol/sdk@1.32.2(zod@4.6.7)':
     dependencies:
       '@hono/node-server': 2.1.1(hono@4.13.13)
@@ -3623,7 +3591,7 @@ snapshots:
 
   agent-threat-rules@4.2.1(zod@4.6.7):
     dependencies:
-      '@modelcontextprotocol/sdk': 1.32.1(zod@4.6.7)
+      '@modelcontextprotocol/sdk': 1.32.2(zod@4.6.7)
       js-yaml: 4.3.2
     transitivePeerDependencies:
       - '@cfworker/json-schema'
