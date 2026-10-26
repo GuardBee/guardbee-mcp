@@ -7,6 +7,8 @@ import { createAuthenticator, type Authenticate, type Identity } from "./auth.js
 import type { GatewayConfig, ListenConfig } from "./gateway/config.js";
 import type { Gateway } from "./gateway/gateway.js";
 import { QuotaStore } from "./gateway/quota.js";
+import { BudgetStore } from "./llm/budget.js";
+import type { CounterBackend } from "./state/counters.js";
 import type { Upstream } from "./gateway/upstream.js";
 import { createGatewayServer } from "./proxy.js";
 import type { PinStore } from "./gateway/pin-store.js";
@@ -72,11 +74,11 @@ export async function startHttpGateway(
   config: GatewayConfig,
   audit: AuditLogger,
   listen: HttpListen,
-  options: { authenticate?: Authenticate; fetchImpl?: typeof fetch; ldapClient?: ClientFactory; pinStore?: PinStore } = {},
+  options: { authenticate?: Authenticate; fetchImpl?: typeof fetch; ldapClient?: ClientFactory; pinStore?: PinStore; counters?: CounterBackend } = {},
 ): Promise<HttpGateway> {
   const sessions = new Map<string, Session>();
-  // One set of quota counters for every session of this process
-  const quotas = new QuotaStore();
+  // One set of quota counters for every session of this process (or of every replica, with state.backend: redis)
+  const quotas = new QuotaStore(Date.now, options.counters);
   const tokenAuth = options.authenticate ?? createAuthenticator(listen.apiKeys, listen.oidc);
   // The directory adds groups to a known user; it never makes a caller known
   const directory = listen.ldap ? createDirectory(listen.ldap, options.ldapClient) : null;
@@ -95,6 +97,7 @@ export async function startHttpGateway(
         // With virtual keys and no listen keys, an unknown key must not pass as the open loopback listener
         authenticate: listen.apiKeys.length > 0 || listen.oidc || config.llm.keys.length === 0 ? authenticate : null,
         ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+        ...(options.counters ? { budgets: new BudgetStore(Date.now, options.counters) } : {}),
       })
     : null;
 

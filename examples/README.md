@@ -17,6 +17,7 @@ Every file here is checked by the proxy's tests, so it stays valid. Check yours 
 | [`coding-agent.yaml`](proxy/coding-agent.yaml) | Claude Code or Cursor with GitHub, fetch and the filesystem: hidden tools, approvals for destructive calls and PRs, anomaly limits; also used by `guardbee-hook` for the agent's own shell and file tools |
 | [`llm-gateway.yaml`](proxy/llm-gateway.yaml) | The proxy in front of the OpenAI and Anthropic APIs: gateway keys, routes, budgets, masked prompts and answers |
 | [`remote-upstreams.yaml`](proxy/remote-upstreams.yaml) | Remote Streamable HTTP servers with network egress rules: host allowlist, private addresses refused for a public server, cloud metadata always refused |
+| [`replicas.yaml`](proxy/replicas.yaml) | Several HTTP replicas behind a load balancer sharing quotas and LLM budgets through Redis, with an outage rule |
 
 The fastest start is `npx -y @guardbee/mcp-security-proxy@^1 init --client claude-desktop` (or `cursor`, `claude-code`): it moves your existing servers behind the proxy and backs up the client config.
 

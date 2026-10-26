@@ -17,7 +17,9 @@ import { connectUpstream, type Upstream } from "./gateway/upstream.js";
 import { PinStore, defaultPinFile } from "./gateway/pin-store.js";
 import { ProvenanceCache, checkUpstreamProvenance, defaultProvenanceCache, sigstoreVerifier, type CheckOptions } from "./gateway/provenance.js";
 import { PolicySync } from "./gateway/policy-sync.js";
-import type { QuotaStore } from "./gateway/quota.js";
+import { QuotaStore } from "./gateway/quota.js";
+import { RedisClient } from "./state/redis.js";
+import { RedisCounters, ResilientCounters, type CounterBackend } from "./state/counters.js";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { startTracing } from "./tracing.js";
@@ -128,6 +130,28 @@ async function checkedServer(name: string, server: McpServerConfig, config: Gate
   return checked.server;
 }
 
+/**
+ * Quota and budget counters in Redis when `state.backend: redis`, with the
+ * outage rule of `state.onError`; undefined → each process counts alone.
+ */
+function sharedCounters(config: GatewayConfig, audit: AuditLogger): CounterBackend | undefined {
+  const state = config.state;
+  if (!state || state.backend !== "redis" || !state.url) return undefined;
+  const client = new RedisClient(state.url, { timeoutMs: state.timeoutMs });
+  const now = () => new Date().toISOString();
+  process.stderr.write(`[guardbee-proxy] quotas and budgets shared through ${client.target} (onError: ${state.onError})\n`);
+  return new ResilientCounters(new RedisCounters(client, state.keyPrefix), state.onError, {
+    onOutage: (err) =>
+      audit.log({
+        ts: now(),
+        type: "warn",
+        ruleId: "state:unavailable",
+        reason: `${client.target} unreachable (${err instanceof Error ? err.message : String(err)}); ${state.onError === "local" ? "counting in this process until it is back" : state.onError === "fail-open" ? "quotas and budgets not enforced until it is back" : "calls with a quota or budget refused until it is back"}`,
+      }),
+    onRecovery: () => audit.log({ ts: now(), type: "warn", ruleId: "state:recovered", reason: `${client.target} reachable again` }),
+  });
+}
+
 export async function startGateway(config: GatewayConfig): Promise<void> {
   const { version } = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf8")) as { version: string };
   // OTLP export when OTEL_EXPORTER_OTLP_ENDPOINT is set and the SDK is installed
@@ -138,6 +162,7 @@ export async function startGateway(config: GatewayConfig): Promise<void> {
     await new PolicySync(config, config.audit.dashboard, config.policy.refreshSeconds).start();
   }
   const pinStore = persistentPins(config);
+  const counters = sharedCounters(config, audit);
   const upstreams: Upstream[] = [];
   const provenance = provenanceChecker(config);
   for (const [name, original] of Object.entries(config.upstreams)) {
@@ -161,7 +186,7 @@ export async function startGateway(config: GatewayConfig): Promise<void> {
   if (config.listen.transport === "http") {
     // Imported here: http-server.ts imports this module for createGatewayServer.
     const { startHttpGateway } = await import("./http-server.js");
-    const http = await startHttpGateway(upstreams, config, audit, config.listen, { ...(pinStore ? { pinStore } : {}) });
+    const http = await startHttpGateway(upstreams, config, audit, config.listen, { ...(pinStore ? { pinStore } : {}), ...(counters ? { counters } : {}) });
     process.stderr.write(`[guardbee-proxy] listening on ${http.url}\n`);
     if (http.llmUrl) process.stderr.write(`[guardbee-proxy] LLM gateway on ${http.llmUrl} (chat/completions, messages, models)\n`);
     const shutdown = async () => {
@@ -176,7 +201,7 @@ export async function startGateway(config: GatewayConfig): Promise<void> {
     return;
   }
 
-  const { gateway, server } = createGatewayServer(upstreams, config, audit, { ...(pinStore ? { pinStore } : {}) });
+  const { gateway, server } = createGatewayServer(upstreams, config, audit, { ...(pinStore ? { pinStore } : {}), ...(counters ? { quotas: new QuotaStore(Date.now, counters) } : {}) });
   await server.connect(new StdioServerTransport());
 
   // The client usually just closes stdin; without this the process ended with
