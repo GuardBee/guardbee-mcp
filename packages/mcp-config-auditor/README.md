@@ -30,6 +30,7 @@ Claude ──► mcp-config-auditor ──► mcp.json  (or host-wide discover)
 | Pattern | Severity | OWASP | What it means |
 |---|---|---|---|
 | `unpinned_package` | high | MCP04:2025 | A launcher (`npx`, `uvx`, `pnpm`, `yarn`, `bunx`, `pipx`) runs a package with no `major.minor.patch` pin |
+| `unpinned_container_image` | high | MCP04:2025 | `docker run` / `podman run` starts an image by tag, not by `@sha256:` digest |
 | `typosquat_package` | critical | MCP04:2025 | The package name is one edit from a known MCP server package |
 | `secret_in_env` | critical | MCP01:2025 | A credential-shaped value or a sensitive key with a long literal |
 | `secret_in_args` | critical | MCP01:2025 | A token on the command line |

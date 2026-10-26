@@ -41,6 +41,12 @@ describe("scanConfigText", () => {
     expect(ids(text)).not.toContain("typosquat_package");
   });
 
+  it("digest'siz container imajını sabitlenmemiş sayar, digest'liyi saymaz", () => {
+    const run = (image: string) => JSON.stringify({ mcpServers: { gh: { command: "docker", args: ["run", "-i", "--rm", "-e", "GITHUB_TOKEN", image] } } });
+    expect(ids(run("ghcr.io/github/github-mcp-server"))).toContain("unpinned_container_image");
+    expect(ids(run(`ghcr.io/github/github-mcp-server@sha256:${"a".repeat(64)}`))).not.toContain("unpinned_container_image");
+  });
+
   it("bilinen pakete bir karakter uzak adı typosquat sayar", () => {
     const text = JSON.stringify({
       mcpServers: {

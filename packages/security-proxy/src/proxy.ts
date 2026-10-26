@@ -97,8 +97,15 @@ function persistentPins(config: GatewayConfig): PinStore | undefined {
 }
 
 export function provenanceChecker(config: GatewayConfig): CheckOptions {
-  const { offline, cacheFile, registry } = config.provenance;
-  return { verifyBundle: sigstoreVerifier({ offline }), cache: new ProvenanceCache(cacheFile ?? defaultProvenanceCache()), offline, ...(registry ? { registry } : {}) };
+  const { offline, cacheFile, registry, pypiIndex, signers } = config.provenance;
+  return {
+    verifyBundle: sigstoreVerifier({ offline }),
+    cache: new ProvenanceCache(cacheFile ?? defaultProvenanceCache()),
+    offline,
+    ...(registry ? { registry } : {}),
+    ...(pypiIndex ? { pypiIndex } : {}),
+    ...(signers ? { signers } : {}),
+  };
 }
 
 /**

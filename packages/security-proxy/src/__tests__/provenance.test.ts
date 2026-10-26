@@ -81,7 +81,7 @@ describe("checkUpstreamProvenance", () => {
     expect((await checkUpstreamProvenance(npx, "require", shared)).result?.status).toBe("verified");
     const swapped = { ...manifest, dist: { ...manifest.dist, integrity: `sha512-${Buffer.alloc(64, 1).toString("base64")}` } };
     const checked = await checkUpstreamProvenance(npx, "warn", { ...shared, fetch: registry(swapped) });
-    expect(checked.result).toMatchObject({ status: "invalid", reason: expect.stringMatching(/integrity changed/) });
+    expect(checked.result).toMatchObject({ status: "invalid", reason: expect.stringMatching(/changed since/) });
   });
 
   it("answers offline from the cache for an exact version, and says why otherwise", async () => {
@@ -94,10 +94,7 @@ describe("checkUpstreamProvenance", () => {
     expect(floating).toMatchObject({ action: "block", result: { status: "error", reason: expect.stringMatching(/offline/) } });
   });
 
-  it("flags PyPI packages and images it cannot check yet, and leaves local commands alone", async () => {
-    expect((await checkUpstreamProvenance({ command: "uvx", args: ["mcp-server-fetch"] }, "warn", options())).result?.status).toBe("unsupported");
-    const image = await checkUpstreamProvenance({ command: "docker", args: ["run", "-i", "--rm", "mcp/github"] }, "require", options());
-    expect(image).toMatchObject({ action: "block", result: { reason: expect.stringMatching(/not pinned by digest/) } });
+  it("leaves local commands alone", async () => {
     expect(await checkUpstreamProvenance({ command: "node", args: ["server.js"] }, "require", options())).toEqual({ action: "allow", server: { command: "node", args: ["server.js"] } });
   });
 

@@ -1,5 +1,5 @@
 import type { ConfigFinding, InventoryServer, ParsedServer } from "./types.js";
-import { isPinnedVersion, packageSpec, splitPackageSpec } from "./parseConfig.js";
+import { containerImage, isPinnedVersion, packageSpec, splitPackageSpec } from "./parseConfig.js";
 import { looksLikeSecret, redactSecret, sensitiveEnvValue } from "./secrets.js";
 import { findTyposquat } from "./typosquat.js";
 
@@ -98,6 +98,28 @@ export function auditServers(servers: ParsedServer[], text: string, file?: strin
           )
         );
       }
+    }
+
+    const image = containerImage(server.command, server.args);
+    if (image && !/@sha256:[a-f0-9]{64}$/.test(image)) {
+      findings.push(
+        finding(
+          {
+            patternId: "unpinned_container_image",
+            patternName: "MCP server container image is not pinned by digest",
+            category: "supply-chain",
+            severity: "high",
+            owasp: "MCP04:2025",
+            recommendation:
+              "Run the image by digest (image@sha256:…). A tag such as :latest can be moved to another image after you approved it. `guardbee-proxy provenance` resolves the digest and checks the image's cosign signature.",
+            server: server.name,
+            file,
+            match: image,
+          },
+          text,
+          needle
+        )
+      );
     }
 
     for (const [key, value] of Object.entries(server.env)) {

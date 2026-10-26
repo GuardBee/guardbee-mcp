@@ -41,5 +41,5 @@ export { hashToolDefinition, canonicalJson, toolSnapshot } from "./tool-hash.js"
 export type { ToolDefinition } from "./tool-hash.js";
 export { EgressBlockedError, checkAddress, checkHost, classifyAddress, guardedFetch, guardedLookup, hostAllowed, normalizeHost } from "./network.js";
 export type { AddressClass, EgressPolicy, EgressRule, GuardOptions, Resolver } from "./network.js";
-export { checkNpmProvenance, normalizeRepositoryUrl, parseLaunch, resolveNpmVersion, splitNpmSpec } from "./provenance.js";
-export type { BundleSigner, BundleVerifier, LaunchTarget, NpmProvenanceOptions, ProvenanceResult, ProvenanceStatus } from "./provenance.js";
+export { checkNpmProvenance, checkOciProvenance, checkPypiProvenance, parseImageReference, normalizeRepositoryUrl, parseLaunch, pypiAttestationToBundle, resolveNpmVersion, splitNpmSpec } from "./provenance.js";
+export type { BundleSigner, BundleVerifier, LaunchTarget, NpmProvenanceOptions, ProvenanceResult, ProvenanceStatus, PypiProvenanceOptions, OciProvenanceOptions } from "./provenance.js";
