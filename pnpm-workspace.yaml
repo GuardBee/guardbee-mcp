@@ -3,7 +3,7 @@ packages:
 
 catalog:
   zod: ^4.6.7
-  "@modelcontextprotocol/sdk": ^1.32.1
+  "@modelcontextprotocol/sdk": ^1.32.2
 
 # Patched versions of transitive dependencies with published advisories, inside the
 # ranges their parents already accept (MCP SDK → express/hono, secretlint → ajv; vite is a peer of vitest, so it is a root devDependency instead).
