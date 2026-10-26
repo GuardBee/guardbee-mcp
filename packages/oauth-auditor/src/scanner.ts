@@ -389,8 +389,16 @@ function checkIndirectPassthrough(text: string, filePath?: string): Finding[] {
 function checkGoDiscoverySsrf(text: string, filePath?: string): Finding[] {
   if (!/\b(?:Query\(\)\.Get|FormValue|PathValue|RequireString|GetString)\s*\(/.test(text)) return [];
   // The URL is built inside the request call: http.Get(fmt.Sprintf("%s/.well-known/…", issuer)), http.NewRequest("GET", issuer+"/.well-known/…", nil)
-  const built =
-    /\bhttp\.(?:Get|Head|NewRequest(?:WithContext)?)\([^;\n]*?(?:fmt\.Sprintf\(\s*"%s\/?\.well-known\/(?:oauth-authorization-server|openid-configuration)[^"]*"|\w+\s*\+\s*"\/\.well-known\/(?:oauth-authorization-server|openid-configuration))/.exec(text);
+  const discovery = /fmt\.Sprintf\(\s*"%s\/?\.well-known\/(?:oauth-authorization-server|openid-configuration)|[\w)\]]\s*\+\s*"\/\.well-known\/(?:oauth-authorization-server|openid-configuration)/;
+  let built: { index: number; 0: string } | null = null;
+  for (const call of text.matchAll(/\bhttp\.(?:Get|Head|NewRequest(?:WithContext)?)\(/g)) {
+    const span = text.slice(call.index!, findMatchingParenEnd(text, call.index! + call[0].length - 1));
+    const inner = discovery.exec(span);
+    if (inner) {
+      built = { index: call.index! + inner.index, 0: inner[0] };
+      break;
+    }
+  }
   if (!built) return [];
   if (/\b(?:allow(?:ed)?_?(?:issuers?|hosts?|list)|allowedIssuers|trustedIssuers)\b/i.test(text)) return [];
   return [
