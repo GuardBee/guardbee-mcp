@@ -4,7 +4,7 @@ import path from "path";
 import { describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 import { parseGatewayYaml } from "../gateway/config.js";
-import { clientConfigPath, planInit, runInit } from "../init.js";
+import { clientConfigPath, defaultSandboxRuntime, planInit, runInit } from "../init.js";
 
 const desktop = {
   globalShortcut: "Ctrl+Space",
@@ -103,5 +103,31 @@ describe("clientConfigPath", () => {
     expect(clientConfigPath("claude-desktop", "linux", "/home/a")).toBe("/home/a/.config/Claude/claude_desktop_config.json");
     expect(clientConfigPath("cursor", "linux", "/home/a")).toBe("/home/a/.cursor/mcp.json");
     expect(clientConfigPath("claude-code", "linux", "/home/a")).toBe("/home/a/.claude.json");
+  });
+});
+
+describe("init --sandbox", () => {
+  it("puts stdio servers in the sandbox, with their directory arguments writable, and leaves containers and HTTP servers alone", () => {
+    const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "guardbee-init-sandbox-")));
+    const cfg = {
+      mcpServers: {
+        files: { command: "npx", args: ["-y", "@modelcontextprotocol/server-filesystem", dir, "/does/not/exist"] },
+        github: { command: "docker", args: ["run", "-i", "--rm", "ghcr.io/github/github-mcp-server"] },
+        remote: { url: "https://mcp.example.com/mcp" },
+      },
+    };
+    const plan = planInit(JSON.stringify(cfg), path.join(dir, "p.yaml"), path.join(dir, "a.jsonl"), { sandbox: "docker", home: os.homedir() });
+    const config = parseGatewayYaml(plan.yaml);
+    expect(config.upstreams["files"]).toMatchObject({ sandbox: { runtime: "docker", fs: { readWrite: [dir] }, network: "open" } });
+    expect(config.upstreams["github"]).not.toHaveProperty("sandbox");
+    expect(config.upstreams["remote"]).not.toHaveProperty("sandbox");
+    expect(plan.yaml).toContain("docker sandbox");
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("picks the runtime the OS has", () => {
+    expect(defaultSandboxRuntime("darwin")).toBe("sandbox-exec");
+    expect(defaultSandboxRuntime("win32")).toBe("docker");
+    expect(defaultSandboxRuntime("linux", "")).toBe("docker");
   });
 });
