@@ -79,6 +79,10 @@ function emit(report: OwaspReport, format: string, failOn: string, fallbackUri?:
     console.log(`Grade ${report.grade} (${report.score}/100) — ${report.totalFindings} finding(s), ${report.durationMs}ms`);
     console.log(`  mode: ${report.mode}  label: ${report.label}`);
     if (report.scannedFiles !== undefined) console.log(`  scannedFiles: ${report.scannedFiles}`);
+    if (report.coverage?.languages.length) {
+      const langs = report.coverage.languages.map((l) => `${l.language} ${l.files} file(s)${l.analysis === "full" ? `, ${l.tools} tool(s)` : ", patterns only"}`);
+      console.log(`  languages: ${langs.join("; ")}`);
+    }
     if (report.toolCount !== undefined) console.log(`  tools: ${report.toolCount}`);
     console.log("");
     for (const bucket of report.byOwasp) {

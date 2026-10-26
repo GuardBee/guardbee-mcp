@@ -50,7 +50,7 @@ export const DESCRIPTION_INJECTION_PATTERNS: DescriptionInjectionPattern[] = [
   {
     id: "sensitive_file_exfil_instruction",
     name: "Description instructs reading a sensitive file into a tool parameter",
-    pattern: /\b(?:read|cat|include|attach|append)\b[^.]{0,80}(?:\.ssh\b|\bid_rsa\b|\.env\b|\.aws[\\/]credentials\b|\bprivate[\s_-]?key\b|\.npmrc\b)/i,
+    pattern: /\b(?:read|cat|include|attach|append)\b[^.]{0,80}(?:\.ssh\b|\bid_rsa\b|\.env\b|\.aws[\\/]credentials\b|\bprivate[\s_-]?key\b|\.npmrc\b|\.cursor[\\/]mcp\.json\b|\bclaude_desktop_config\.json\b|\.kube[\\/]config\b)/i,
     severity: "critical",
     recommendation: "A tool description asking the model to read a credential/key file and pass its contents as a parameter is a direct exfiltration instruction — the file's contents would flow to whoever controls this MCP server.",
   },
@@ -134,3 +134,55 @@ export const MISMATCH_SINK_RULES: MismatchSinkRule[] = [
     recommendation: "This tool's name/description promises read-only/informational behavior, but its handler exposes the entire process environment. A caller has no way to know this \"informational\" tool can leak every secret in this process.",
   },
 ];
+
+const sinkText = MISMATCH_SINK_RULES.reduce<Record<string, string>>((all, rule) => ({ ...all, [rule.id]: rule.recommendation }), {});
+const sink = (id: string, pattern: RegExp, category: MismatchSinkRule["category"], severity: MismatchSinkRule["severity"]): MismatchSinkRule => ({
+  id,
+  pattern,
+  category,
+  severity,
+  recommendation: sinkText[id]!,
+});
+
+/** The same sinks in Python handlers (subprocess, eval/exec, file writes, os.environ). */
+export const PYTHON_SINK_RULES: MismatchSinkRule[] = [
+  sink(
+    "process_execution",
+    /\b(?:subprocess\.(?:run|call|Popen|check_output|check_call|getoutput|getstatusoutput)|os\.(?:system|popen|exec[lv]p?e?|spawn[lv]p?e?)|asyncio\.create_subprocess_(?:shell|exec)|pty\.spawn)\s*\(/,
+    "process-execution",
+    "critical",
+  ),
+  sink("code_execution", /(?<![\w.])(?:eval|exec)\s*\(|\bcompile\s*\([^)]*["']exec["']/, "code-execution", "critical"),
+  sink(
+    "filesystem_write",
+    /\bopen\s*\([^)\n]*,\s*(?:mode\s*=\s*)?["'][rb]?[wax]b?\+?["']|\.write_(?:text|bytes)\s*\(|\bos\.(?:remove|unlink|rmdir|removedirs|rename|replace)\s*\(|\bshutil\.(?:rmtree|move)\s*\(|\.unlink\s*\(/,
+    "filesystem-write",
+    "high",
+  ),
+  sink(
+    "credentials_exposure",
+    /\bdict\(\s*os\.environ\s*\)|\breturn\s+(?:dict\(\s*)?os\.environ\b(?!\s*[[.])|\bjson\.dumps\(\s*(?:dict\(\s*)?os\.environ\b(?!\s*[[.])|\bos\.environ\.copy\(\)|\{\s*\*\*os\.environ\b/,
+    "credentials-exposure",
+    "critical",
+  ),
+];
+
+/** The same sinks in Go handlers (os/exec, embedded interpreters, os file writes, os.Environ). */
+export const GO_SINK_RULES: MismatchSinkRule[] = [
+  sink("process_execution", /\bexec\.Command(?:Context)?\s*\(|\bsyscall\.(?:Exec|ForkExec)\s*\(|\bos\.StartProcess\s*\(/, "process-execution", "critical"),
+  sink("code_execution", /\b(?:interp\.New|goja\.New|otto\.New|expr\.Eval|lua\.NewState)\s*\(|\.RunString\s*\(/, "code-execution", "critical"),
+  sink(
+    "filesystem_write",
+    /\b(?:os|ioutil)\.(?:WriteFile|Remove|RemoveAll|Rename|Create|Truncate)\s*\(|\bos\.OpenFile\s*\([^)]*O_(?:WRONLY|RDWR|CREATE|APPEND|TRUNC)/,
+    "filesystem-write",
+    "high",
+  ),
+  sink("credentials_exposure", /\bos\.Environ\s*\(\s*\)/, "credentials-exposure", "critical"),
+];
+
+/** Sink rules for a source language: Python and Go have their own, everything else gets the JavaScript/TypeScript set. */
+export function sinkRulesFor(language: string | undefined): MismatchSinkRule[] {
+  if (language === "python") return PYTHON_SINK_RULES;
+  if (language === "go") return GO_SINK_RULES;
+  return MISMATCH_SINK_RULES;
+}

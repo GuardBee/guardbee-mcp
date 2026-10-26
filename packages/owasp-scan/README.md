@@ -45,6 +45,8 @@ As an MCP server (Claude Desktop, Cursor, VS Code):
 | `live` | `--url=<streamable HTTP URL>` or `--stdio=<command>` with `--arg=…` | Connects, calls `tools/list`, then toxic-flow-auditor and tool-poisoning-scanner |
 | `catalog <tools.json>` | A `tools/list` dump (`{ "tools": [...] }` or a bare array) | Same checks as `live`, offline |
 
+`scan` reads TypeScript/JavaScript, Python (FastMCP, official SDK, low-level server) and Go (official go-sdk, mark3labs/mcp-go) MCP servers in full: tool definitions, handler sinks and OAuth rules. Other languages (Rust, Java, Kotlin, C#, Ruby, PHP, Swift) get the language-neutral rules only (secrets, URLs, config). The report's `coverage` lists every source file with its language, that depth (`full` or `patterns`) and the number of tool definitions found, plus a per-language summary (`languages:` in text output), so a file the scan could not read deeply is visible rather than silently passing.
+
 `--discover-shadow` adds an **MCP09** check to `scan`: it inventories the MCP servers configured on this machine (Cursor, Claude Desktop, Windsurf, VS Code) through `mcp-config-auditor`, and `--allowlist=<path>` marks the approved ones.
 
 ## OWASP MCP Top 10 coverage

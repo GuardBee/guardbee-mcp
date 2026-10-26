@@ -32,6 +32,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
+    "@guardbee/guard-core": "workspace:^",
     "@guardbee/mcp-audit-gap-auditor": "workspace:^",
     "@guardbee/mcp-context-oversharing-auditor": "workspace:^",
     "@guardbee/mcp-config-auditor": "workspace:^",
