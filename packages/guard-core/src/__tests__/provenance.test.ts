@@ -114,6 +114,11 @@ describe("checkNpmProvenance", () => {
     expect(result).toMatchObject({ status: "invalid", reason: expect.stringMatching(/package.json names/) });
   });
 
+  it("refuses a name that is not an npm package name, before any request", async () => {
+    const result = await checkNpmProvenance("@a/b/../../-/x", "", { verifyBundle: signedBy(RELEASE_SAN), fetch: async () => Promise.reject(new Error("must not be called")) });
+    expect(result).toMatchObject({ status: "error", reason: expect.stringMatching(/not an npm package name/) });
+  });
+
   it("reports an unreachable registry as an error, not as unsigned", async () => {
     const result = await check({ fetch: async () => new Response("down", { status: 503 }) });
     expect(result.status).toBe("error");

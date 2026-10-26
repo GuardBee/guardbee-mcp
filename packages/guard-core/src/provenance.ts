@@ -190,7 +190,9 @@ async function getJson(fetchImpl: NonNullable<NpmProvenanceOptions["fetch"]>, ur
 export async function checkNpmProvenance(name: string, spec: string, options: NpmProvenanceOptions): Promise<ProvenanceResult> {
   const fetchImpl = options.fetch ?? fetch;
   const registry = (options.registry ?? "https://registry.npmjs.org").replace(/\/$/, "");
-  const encoded = name.replace("/", "%2f");
+  if (!NPM_NAME.test(name)) return { status: "error", artifact: `npm:${name}`, name, reason: `not an npm package name: ${name}` };
+  // @scope/name → @scope%2fname, the registry's form; anything else is encoded as well
+  const encoded = encodeURIComponent(name).replace(/^%40/, "@").replace(/%2F/g, "%2f");
   let version: string | undefined;
   let manifest: { dist?: { integrity?: string; attestations?: { url?: string } }; repository?: unknown };
   try {
