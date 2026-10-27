@@ -1,0 +1,50 @@
+{
+  "manifest_version": "0.3",
+  "name": "@guardbee/mcp-reverse-shield",
+  "display_name": "GuardBee Reverse Shield",
+  "version": "0.1.0",
+  "description": "MCP server that audits shipped apps for how easily they can be reverse engineered — exposed source maps, missing minification/R8/.NET obfuscation, debug info and unstripped symbols, debuggable flags, Electron fuses, unsigned binaries and embedded secrets across web bundles, Electron, Android APKs and native/.NET binaries",
+  "long_description": "The defensive counterpart to reverse-engineering MCPs. Point it at your own build artifact — a web build or live site, an Electron app, an Android APK, or a native/.NET binary — and it reports what an analyst gets for free: shipped or publicly reachable source maps, unminified and development bundles, missing R8/ProGuard or .NET obfuscation, debug info and unstripped symbols, debuggable flags and get-task-allow, Electron fuses that allow Node, inspector or ASAR tampering, missing code signing and hardened runtime, and credentials embedded in shipped code. Each finding says what it gives away and how to fix it, with an A–F grade. Runs locally with its own ASAR, AXML, DEX, ELF, Mach-O and PE/.NET parsers; no API key required.",
+  "author": {
+    "name": "GuardBee",
+    "email": "hello@guardbee.ai",
+    "url": "https://guardbee.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git"
+  },
+  "homepage": "https://guardbee.ai",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "security",
+    "reverse-engineering",
+    "app-hardening",
+    "obfuscation",
+    "electron",
+    "android"
+  ],
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "node": ">=18"
+    }
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/dist/cli.js"
+      ]
+    }
+  },
+  "user_config": {},
+  "tools_generated": true
+}

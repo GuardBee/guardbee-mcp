@@ -42,6 +42,7 @@
     "@guardbee/mcp-owasp-scan": "workspace:^",
     "@guardbee/mcp-prompt-injection-scanner": "workspace:^",
     "@guardbee/mcp-prompt-leak-scanner": "workspace:^",
+    "@guardbee/mcp-reverse-shield": "workspace:^",
     "@guardbee/mcp-rug-pull-detector": "workspace:^",
     "@guardbee/mcp-secret-scanner": "workspace:^",
     "@guardbee/mcp-server-auditor": "workspace:^",

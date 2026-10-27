@@ -1,0 +1,76 @@
+{
+  "serverInfo": {
+    "name": "@guardbee/mcp-reverse-shield",
+    "version": "0.1.0",
+    "description": "MCP server that audits shipped apps for how easily they can be reverse engineered — exposed source maps, missing minification/R8/.NET obfuscation, debug info and unstripped symbols, debuggable flags, Electron fuses, unsigned binaries and embedded secrets across web bundles, Electron, Android APKs and native/.NET binaries"
+  },
+  "tools": [
+    {
+      "name": "scan_artifact",
+      "description": "Audit a shipped build artifact for how easily it can be reverse engineered — the defensive counterpart to reverse-engineering MCPs. Accepts an APK, an Electron app (.app bundle, app folder or app.asar), a macOS/Linux/Windows binary (Mach-O, ELF, PE, .NET assembly), a JavaScript bundle or source map, or a build output directory containing any of these. Reports shipped source maps and source code, missing minification/R8/.NET obfuscation, debug info and unstripped symbols, debuggable flags and entitlements, Electron fuses that allow Node/inspector/ASAR tampering, missing code signing, embedded credentials and internal hosts, with an A–F grade.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute or relative path to the artifact or build output directory"
+          },
+          "maxFiles": {
+            "description": "Maximum number of files to check in a directory (default: 5000)",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "include": {
+            "description": "Only check files whose path contains one of these strings",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude": {
+            "description": "Skip files/dirs whose path contains one of these strings",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "scan_url",
+      "description": "Check a live website the way an analyst starts: fetch the page, read its same-site JavaScript bundles, follow sourceMappingURL comments and try <bundle>.map even when the comment was stripped. Reports publicly downloadable source maps (and whether they embed the original sources), unminified or development bundles, embedded credentials and internal hosts. Third-party scripts are not fetched.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Page URL (http or https)"
+          },
+          "maxScripts": {
+            "description": "Maximum number of same-site scripts to fetch (default: 25)",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "url"
+        ]
+      }
+    },
+    {
+      "name": "list_checks",
+      "description": "List every reverse-engineering resistance check, grouped by target (web, electron, android, native, dotnet), with what each finding gives away and how to fix it",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ]
+}
