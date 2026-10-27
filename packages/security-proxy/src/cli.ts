@@ -4,9 +4,10 @@ import os from "os";
 import path from "path";
 import { verifyAuditChain } from "./audit/logger.js";
 import { loadGatewayConfig } from "./gateway/config.js";
-import { clientConfigPath, runInit, type ClientName } from "./init.js";
+import { clientConfigPath, defaultSandboxRuntime, runInit, type ClientName } from "./init.js";
 import { provenanceChecker, startGateway } from "./proxy.js";
 import { checkUpstreamProvenance, provenanceSarif } from "./gateway/provenance.js";
+import { sandboxContext, sandboxIssues, type SandboxRuntime } from "./gateway/sandbox.js";
 import { isHttpUpstream } from "./types.js";
 import { PinStore, defaultPinFile } from "./gateway/pin-store.js";
 import { connectUpstream } from "./gateway/upstream.js";
@@ -36,11 +37,19 @@ function init(args: string[]): void {
   const file = flag(args, "--file");
   if ((!client && !file) || (client && !CLIENTS.includes(client))) {
     throw new Error(
-      `Usage: guardbee-proxy init (--client ${CLIENTS.join("|")} | --file <mcp.json>) [--out <guardbee-proxy.yaml>] [--dry-run] [--force]`
+      `Usage: guardbee-proxy init (--client ${CLIENTS.join("|")} | --file <mcp.json>) [--out <guardbee-proxy.yaml>] [--sandbox [runtime]] [--dry-run] [--force]`
     );
   }
   const dryRun = args.includes("--dry-run");
+  let sandbox: SandboxRuntime | undefined;
+  if (args.includes("--sandbox")) {
+    const named = flag(args, "--sandbox");
+    const runtimes: SandboxRuntime[] = ["docker", "podman", "bwrap", "sandbox-exec"];
+    if (named && !named.startsWith("--") && !runtimes.includes(named as SandboxRuntime)) throw new Error(`--sandbox takes ${runtimes.join(" | ")} (or nothing: ${defaultSandboxRuntime()} here)`);
+    sandbox = named && !named.startsWith("--") ? (named as SandboxRuntime) : defaultSandboxRuntime();
+  }
   const result = runInit({
+    ...(sandbox ? { sandbox } : {}),
     clientConfigPath: file ?? clientConfigPath(client!),
     yamlPath: flag(args, "--out") ?? path.join(os.homedir(), ".guardbee", "guardbee-proxy.yaml"),
     dryRun,
@@ -181,8 +190,8 @@ const HELP = `guardbee-proxy: MCP security gateway
 Usage:
   guardbee-proxy [--config <guardbee-proxy.yaml>]   Run the gateway (stdio, or HTTP when listen is set)
   guardbee-proxy -- <command> [args...]            Single-server mode: wrap one stdio MCP server
-  guardbee-proxy init (--client ${CLIENTS.join("|")} | --file <mcp.json>) [--out <file>] [--dry-run] [--force]
-                                                   Move a client's MCP servers behind the gateway
+  guardbee-proxy init (--client ${CLIENTS.join("|")} | --file <mcp.json>) [--out <file>] [--sandbox [runtime]] [--dry-run] [--force]
+                                                   Move a client's MCP servers behind the gateway (--sandbox: run stdio servers sandboxed)
   guardbee-proxy validate [--config <file>]        Check a config without starting anything
   guardbee-proxy verify-audit <audit.jsonl>        Check an audit log's hash chain
   guardbee-proxy provenance [--config <file>] [--format sarif]
@@ -252,6 +261,15 @@ async function main() {
   if (command === "verify-report") return verifyReportCommand(rest);
   if (command === "validate") {
     const config = loadGatewayConfig();
+    // Sandboxes depend on this host (runtime installed, paths present): report what would stop one from starting
+    const problems = Object.entries(config.upstreams).flatMap(([name, server]) =>
+      isHttpUpstream(server) || !server.sandbox ? [] : sandboxIssues(server, server.sandbox, sandboxContext(name)).map((issue) => `upstreams.${name}.sandbox: ${issue}`),
+    );
+    if (problems.length > 0) {
+      process.stderr.write(`Invalid sandbox config:\n${problems.map((p) => `  - ${p}`).join("\n")}\n`);
+      process.exitCode = 1;
+      return;
+    }
     process.stdout.write(`OK: ${Object.keys(config.upstreams).length} upstream(s), ${config.rules.length} rule(s), taint.mode=${config.taint.mode}\n`);
     return;
   }

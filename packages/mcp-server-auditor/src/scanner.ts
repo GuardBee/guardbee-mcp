@@ -1,5 +1,7 @@
 import { readFileSync, statSync, readdirSync } from "fs";
 import { join, relative, extname } from "path";
+import { languageOf, type SourceLanguage } from "@guardbee/guard-core";
+import { checkToolInputFlows } from "./languages.js";
 import { MCP_AUDITOR_PATTERNS, type McpAuditPattern } from "./patterns.js";
 
 export interface Finding {
@@ -9,6 +11,8 @@ export interface Finding {
   severity: McpAuditPattern["severity"];
   owasp?: string;
   recommendation: string;
+  /** Source language of the file, when it is code. */
+  language?: SourceLanguage;
   file?: string;
   line: number;
   column: number;
@@ -43,9 +47,20 @@ const SKIP_DIRS = new Set([
 const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1 MB
 const MAX_CONTEXT_LENGTH = 240;
 
-export function scanText(text: string, filePath?: string): Finding[] {
+/**
+ * Scans MCP server source. Python and Go files (by `filePath`'s extension,
+ * or `language`) also get the tool-input flow check of languages.ts on top
+ * of the regex patterns.
+ */
+export function scanText(text: string, filePath?: string, language: SourceLanguage | undefined = filePath ? languageOf(filePath) : undefined): Finding[] {
   const findings: Finding[] = [];
   const lines = text.split("\n");
+  const located = (index: number) => {
+    const before = text.slice(0, index);
+    const line = before.split("\n").length;
+    const lastNl = before.lastIndexOf("\n");
+    return { line, column: index - (lastNl === -1 ? 0 : lastNl + 1) + 1, context: (lines[line - 1] ?? "").trim().slice(0, MAX_CONTEXT_LENGTH) };
+  };
 
   for (const p of MCP_AUDITOR_PATTERNS) {
     const re = new RegExp(p.pattern.source, p.pattern.flags);
@@ -67,6 +82,7 @@ export function scanText(text: string, filePath?: string): Finding[] {
         severity: p.severity,
         owasp: p.owasp,
         recommendation: p.recommendation,
+        ...(language ? { language } : {}),
         file: filePath,
         line,
         column,
@@ -76,6 +92,30 @@ export function scanText(text: string, filePath?: string): Finding[] {
 
       // Sıfır genişlikli eşleşmelerde sonsuz döngüyü önle
       if (m.index === re.lastIndex) re.lastIndex++;
+    }
+  }
+
+  if (language === "python" || language === "go") {
+    // A flow the regex patterns already reported on the same line is not reported twice
+    const seen = new Set(findings.map((f) => `${f.patternId}:${f.line}`));
+    for (const flow of checkToolInputFlows(text, language)) {
+      const { line, column, context } = located(flow.index);
+      if (seen.has(`${flow.patternId}:${line}`)) continue;
+      seen.add(`${flow.patternId}:${line}`);
+      findings.push({
+        patternId: flow.patternId,
+        patternName: flow.patternName,
+        category: flow.category,
+        severity: flow.severity,
+        owasp: flow.owasp,
+        recommendation: flow.recommendation,
+        language,
+        file: filePath,
+        line,
+        column,
+        match: flow.match.slice(0, MAX_CONTEXT_LENGTH),
+        context,
+      });
     }
   }
 

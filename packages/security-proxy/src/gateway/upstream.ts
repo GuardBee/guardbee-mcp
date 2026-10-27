@@ -15,6 +15,7 @@ import type {
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { classifyAddress, guardedFetch, normalizeHost, type EgressBlockedError, type EgressPolicy } from "@guardbee/guard-core";
+import { sandboxContext, sandboxLaunch } from "./sandbox.js";
 import { isHttpUpstream, type HttpUpstreamConfig, type McpServerConfig, type UpstreamConfig } from "../types.js";
 
 /** Answers a server's sampling/createMessage request on behalf of one session. */
@@ -156,11 +157,14 @@ export function connectUpstream(name: string, server: UpstreamConfig, options: C
 
 export async function connectStdioUpstream(name: string, server: McpServerConfig, options: { sampling?: boolean } = {}): Promise<Upstream> {
   const client = proxyClient(options.sampling ?? false);
-  const transport = new StdioClientTransport({
-    command: server.command,
-    args: server.args ?? [],
-    env: { ...process.env, ...(server.env ?? {}) } as Record<string, string>,
-  });
+  const launch = server.sandbox ? sandboxLaunch(server, server.sandbox, sandboxContext(name)) : undefined;
+  const transport = new StdioClientTransport(
+    launch ?? {
+      command: server.command,
+      args: server.args ?? [],
+      env: { ...process.env, ...(server.env ?? {}) } as Record<string, string>,
+    },
+  );
   await client.connect(transport);
   return clientUpstream(name, client, options);
 }

@@ -48,14 +48,15 @@ export function registerTools(server: McpServer): void {
   server.registerTool(
     "scan_text",
     {
-      description: "Scan MCP server source for tool poisoning (hidden instructions embedded in a tool's `description` string, read by the calling LLM as trusted context) and confused-deputy tools (a name/description promising read-only behavior while the handler has a shell/eval/file-write/env-dump sink).",
+      description: "Scan MCP server source (TypeScript/JavaScript, Python, Go) for tool poisoning (hidden instructions embedded in a tool's `description` string, read by the calling LLM as trusted context) and confused-deputy tools (a name/description promising read-only behavior while the handler has a shell/eval/file-write/env-dump sink).",
       inputSchema: {
         content: z.string().describe("The source code to scan"),
-        label: z.string().optional().describe("Optional label shown in findings (e.g. filename)"),
+        label: z.string().optional().describe("Optional label shown in findings (e.g. filename); its extension picks the language"),
+        language: z.enum(["typescript", "javascript", "python", "go"]).optional().describe("Source language, when the label has no extension (default: typescript)"),
       },
     },
-    async ({ content, label }) => {
-      const findings = scanText(content, label);
+    async ({ content, label, language }) => {
+      const findings = scanText(content, label, language);
       return { content: [{ type: "text", text: formatFindings(findings, 1, 0) }] };
     }
   );
@@ -103,7 +104,10 @@ export function registerTools(server: McpServer): void {
       for (const p of DESCRIPTION_INJECTION_PATTERNS) lines.push(`  • ${p.name} (${p.id}, ${p.severity})`);
       lines.push("", "[confused-deputy]", "  A tool whose name/description implies read-only/informational behavior, but whose handler contains:");
       for (const r of MISMATCH_SINK_RULES) lines.push(`  • ${r.category} (${r.id}, ${r.severity})`);
-      lines.push("", "Scope: the MCP TypeScript SDK's `server.registerTool(name, { description, inputSchema }, handler)` and `server.tool(name, description, schema, handler)` forms. Raw setRequestHandler()-style tool lists and non-JS/TS servers are not covered — see README.");
+      lines.push(
+        "",
+        "Scope: TypeScript SDK `server.registerTool(...)` / `server.tool(...)`; Python `@mcp.tool()` (FastMCP, official SDK) and low-level `types.Tool(...)` + `@server.call_tool()`; Go official SDK `mcp.AddTool(s, &mcp.Tool{...}, h)` and mark3labs/mcp-go `mcp.NewTool(...)` + `s.AddTool(...)`. Raw setRequestHandler()-style TypeScript tool lists and other languages are not covered — see README.",
+      );
       return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );

@@ -158,6 +158,19 @@ Yukarıdaki tek sunuculu `--` kullanımı 0.x davranışını korur: tool adlar�
 
 ---
 
+## Sandbox'lı Upstream'ler
+
+Politika, taint ve maskeleme MCP mesajlarını görür. Bir stdio sunucusu ise sizin yetkilerinizle çalışan bir süreçtir: ele geçirilmiş bir paket bir tool çağrısına hiç cevap vermeden `~/.ssh`'yi ya da bir `.env` dosyasını okuyup dışarı gönderebilir. `upstreams.<ad>.sandbox` onu bir işletim sistemi sandbox'ında çalıştırır: `runtime: docker | podman | bwrap | sandbox-exec | none` (varsayılan: sandbox yok), `fs.readWrite` / `fs.readOnly` / `fs.deny`, `env` (geçirilecek host değişkenleri), `network: open | none` ve `limits: { cpus, memory, pids }` (yalnızca docker / podman).
+
+- **Disk salt okunur.** Yazma yalnızca `fs.readWrite`'a ve özel bir eve, `~/.guardbee/sandbox/<ad>`'a gider (HOME ve TMPDIR oraya işaret eder; sandbox'lı sunucunun npm/uv önbelleği kendisinindir ve sizinkini zehirleyemez).
+- **Kimlik bilgileri gizli.** `~/.ssh`, `~/.aws`, `~/.azure`, `~/.config/gcloud`, `~/.kube`, `~/.docker`, `~/.gnupg`, `~/.netrc`, `~/.npmrc`, `~/.pypirc`, `~/.git-credentials`, `~/.config/gh`, parola depoları, tarayıcı profilleri ve anahtar zincirleri, `.env` dosyaları, proxy'nin kendi pin ve provenance dosyaları ve `fs.deny`.
+- **Host ortamı yok.** Yalnızca `PATH`, `LANG`, `LC_ALL`, `TERM`, `TZ`, `env`'deki adlar ve upstream'in kendi `env`'i.
+- **`network: none`** ağı keser (paket o zaman zaten kurulu olmalıdır).
+- **Platformlar:** `docker` / `podman` (Linux, macOS, Windows; yalnızca mount edilen yollar görünür, CPU/bellek/pid sınırları), `bwrap` (Linux; tüm disk salt okunur, `--unshare-all`), `sandbox-exec` (macOS Seatbelt; yazma ve ağ reddedilir). Windows'ta yerleşik runtime yoktur: `docker` veya `podman` kullanın.
+- **Sessiz geri dönüş yok.** Bu makinede çalışamayacak bir sandbox (runtime `PATH`'te yok, Linux'ta `sandbox-exec`, container olmadan `limits`, `~` veya `/` için `readWrite`, kimlik deposunun içindeki bir yol) gateway'i gerekçesiyle durdurur; `guardbee-proxy validate` aynı sorunları listeler. Başlatma hataları `ruleId: sandbox:invalid | sandbox:failed` audit olaylarıdır.
+- **`guardbee-proxy init --sandbox [runtime]`** içe aktarılan her stdio sunucusunu sandbox'a koyar (varsayılan: macOS'ta `sandbox-exec`, kuruluysa Linux'ta `bwrap`, değilse `docker`); argüman olarak verilen dizinler yazılabilir olur.
+- **Sınırlar:** `sandbox-exec` Apple tarafından kullanımdan kaldırılmış olsa da macOS'un mekanizmasıdır ve CPU/bellek sınırlamaz; `bwrap` ayrıcalıksız user namespace ister. Container olmayan runtime'larda yalnızca kimlik listesi, `.env` dosyaları ve `fs.deny` okumaya kapalıdır, gerisi okunabilir (allowlist için container kullanın). stdio sunucuları için `network: open` ya hep ya hiçtir; host allowlist'leri HTTP upstream'lerine uygulanır. Ayrıntılı tablo ve örnek için [README](README.md#sandboxed-upstreams).
+
 ## Güvenlik Raporları
 
 `guardbee-proxy report`, audit log'dan güvenlik ekibi veya denetçi için dönemsel bir rapor üretir: özet sayılar, **OWASP LLM Top 10 (2025)** ve **MITRE ATLAS** ile eşlenmiş bulgular, kişisel veri sayıları, en çok engelleyen kurallar ve hash zincirinin durumu. Payload asla rapora girmez.

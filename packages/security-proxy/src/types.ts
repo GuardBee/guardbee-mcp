@@ -2,12 +2,16 @@ import type { AnomalyConfig } from "./gateway/anomaly.js";
 import type { ExporterConfig } from "./audit/exporters.js";
 import type { PiiPresetName, PiiSelection } from "@guardbee/guard-core";
 
+import type { SandboxConfig } from "./gateway/sandbox.js";
+
 export type McpServerConfig = {
   command: string;
   args?: string[];
   env?: Record<string, string>;
   /** Provenance check before start; overrides the top-level `provenance.mode`. */
   provenance?: "off" | "warn" | "require";
+  /** Run the server in an OS sandbox (gateway/sandbox.ts); absent → a plain child process. */
+  sandbox?: SandboxConfig;
 };
 
 /** A Streamable HTTP MCP server the proxy connects to as a client. */

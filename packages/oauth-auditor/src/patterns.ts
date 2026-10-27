@@ -34,6 +34,8 @@ export interface OAuthAuditPattern {
   recommendation: string;
   /** OWASP MCP Top 10 id; MCP07:2025 (insufficient authentication & authorization) unless set. */
   owasp?: string;
+  /** Applies to files of this language only (when the file's language is known). */
+  language?: "python" | "go";
 }
 
 /**
@@ -62,8 +64,9 @@ export const OAUTH_AUDIT_PATTERNS: OAuthAuditPattern[] = [
     name: "Python: incoming Authorization header forwarded unchanged via requests/httpx",
     category: "token-passthrough",
     pattern:
-      /\b(?:requests|httpx)\.(?:get|post|put|delete|request)\s*\([^;]{0,300}?(?:headers\s*=\s*\{[^}]{0,200}?["']Authorization["']\s*:\s*(?:request\.headers|headers)\s*(?:\[[^\]]+\]|\.get\s*\()|Authorization["']\s*:\s*request\.headers)/gis,
+      /\b(?:requests|httpx|session|client|\w+_client)\.(?:get|post|put|patch|delete|request|stream)\s*\([^;]{0,300}?(?:headers\s*=\s*\{[^}]{0,200}?["']Authorization["']\s*:\s*(?:request\.headers|headers)\s*(?:\[[^\]]+\]|\.get\s*\()|Authorization["']\s*:\s*request\.headers|headers\s*=\s*(?:dict\(\s*)?request\.headers\b)/gis,
     severity: "critical",
+    language: "python",
     recommendation:
       "Python FastAPI/Starlette handlers that relay request.headers['Authorization'] into requests/httpx are the same MCP confused-deputy token-passthrough risk. Exchange for a downstream-scoped token instead of forwarding the client token.",
   },
@@ -82,6 +85,7 @@ export const OAUTH_AUDIT_PATTERNS: OAuthAuditPattern[] = [
     pattern:
       /(?:requests|httpx)\.(?:get|request)\s*\(\s*(?:f["'][^"']*\.well-known\/(?:oauth-authorization-server|openid-configuration)[^"']*\{|(?:["'][^"']*\.well-known\/(?:oauth-authorization-server|openid-configuration)[^"']*["']\s*%|\.format\s*\())/gi,
     severity: "critical",
+    language: "python",
     recommendation:
       "Building the discovery URL from client-supplied issuer/resource values in Python enables SSRF. Allowlist known issuers before any fetch.",
   },
@@ -99,6 +103,7 @@ export const OAUTH_AUDIT_PATTERNS: OAuthAuditPattern[] = [
     category: "redirect-validation",
     pattern: /redirect_uri[\s\S]{0,100}?\.(?:startswith|endswith)\s*\(|redirect_uri\s+in\s+/gi,
     severity: "high",
+    language: "python",
     recommendation:
       "Python startswith/in checks on redirect_uri are classic open-redirect bypasses. Compare against the exact pre-registered redirect URI(s).",
   },
@@ -124,7 +129,76 @@ export const OAUTH_AUDIT_PATTERNS: OAuthAuditPattern[] = [
     category: "state-handle",
     pattern: /\b(?:state|handle|session_id)\s*=\s*(?:str\(\s*)?(?:random\.(?:random|randint|choice)\(|time\.time\(\)|uuid\.uuid1\(\))/g,
     severity: "high",
+    language: "python",
     recommendation: "Use secrets.token_urlsafe() for state and session handles, and bind them to the user who started the flow; random, time and uuid1 values can be guessed.",
+  },
+  {
+    id: "python_audience_verification_disabled",
+    name: "Python: JWT audience verification switched off (verify_aud: False)",
+    category: "token-validation",
+    pattern: /["']verify_aud["']\s*:\s*False\b/g,
+    severity: "high",
+    language: "python",
+    recommendation:
+      "verify_aud: False accepts a token minted for any resource server (confused deputy). Keep audience verification on and pass audience=<this server's resource identifier>.",
+  },
+  {
+    id: "go_token_passthrough_to_downstream",
+    name: "Go: incoming Authorization header copied onto a downstream request",
+    category: "token-passthrough",
+    pattern: /\.Header\.(?:Set|Add)\(\s*"Authorization"\s*,\s*[\w.]+\.Header\.Get\(\s*"Authorization"\s*\)|\.Header\s*=\s*\w+\.Header(?:\.Clone\(\))?\s*$/gm,
+    severity: "critical",
+    language: "go",
+    recommendation:
+      "The token a client presented to this server is forwarded unchanged to a downstream API (MCP spec: token passthrough). Exchange it for a token scoped to the downstream service (RFC 8693) instead of copying the Authorization header.",
+  },
+  {
+    id: "go_oidc_client_id_check_skipped",
+    name: "Go: go-oidc verifier built with SkipClientIDCheck (no audience check)",
+    category: "token-validation",
+    pattern: /\bSkipClientIDCheck\s*:\s*true\b/g,
+    severity: "high",
+    language: "go",
+    recommendation:
+      "SkipClientIDCheck: true makes the verifier accept ID tokens issued for any client — the audience is never checked. Set ClientID to this server's identifier instead.",
+  },
+  {
+    id: "go_hardcoded_oauth_client_secret",
+    name: "Go: oauth2.Config ClientSecret has a hardcoded literal value",
+    category: "secrets-exposure",
+    pattern: /\bClientSecret\s*:\s*"[^"]{8,}"/g,
+    severity: "high",
+    language: "go",
+    recommendation: "A hardcoded client secret ships with the binary and the source. Read it from the environment or a secret store at startup; a public client should use PKCE with no secret.",
+  },
+  {
+    id: "go_loose_redirect_uri_validation",
+    name: "Go: redirect URI validated with strings.HasPrefix/Contains instead of exact match",
+    category: "redirect-validation",
+    pattern: /\bstrings\.(?:HasPrefix|Contains|HasSuffix)\(\s*[\w.]*[Rr]edirect/g,
+    severity: "high",
+    language: "go",
+    recommendation: "A prefix or substring check on the redirect URI lets `https://legit.com.evil.com` style values through. Compare against the exact registered redirect URI(s).",
+  },
+  {
+    id: "go_predictable_state_handle",
+    name: "Go: OAuth state / session handle generated with math/rand or time",
+    category: "state-handle",
+    pattern: /\b(?:state|handle|sessionID|sessionId|stateHandle)\s*:?=\s*(?:strconv\.\w+\(\s*|fmt\.Sprint\w*\([^)]*?)?(?:rand\.(?:Intn|Int63n?|Int31n?|Uint32|Uint64|Float64)\(|rand\.Int\((?!\s*rand\.Reader)|time\.Now\(\)\.Unix)/g,
+    severity: "high",
+    language: "go",
+    recommendation: "math/rand and timestamps can be guessed. Generate state and session handles with crypto/rand (rand.Text(), or 32 bytes from rand.Read) and bind them to the user who started the flow.",
+  },
+  {
+    id: "go_auth_url_opened_via_shell",
+    name: "Go: authorization URL opened through a shell (sh -c open / cmd /c start)",
+    category: "auth-url",
+    pattern: /\bexec\.Command(?:Context)?\(\s*(?:ctx\s*,\s*)?(?:"(?:sh|bash)"\s*,\s*"-c"\s*,\s*(?:"(?:open|xdg-open)\s[^"]*"\s*\+|fmt\.Sprintf\(\s*"(?:open|xdg-open)\s)|"cmd(?:\.exe)?"\s*,\s*"\/c"\s*,\s*"start")/g,
+    severity: "critical",
+    language: "go",
+    recommendation:
+      "A server-supplied authorization URL handed to a shell is command injection (`&calc`, `$(…)`). Validate the URL (https only) and open it without a shell: exec.Command(\"xdg-open\", url) / (\"open\", url), or rundll32 url.dll,FileProtocolHandler on Windows.",
+    owasp: "MCP05:2025",
   },
   {
     id: "auth_url_opened_via_shell",

@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-db-gateway",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "mcpName": "io.github.GuardBee/db-gateway",
   "description": "KVKK/GDPR-compliant MCP server gateway between LLMs and databases",
   "author": "GuardBee <hello@guardbee.ai>",
@@ -68,7 +68,7 @@
   "dependencies": {
     "@guardbee/guard-core": "workspace:^",
     "@guardbee/mcp-telemetry": "workspace:^",
-    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@modelcontextprotocol/sdk": "catalog:",
     "zod": "catalog:"
   },
   "peerDependencies": {
