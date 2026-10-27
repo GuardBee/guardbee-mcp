@@ -1,5 +1,6 @@
 import type { Label } from "./labels.js";
 import { globToRegExp } from "./policy.js";
+import { CountersUnavailableError, MemoryCounters, type CounterBackend, type WindowCount } from "../state/counters.js";
 
 /**
  * A cap on tool calls over a fixed window, counted across sessions. Unlike
@@ -32,13 +33,6 @@ export interface QuotaRefusal {
   retryAfter: number;
 }
 
-interface Bucket {
-  windowStart: number;
-  count: number;
-}
-
-const MAX_BUCKETS = 50_000;
-
 function matches(rule: QuotaRule, caller: QuotaCaller): boolean {
   const { tool, upstream, label, user, group } = rule.match;
   if (tool !== undefined && !globToRegExp(tool).test(caller.tool)) return false;
@@ -50,55 +44,45 @@ function matches(rule: QuotaRule, caller: QuotaCaller): boolean {
 }
 
 /**
- * Counters for every session of one gateway process. Over HTTP one store is
- * shared by all sessions; several proxy replicas each keep their own.
+ * Quota counters. In memory (default) they cover every session of one gateway
+ * process; with `state.backend: redis` every replica counts against the same
+ * numbers (see state/counters.ts).
  */
 export class QuotaStore {
-  private readonly buckets = new Map<string, Bucket>();
-
-  constructor(private readonly now: () => number = Date.now) {}
+  constructor(
+    private readonly now: () => number = Date.now,
+    private readonly counters: CounterBackend = new MemoryCounters(now),
+  ) {}
 
   /**
    * Check every matching rule; when all have room, count the call against
    * each and return null. Otherwise count nothing and say which rule is full.
    */
-  take(rules: readonly QuotaRule[], caller: QuotaCaller): QuotaRefusal | null {
+  async take(rules: readonly QuotaRule[], caller: QuotaCaller): Promise<QuotaRefusal | null> {
     const at = this.now();
-    const hits: { key: string; bucket: Bucket }[] = [];
+    const hits: { ruleId: string; rule: QuotaRule; windowStart: number; count: WindowCount }[] = [];
     for (const [index, rule] of rules.entries()) {
       if (!matches(rule, caller)) continue;
       const ruleId = rule.id ?? `quotas[${index}]`;
       const who =
         rule.per === "gateway" ? "*" : rule.per === "session" ? `s:${caller.sessionId ?? "local"}` : caller.user ? `u:${caller.user}` : `s:${caller.sessionId ?? "local"}`;
-      const key = `${ruleId}\0${who}`;
       const windowMs = rule.windowSeconds * 1000;
       const windowStart = Math.floor(at / windowMs) * windowMs;
-      let bucket = this.buckets.get(key);
-      if (!bucket || bucket.windowStart !== windowStart) bucket = { windowStart, count: 0 };
-      if (bucket.count >= rule.limit) {
-        const retryAfter = Math.max(1, Math.ceil((windowStart + windowMs - at) / 1000));
-        const scope = rule.per === "gateway" ? "this gateway" : rule.per === "session" ? "this session" : caller.user ? `user "${caller.user}"` : "this session";
-        return {
-          ruleId,
-          retryAfter,
-          reason: `quota ${ruleId} reached: ${rule.limit} calls per ${rule.windowSeconds}s for ${scope}; try again in ${retryAfter}s`,
-        };
-      }
-      hits.push({ key, bucket });
+      // The window start is part of the key: a new window is a new counter
+      hits.push({ ruleId, rule, windowStart, count: { key: `quota:${ruleId}:${who}:${windowStart}`, limit: rule.limit, ttlMs: windowStart + windowMs - at + 1000 } });
     }
-    for (const { key, bucket } of hits) {
-      bucket.count++;
-      this.buckets.set(key, bucket);
+    if (hits.length === 0) return null;
+    let full: number;
+    try {
+      full = await this.counters.take(hits.map((h) => h.count));
+    } catch (err) {
+      if (!(err instanceof CountersUnavailableError)) throw err;
+      return { ruleId: "state:unavailable", retryAfter: 5, reason: `quota not checked: ${err.message} (state.onError: fail-closed)` };
     }
-    if (this.buckets.size > MAX_BUCKETS) this.prune(at, rules);
-    return null;
-  }
-
-  /** Drop buckets whose window has passed. */
-  private prune(at: number, rules: readonly QuotaRule[]): void {
-    const longest = Math.max(...rules.map((rule) => rule.windowSeconds), 0) * 1000;
-    for (const [key, bucket] of this.buckets) {
-      if (bucket.windowStart + longest <= at) this.buckets.delete(key);
-    }
+    if (full === -1) return null;
+    const { ruleId, rule, windowStart } = hits[full]!;
+    const retryAfter = Math.max(1, Math.ceil((windowStart + rule.windowSeconds * 1000 - at) / 1000));
+    const scope = rule.per === "gateway" ? "this gateway" : rule.per === "session" ? "this session" : caller.user ? `user "${caller.user}"` : "this session";
+    return { ruleId, retryAfter, reason: `quota ${ruleId} reached: ${rule.limit} calls per ${rule.windowSeconds}s for ${scope}; try again in ${retryAfter}s` };
   }
 }

@@ -509,17 +509,17 @@ describe("LLM gateway: model access and sensitive routing", () => {
 });
 
 describe("LLM gateway pieces", () => {
-  it("token budgets refuse the call after the one that crossed the limit", () => {
+  it("token budgets refuse the call after the one that crossed the limit", async () => {
     let now = 0;
     const store = new BudgetStore(() => now);
     const budgets = [{ id: "t", match: { model: "gpt-*" }, per: "gateway" as const, windowSeconds: 60, tokens: 100 }];
     const caller = { model: "gpt-4o", groups: [], anonymousId: "k" };
-    expect(store.admit(budgets, caller)).toBeNull();
-    store.record(budgets, caller, { inputTokens: 90, outputTokens: 20 }, null);
-    expect(store.admit(budgets, caller)?.ruleId).toBe("t");
-    expect(store.admit(budgets, { ...caller, model: "claude-x" })).toBeNull();
+    expect(await store.admit(budgets, caller)).toBeNull();
+    await store.record(budgets, caller, { inputTokens: 90, outputTokens: 20 }, null);
+    expect((await store.admit(budgets, caller))?.ruleId).toBe("t");
+    expect(await store.admit(budgets, { ...caller, model: "claude-x" })).toBeNull();
     now = 60_000;
-    expect(store.admit(budgets, caller)).toBeNull();
+    expect(await store.admit(budgets, caller)).toBeNull();
   });
 
   it("SseRelay keeps events split across chunks intact", () => {

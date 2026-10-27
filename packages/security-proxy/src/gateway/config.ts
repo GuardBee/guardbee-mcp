@@ -78,6 +78,16 @@ export interface GatewayConfig {
   pins?: { file?: string };
   /** Build provenance of the packages stdio upstreams run (npx); `warn` by default. */
   provenance: ProvenanceConfig;
+  /** Shared counters (quotas, LLM budgets) in Redis; absent → in this process. */
+  state?: StateConfig;
+}
+
+export interface StateConfig {
+  backend: "memory" | "redis";
+  url?: string;
+  keyPrefix: string;
+  onError: "local" | "fail-open" | "fail-closed";
+  timeoutMs: number;
 }
 
 
@@ -335,6 +345,20 @@ const yamlSchema = z
     llm: llmSchema.optional(),
     ner: nerSchema.optional(),
     pins: z.object({ file: z.string().min(1).optional() }).strict().optional(),
+    /** Where quota and budget counters live: this process (memory) or Redis, shared by replicas. */
+    state: z
+      .object({
+        backend: z.enum(["memory", "redis"]).default("memory"),
+        url: z.string().regex(/^rediss?:\/\//, "url must start with redis:// or rediss://").optional(),
+        keyPrefix: z.string().regex(/^[\w.:-]{1,64}$/, "letters, digits and . : _ -").default("guardbee"),
+        onError: z.enum(["local", "fail-open", "fail-closed"]).default("local"),
+        timeoutMs: z.number().int().positive().max(10_000).default(250),
+      })
+      .strict()
+      .superRefine((state, ctx) => {
+        if (state.backend === "redis" && !state.url) ctx.addIssue({ code: "custom", path: ["url"], message: 'backend "redis" needs a url (redis:// or rediss://; ${VAR} for the password)' });
+      })
+      .optional(),
     provenance: z
       .object({
         mode: z.enum(["off", "warn", "require"]).default("warn"),
@@ -483,6 +507,7 @@ export function parseGatewayYaml(source: string, fileLabel = "guardbee-proxy.yam
     ...(cfg.ner ? { ner: resolveNer(cfg.ner) } : {}),
     ...(cfg.pins ? { pins: cfg.pins } : {}),
     provenance: cfg.provenance ?? { mode: "warn", offline: false },
+    ...(cfg.state && cfg.state.backend === "redis" ? { state: { ...cfg.state, url: interpolate(cfg.state.url!, "state.url") } } : {}),
   };
 }
 

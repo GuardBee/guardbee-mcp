@@ -329,6 +329,16 @@ audit:
   ```
 
   Splunk gets HEC events (`sourcetype: guardbee:audit`). Elasticsearch gets `_bulk` `create` operations with the event hash as `_id`, so a retried batch never duplicates (a `409` counts as sent), and `@timestamp`. Syslog is RFC 5424 over UDP, TCP or TLS (certificates always verified; `caFile` for a private CA), with octet-counting (default) or newline framing, facility 13 (log audit) by default and the message as CEF (default) or JSON. CEF puts `act`, `suser`, `rt`, `msg` and `tool` / `upstream` / `ruleId` / `sessionId` / `piiHits` / `labels` in `cs1`–`cs6`; severity 8 for `blocked` and `toxic_flow`, 5 for `warn` and `approval`, 3 otherwise. Each destination keeps its own queue (up to 10,000 events): a SIEM that is down gets the events later; one that refuses them (`401`, a mapping error) is reported once on stderr.
+- **Several replicas (`state`):** quotas and LLM budgets are counted in the process by default, so each replica behind a load balancer would allow the full limit. With `state.backend: redis` every replica counts against the same numbers: the check and the count run as one Lua script, so replicas never both take the last call, and keys expire with their window (Redis 6 or later; the keys share one hash tag, so Redis Cluster works too). The proxy speaks RESP itself: nothing to install. If Redis cannot be reached, `onError` decides: `local` (default) counts in the process until it is back, `fail-open` lets calls through uncounted, `fail-closed` refuses calls that have a quota or budget; the outage and the recovery are audit events (`ruleId: state:unavailable | state:recovered`). Anomaly windows stay per session, which is per replica anyway: an MCP session lives on one replica.
+
+  ```yaml
+  state:
+    backend: redis                                  # memory (default) | redis
+    url: rediss://:${REDIS_PASSWORD}@redis.internal:6380/0   # rediss:// = TLS, certificates verified; /0 = database
+    keyPrefix: guardbee                             # keys: {guardbee}:quota:… and {guardbee}:budget:…
+    onError: local                                  # local | fail-open | fail-closed
+    timeoutMs: 250
+  ```
 - `GET /healthz` returns `{"ok": true, "sessions": N}`. Sessions above `maxSessions` get `503`.
 - **Dashboard:** `audit.dashboard` sends every audit event, batched, to the GuardBee dashboard with a workspace API key taken from `apiKeyEnv`. The key never sits in the file. If the dashboard is unreachable, events wait in memory (up to 10,000) and go out later. A rejected key is reported once on stderr. Tool calls never wait for the dashboard.
 - `init` now also moves Streamable HTTP servers (`url` + `headers`) behind the proxy. Legacy SSE servers stay in the client config and are reported.

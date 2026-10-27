@@ -1,0 +1,31 @@
+# Several proxy replicas behind a load balancer, sharing quotas and LLM budgets through Redis.
+# Run each replica with the same file:
+#   REDIS_PASSWORD=… GUARDBEE_PROXY_KEY=… npx -y @guardbee/mcp-security-proxy@^1 --config examples/proxy/replicas.yaml
+# MCP sessions are stateful: route a session to one replica (sticky on the Mcp-Session-Id header).
+version: 1
+
+listen:
+  transport: http
+  host: 0.0.0.0
+  port: 8787
+  apiKeys: ["${GUARDBEE_PROXY_KEY}"]
+
+state:
+  backend: redis
+  url: rediss://:${REDIS_PASSWORD}@redis.internal:6380/0
+  onError: local                 # Redis down: count per replica until it is back (fail-open | fail-closed)
+
+upstreams:
+  github:
+    url: https://api.githubcopilot.com/mcp/
+    headers: { Authorization: "Bearer ${GITHUB_TOKEN}" }
+
+quotas:
+  - id: github-writes
+    match: { upstream: github, label: egress }
+    limit: 100
+    windowSeconds: 3600
+    per: user                    # one counter per user, whichever replica serves them
+
+audit:
+  sink: console
