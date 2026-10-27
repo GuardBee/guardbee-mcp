@@ -94,6 +94,14 @@ npx @guardbee/mcp-oauth-auditor scan ./src --fail-on=high --format=sarif > resul
 | local-exposure | `missing_host_origin_check` — Host / Origin kontrolü yok (DNS rebinding) | medium | MCP07 |
 | local-exposure | `listen_all_interfaces` — MCP sunucusu `0.0.0.0` adresinde dinliyor | medium | MCP07 |
 
+### Python ve Go
+
+Dil dosya uzantısından anlaşılır; Python'a ve Go'ya özgü kurallar yalnızca kendi dosyalarında çalışır.
+
+- **Python** (FastAPI / Starlette / Flask, PyJWT, python-jose, authlib): `python_missing_audience_validation` (`audience=` ve authlib `claims_options` `aud` olmadan `jwt.decode`), `python_audience_verification_disabled` (`"verify_aud": False`), `python_token_passthrough_to_downstream` (`Authorization` başlığı ya da tüm `request.headers` bir `requests` / `httpx` / client çağrısında), `code_challenge` olmadan authlib `create_authorization_url` / `authorize_redirect` için `missing_pkce_on_auth_request`, ayrıca discovery SSRF, redirect, state ve `0.0.0.0` kuralları.
+- **Go** (golang-jwt / jwx, go-oidc, golang.org/x/oauth2, go-sdk ve mcp-go HTTP transport'ları): `go_missing_audience_validation` (`jwt.WithAudience` olmadan `jwt.Parse`), `go_oidc_client_id_check_skipped`, `go_token_passthrough_to_downstream` (`out.Header.Set("Authorization", r.Header.Get("Authorization"))`), `go_hardcoded_oauth_client_secret`, `go_loose_redirect_uri_validation` (`strings.HasPrefix`), `go_predictable_state_handle` (math/rand, time), `go_oauth_discovery_ssrf`, `go_auth_url_opened_via_shell`, `S256ChallengeOption` olmadan `AuthCodeURL` için `missing_pkce_on_auth_request` ve `listen_all_interfaces` olarak `ListenAndServe(":8080")`.
+- **İkisi de**: `token_passthrough_via_variable` — gelen `Authorization` başlığı bir değişkene okunup giden bir isteğe konuyor.
+
 Her bulgu [MCP spesifikasyonu Security Best Practices](https://modelcontextprotocol.io/specification/draft/basic/security_best_practices) belgesindeki bölümüne bağlanır (SARIF `helpUri`) ve OWASP MCP Top 10 kimliğini SARIF etiketi olarak taşır. Yeni kurallar dosya bazında çalışan sezgisel kontrollerdir: başka bir modülde yapılan kontrol (auth middleware'i, yardımcı fonksiyondaki `iss` karşılaştırması) görülmez.
 
 ### Canlı yoklama
@@ -121,7 +129,7 @@ oauth-auditor:
 
 ## Kısıtlamalar (bilinçli tasarım)
 
-- **JS/TS-odaklı kalıplar.** `jwt.verify(`, `fetch(`/`axios(`, template-literal URL kurulumu — eşdeğer hatalara sahip Python/Go/Rust'ta yazılmış bir server isimden tanınmaz, sadece benzer adlandırılmış fonksiyonlar kullanıyorsa aynı temel şekilden tanınır.
+- **TypeScript/JavaScript, Python ve Go.** Her birinin yaygın kütüphaneleri için kuralları var (yukarıda). Diğer diller (Rust, Java, C#, …) ve diğer kütüphaneler yalnızca bunlarla aynı şekli paylaştıkları yerde eşleşir; örneğin literal bir `client_secret` ya da `response_type=code`.
 - **Heuristic, tam bir OAuth conformance testi değil.** Bu, kaynakta belirli anti-pattern'leri bulur, çalışan bir authorization server'a karşı canlı bir protokol conformance kontrolü değil. Bir OAuth akışının yanlış implemente edilebileceği her yolu yakalamaz — sadece MCP spec'inin en yüksek riskli olarak adlandırdığı bir avuç tanesini.
 - **Yokluk-tabanlı kontroller (audience, PKCE) sınırlı bir metin penceresi kullanır**, gerçek bir parser değil — options objesi çağrı konumundan uzakta kurulan bir `jwt.verify()` çağrısı (inline bir obje yerine geçirilen bir değişken) `audience` için doğru kontrol edilmez.
 
@@ -131,7 +139,7 @@ oauth-auditor:
 
 ```bash
 npm run build
-npm test             # 18 unit test
+npm test
 ```
 
 ---

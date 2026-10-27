@@ -32,6 +32,7 @@ Bir tool'un `description`'ı, bir insanın server'ı kurmadan önce okuduğu dok
 - **Annotation yalanı**: yıkıcı bir açıklamanın yanında `readOnlyHint: true`
 - **Canlı katalog**: `scanToolCatalog` bir `tools/list` yüküne bakar; `rug-pull-detector` her kontrolde bunu çağırır
 - **4 confused-deputy sink kategorisi**: process-execution, code-execution, filesystem-write, credentials-exposure — sadece isim/description'ı read-only ima eden tool'lara karşı kontrol ediliyor
+- **Python ve Go server'ları**: FastMCP / resmi Python SDK `@mcp.tool()` (docstring, `description=`, `Field(description=...)`, `readOnlyHint`), düşük seviyeli `types.Tool(...)` ve onu çalıştıran `call_tool` dalı, resmi Go SDK (`mcp.AddTool(s, &mcp.Tool{...}, h)`, `jsonschema` struct tag'leri) ve mark3labs/mcp-go (`mcp.NewTool(...)`, `mcp.WithDescription`, `mcp.Description`); her dil kendi sink'leriyle (`subprocess`/`os.system`, `eval`/`exec`, `open(..., "w")`, `os.environ`; `exec.Command`, `os.WriteFile`/`os.Remove`, `os.Environ()`)
 - Sınırlı, bir-sonraki-tool'dan-haberdar extraction — tool B'nin handler'ındaki bir sink asla tool A'ya yanlış atfedilmiyor
 - SARIF 2.1.0 çıktısı — CI/CD entegrasyonu (GitHub Code Scanning vb.)
 - `guardbee.yml` ile config dosyası desteği
@@ -107,7 +108,8 @@ tool-poisoning-scanner:
 
 ## Kısıtlamalar (bilinçli tasarım)
 
-- **Kapsam**: MCP TypeScript SDK'nın `server.tool(name, description, schema, handler)` convenience formu — bu monorepo'daki her GuardBee server'ının kullandığı şekil. Düşük-seviyeli `setRequestHandler(ListToolsRequestSchema, ...)` tarzı (ham bir `{name, description, inputSchema}` objesi dizisi döndüren) henüz kapsanmıyor, Python MCP server'ları da.
+- **Kapsam**: TypeScript/JavaScript (`server.tool(...)` ve `server.registerTool(...)`), Python (`@mcp.tool()` dekoratörleri ve düşük seviyeli `Tool(...)` + `@server.call_tool()`) ve Go (resmi go-sdk, mark3labs/mcp-go). Dil dosya uzantısından anlaşılır (`scan_text` bir `language` alır). TypeScript'te `setRequestHandler(ListToolsRequestSchema, ...)` tarzı (ham bir `{name, description, inputSchema}` dizisi) henüz kapsanmıyor; Rust, Java, Kotlin, C# ve diğer diller de.
+- **Sözcüksel okuma, parser değil**: Python ve Go sınırlı parantez/string/girinti kurallarıyla okunur, tam bir AST ile değil. Birkaç dolaylı katmanla kaydedilen bir handler'da (çalışma anında kurulan bir tool tablosu, bir sarmalayıcıdan geçen handler) yalnızca kayıt eşleşir: açıklaması kontrol edilir, sink'leri edilmez.
 - **Confused-deputy isim/description-anahtar-kelime tabanlı**, semantik bir analiz değil — read-only görünümlü kelimelerden tamamen kaçınan bir tool sink kataloğuna karşı hiç kontrol edilmez, ve gerçekten yanlış etiketlenmiş ama alışılmadık ifadeler kullanan bir tool kaçırılabilir.
 - Bunlar düşük yanlış-pozitif oranı için ayarlanmış **heuristic** bulgulardır (bu monorepo'daki 349 gerçek dosyaya karşı doğrulandı, production kodunda yanlış-pozitif yok) — her bulgu yine de gözden geçirilmeli.
 

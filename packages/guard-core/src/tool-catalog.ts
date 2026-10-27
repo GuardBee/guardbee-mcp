@@ -109,6 +109,8 @@ export function matchSurface(text: string): SurfaceHit[] {
 
 function suspiciousBlob(token: string): boolean {
   if (token.length < 32) return false;
+  // A long camelCase / PascalCase identifier (MissingRequiredClientCapabilityError): words of three or more letters
+  if (/^[a-z]*(?:[A-Z][a-z]{2,})+$/.test(token)) return false;
   const hasUpper = /[A-Z]/.test(token);
   const hasLower = /[a-z]/.test(token);
   const hasDigit = /\d/.test(token);

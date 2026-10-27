@@ -273,6 +273,9 @@ importers:
 
   packages/mcp-server-auditor:
     dependencies:
+      '@guardbee/guard-core':
+        specifier: workspace:^
+        version: link:../guard-core
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
@@ -321,6 +324,9 @@ importers:
 
   packages/oauth-auditor:
     dependencies:
+      '@guardbee/guard-core':
+        specifier: workspace:^
+        version: link:../guard-core
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
@@ -333,6 +339,9 @@ importers:
 
   packages/owasp-scan:
     dependencies:
+      '@guardbee/guard-core':
+        specifier: workspace:^
+        version: link:../guard-core
       '@guardbee/mcp-audit-gap-auditor':
         specifier: workspace:^
         version: link:../audit-gap-auditor

@@ -41,6 +41,8 @@ MCP sunucusu olarak (Claude Desktop, Cursor, VS Code):
 | `live` | `--url=<streamable HTTP URL>` ya da `--arg=…` ile `--stdio=<komut>` | Bağlanır, `tools/list` çağırır, ardından toxic-flow-auditor ve tool-poisoning-scanner |
 | `catalog <tools.json>` | Bir `tools/list` dökümü (`{ "tools": [...] }` ya da düz dizi) | `live` ile aynı kontroller, çevrimdışı |
 
+`scan`, TypeScript/JavaScript, Python (FastMCP, resmi SDK, düşük seviyeli server) ve Go (resmi go-sdk, mark3labs/mcp-go) MCP server'larını tam okur: tool tanımları, handler sink'leri ve OAuth kuralları. Diğer diller (Rust, Java, Kotlin, C#, Ruby, PHP, Swift) yalnızca dilden bağımsız kuralları alır (secret'lar, URL'ler, config). Rapordaki `coverage`, her kaynak dosyayı dili, bu derinlik (`full` ya da `patterns`) ve bulunan tool tanımı sayısıyla, ayrıca dil bazında bir özetle (metin çıktısında `languages:`) listeler; böylece taramanın derin okuyamadığı bir dosya sessizce geçmiş gibi görünmez.
+
 `--discover-shadow`, `scan`'e bir **MCP09** kontrolü ekler: bu makinede yapılandırılmış MCP sunucularını (Cursor, Claude Desktop, Windsurf, VS Code) `mcp-config-auditor` ile listeler; `--allowlist=<path>` onaylı olanları işaretler.
 
 ## OWASP MCP Top 10 kapsamı

@@ -98,6 +98,14 @@ npx @guardbee/mcp-oauth-auditor scan ./src --fail-on=high --format=sarif > resul
 | local-exposure | `missing_host_origin_check` — no Host / Origin validation (DNS rebinding) | medium | MCP07 |
 | local-exposure | `listen_all_interfaces` — MCP server bound to `0.0.0.0` | medium | MCP07 |
 
+### Python and Go
+
+The language comes from the file extension, and Python- and Go-specific rules run only on their own files.
+
+- **Python** (FastAPI / Starlette / Flask, PyJWT, python-jose, authlib): `python_missing_audience_validation` (`jwt.decode` with no `audience=` and no authlib `claims_options` `aud`), `python_audience_verification_disabled` (`"verify_aud": False`), `python_token_passthrough_to_downstream` (the `Authorization` header or all of `request.headers` on a `requests` / `httpx` / client call), `missing_pkce_on_auth_request` on authlib `create_authorization_url` / `authorize_redirect` with no `code_challenge`, and the discovery SSRF, redirect, state and `0.0.0.0` rules.
+- **Go** (golang-jwt / jwx, go-oidc, golang.org/x/oauth2, go-sdk and mcp-go HTTP transports): `go_missing_audience_validation` (`jwt.Parse` with no `jwt.WithAudience`), `go_oidc_client_id_check_skipped`, `go_token_passthrough_to_downstream` (`out.Header.Set("Authorization", r.Header.Get("Authorization"))`), `go_hardcoded_oauth_client_secret`, `go_loose_redirect_uri_validation` (`strings.HasPrefix`), `go_predictable_state_handle` (math/rand, time), `go_oauth_discovery_ssrf`, `go_auth_url_opened_via_shell`, `missing_pkce_on_auth_request` on `AuthCodeURL` with no `S256ChallengeOption`, and `ListenAndServe(":8080")` as `listen_all_interfaces`.
+- **Both**: `token_passthrough_via_variable` — the incoming `Authorization` header read into a variable that is then put on an outgoing request.
+
 Every finding links its section of the [MCP spec Security Best Practices](https://modelcontextprotocol.io/specification/draft/basic/security_best_practices) (SARIF `helpUri`) and carries its OWASP MCP Top 10 id as a SARIF tag. The newer rules are heuristics over one file at a time: a check done in another module (an auth middleware, an `iss` comparison in a helper) is not seen.
 
 ### Live probe
@@ -125,7 +133,7 @@ oauth-auditor:
 
 ## Limitations (by design)
 
-- **JS/TS-oriented patterns.** `jwt.verify(`, `fetch(`/`axios(`, template-literal URL construction — a server written in Python/Go/Rust with equivalent bugs won't be recognized by name, only by the same underlying shape if it happens to use similarly-named functions.
+- **TypeScript/JavaScript, Python and Go.** Each has rules for its common libraries (above). Other languages (Rust, Java, C#, …) and other libraries are only matched where they happen to share a shape with these, e.g. a literal `client_secret` or `response_type=code`.
 - **Heuristic, not a full OAuth conformance test.** This finds specific anti-patterns in source, not a live protocol conformance check against a running authorization server. It won't catch every way an OAuth flow can be misimplemented — only the handful the MCP spec calls out as the highest-stakes ones.
 - **The absence-based checks (audience, PKCE) use a bounded text window**, not a real parser — a `jwt.verify()` call whose options object happens to be built far away from the call site (a variable passed in, rather than an inline object) won't be checked for `audience` correctly.
 
@@ -135,7 +143,7 @@ oauth-auditor:
 
 ```bash
 npm run build
-npm test             # 18 unit tests
+npm test
 ```
 
 ---

@@ -35,11 +35,35 @@ export interface OwaspBucket {
   findings: NormalizedFinding[];
 }
 
+export interface FileCoverage {
+  file: string;
+  /** typescript, javascript, python, go, rust, java, … */
+  language: string;
+  /** full: tool definitions, handler sinks and OAuth rules; patterns: language-neutral rules only. */
+  analysis: "full" | "patterns";
+  /** MCP tool definitions found in the file. */
+  tools: number;
+}
+
+export interface LanguageCoverage {
+  language: string;
+  analysis: "full" | "patterns";
+  files: number;
+  tools: number;
+}
+
+export interface ScanCoverage {
+  languages: LanguageCoverage[];
+  files: FileCoverage[];
+}
+
 export interface OwaspReport {
   mode: "path" | "live" | "catalog";
   grade: Grade;
   score: number;
   scannedFiles?: number;
+  /** Source languages of a path scan and how deeply each file was analyzed. */
+  coverage?: ScanCoverage;
   toolCount?: number;
   totalFindings: number;
   byOwasp: OwaspBucket[];

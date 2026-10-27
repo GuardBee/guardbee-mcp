@@ -1,5 +1,6 @@
 import { readFileSync, statSync, readdirSync } from "fs";
 import { join, relative, extname } from "path";
+import { languageOf, type SourceLanguage } from "@guardbee/guard-core";
 import { OAUTH_AUDIT_PATTERNS, SPEC_SECTION, type OAuthAuditCategory } from "./patterns.js";
 
 export interface Finding {
@@ -17,6 +18,8 @@ export interface Finding {
   owasp: string;
   /** The MCP spec Security Best Practices section the rule comes from. */
   reference: string;
+  /** Source language of the file, when it is code. */
+  language?: SourceLanguage;
 }
 
 export interface ScanResult {
@@ -106,15 +109,17 @@ function checkMissingAudienceValidation(text: string, filePath?: string): Findin
     const openParenIndex = m.index + m[0].length - 1;
     const callEnd = findMatchingParenEnd(text, openParenIndex);
     const callSpan = text.slice(m.index, callEnd);
-    if (!/\baudience\s*=/i.test(callSpan)) {
+    // authlib: jwt.decode(token, key, claims_options={"aud": {"essential": True, "value": ...}}) + claims.validate()
+    const authlibAudience = /\bclaims_options\s*=/.test(callSpan) && /["']aud["']\s*:/.test(text);
+    if (!/\baudience\s*=/i.test(callSpan) && !authlibAudience) {
       const { line, column } = locationOf(text, m.index);
       findings.push({
         patternId: "python_missing_audience_validation",
-        patternName: "PyJWT jwt.decode() call has no audience= check",
+        patternName: "Python jwt.decode() call has no audience check (PyJWT, python-jose, authlib)",
         category: "token-validation",
         severity: "high",
         recommendation:
-          "PyJWT jwt.decode without audience= accepts tokens minted for any resource server. Pass audience=<this server's resource identifier> explicitly (and disable verify_aud only in tests).",
+          "jwt.decode without an audience accepts tokens minted for any resource server. Pass audience=<this server's resource identifier> (PyJWT, python-jose) or claims_options={\"aud\": {\"essential\": True, \"value\": ...}} and call claims.validate() (authlib).",
         file: filePath,
         line,
         column,
@@ -125,6 +130,30 @@ function checkMissingAudienceValidation(text: string, filePath?: string): Findin
       });
     }
     pyRe.lastIndex = m.index + 1;
+  }
+
+  // golang-jwt / lestrrat jwx: jwt.Parse(token, keyFunc [, jwt.WithAudience(...)])
+  const goRe = /\bjwt\.(?:Parse|ParseWithClaims|ParseString)\s*\(/g;
+  const goAudience = /\bWithAudience\s*\(|\bVerifyAudience\s*\(|\bGetAudience\s*\(|\.Audience\b/.test(text);
+  while (!goAudience && (m = goRe.exec(text)) !== null) {
+    const callEnd = findMatchingParenEnd(text, m.index + m[0].length - 1);
+    const callSpan = text.slice(m.index, callEnd);
+    const { line, column } = locationOf(text, m.index);
+    findings.push({
+      patternId: "go_missing_audience_validation",
+      patternName: "Go jwt.Parse() with no audience check",
+      category: "token-validation",
+      severity: "high",
+      recommendation:
+        "jwt.Parse checks the signature and expiry but not who the token was issued for. Pass jwt.WithAudience(<this server's resource identifier>) (golang-jwt v5, jwx) so a token minted for another resource server is refused.",
+      file: filePath,
+      line,
+      column,
+      match: callSpan.trim().replace(/\s+/g, " ").slice(0, MAX_CONTEXT_LENGTH),
+      context: "",
+      owasp: "MCP07:2025",
+      reference: SPEC_SECTION["token-validation"],
+    });
   }
   return findings;
 }
@@ -160,6 +189,27 @@ function checkMissingPkce(text: string, filePath?: string): Finding[] {
       });
     }
   }
+
+  // authlib OAuth2Session / OAuth client and golang.org/x/oauth2: the authorization URL is built by a library call
+  const libraryCall = /\bcreate_authorization_url\s*\(|\bauthorize_redirect\s*\(|\.AuthCodeURL\s*\(/.exec(text);
+  if (libraryCall && !/code_challenge|code_verifier|S256ChallengeOption|GenerateVerifier|VerifierOption/.test(text)) {
+    const { line, column } = locationOf(text, libraryCall.index);
+    findings.push({
+      patternId: "missing_pkce_on_auth_request",
+      patternName: "Authorization URL built with no PKCE code_challenge",
+      category: "pkce",
+      severity: "high",
+      recommendation:
+        "OAuth 2.1 requires PKCE for every authorization_code flow. authlib: pass code_challenge_method=\"S256\" to the client and code_verifier= to create_authorization_url/fetch_token. golang.org/x/oauth2: verifier := oauth2.GenerateVerifier(); AuthCodeURL(state, oauth2.S256ChallengeOption(verifier)); Exchange(ctx, code, oauth2.VerifierOption(verifier)).",
+      file: filePath,
+      line,
+      column,
+      match: text.slice(libraryCall.index, findMatchingParenEnd(text, text.indexOf("(", libraryCall.index))).trim().replace(/\s+/g, " ").slice(0, MAX_CONTEXT_LENGTH),
+      context: "",
+      owasp: "MCP07:2025",
+      reference: SPEC_SECTION.pkce,
+    });
+  }
   return findings;
 }
 
@@ -179,9 +229,10 @@ const clean = (s: string) => s.trim().replace(/\s+/g, " ").slice(0, MAX_CONTEXT_
  * it, so a malicious server it also talks to can mix the flows up.
  */
 function checkMissingIssValidation(text: string, filePath?: string): Finding[] {
-  const codeRead = /(?:searchParams|params|query)\.get\(\s*["']code["']\s*\)|\b(?:req|request)\.query\.code\b|\brequest\.args\.get\(\s*["']code["']\s*\)/.exec(text);
+  const codeRead =
+    /(?:searchParams|params|query)\.get\(\s*["']code["']\s*\)|\b(?:req|request)\.query\.code\b|\brequest\.args\.get\(\s*["']code["']\s*\)|\bQuery\(\)\.Get\(\s*"code"\s*\)|\bFormValue\(\s*"code"\s*\)/.exec(text);
   if (!codeRead) return [];
-  const exchanges = /authorization_code/.test(text);
+  const exchanges = /authorization_code|\.Exchange\s*\(\s*\w+\s*,/.test(text);
   const checksIss = /["'`]iss["'`]|\.iss\b|\biss\s*[:=!]=|\bauthorization_response_iss_parameter_supported\b/.test(text);
   if (!exchanges || checksIss) return [];
   return [
@@ -203,13 +254,13 @@ function checkMissingIssValidation(text: string, filePath?: string): Finding[] {
  */
 function checkAuthUrlScheme(text: string, filePath?: string): Finding[] {
   const findings: Finding[] = [];
-  const re = /(?:(?<![.\w])open|\bopenExternal|\bwebbrowser\.open(?:_new_tab)?|(?<![.\w])opn)\s*\(\s*([A-Za-z_$][\w$.]*)/g;
+  const re = /(?:(?<![.\w])open|\bopenExternal|\bwebbrowser\.open(?:_new_tab)?|(?<![.\w])opn|\bbrowser\.OpenURL)\s*\(\s*([A-Za-z_$][\w$.]*)/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
     const arg = m[1]!;
     if (!/url|uri|href|link|authoriz/i.test(arg)) continue;
     const before = text.slice(Math.max(0, m.index - 600), m.index);
-    if (/\.protocol\b|startsWith\(\s*["'`]https?:|scheme\s*(?:===?|in|!==?)|urlparse\(|["'`]https:["'`]/.test(before)) continue;
+    if (/\.protocol\b|startsWith\(\s*["'`]https?:|scheme\s*(?:===?|in|!==?)|\.Scheme\s*[!=]=|urlparse\(|["'`]https:["'`]|["'`]https["'`]/.test(before)) continue;
     findings.push(finding(text, m.index, {
       patternId: "auth_url_scheme_not_validated",
       patternName: "URL opened in a browser without checking its scheme",
@@ -246,9 +297,23 @@ function checkStateHandleBinding(text: string, filePath?: string): Finding[] {
   return findings;
 }
 
+/** The first match of `re` (global) that is not on a `//` or `#` comment line. */
+function firstOutsideComment(text: string, re: RegExp): RegExpExecArray | null {
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const lineStart = text.lastIndexOf("\n", m.index - 1) + 1;
+    if (!/^\s*(?:\/\/|#|\*)/.test(text.slice(lineStart, m.index))) return m;
+  }
+  return null;
+}
+
 /** An MCP server reachable over HTTP: no auth, no Host/Origin check (DNS rebinding), or bound to every interface. */
-function checkLocalHttpExposure(text: string, filePath?: string): Finding[] {
-  const transport = /\b(?:StreamableHTTPServerTransport|SSEServerTransport)\b|\b(?:mcp|server|app)\.run\(\s*transport\s*=\s*["'](?:streamable-http|sse|http)["']/.exec(text);
+function checkLocalHttpExposure(text: string, filePath?: string, language?: SourceLanguage): Finding[] {
+  // Go: a package-qualified constructor call (server.NewStreamableHTTPServer(…), mcp.NewSSEHandler(…)), not the SDK's own definition or a doc comment
+  const transport =
+    language === "go"
+      ? firstOutsideComment(text, /\b[a-z]\w*\.(?:NewStreamableHTTPHandler|NewSSEHandler|NewStreamableHTTPServer|NewSSEServer)\s*\(/g)
+      : /\b(?:StreamableHTTPServerTransport|SSEServerTransport)\b|\b(?:mcp|server|app)\.run\(\s*transport\s*=\s*["'](?:streamable-http|sse|http)["']/.exec(text);
   const findings: Finding[] = [];
   if (transport) {
     if (!/authorization|bearer|requireBearerAuth|verifyToken|verifyAccessToken|authInfo|apiKey|api_key|auth_settings|token_verifier|AuthSettings/i.test(text)) {
@@ -261,7 +326,7 @@ function checkLocalHttpExposure(text: string, filePath?: string): Finding[] {
         match: clean(transport[0]),
       }, filePath));
     }
-    if (!/enableDnsRebindingProtection|allowedHosts|allowedOrigins|headers\.origin|headers\[["']origin["']\]|headers\.host|["']Origin["']|TrustedHostMiddleware|allowed_hosts/i.test(text)) {
+    if (!/enableDnsRebindingProtection|allowedHosts|allowedOrigins|headers\.origin|headers\[["']origin["']\]|headers\.host|["']Origin["']|TrustedHostMiddleware|allowed_hosts|\br\.Host\b|CrossOriginProtection/i.test(text)) {
       findings.push(finding(text, transport.index, {
         patternId: "missing_host_origin_check",
         patternName: "HTTP MCP server does not check Host or Origin (DNS rebinding)",
@@ -272,24 +337,93 @@ function checkLocalHttpExposure(text: string, filePath?: string): Finding[] {
       }, filePath));
     }
   }
-  const listenAll = /\.listen\(\s*[\w$.]+\s*,\s*["']0\.0\.0\.0["']|\bhost\s*[:=]\s*["']0\.0\.0\.0["']/.exec(text);
-  if (listenAll && (transport || /\bMcpServer\b|\bFastMCP\b|modelcontextprotocol/.test(text))) {
+  const listenAll = firstOutsideComment(
+    text,
+    /\.listen\(\s*[\w$.]+\s*,\s*["']0\.0\.0\.0["']|\bhost\s*[:=]\s*["']0\.0\.0\.0["']|\bListenAndServe(?:TLS)?\(\s*"(?:0\.0\.0\.0)?:\d+"|\bAddr\s*:\s*"(?:0\.0\.0\.0)?:\d+"/g,
+  );
+  if (listenAll && (transport || /\bMcpServer\b|\bFastMCP\b|modelcontextprotocol|mark3labs\/mcp-go/.test(text))) {
     findings.push(finding(text, listenAll.index, {
       patternId: "listen_all_interfaces",
       patternName: "MCP server listens on all interfaces (0.0.0.0)",
       category: "local-exposure",
       severity: "medium",
-      recommendation: "Bind a local MCP server to 127.0.0.1. 0.0.0.0 exposes it to every network the machine is on; if it has to be reachable, put authentication and a host allowlist in front of it.",
+      recommendation: "Bind a local MCP server to 127.0.0.1 (in Go, \"127.0.0.1:8080\" rather than \":8080\"). 0.0.0.0 exposes it to every network the machine is on; if it has to be reachable, put authentication and a host allowlist in front of it.",
       match: clean(listenAll[0]),
     }, filePath));
   }
   return findings;
 }
 
-export function scanText(text: string, filePath?: string): Finding[] {
+/**
+ * The incoming Authorization header read into a variable and that variable
+ * put on an outgoing request: the passthrough the one-expression patterns
+ * cannot see (Python and Go).
+ */
+function checkIndirectPassthrough(text: string, filePath?: string): Finding[] {
+  const findings: Finding[] = [];
+  const read =
+    /\b([A-Za-z_]\w*)\s*(?:,\s*\w+\s*)?:?=\s*(?:request|req|r)\.headers?(?:\.get\(\s*["']authorization["']|\[\s*["']authorization["']\s*\])|\b([A-Za-z_]\w*)\s*:?=\s*(?:r|req|request)\.Header\.Get\(\s*"Authorization"\s*\)/gi;
+  for (const m of text.matchAll(read)) {
+    const name = (m[1] ?? m[2])!;
+    const rest = text.slice(m.index! + m[0].length);
+    const forwarded = new RegExp(
+      `["']Authorization["']\\s*:\\s*(?:f?["']Bearer \\{)?${name}\\b|\\.Header\\.(?:Set|Add)\\(\\s*"Authorization"\\s*,\\s*${name}\\b|["']Authorization["']\\s*:\\s*\\[\\]string\\{\\s*${name}\\b`,
+    ).exec(rest);
+    if (!forwarded) continue;
+    findings.push(
+      finding(text, m.index! + m[0].length + forwarded.index, {
+        patternId: "token_passthrough_via_variable",
+        patternName: "Incoming Authorization header stored in a variable and sent to a downstream request",
+        category: "token-passthrough",
+        severity: "critical",
+        recommendation:
+          "The client's token is read from this request and put on an outgoing one (MCP spec: token passthrough). Exchange it for a token scoped to the downstream API (RFC 8693) instead of forwarding it.",
+        match: clean(`${m[0]} … ${forwarded[0]}`),
+      }, filePath),
+    );
+  }
+  return findings;
+}
+
+/** Go: the discovery URL built from a value the request supplied. */
+function checkGoDiscoverySsrf(text: string, filePath?: string): Finding[] {
+  if (!/\b(?:Query\(\)\.Get|FormValue|PathValue|RequireString|GetString)\s*\(/.test(text)) return [];
+  // The URL is built inside the request call: http.Get(fmt.Sprintf("%s/.well-known/…", issuer)), http.NewRequest("GET", issuer+"/.well-known/…", nil)
+  const discovery = /fmt\.Sprintf\(\s*"%s\/?\.well-known\/(?:oauth-authorization-server|openid-configuration)|[\w)\]]\s*\+\s*"\/\.well-known\/(?:oauth-authorization-server|openid-configuration)/;
+  let built: { index: number; 0: string } | null = null;
+  for (const call of text.matchAll(/\bhttp\.(?:Get|Head|NewRequest(?:WithContext)?)\(/g)) {
+    const span = text.slice(call.index!, findMatchingParenEnd(text, call.index! + call[0].length - 1));
+    const inner = discovery.exec(span);
+    if (inner) {
+      built = { index: call.index! + inner.index, 0: inner[0] };
+      break;
+    }
+  }
+  if (!built) return [];
+  if (/\b(?:allow(?:ed)?_?(?:issuers?|hosts?|list)|allowedIssuers|trustedIssuers)\b/i.test(text)) return [];
+  return [
+    finding(text, built.index, {
+      patternId: "go_oauth_discovery_ssrf",
+      patternName: "Go: OAuth/OIDC discovery URL built from a request-supplied issuer",
+      category: "discovery-ssrf",
+      severity: "critical",
+      recommendation:
+        "Building the discovery URL from a value the caller supplied lets them point this server at internal or attacker-controlled hosts (SSRF). Check the issuer against an allowlist of known issuers before fetching.",
+      match: clean(built[0]),
+    }, filePath),
+  ];
+}
+
+/**
+ * Scans server or client source. The language comes from `filePath`'s
+ * extension (or `language`); language-specific rules only run on their own
+ * language, and every rule runs when the language is unknown.
+ */
+export function scanText(text: string, filePath?: string, language: SourceLanguage | undefined = filePath ? languageOf(filePath) : undefined): Finding[] {
   const findings: Finding[] = [];
 
   for (const p of OAUTH_AUDIT_PATTERNS) {
+    if (p.language && language && p.language !== language) continue;
     const re = new RegExp(p.pattern.source, p.pattern.flags);
     let m: RegExpExecArray | null;
     while ((m = re.exec(text)) !== null) {
@@ -320,9 +454,11 @@ export function scanText(text: string, filePath?: string): Finding[] {
   findings.push(...checkMissingIssValidation(text, filePath));
   findings.push(...checkAuthUrlScheme(text, filePath));
   findings.push(...checkStateHandleBinding(text, filePath));
-  findings.push(...checkLocalHttpExposure(text, filePath));
+  findings.push(...checkLocalHttpExposure(text, filePath, language));
+  findings.push(...checkIndirectPassthrough(text, filePath));
+  findings.push(...checkGoDiscoverySsrf(text, filePath));
 
-  return findings;
+  return language ? findings.map((f) => ({ ...f, language })) : findings;
 }
 
 export function scanFile(filePath: string): { findings: Finding[]; skipped: boolean } {
