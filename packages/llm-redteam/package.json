@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-llm-redteam",
-  "version": "0.1.1",
+  "version": "0.2.2",
   "mcpName": "io.github.GuardBee/llm-redteam",
   "description": "MCP server that red-teams a live LLM endpoint or chatbot with canary-based jailbreak/extraction/obfuscation probes to test whether known bypass techniques defeat its guardrails",
   "type": "module",
@@ -11,15 +11,18 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "default": "./dist/index.js"
     }
   },
   "files": [
     "dist",
     "README.md",
-    "TR.md",
-    "ZH.md"
+    "LICENSE",
+    "CHANGELOG.md",
+    "!dist/**/*.map",
+    "!dist/**/__tests__"
   ],
   "scripts": {
     "build": "tsc",
@@ -45,13 +48,16 @@
   ],
   "license": "MIT",
   "author": "GuardBee <hello@guardbee.ai>",
-  "homepage": "https://github.com/GuardBee/guardbee-mcp/tree/main/packages/llm-redteam#readme",
   "repository": {
     "type": "git",
     "url": "https://github.com/GuardBee/guardbee-mcp.git",
     "directory": "packages/llm-redteam"
   },
+  "homepage": "https://guardbee.ai/en/what-is-mcp-llm-red-team/",
   "bugs": {
     "url": "https://github.com/GuardBee/guardbee-mcp/issues"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

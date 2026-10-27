@@ -1,3 +1,4 @@
+import { OrgPatterns, piiScope, type PiiScope } from "@guardbee/guard-core";
 import type { GatewayConfig, TableRule } from "../config";
 import { maskRows, maskRow, findProtectedWriteFields } from "./masker";
 import { AuditLogger, createAuditEvent, type AuditEvent, type AuditQueryFilter } from "../audit/logger";
@@ -35,11 +36,27 @@ export class GatewayPipeline {
   private readonly audit: AuditLogger;
   private readonly rateLimiter: RateLimiter;
   private readonly roleResolver: RoleResolver;
+  /** Detectors for value-based PII masking in unruled text columns; undefined when piiScan is off. */
+  private readonly piiScan: PiiScope | undefined;
+  /** piiScan's block / allow patterns; a block pattern over its time budget fails the query. */
+  private readonly orgPatterns: OrgPatterns | undefined;
 
   constructor(private readonly config: GatewayConfig) {
     this.audit = new AuditLogger(config.audit);
     this.rateLimiter = new RateLimiter(config.rateLimit);
     this.roleResolver = new RoleResolver(config);
+    const scan = config.piiScan;
+    this.piiScan = scan?.enabled
+      ? piiScope({
+          ...(scan.preset ? { preset: scan.preset } : {}),
+          ...(scan.enable ? { enable: scan.enable } : {}),
+          ...(scan.disable ? { disable: scan.disable } : {}),
+        })
+      : undefined;
+    this.orgPatterns =
+      scan?.enabled && (scan.blockPatterns?.length || scan.allowPatterns?.length)
+        ? OrgPatterns.compile({ blockPatterns: scan.blockPatterns ?? [], allowPatterns: scan.allowPatterns ?? [] })
+        : undefined;
   }
 
   /** list_tables için tablo listesini rol kısıtlamalarına göre filtreler. */
@@ -117,7 +134,9 @@ export class GatewayPipeline {
       rawRows,
       this.roleResolver.mergedFieldRules,
       table,
-      maxRows
+      maxRows,
+      this.piiScan,
+      this.orgPatterns
     );
 
     // 6a. Hangi field'lar maskelendi?
@@ -286,7 +305,7 @@ export class GatewayPipeline {
 
     return {
       rowsAffected,
-      row: insertedRow ? maskRow(insertedRow, this.roleResolver.mergedFieldRules, table) : undefined,
+      row: insertedRow ? maskRow(insertedRow, this.roleResolver.mergedFieldRules, table, this.piiScan, this.orgPatterns) : undefined,
       auditId: event.id,
     };
   }

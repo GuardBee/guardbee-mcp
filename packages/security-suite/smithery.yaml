@@ -2,10 +2,14 @@ startCommand:
   type: stdio
   configSchema:
     type: object
-    properties: {}
+    properties:
+      tools:
+        type: string
+        default: recommended
+        description: "Groups or package ids, comma-separated: recommended, code, supply-chain, network, platform, all"
     required: []
   commandFunction: |-
     config => ({
       command: 'npx',
-      args: ['-y', '@guardbee/security-suite@latest', 'serve']
+      args: ['-y', '@guardbee/security-suite@latest', 'serve', `--tools=${config.tools || 'recommended'}`]
     })

@@ -1,0 +1,29 @@
+# Remote (Streamable HTTP) MCP servers with network egress rules: the proxy checks
+# every connection it makes to them, each redirect hop included, at connect time.
+# Run:   npx -y @guardbee/mcp-security-proxy@^1 --config examples/proxy/remote-upstreams.yaml
+# Check: npx -y @guardbee/mcp-security-proxy@^1 validate --config examples/proxy/remote-upstreams.yaml
+#
+# Always refused, for every upstream: link-local addresses (cloud metadata such as
+# 169.254.169.254), 0.0.0.0 and reserved ranges, in any encoding. Refused connections
+# are audit events with ruleId network:* and the destination host.
+version: 1
+
+upstreams:
+  linear:
+    url: https://mcp.linear.app/mcp
+    headers: { Authorization: "Bearer ${LINEAR_TOKEN}" }
+    network:
+      mode: allowlist                  # only this host, even if the server redirects elsewhere
+      allowHosts: ["mcp.linear.app"]
+      # blockPrivate defaults to true here: a public server may not reach your network,
+      # not even through a DNS answer that later points inside it (rebinding)
+  internal-docs:
+    url: http://docs-mcp.internal.example:8080/mcp
+    network:
+      mode: allowlist
+      allowHosts: ["docs-mcp.internal.example"]
+      blockPrivate: false              # a server on your own network: private addresses are expected
+
+audit:
+  sink: file
+  filePath: ./guardbee-audit.jsonl

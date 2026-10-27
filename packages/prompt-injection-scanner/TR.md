@@ -1,12 +1,12 @@
 # @guardbee/mcp-prompt-injection-scanner
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 MCP (Model Context Protocol) sunucusu — **içeriği** (RAG chunk'ı, scrape edilmiş bir web sayfası, bir doküman) dolaylı (indirect) prompt injection payload'ları için tarar.
 
 `ai-code-scanner` ve `mcp-server-auditor` kod tarıyor; bu paket **veri** tarıyor. Klasik prompt injection kullanıcının kendisi kötü niyetli bir prompt yazar; dolaylı (indirect) prompt injection'da saldırgan modele hiç konuşmaz — bunun yerine modelin okuyacağı bir belgeye, web sayfasına ya da tool sonucuna talimat gömer. Model bu içeriği bir RAG retrieval'ı ya da bir web fetch sonucunda context'ine aldığı anda, gömülü talimat kullanıcının kendi talimatlarıyla aynı yetkiye sahip görünür.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler, taranan içerik hiçbir zaman dahil değil — bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
 ```
 Web sayfası/RAG dokümanı ──► prompt-injection-scanner ──► LLM context'i
@@ -116,3 +116,7 @@ npm test             # 45 unit test
 ## Lisans
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

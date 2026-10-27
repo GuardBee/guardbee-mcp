@@ -1,0 +1,66 @@
+{
+  "name": "@guardbee/ner",
+  "version": "0.1.6",
+  "description": "Optional NER backend for GuardBee: finds Turkish person names with a local BERTurk model (ONNX, offline), in-process or as a sidecar HTTP service",
+  "type": "module",
+  "bin": {
+    "guardbee-ner": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "!dist/**/*.map",
+    "!dist/**/__tests__"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@guardbee/guard-core": "workspace:^",
+    "@huggingface/tokenizers": "^0.2.0",
+    "onnxruntime-node": "^1.30.0"
+  },
+  "keywords": [
+    "guardbee",
+    "ner",
+    "pii",
+    "kvkk",
+    "turkish",
+    "person-name",
+    "onnx",
+    "berturk",
+    "mcp",
+    "security"
+  ],
+  "author": "GuardBee <hello@guardbee.ai>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git",
+    "directory": "packages/ner"
+  },
+  "homepage": "https://github.com/GuardBee/guardbee-mcp/tree/main/packages/ner#readme",
+  "bugs": {
+    "url": "https://github.com/GuardBee/guardbee-mcp/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,5 +1,286 @@
 # @guardbee/mcp-security-proxy
 
+## 1.30.0
+
+### Minor Changes
+
+- [#218](https://github.com/GuardBee/guardbee-mcp/pull/218) [`d754b3e`](https://github.com/GuardBee/guardbee-mcp/commit/d754b3e41660eeadfdc3f817ac30e9e7333e466b) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Sandbox for stdio upstreams: `upstreams.<name>.sandbox` runs a server in docker, podman, bubblewrap (Linux) or sandbox-exec (macOS) with a read-only disk (writes only to `fs.readWrite` and a private home that holds its package cache), credential stores and `.env` files hidden, no host environment unless listed in `env`, optional `network: none`, and CPU / memory / pid limits in containers. A sandbox that cannot work on the host stops the gateway instead of falling back; `guardbee-proxy validate` reports why, and start failures are audit events (`ruleId: sandbox:*`). `guardbee-proxy init --sandbox [runtime]` sandboxes imported servers. Configs without `sandbox` are unchanged.
+
+### Patch Changes
+
+- [#216](https://github.com/GuardBee/guardbee-mcp/pull/216) [`08c7391`](https://github.com/GuardBee/guardbee-mcp/commit/08c73915cd47eec7c5c0168bae88b77332ac6b6a) Thanks [@dependabot](https://github.com/apps/dependabot)! - Align the optional OpenTelemetry peers on the 3.x line (`@opentelemetry/resources` ^3.0.0, alongside `@opentelemetry/exporter-trace-otlp-http` ^0.300.0), and resolve `@modelcontextprotocol/sdk` from the workspace catalog in db-gateway so the monorepo installs a single SDK copy.
+
+## 1.29.0
+
+### Minor Changes
+
+- [#213](https://github.com/GuardBee/guardbee-mcp/pull/213) [`03ae1d2`](https://github.com/GuardBee/guardbee-mcp/commit/03ae1d212f0b8413c28fa5b994076aeaf0abd5b8) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Build provenance check before a stdio upstream starts. The proxy resolves the npm package `npx` / `pnpm dlx` / `bunx` would run, verifies its Sigstore-signed SLSA provenance (signature against the Sigstore trust root, exact tarball hash, signing workflow of the named repository, matching `repository` field) and runs the command pinned to the checked version. `provenance.mode: warn` (default) logs unverified packages (`ruleId: provenance:*`), `require` refuses them, also per upstream. Results are cached per version (`~/.guardbee/provenance.json`; a changed tarball under a known version counts as tampering), `provenance.offline` works from the cache, and `guardbee-proxy provenance` checks a config without starting anything. PyPI and container images are reported (unpinned images by digest) but not yet verified. The proxy now needs Node.js 22.9 or later (Sigstore libraries). guard-core exports the dependency-free part: `parseLaunch`, `resolveNpmVersion`, `checkNpmProvenance` (signature check passed in), `normalizeRepositoryUrl`.
+
+### Patch Changes
+
+- Updated dependencies [[`03ae1d2`](https://github.com/GuardBee/guardbee-mcp/commit/03ae1d212f0b8413c28fa5b994076aeaf0abd5b8)]:
+  - @guardbee/guard-core@1.3.0
+
+## 1.28.0
+
+### Minor Changes
+
+- [#211](https://github.com/GuardBee/guardbee-mcp/pull/211) [`ca38e72`](https://github.com/GuardBee/guardbee-mcp/commit/ca38e720987c386bb3088bb194b83ea23474ef0d) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Network egress control for HTTP upstreams (SSRF guard). Every connection the proxy makes to a Streamable HTTP upstream, including each redirect hop, is checked at connect time with the address pinned (no DNS rebinding window). Link-local (cloud metadata), unspecified and reserved addresses are always refused, in any encoding; `upstreams.<name>.network` adds `blockPrivate` (by default: a server configured on a public address may not reach private ones) and `mode: allowlist` with `allowHosts`. Refused connections are audit events (`ruleId: network:*`) with the destination. guard-core exports the shared guard: `classifyAddress`, `checkHost`, `checkAddress`, `guardedLookup`, `guardedFetch`.
+
+### Patch Changes
+
+- Updated dependencies [[`ca38e72`](https://github.com/GuardBee/guardbee-mcp/commit/ca38e720987c386bb3088bb194b83ea23474ef0d)]:
+  - @guardbee/guard-core@1.2.0
+
+## 1.27.0
+
+### Minor Changes
+
+- [#207](https://github.com/GuardBee/guardbee-mcp/pull/207) [`1aac3f9`](https://github.com/GuardBee/guardbee-mcp/commit/1aac3f92917ec078542a73a8a05b57033a6b13d9) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Persistent tool pins ([#201](https://github.com/GuardBee/guardbee-mcp/issues/201)): in gateway mode the proxy pins each server's tool definitions (SHA-256 of name, description, input/output schema, annotations) in `~/.guardbee/pins.json` and checks them on every start, so a tool rewritten between two runs is caught, not just one rewritten within a session. `interceptors.definitionDrift.onChange` decides what happens: `approve` (default) keeps showing the approved definition and asks the person before the first call, with the old and new description; `block` refuses; `warn` logs. New CLI: `guardbee-proxy pins list | approve | reset | import` (imports an mcp-rug-pull-detector baseline). guard-core exports the shared `hashToolDefinition`; rug-pull-detector now uses it, with the same hashes as before.
+
+### Patch Changes
+
+- Updated dependencies [[`1aac3f9`](https://github.com/GuardBee/guardbee-mcp/commit/1aac3f92917ec078542a73a8a05b57033a6b13d9)]:
+  - @guardbee/guard-core@1.1.0
+
+## 1.26.0
+
+### Minor Changes
+
+- [#189](https://github.com/GuardBee/guardbee-mcp/pull/189) [`d6b75fe`](https://github.com/GuardBee/guardbee-mcp/commit/d6b75fe26af9f074d87d92d063b6f355fdcc61d3) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - - **Node 22 for the proxy, document-scanner and security-suite** (`engines.node: ">=22"`): ldapts 9 and unpdf, which they depend on, require it. Node 18 and 20 are past end of life; the other packages still run on Node 18.
+  - **`require()` works for every ESM package**: each `exports` entry gains a `default` condition next to `import` (Node 20.19+ / 22.12+ can `require()` ESM), so `require("@guardbee/mcp-secret-scanner")` no longer fails with ERR_PACKAGE_PATH_NOT_EXPORTED.
+  - **`guardbee-proxy --help` / `--version`** print usage and the version instead of failing with "No proxy target configured"; **`guardbee-gateway --help` / `--version`** no longer start the stdio server, and an unknown argument is an error.
+  - The proxy's npm description starts with "MCP security gateway" again.
+
+### Patch Changes
+
+- Updated dependencies [[`d6b75fe`](https://github.com/GuardBee/guardbee-mcp/commit/d6b75fe26af9f074d87d92d063b6f355fdcc61d3)]:
+  - @guardbee/mcp-document-scanner@0.3.0
+
+## 1.25.3
+
+### Patch Changes
+
+- [#176](https://github.com/GuardBee/guardbee-mcp/pull/176) [`7224520`](https://github.com/GuardBee/guardbee-mcp/commit/7224520c3ee5c5cf14d6c0f4c20bf06b87f759eb) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - The repository now has an `examples/` folder (proxy policies for a minimal setup, KVKK, a coding agent and the LLM gateway; Claude Desktop, Claude Code, Cursor and VS Code configs; GitHub Actions and GitLab CI templates). The proxy tests check that every example policy parses.
+
+- [#185](https://github.com/GuardBee/guardbee-mcp/pull/185) [`12487ab`](https://github.com/GuardBee/guardbee-mcp/commit/12487abec2f0a8bc00b04fee1f8b62e64329c98b) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - `mcp-security-proxy` and `mcp-db-gateway` get an `exports` map (the package root, `./dist/*` for existing deep imports, `package.json`); db-gateway also exports `./adapters/*`, so the documented `import { createPrismaAdapter } from "@guardbee/mcp-db-gateway/adapters/prisma"` now resolves. The proxy moves to ldapts 9 (its older uuid had an advisory). The telemetry package description now says opt-in, the suite's starts with "MCP security suite", and document-scanner's homepage is its README.
+
+- [#178](https://github.com/GuardBee/guardbee-mcp/pull/178) [`c89dc93`](https://github.com/GuardBee/guardbee-mcp/commit/c89dc93bd04e53bc8b72806f279531676b8defcc) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - MCP tools are registered with `server.registerTool(name, { description, inputSchema, annotations }, handler)` instead of the deprecated `server.tool(...)` (132 registrations, no change to tool names, descriptions or parameters). `@modelcontextprotocol/sdk` is now required at `^1.30.0` instead of `^1.0.0` / `>=1.0.0`, so an install cannot resolve an old SDK the code was never tested with. `@guardbee/mcp-telemetry`'s `instrumentServer` wraps `registerTool` as well as `tool`.
+
+- [#175](https://github.com/GuardBee/guardbee-mcp/pull/175) [`341a283`](https://github.com/GuardBee/guardbee-mcp/commit/341a2839d56a312f1cb1998a523eb7ea985345db) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Smaller npm packages (55% less unpacked in total; the proxy 944 → 513 kB): source maps and compiled tests are no longer published (the sources they point at never were), and the translated READMEs stay on GitHub, linked from the English one. Package descriptions now start with what people search for ("MCP gateway and LLM firewall", "Secret scanner for code, git history and AI agent transcripts") and carry more search keywords.
+- Updated dependencies [[`12487ab`](https://github.com/GuardBee/guardbee-mcp/commit/12487abec2f0a8bc00b04fee1f8b62e64329c98b), [`c89dc93`](https://github.com/GuardBee/guardbee-mcp/commit/c89dc93bd04e53bc8b72806f279531676b8defcc), [`341a283`](https://github.com/GuardBee/guardbee-mcp/commit/341a2839d56a312f1cb1998a523eb7ea985345db)]:
+  - @guardbee/mcp-telemetry@0.3.0
+  - @guardbee/mcp-document-scanner@0.2.1
+  - @guardbee/guard-core@1.0.1
+
+## 1.25.2
+
+### Patch Changes
+
+- [#170](https://github.com/GuardBee/guardbee-mcp/pull/170) [`c71f728`](https://github.com/GuardBee/guardbee-mcp/commit/c71f7284c88f36435d0b2f951d5f167781f89395) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Package hygiene: every package now ships its LICENSE and CHANGELOG.md, and has a homepage (its guardbee.ai page), a bugs link, `engines.node` and the `guardbee`, `mcp` and `security` keywords. READMEs gain npm badges and a feedback section pointing to GitHub Discussions; the owasp-scan README documents every mode, option, MCP tool and the OWASP coverage.
+  
+  **Telemetry is now opt-in.** Nothing is sent unless `GUARDBEE_TELEMETRY=1` (or `true`/`on`/`yes`) is set; `GUARDBEE_TELEMETRY=0` is no longer needed. When it is on, the one-time stderr notice says what is sent and to which endpoint.
+- Updated dependencies [[`c71f728`](https://github.com/GuardBee/guardbee-mcp/commit/c71f7284c88f36435d0b2f951d5f167781f89395), [`c3b71f8`](https://github.com/GuardBee/guardbee-mcp/commit/c3b71f8e1305cbabe0fa733b13f6eb9a95d08513), [`9ae575f`](https://github.com/GuardBee/guardbee-mcp/commit/9ae575f89aa40b13463460504f12b70011c14947)]:
+  - @guardbee/mcp-document-scanner@0.2.0
+  - @guardbee/guard-core@1.0.0
+  - @guardbee/mcp-telemetry@0.2.0
+
+## 1.25.1
+
+### Patch Changes
+
+- [#167](https://github.com/GuardBee/guardbee-mcp/pull/167) [`9599fb6`](https://github.com/GuardBee/guardbee-mcp/commit/9599fb64249dc38baba3fd4b2d1d7fb82dfd6de3) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - PII masking now sees through encodings and disguises ([#166](https://github.com/GuardBee/guardbee-mcp/issues/166)): base64, base64url and hex runs that decode to readable text are masked and encoded again in the same form; HTML entities, JS/JSON `\u` escapes and URL escapes, and Arabic-Indic, Devanagari and other scripts' digits are decoded before detection, with masking mapped back onto the original characters. TC Kimlik numbers written with separators after a TC label, phones grouped with dots and spelled-out e-mail addresses (`[at]`, `(at)`, `at … dot`) are found too. pii-bench's new bypass suite masks 80 of 80 cases (23 before) with no change to 16 encoded-looking clean strings.
+- Updated dependencies [[`9599fb6`](https://github.com/GuardBee/guardbee-mcp/commit/9599fb64249dc38baba3fd4b2d1d7fb82dfd6de3)]:
+  - @guardbee/guard-core@0.22.0
+  - @guardbee/mcp-document-scanner@0.1.10
+
+## 1.25.0
+
+### Minor Changes
+
+- [#164](https://github.com/GuardBee/guardbee-mcp/pull/164) [`00de2c8`](https://github.com/GuardBee/guardbee-mcp/commit/00de2c86bc8a53cfa175fee152b8b2011f930d5d) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Find person names (`ner:`) in model answers and in coding-agent hooks too.
+  
+  - LLM gateway: with `llm.maskResponses`, names in answers are masked, streamed or not.
+    - In a stream, text is not cut next to a capitalised word, so a name reaches the model whole.
+    - If the model fails on an answer, the rest of that answer is withheld and the failure is logged once (`pii:ner-failed`).
+  - Hooks: `guardbee-hook` counts names in tool output toward the session's taint. If the model fails there, the output counts as personal data.
+  - guard-core: a model span that lies wholly inside a KVKK Art. 6 term (`Huntington` in `Huntington geni`) is left to that category when it runs, instead of being masked as `[KİŞİ]`.
+
+### Patch Changes
+
+- Updated dependencies [[`00de2c8`](https://github.com/GuardBee/guardbee-mcp/commit/00de2c86bc8a53cfa175fee152b8b2011f930d5d)]:
+  - @guardbee/guard-core@0.21.1
+
+## 1.24.1
+
+### Patch Changes
+
+- Updated dependencies [[`c1a16b9`](https://github.com/GuardBee/guardbee-mcp/commit/c1a16b9c9f588c4d3735fb45a1339b33119a8de0)]:
+  - @guardbee/guard-core@0.21.0
+  - @guardbee/mcp-document-scanner@0.1.9
+
+## 1.24.0
+
+### Minor Changes
+
+- [#160](https://github.com/GuardBee/guardbee-mcp/pull/160) [`e3355b2`](https://github.com/GuardBee/guardbee-mcp/commit/e3355b23654afcb2eb144da18e54fbfdb2817b16) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - KVKK Art. 6 special categories and the `KVKK_SENSITIVE` preset ([#126](https://github.com/GuardBee/guardbee-mcp/issues/126)).
+  
+  - guard-core: nine new detectors. `health`, `religion_belief`, `ethnic_origin`, `political_opinion`, `union_membership`, `criminal_record`, `sex_life`, `biometric` and `genetic` mask as `[SAĞLIK]`, `[DİN-İNANÇ]`, `[ETNİK-KÖKEN]`, `[SİYASİ-GÖRÜŞ]`, `[SENDİKA]`, `[SABIKA]`, `[CİNSEL-HAYAT]`, `[BİYOMETRİK]` and `[GENETİK]`.
+  - How they work: a Turkish and English term list per category, plus a context rule. A term is masked only when the text is about a person: a name from the NER lookup, a personal identifier, or a word that points at someone. The mask grows over the phrase around the term.
+  - They are opt-in. They are in no preset except the new `KVKK_SENSITIVE` (`KVKK` plus these), and can also be turned on by name. New exports: `SPECIAL_CATEGORIES` and `SPECIAL_CATEGORY_REPLACEMENT`.
+  - security-proxy: `preset: KVKK_SENSITIVE` and the category names are accepted in config. Findings count as personal data in `piiHits`, taint and hooks.
+  - document-scanner: the same categories count as personal data.
+  - pii-bench has a new hand-written `tr-special-challenge` set. With the name model, per-category F1 there is 86–100, and its clean lines get no false alarms.
+
+### Patch Changes
+
+- Updated dependencies [[`e3355b2`](https://github.com/GuardBee/guardbee-mcp/commit/e3355b23654afcb2eb144da18e54fbfdb2817b16)]:
+  - @guardbee/guard-core@0.20.0
+  - @guardbee/mcp-document-scanner@0.1.8
+
+## 1.23.0
+
+### Minor Changes
+
+- [#158](https://github.com/GuardBee/guardbee-mcp/pull/158) [`d8bdffe`](https://github.com/GuardBee/guardbee-mcp/commit/d8bdffedeb2e3401ebc8ce6fc5616a17508f24e7) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Mask Turkish person names with the optional NER model ([#126](https://github.com/GuardBee/guardbee-mcp/issues/126)).
+  
+  - New top-level `ner:` section in the gateway config: a `guardbee-ner serve` sidecar (`url`, `tokenEnv`, `timeoutMs`) or `@guardbee/ner` loaded in-process (`modelDir`). A sidecar on another host must use `https://`. This is deployment config: a dashboard policy cannot set it.
+  - With `ner:` set, every string is run through the model once before masking, and names are masked as `[KİŞİ]` (or tokenized as `<pii:person_name:…>`) in the same pass as the regex detectors. This covers tool results, `structuredContent`, resources, prompt templates, sampling answers and LLM gateway requests, including embeddings and `llm.sensitive` routing. `person_name` counts as personal data in `piiHits` and taint.
+  - Fails closed: if the model cannot answer, the tool result is withheld and an LLM request is refused with `502 guardbee_masking_failed`, `ruleId: pii:ner-failed`. Masking never falls back to regex alone.
+  - Not covered yet: model answers (`maskResponses`) and coding-agent hooks.
+  - Fix: `interceptors.documents` failed in the published (CommonJS) proxy because it could not load `@guardbee/mcp-document-scanner`. Fixed by that package's new `default` export condition, which needs Node 20.19+ or 22.12+.
+
+### Patch Changes
+
+- Updated dependencies [[`d8bdffe`](https://github.com/GuardBee/guardbee-mcp/commit/d8bdffedeb2e3401ebc8ce6fc5616a17508f24e7)]:
+  - @guardbee/mcp-document-scanner@0.1.7
+
+## 1.22.1
+
+### Patch Changes
+
+- Updated dependencies [[`5e6d872`](https://github.com/GuardBee/guardbee-mcp/commit/5e6d872cd6b9014da63743bc2198a0eb159c3b49)]:
+  - @guardbee/guard-core@0.19.0
+  - @guardbee/mcp-document-scanner@0.1.6
+
+## 1.22.0
+
+### Minor Changes
+
+- [#153](https://github.com/GuardBee/guardbee-mcp/pull/153) [`9f64d9f`](https://github.com/GuardBee/guardbee-mcp/commit/9f64d9fe92ff56abf01e788fa1a924daf5e671ad) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - LLM gateway: `POST /v1/responses` (OpenAI Responses API, streaming included) and `POST /v1/embeddings`. Responses get the same checks and masking as chat (instructions, message items, function call arguments and outputs, stored-prompt variables), tokens are put back and answers masked in streams too, and input files/audio are refused with 415. Embeddings mask every input text deterministically (fixed placeholders, no tokenize, org numbers per text) so the same text always gets the same vector; token-id input is refused with 415, one element over `llm.maxTextChars` refuses the batch with 413, and injection scanning and `llm.sensitive` routing are skipped.
+
+## 1.21.0
+
+### Minor Changes
+
+- [#150](https://github.com/GuardBee/guardbee-mcp/pull/150) [`e49fbc2`](https://github.com/GuardBee/guardbee-mcp/commit/e49fbc2bc1a67a4a32e40c7d221a81fb7bbbd211) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Fail-closed contract for the LLM and MCP gateways: any masking or scanning failure refuses the request with 502 `guardbee_masking_failed` (never the original text in the response or audit log), content the proxy cannot read (audio, files, PDF documents, unknown blocks) gets 415 `guardbee_unmaskable_content`, and a single text over `llm.maxTextChars` gets 413 `guardbee_text_too_large`. Codes come back in `error.code` and the `x-guardbee-error` header. Anthropic text documents are now masked. A route can opt out with `masking: off`, which is written to the audit log on every request.
+
+## 1.20.0
+
+### Minor Changes
+
+- [#148](https://github.com/GuardBee/guardbee-mcp/pull/148) [`d4b24f4`](https://github.com/GuardBee/guardbee-mcp/commit/d4b24f4234e565f4660b3a356140516119ad4548) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Org-level PII patterns. `blockPatterns` mask an organization's own identifiers as numbered placeholders (`<CLIENT_NO_1>`); `allowPatterns` leave a detected value unmasked and are flagged in the audit log. Each pattern runs with a time budget: a block pattern over budget fails closed (result withheld, LLM gateway 502), an allow pattern over budget is skipped. Max 25 patterns of 200 characters; invalid regexes and categories named like built-in detectors fail validation. An LLM gateway request can add block patterns (`guardbee.blockPatterns`) but never allow patterns.
+
+### Patch Changes
+
+- Updated dependencies [[`d4b24f4`](https://github.com/GuardBee/guardbee-mcp/commit/d4b24f4234e565f4660b3a356140516119ad4548)]:
+  - @guardbee/guard-core@0.18.0
+  - @guardbee/mcp-document-scanner@0.1.5
+
+## 1.19.0
+
+### Minor Changes
+
+- [#146](https://github.com/GuardBee/guardbee-mcp/pull/146) [`0e96d18`](https://github.com/GuardBee/guardbee-mcp/commit/0e96d18c6d96a505a5cf5774af2a29d323d066e1) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - PII category presets. guard-core exports `PII_PRESETS` (`ALL`, `KVKK`, `IDENTITY`, `IDENTIFIERS`, `SECRETS`), `piiScope({ preset, enable, disable })` and a config schema that rejects unknown preset or detector names. security-proxy takes `interceptors.piiMasking.preset` / `enable` / `disable`, with `piiMasking.upstreams.<name>` per upstream or LLM provider; detection stays complete (taint, `piiHits`), only masking narrows. db-gateway gets `piiScan`: value-based masking of PII inside text columns no field rule covers, off by default, also set with `GATEWAY_PII_SCAN`.
+
+### Patch Changes
+
+- Updated dependencies [[`0e96d18`](https://github.com/GuardBee/guardbee-mcp/commit/0e96d18c6d96a505a5cf5774af2a29d323d066e1)]:
+  - @guardbee/guard-core@0.17.0
+  - @guardbee/mcp-document-scanner@0.1.4
+
+## 1.18.1
+
+### Patch Changes
+
+- [#144](https://github.com/GuardBee/guardbee-mcp/pull/144) [`a489a7e`](https://github.com/GuardBee/guardbee-mcp/commit/a489a7e06e4dc8dfd208572efbb46e81e0bc3c69) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - PII and secret masking now sees through Unicode look-alikes: fullwidth digits, mathematical bold letters and zero-width characters inside a TC kimlik, IBAN, e-mail or API key no longer bypass the detectors. Detection runs on an NFKC copy with invisible characters removed and maps back to the original text, so unmasked text keeps its original spelling and every spelling of a value gets the same token.
+- Updated dependencies [[`a489a7e`](https://github.com/GuardBee/guardbee-mcp/commit/a489a7e06e4dc8dfd208572efbb46e81e0bc3c69)]:
+  - @guardbee/guard-core@0.16.0
+  - @guardbee/mcp-document-scanner@0.1.3
+
+## 1.18.0
+
+### Minor Changes
+
+- [#132](https://github.com/GuardBee/guardbee-mcp/pull/132) [`1084c93`](https://github.com/GuardBee/guardbee-mcp/commit/1084c930bd7218c04adf981e4f34139015beec21) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - `guardbee-hook`: the proxy's policy for coding agents' own tools. `guardbee-hook install --claude-code|--cursor` adds PreToolUse/PostToolUse (Claude Code) or shell/MCP/file-read hooks (Cursor). Built-in tools are labelled (secret files and env dumps `sensitive`, curl/git push/publish `egress`, rm -rf/force push `destructive`, web tools `untrusted` + `egress`); credentials on their way out, policy rules (`upstream: claude-code|cursor`) and the lethal-trifecta check run before each call, with the session's taint kept on disk; PII, injected instructions and topic rules are checked on the output. `uninstall` removes only GuardBee's entries.
+
+- [#123](https://github.com/GuardBee/guardbee-mcp/pull/123) [`945ed3c`](https://github.com/GuardBee/guardbee-mcp/commit/945ed3c817660b0cf479c2ce1777c1a4cc4ea5c1) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - `interceptors.documents` (off by default): images, embedded PDFs and resource blobs in tool results and resource reads are scanned for PII and credentials with the new `@guardbee/mcp-document-scanner` (PDF text layer, optional OCR) and withheld (`block`) or logged (`warn`). The shared policy schema accepts the new interceptor.
+
+- [#135](https://github.com/GuardBee/guardbee-mcp/pull/135) [`30d63ce`](https://github.com/GuardBee/guardbee-mcp/commit/30d63ceb2e5e6ef28a42ccc3d85c1c8d25bb9e36) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - `listen.ldap`: add LDAP / Active Directory groups to a known caller (OIDC user or LLM gateway key user) for rules, quotas, `llm.access` and budgets — `memberOf` or a group search, CN or DN names, cached, filter values escaped (RFC 4515), bind password from the environment; an unreachable directory answers 503 unless `onError: token-groups`.
+
+- [#122](https://github.com/GuardBee/guardbee-mcp/pull/122) [`30b68a8`](https://github.com/GuardBee/guardbee-mcp/commit/30b68a81311a982b6d6269946a5efe14f58d710a) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - LLM gateway: model access control (`llm.access`, `llm.accessDefault`) per user glob or group, with `/models` listing only the caller's models; and sensitive-data routing (`llm.sensitive`) that sends prompts holding personal data or listed topics to a model you run instead, unmasked by default, failing closed when that model has no route for the request's API. Routed requests are audited with `ruleId: llm:route:sensitive` and `llm.routedFrom`.
+
+- [#133](https://github.com/GuardBee/guardbee-mcp/pull/133) [`0a102ab`](https://github.com/GuardBee/guardbee-mcp/commit/0a102ab28827c4fbdc014d947f6887e0a1078c84) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - SIEM export: `audit.exporters` sends every audit event, batched and off the request path, to Splunk HEC, Elasticsearch/OpenSearch (`_bulk` create, event hash as `_id`) or syslog (RFC 5424 over UDP, TCP or TLS; CEF or JSON). Credentials come from environment variables; each destination has its own bounded retry queue. The dashboard sink now shares the same queue.
+
+- [#136](https://github.com/GuardBee/guardbee-mcp/pull/136) [`b3ea8b8`](https://github.com/GuardBee/guardbee-mcp/commit/b3ea8b8cac409b80d9d8fdab5527871509c45232) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Security reports: `guardbee-proxy report` builds a periodic report from the audit log (Markdown, HTML or JSON; English or Turkish) with findings mapped to OWASP Top 10 for LLM Applications (2025) and MITRE ATLAS, tied to the audit hash chain and optionally Ed25519-signed; `guardbee-proxy verify-report` checks it. The mapping (`classifyEvent`, `THREAT_CATEGORIES`) lives in guard-core and is shown by threat-rules' new `framework_map` tool.
+
+### Patch Changes
+
+- Updated dependencies [[`945ed3c`](https://github.com/GuardBee/guardbee-mcp/commit/945ed3c817660b0cf479c2ce1777c1a4cc4ea5c1), [`b3ea8b8`](https://github.com/GuardBee/guardbee-mcp/commit/b3ea8b8cac409b80d9d8fdab5527871509c45232)]:
+  - @guardbee/guard-core@0.15.0
+  - @guardbee/mcp-document-scanner@0.1.1
+
+## 1.17.0
+
+### Minor Changes
+
+- [#120](https://github.com/GuardBee/guardbee-mcp/pull/120) [`32cc61a`](https://github.com/GuardBee/guardbee-mcp/commit/32cc61ac0ba6c5d76c5225849b1cc725253f2c69) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - LLM gateway: a streamed answer that must be rewritten (PII tokens put back, `maskResponses`) now streams incrementally instead of being fetched whole and replayed. Text is held only until a safe cut and rewritten with the text already sent as context, so values split across events are still masked or restored.
+
+## 1.16.0
+
+### Minor Changes
+
+- [#118](https://github.com/GuardBee/guardbee-mcp/pull/118) [`08cc29e`](https://github.com/GuardBee/guardbee-mcp/commit/08cc29e4ca69af9aaf2bcbbde9f31824c9ada5c7) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - More PII detectors: passport, SGK/SSK/Bağ-Kur number, MERSİS number, date of birth and postal address (all label-gated), KEP address, and opt-in IP address, MAC address and Turkish vehicle plate (`piiMasking.include`). guard-core exports `PERSONAL_DATA_CATEGORIES` and `OPT_IN_PII`; every new category is counted in `piiHits`.
+
+### Patch Changes
+
+- Updated dependencies [[`08cc29e`](https://github.com/GuardBee/guardbee-mcp/commit/08cc29e4ca69af9aaf2bcbbde9f31824c9ada5c7)]:
+  - @guardbee/guard-core@0.14.0
+
+## 1.15.0
+
+### Minor Changes
+
+- [#116](https://github.com/GuardBee/guardbee-mcp/pull/116) [`13c4c8f`](https://github.com/GuardBee/guardbee-mcp/commit/13c4c8f7afb29c7c373f83b1f64ae518edc08a46) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Topic-based policy rules: a `topics` list (terms in Turkish or English, case- and Turkish-letter-insensitive, suffix-tolerant) and a `match.topic` rule field. The proxy checks topic rules on tool arguments and again on tool results, resources and prompts (`deny` withholds, `mask` forces PII masking, `warn` logs, `approve` asks), and on LLM gateway prompts with `tool: llm:<model>`. guard-core exports `detectTopics`, `topicSchema` and `checkTopicReferences`; dashboard policies validate topics too.
+
+### Patch Changes
+
+- Updated dependencies [[`13c4c8f`](https://github.com/GuardBee/guardbee-mcp/commit/13c4c8f7afb29c7c373f83b1f64ae518edc08a46)]:
+  - @guardbee/guard-core@0.13.0
+
+## 1.14.0
+
+### Minor Changes
+
+- [#110](https://github.com/GuardBee/guardbee-mcp/pull/110) [`630c6ed`](https://github.com/GuardBee/guardbee-mcp/commit/630c6eda8ef1c0c5ce3995ed95228cfb59315a50) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - LLM API gateway: OpenAI- and Anthropic-compatible endpoints (`/v1/chat/completions`, `/v1/messages`, `/v1/models`) in HTTP mode. Apps use gateway keys instead of provider keys; prompts get injection, credential and PII checks (masking or tokenize, with tokens put back in the answer); request, token and USD budgets per user or gateway; token usage and cost in the audit log. Streaming is supported for both APIs.
+
+## 1.13.2
+
+### Patch Changes
+
+- [#75](https://github.com/GuardBee/guardbee-mcp/pull/75) [`f3b785f`](https://github.com/GuardBee/guardbee-mcp/commit/f3b785fe9454f80720ec36468fee9f5b2e9a70ed) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - docs: add Chinese (ZH) README translation and short summaries in Japanese, Korean, Brazilian Portuguese, Spanish and German (JA.md, KO.md, PT-BR.md, ES.md, DE.md), with an eight-language switcher
+- Updated dependencies [[`f3b785f`](https://github.com/GuardBee/guardbee-mcp/commit/f3b785fe9454f80720ec36468fee9f5b2e9a70ed)]:
+  - @guardbee/guard-core@0.12.1
+  - @guardbee/mcp-telemetry@0.1.4
+
+## 1.13.1
+
+### Patch Changes
+
+- [#68](https://github.com/GuardBee/guardbee-mcp/pull/68) [`a1435e0`](https://github.com/GuardBee/guardbee-mcp/commit/a1435e0710466ba1d2c978dca7bfaca3923ee1a7) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - 38 more secret rules (76 in all): cloud and hosting (Azure AD client secret and storage key, DigitalOcean, Heroku, Fly.io, Cloudflare Origin CA, Supabase, PlanetScale), AI providers (OpenRouter, Groq, Perplexity, Replicate, Hugging Face org), developer tools (GitHub fine-grained, GitLab runner, PyPI, Vault, Terraform Cloud, Pulumi, Doppler, 1Password, age) and SaaS (Stripe webhook, Square, Shopify, Twilio API key, Linear, Notion, Atlassian, Sentry, Grafana, Postman, Discord webhook, Telegram bot). The fixed-format ones are also masked by security-proxy (66 formats, up from 32). Turkish providers iyzico, PayTR, Netgsm and İleti Merkezi are matched on their variable names and marked broad, so the scanner reports them and the proxy does not mask on them.
+- Updated dependencies [[`a1435e0`](https://github.com/GuardBee/guardbee-mcp/commit/a1435e0710466ba1d2c978dca7bfaca3923ee1a7)]:
+  - @guardbee/guard-core@0.12.0
+
 ## 1.13.0
 
 ### Minor Changes

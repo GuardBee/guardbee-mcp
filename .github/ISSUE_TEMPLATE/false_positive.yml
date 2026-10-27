@@ -1,0 +1,35 @@
+name: False positive / false negative
+description: A scanner or the proxy flagged something harmless, or missed something it should catch
+labels: [detection]
+body:
+  - type: markdown
+    attributes:
+      value: "If the proxy let personal data, a secret or a blocked call through **in a way an attacker could use**, report it privately instead: see SECURITY.md."
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options:
+        - False positive (flagged, but harmless)
+        - False negative (missed)
+    validations:
+      required: true
+  - type: input
+    id: package
+    attributes:
+      label: Package, version and rule
+      placeholder: "@guardbee/mcp-secret-scanner 1.0.0, rule generic_api_key"
+    validations:
+      required: true
+  - type: textarea
+    id: sample
+    attributes:
+      label: The smallest input that shows it
+      description: Replace real secrets and personal data with fake values of the same shape.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it should (not) be reported

@@ -1,6 +1,6 @@
 # @guardbee/mcp-secret-scanner
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-secret-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-secret-scanner)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-secret-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-secret-scanner)
@@ -8,23 +8,24 @@
 
 Kaynak dosyalarınızı, dizinleri ve ortam konfigürasyonlarını açık API key, parola, token ve diğer gizli bilgiler açısından tarayan MCP sunucusu. Claude'a doğrudan projenizden secret sızdırıp sızdırmadığınızı sorabilirsiniz.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + dosya yolu gibi kısa parametreler — taranan dosya içeriği hiçbir zaman dahil değil, bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
 ---
 
 ## Özellikler
 
-- **38 Secret Deseni** — AWS, GitHub, GitLab, Stripe, OpenAI, Anthropic, HuggingFace, Slack, Twilio, SendGrid ve daha fazlası. Kurallar [`@guardbee/guard-core`](../guard-core/TR.md) içinde durduğu için `@guardbee/mcp-security-proxy` aynı formatları çalışma anında tool sonuçlarında maskeler
+- **76 Secret Deseni** — AWS, Azure, GCP, GitHub, GitLab, Stripe, OpenAI, Anthropic, OpenRouter, Groq, Hugging Face, Slack, Twilio, SendGrid, DigitalOcean, Cloudflare, Supabase, Vault, PyPI, Shopify, Linear, Notion, Atlassian ve daha fazlası — ayrıca Türk sağlayıcılar iyzico, PayTR, Netgsm ve İleti Merkezi; key'lerinin öneki olmadığı için değişken adlarıyla eşleşir. Kurallar [`@guardbee/guard-core`](../guard-core/TR.md) içinde durduğu için `@guardbee/mcp-security-proxy` aynı formatları çalışma anında tool sonuçlarında maskeler
 - **Dosya & Dizin Tarama** — Tek dosya veya tüm proje ağacı
 - **Git Geçmişi & Staged Tarama** — `--history`, herhangi bir commit'in eklediği her satırı tarar; dosyalardan silinmiş ama repoda hâlâ duran bir key bulunur ve onu ekleyen commit'te (yazar ve tarihle) bir kez raporlanır; `--staged` yalnızca commit'lemek üzere olduğunuz satırları tarar
 - **Baseline** — `--write-baseline` bugünkü bulguları hash olarak kaydeder (secret'ların kendisini asla; commit'lemek güvenlidir); `--baseline` sonra yalnızca yenilerini raporlar, böylece mevcut bir repo her şeyi önce düzeltmeden scanner'ı CI'a alabilir. SARIF sonuçları kalıcı bir `partialFingerprints` değeri taşır
 - **Yüksek Entropili Değerler** — secret'a benzeyen bir ada atanmış rastgele görünümlü bir değer (`.env`'de `WEBHOOK_SIGNING_SECRET=…`, YAML'da `client_secret:`, JSON'da `"internalApiKey"`) hiçbir sağlayıcı kuralı formatını bilmese de raporlanır. Rastgelelik Shannon entropisiyle ölçülür (hex değerler 32+ karakter ister; rakam içermeyen değerler daha yüksek eşiği geçmelidir, böylece camel-case bir parola sayılmaz); `public`/`publishable`, `*_hash`, `*_id` ve `*_url` adları, yer tutucular ve `${VAR}` referansları atlanır, bir sağlayıcı kuralının zaten raporladığı değer ikinci kez raporlanmaz. Önem medium, test dosyalarında low; `--no-entropy` (ya da MCP araçlarında `entropy: false`) kapatır
 - **Ajan Transcript'leri** — `scan --agent-history` (MCP: `scan_agent_history`) kodlama ajanlarının makinenizde tuttuklarını tarar: Claude Code (`~/.claude/projects`, `~/.claude.json`), Codex (`~/.codex`), Gemini CLI (`~/.gemini/tmp`) ve Continue (`~/.continue/sessions`). Sohbete yapıştırılan ya da ajanın çalıştırdığı bir komutun yazdırdığı key orada kalır — ve model sağlayıcısına zaten gönderilmiştir, döndürün. Her secret ajan başına bir kez, kaç kez geçtiğiyle raporlanır; transcript'ler ajanın okuduğu kodla dolu olduğundan entropi kontrolü burada `--entropy` verilmedikçe kapalıdır
 - **Büyük Satır Dosyaları** — 1 MB'ı aşan `.jsonl`, `.ndjson`, `.ipynb` ve `.log` dosyaları (transcript'ler, çıktılı notebook'lar, log'lar) atlanmak yerine satır satır okunur
+- **Canlı Doğrulama (sadece CLI)** — `--verify`, bulunan bir key'in hâlâ çalışıp çalışmadığını sağlayıcısına salt-okunur bir kimlik uç noktasıyla sorar (GitHub `/user`, OpenAI `/models`, Slack `auth.test`, …): GitHub, GitLab, OpenAI, Anthropic, Slack, Stripe, Hugging Face, npm, SendGrid, Groq, OpenRouter ve DigitalOcean. Her key yalnızca kendi sağlayıcısına, bir kez gider ve çıktıda asla görünmez; bulgular `live` / `invalid` / `unknown` olarak işaretlenir, canlılar en üstte listelenir. `--fail-on=live` CI'ı yalnızca hâlâ çalışan key'lerde düşürür. MCP araçları asla doğrulama yapmaz; böylece bir ajan secret'larınızı kendi başına hiçbir yere gönderemez
 - **Akıllı Atlama** — `node_modules`, `.git`, `dist`, `build`, `.next` gibi dizinler otomatik atlanır
 - **Güvenli Redaksyon** — Eşleşmeler ilk 4 + yıldız + son 4 karakter olarak gösterilir
 - **Allowlist Desteği** — Bilinen test/sahte değerleri beyaz listeye alın
-- **64 Unit Test** — %100 geçen test paketi
+- **71 Unit Test** — %100 geçen test paketi
 
 ---
 
@@ -113,6 +114,8 @@ npx @guardbee/mcp-secret-scanner scan . --fail-on=high
 npx @guardbee/mcp-secret-scanner scan . --format=json
 # Bu makinedeki Claude Code / Codex / Gemini CLI / Continue oturumlarına yapıştırılan secret'lar
 npx @guardbee/mcp-secret-scanner scan --agent-history
+# Bulunan key'lerden hangisi hâlâ çalışıyor? (her key'i kendi sağlayıcısına gönderir)
+npx @guardbee/mcp-secret-scanner scan . --history --verify --fail-on=live
 # Pre-commit: yalnızca commit'lemek üzere olduğunuz satırlar
 npx @guardbee/mcp-secret-scanner scan --staged
 
@@ -169,7 +172,7 @@ npx @guardbee/mcp-secret-scanner scan --staged --fail-on=high || exit 1
 
 ```bash
 npm install
-npm test          # 64 unit test
+npm test          # 71 unit test
 npm run build     # TypeScript derleme
 ```
 
@@ -178,3 +181,7 @@ npm run build     # TypeScript derleme
 ## Lisans
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

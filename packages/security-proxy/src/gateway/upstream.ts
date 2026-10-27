@@ -12,6 +12,10 @@ import type {
   Resource,
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
+import { classifyAddress, guardedFetch, normalizeHost, type EgressBlockedError, type EgressPolicy } from "@guardbee/guard-core";
+import { sandboxContext, sandboxLaunch } from "./sandbox.js";
 import { isHttpUpstream, type HttpUpstreamConfig, type McpServerConfig, type UpstreamConfig } from "../types.js";
 
 /** Answers a server's sampling/createMessage request on behalf of one session. */
@@ -107,26 +111,60 @@ function proxyClient(sampling: boolean): Client {
   return new Client({ name: "guardbee-proxy-client", version: "1.0.0" }, { capabilities: sampling ? { sampling: {} } : {} });
 }
 
-export async function connectHttpUpstream(name: string, server: HttpUpstreamConfig, options: { sampling?: boolean } = {}): Promise<Upstream> {
+export interface ConnectOptions {
+  sampling?: boolean;
+  /** Called for every connection the upstream's network policy refuses (HTTP upstreams). */
+  onEgressBlocked?: (error: EgressBlockedError) => void;
+}
+
+/**
+ * The egress policy for an HTTP upstream. Without `blockPrivate`, the
+ * configured URL decides: a server on a loopback or private address (or a
+ * name that resolves only to such addresses) may stay on the private network;
+ * any other may not reach it, through a redirect or a DNS answer that changes.
+ */
+export async function upstreamEgressPolicy(server: HttpUpstreamConfig, resolve = (host: string) => lookup(host, { all: true })): Promise<EgressPolicy> {
+  const network = server.network ?? {};
+  const mode = network.mode ?? "open";
+  const allowHosts = network.allowHosts ?? [];
+  if (network.blockPrivate !== undefined) return { mode, allowHosts, blockPrivate: network.blockPrivate };
+  const host = normalizeHost(new URL(server.url).hostname);
+  const isPrivate = (address: string) => ["loopback", "private"].includes(classifyAddress(address));
+  let onPrivateNetwork: boolean;
+  if (isIP(host)) onPrivateNetwork = isPrivate(host);
+  else if (host === "localhost" || host.endsWith(".localhost")) onPrivateNetwork = true;
+  else {
+    const addresses = await resolve(host).catch(() => []);
+    onPrivateNetwork = addresses.length > 0 && addresses.every((a) => isPrivate(a.address));
+  }
+  return { mode, allowHosts, blockPrivate: !onPrivateNetwork };
+}
+
+export async function connectHttpUpstream(name: string, server: HttpUpstreamConfig, options: ConnectOptions = {}): Promise<Upstream> {
   const client = proxyClient(options.sampling ?? false);
+  const policy = await upstreamEgressPolicy(server);
   const transport = new StreamableHTTPClientTransport(new URL(server.url), {
     requestInit: server.headers ? { headers: server.headers } : undefined,
+    fetch: guardedFetch(policy, options.onEgressBlocked ? { onBlocked: options.onEgressBlocked } : {}),
   });
   await client.connect(transport);
   return clientUpstream(name, client, options);
 }
 
-export function connectUpstream(name: string, server: UpstreamConfig, options: { sampling?: boolean } = {}): Promise<Upstream> {
+export function connectUpstream(name: string, server: UpstreamConfig, options: ConnectOptions = {}): Promise<Upstream> {
   return isHttpUpstream(server) ? connectHttpUpstream(name, server, options) : connectStdioUpstream(name, server, options);
 }
 
 export async function connectStdioUpstream(name: string, server: McpServerConfig, options: { sampling?: boolean } = {}): Promise<Upstream> {
   const client = proxyClient(options.sampling ?? false);
-  const transport = new StdioClientTransport({
-    command: server.command,
-    args: server.args ?? [],
-    env: { ...process.env, ...(server.env ?? {}) } as Record<string, string>,
-  });
+  const launch = server.sandbox ? sandboxLaunch(server, server.sandbox, sandboxContext(name)) : undefined;
+  const transport = new StdioClientTransport(
+    launch ?? {
+      command: server.command,
+      args: server.args ?? [],
+      env: { ...process.env, ...(server.env ?? {}) } as Record<string, string>,
+    },
+  );
   await client.connect(transport);
   return clientUpstream(name, client, options);
 }

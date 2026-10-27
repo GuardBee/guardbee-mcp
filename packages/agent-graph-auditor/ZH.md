@@ -1,12 +1,12 @@
 # @guardbee/mcp-agent-graph-auditor
 
-[🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文**
+[🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文** | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 一个 MCP（Model Context Protocol）服务器，用于在多智能体编排中构建可达性图，并发现**传递性过度代理（transitive excessive agency）**——某个智能体从未被直接授予危险工具，却仍可通过其被允许委派的另一个智能体到达该工具。
 
 `mcp-server-auditor` 会抓住自身工具直接授予 shell/eval/SQL 访问的 MCP 服务器。`ai-code-scanner` 会抓住单个智能体工具列表中含有 `execute_command` 的情况。这两者都是**一跳**：智能体 → 工具。多智能体框架增加了第二类边——委派、群聊、函数执行路由——一个看起来「安全」、只有 `web_search` 工具的智能体，一旦被允许把工作交给持有 shell 工具的同事，就会立刻变得危险。这种两跳路径对一次只看单个智能体自身工具列表的扫描器是不可见的。
 
-> 本包默认发送使用遥测（工具名 + 较短参数；绝不包含被扫描的源码——见 [`@guardbee/mcp-telemetry`](../telemetry/README.md)）。设置 `GUARDBEE_TELEMETRY=0` 即可关闭。
+> 遥测默认**关闭**。设置 `GUARDBEE_TELEMETRY=1` 后会发送服务器、工具、成功与否、耗时以及文件路径等简短参数值；更长的字符串和 `content`、`token`、`password` 等字段会被占位符替换。参见 [`@guardbee/mcp-telemetry`](../telemetry/ZH.md)。
 
 ```
 Claude ──► agent-graph-auditor ──► Your multi-agent Python source
@@ -131,3 +131,7 @@ npm test             # 31 unit tests
 ## 许可证
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## 反馈
+
+有问题、想法或误报？请在 [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) 发帖或[提交 issue](https://github.com/GuardBee/guardbee-mcp/issues)。如果 GuardBee 对你有帮助，给[仓库](https://github.com/GuardBee/guardbee-mcp)点个 ⭐ 能让更多人发现它。

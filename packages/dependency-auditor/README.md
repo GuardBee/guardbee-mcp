@@ -1,26 +1,31 @@
 # @guardbee/mcp-dependency-auditor
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/dependency-auditor/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/dependency-auditor/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/dependency-auditor/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/dependency-auditor/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/dependency-auditor/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/dependency-auditor/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/dependency-auditor/DE.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-dependency-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-dependency-auditor)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-dependency-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-dependency-auditor)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/dependency-auditor/LICENSE)
 
 An MCP server that audits npm and pip manifests against the [OSV](https://osv.dev) database for known CVEs. A single-package lookup also covers PyPI, crates.io, Maven, Go, and RubyGems.
 
-> This package sends usage telemetry by default (tool name + short parameters — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/telemetry/README.md).
 
 ---
 
 ## Features
 
 - **OSV API Integration** — Google's open-source vulnerability database (free, no authentication required)
-- **npm Support** — reads `package.json` and `package-lock.json` (v1/v2/v3); locked versions preferred
-- **pip Support** — `requirements.txt`, `requirements/base.txt`, `requirements/prod.txt`, and `pyproject.toml`
+- **npm Support** — reads exact versions from `package-lock.json` / `npm-shrinkwrap.json` (v1/v2/v3), `pnpm-lock.yaml` (v5/v6/v9), `yarn.lock` (v1 and Berry) and `bun.lock`, falling back to `package.json` ranges. Transitive packages are included, and dev-only packages are told apart even when the lockfile does not mark them (pnpm v9, yarn, bun)
+- **Rust, Go, Ruby, PHP** — `Cargo.lock` (dev crates from `Cargo.toml`), `go.mod` (`// indirect` and `replace` aware), `Gemfile.lock` (platform builds merged, dev groups from the `Gemfile`) and `composer.lock` (`packages-dev`), audited by `audit` and the `audit_directory` tool
+- **pip Support** — reads exact versions from `uv.lock`, `poetry.lock` and `Pipfile.lock` (dev groups separated), falling back to `requirements.txt`, `requirements/base.txt`, `requirements/prod.txt`, and `pyproject.toml`
+- **Malicious Package Detection** — known-malicious releases (OpenSSF `MAL-*` entries and advisories classified CWE-506, e.g. the hijacked `chalk@5.6.1` / `debug@4.4.2` of September 2025) are reported first as critical, with a removal and credential-rotation action, and fail any `--fail-on` threshold
+- **Exploit Prioritization** — findings are enriched with [CISA KEV](https://www.cisa.gov/known-exploited-vulnerabilities-catalog) (exploited in the wild, ransomware use) and [FIRST EPSS](https://www.first.org/epss/) (probability of exploitation in 30 days) and ordered malware → KEV → severity → EPSS. Gate CI on them with `--fail-on-kev` / `--fail-on-epss=<0-1>` (`--fail-on=none` turns the severity gate off). Only CVE IDs are sent; `--no-exploit-data` or `exploit-data: false` in `guardbee.yml` turns it off
 - **Severity Scoring** — Critical / High / Medium / Low based on CVSS score or a text heuristic
-- **Fix Version** — an `upgrade to X@Y.Z.Z` recommendation when available
+- **Fix Plan** — one upgrade per package: the smallest listed version that clears *every* advisory (e.g. `log4j-core 2.14.1 → 2.25.4 (fixes 7/7)`), with advisories that stay open and major-version jumps called out. Per-finding fixes follow the installed release line (`next-auth 5.0.0-beta.31 → 5.0.0-beta.32`, not 4.24.15), using SemVer, PEP 440 or Maven-style version ordering
 - **CVE Links** — direct links to NVD or osv.dev
-- **24 Unit Tests** — 100% passing test suite
+- **Dependency Paths** — each finding shows how the package gets installed (`express@4.21.2 › proxy-addr@2.0.7`), and the fix plan names the direct dependency to bump (`← via express@4.21.2`). Available for `package-lock.json` v2/v3, pnpm, yarn, bun and uv lockfiles
+- **De-duplicated Findings** — advisories that alias each other (GHSA + PYSEC, GHSA + MAL) are merged into one finding; ignore lists match any of their IDs
+- **Tests** — unit tests with lockfiles generated by the real package managers and a fake OSV API
 
 ---
 
@@ -49,8 +54,8 @@ Add to `claude_desktop_config.json`:
 
 | Tool | Description |
 |------|----------|
-| `audit_npm` | Audits npm dependencies in `package.json` / `package-lock.json` |
-| `audit_pip` | Audits Python dependencies in `requirements.txt` / `pyproject.toml` |
+| `audit_npm` | Audits npm dependencies (package-lock, pnpm, yarn, bun lockfiles or `package.json`) |
+| `audit_pip` | Audits Python dependencies (uv, Poetry, Pipenv lockfiles or `requirements.txt` / `pyproject.toml`) |
 | `audit_package` | Audits a single package by name, version, and ecosystem |
 | `audit_directory` | Auto-detects and audits all supported manifest files |
 
@@ -113,6 +118,9 @@ npx @guardbee/mcp-dependency-auditor audit-pkg lodash 4.17.20 npm
 
 # JSON output
 npx @guardbee/mcp-dependency-auditor audit . --format=json
+
+# Fail only on what attackers actually use: CISA KEV, or EPSS ≥ 10%
+npx @guardbee/mcp-dependency-auditor audit . --fail-on=none --fail-on-kev --fail-on-epss=0.1
 ```
 
 **Exit codes:** `0` = clean · `1` = findings above threshold · `2` = error
@@ -170,3 +178,7 @@ npm run build     # TypeScript compile
 ## License
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Feedback
+
+Questions, ideas, or a false positive? Start a thread in [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) or [open an issue](https://github.com/GuardBee/guardbee-mcp/issues). If GuardBee is useful to you, a ⭐ on [the repository](https://github.com/GuardBee/guardbee-mcp) helps others find it.

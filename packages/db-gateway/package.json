@@ -1,16 +1,16 @@
 {
   "name": "@guardbee/mcp-db-gateway",
-  "version": "0.3.5",
+  "version": "0.6.2",
   "mcpName": "io.github.GuardBee/db-gateway",
   "description": "KVKK/GDPR-compliant MCP server gateway between LLMs and databases",
   "author": "GuardBee <hello@guardbee.ai>",
   "license": "MIT",
-  "homepage": "https://github.com/GuardBee/guardbee-mcp/tree/main/packages/db-gateway#readme",
   "repository": {
     "type": "git",
     "url": "https://github.com/GuardBee/guardbee-mcp.git",
     "directory": "packages/db-gateway"
   },
+  "homepage": "https://guardbee.ai/en/what-is-mcp-db-gateway/",
   "bugs": {
     "url": "https://github.com/GuardBee/guardbee-mcp/issues"
   },
@@ -25,18 +25,33 @@
     "database",
     "security",
     "prisma",
-    "claude"
+    "claude",
+    "guardbee"
   ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./adapters/*": {
+      "types": "./dist/adapters/*.d.ts",
+      "default": "./dist/adapters/*.js"
+    },
+    "./dist/*": "./dist/*",
+    "./package.json": "./package.json"
+  },
   "bin": {
     "guardbee-gateway": "dist/cli.js"
   },
   "files": [
     "dist",
     "README.md",
-    "TR.md",
-    "ZH.md"
+    "LICENSE",
+    "CHANGELOG.md",
+    "!dist/**/*.map",
+    "!dist/**/__tests__"
   ],
   "engines": {
     "node": ">=18"
@@ -51,8 +66,9 @@
     "prepublishOnly": "npm test && npm run build"
   },
   "dependencies": {
+    "@guardbee/guard-core": "workspace:^",
     "@guardbee/mcp-telemetry": "workspace:^",
-    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@modelcontextprotocol/sdk": "catalog:",
     "zod": "catalog:"
   },
   "peerDependencies": {

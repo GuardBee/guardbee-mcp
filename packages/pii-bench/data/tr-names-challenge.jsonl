@@ -1,0 +1,48 @@
+{"id":"challenge-001","domain":"support","set":"pii","text":"Umut yarın erken gelecek, toplantıyı o açsın.","spans":[{"start":0,"end":4,"category":"person_name"}]}
+{"id":"challenge-002","domain":"support","set":"pii","text":"Barış Demir dün akşam aradı, siparişi iptal etmek istiyor.","spans":[{"start":0,"end":11,"category":"person_name"}]}
+{"id":"challenge-003","domain":"support","set":"pii","text":"Müşteri Deniz Kaya, faturanın yanlış adrese gittiğini söyledi.","spans":[{"start":8,"end":18,"category":"person_name"}]}
+{"id":"challenge-004","domain":"support","set":"pii","text":"Güneş Hanım bugün izinli, dosyayı Bahar Hanım'a bırakın.","spans":[{"start":0,"end":5,"category":"person_name"},{"start":34,"end":39,"category":"person_name"}]}
+{"id":"challenge-005","domain":"support","set":"pii","text":"Ay Doğan ile Yaprak Çiçek aynı ekipte çalışıyor.","spans":[{"start":0,"end":8,"category":"person_name"},{"start":13,"end":25,"category":"person_name"}]}
+{"id":"challenge-006","domain":"support","set":"pii","text":"Sınıf temsilcisi Mutlu Sever veli toplantısını erteledi.","spans":[{"start":17,"end":28,"category":"person_name"}]}
+{"id":"challenge-007","domain":"support","set":"pii","text":"Savaş Yıldırım işe dönüş tarihini henüz bildirmedi.","spans":[{"start":0,"end":14,"category":"person_name"}]}
+{"id":"challenge-008","domain":"support","set":"pii","text":"Dosyayı Irmak hazırladı, Ozan kontrol etti.","spans":[{"start":8,"end":13,"category":"person_name"},{"start":25,"end":29,"category":"person_name"}]}
+{"id":"challenge-009","domain":"support","set":"pii","text":"Kargo Cem Şeker adına teslim alındı.","spans":[{"start":6,"end":15,"category":"person_name"}]}
+{"id":"challenge-010","domain":"support","set":"pii","text":"Gül Kara ile Ateş Tan mülakata çağrılacak.","spans":[{"start":0,"end":8,"category":"person_name"},{"start":13,"end":21,"category":"person_name"}]}
+{"id":"challenge-011","domain":"chat","set":"pii","text":"ayşe gelmeyecekmiş, mehmet de geç kalırmış","spans":[{"start":0,"end":4,"category":"person_name"},{"start":20,"end":26,"category":"person_name"}]}
+{"id":"challenge-012","domain":"chat","set":"pii","text":"abi serkan aradı mı seni, dün bana ulaşamadı","spans":[{"start":4,"end":10,"category":"person_name"}]}
+{"id":"challenge-013","domain":"chat","set":"pii","text":"zeynep yıldız diye birini tanıyor musun, ik'dan arıyorlar","spans":[{"start":0,"end":13,"category":"person_name"}]}
+{"id":"challenge-014","domain":"chat","set":"pii","text":"burak'ın doğum günü cumartesi, hediye alalım mı","spans":[{"start":0,"end":5,"category":"person_name"}]}
+{"id":"challenge-015","domain":"chat","set":"pii","text":"yarın elifle sinemaya gidiyoruz","spans":[{"start":6,"end":10,"category":"person_name"}]}
+{"id":"challenge-016","domain":"support","set":"pii","text":"DAVACI: AYŞE YILMAZ\nVEKİLİ: Av. MEHMET KARACA","spans":[{"start":8,"end":19,"category":"person_name"},{"start":32,"end":45,"category":"person_name"}]}
+{"id":"challenge-017","domain":"legal","set":"pii","text":"SANIK HÜSEYİN ÖZTÜRK HAKKINDA KAMU DAVASI AÇILMIŞTIR.","spans":[{"start":6,"end":20,"category":"person_name"}]}
+{"id":"challenge-018","domain":"legal","set":"pii","text":"TANIK FATMA ŞAHİN DUYURULU OLMASINA RAĞMEN DURUŞMAYA GELMEDİ.","spans":[{"start":6,"end":17,"category":"person_name"}]}
+{"id":"challenge-019","domain":"support","set":"pii","text":"Kemal'in raporu masada, Selin'e iletin.","spans":[{"start":0,"end":5,"category":"person_name"},{"start":24,"end":29,"category":"person_name"}]}
+{"id":"challenge-020","domain":"support","set":"pii","text":"Bu karar Ahmet Bey'i doğrudan etkiliyor.","spans":[{"start":9,"end":14,"category":"person_name"}]}
+{"id":"challenge-021","domain":"support","set":"pii","text":"Özlem Arslan'dan gelen e-postaya henüz cevap verilmedi.","spans":[{"start":0,"end":12,"category":"person_name"}]}
+{"id":"challenge-022","domain":"support","set":"pii","text":"Toplantıya John Smith ve Maria Garcia da katılacak.","spans":[{"start":11,"end":21,"category":"person_name"},{"start":25,"end":37,"category":"person_name"}]}
+{"id":"challenge-023","domain":"support","set":"pii","text":"Yeni müşteri Hans Müller, sözleşmeyi Almanca istiyor.","spans":[{"start":13,"end":24,"category":"person_name"}]}
+{"id":"challenge-024","domain":"support","set":"pii","text":"Orhan Pamuk'un yeni romanı kitapçılarda.","spans":[{"start":0,"end":11,"category":"person_name"}]}
+{"id":"challenge-025","domain":"support","set":"pii","text":"Konferansta Aziz Sancar'ın Nobel konuşmasından bir bölüm gösterildi.","spans":[{"start":12,"end":23,"category":"person_name"}]}
+{"id":"challenge-026","domain":"support","set":"pii","text":"Hakan Çelik, Ankara şubesinden İzmir'e tayin istedi; Ziraat Bankası'ndaki hesabı aynı kalacak.","spans":[{"start":0,"end":11,"category":"person_name"}]}
+{"id":"challenge-027","domain":"support","set":"pii","text":"Garanti BBVA müşteri temsilcisi Seda bugün dönüş yapacak.","spans":[{"start":32,"end":36,"category":"person_name"}]}
+{"id":"challenge-028","domain":"support","set":"pii","text":"Trendyol siparişini Onur Aksoy iade etti, Aras Kargo ile gönderilecek.","spans":[{"start":20,"end":30,"category":"person_name"}]}
+{"id":"challenge-029","domain":"support","set":"clean","text":"Barış görüşmeleri yarın Cenevre'de yeniden başlayacak.","spans":[]}
+{"id":"challenge-030","domain":"support","set":"clean","text":"Deniz kenarında yürüyüş yapmak için hava çok güzel.","spans":[]}
+{"id":"challenge-031","domain":"support","set":"clean","text":"Güneş açınca panellerin ürettiği enerji iki katına çıktı.","spans":[]}
+{"id":"challenge-032","domain":"support","set":"clean","text":"Bahar aylarında satışlar genelde artar.","spans":[]}
+{"id":"challenge-033","domain":"support","set":"clean","text":"Umut verici sonuçlar ilk çeyrekte geldi.","spans":[]}
+{"id":"challenge-034","domain":"support","set":"clean","text":"Demir ve çelik fiyatları bu ay yüzde beş yükseldi.","spans":[]}
+{"id":"challenge-035","domain":"support","set":"clean","text":"Kaya tuzu ile deniz tuzu arasındaki fark nedir?","spans":[]}
+{"id":"challenge-036","domain":"support","set":"clean","text":"Ay sonunda bordrolar kapanacak, lütfen mesaileri girin.","spans":[]}
+{"id":"challenge-037","domain":"support","set":"clean","text":"Savaş sonrası dönemde ekonomi hızla toparlandı.","spans":[]}
+{"id":"challenge-038","domain":"support","set":"clean","text":"Irmak taşınca köprü geçici olarak kapatıldı.","spans":[]}
+{"id":"challenge-039","domain":"support","set":"clean","text":"Atatürk Havalimanı yolunda trafik yoğun.","spans":[]}
+{"id":"challenge-040","domain":"support","set":"clean","text":"Mimar Sinan Güzel Sanatlar Üniversitesi kayıtları başladı.","spans":[]}
+{"id":"challenge-041","domain":"support","set":"clean","text":"Fatih Sultan Mehmet Köprüsü bakım nedeniyle bu gece tek şeritte hizmet verecek.","spans":[]}
+{"id":"challenge-042","domain":"support","set":"clean","text":"Ankara, İzmir ve Bursa şubelerinde sistem güncellemesi yapılacak.","spans":[]}
+{"id":"challenge-043","domain":"support","set":"clean","text":"Ziraat Bankası ile Garanti BBVA arasındaki EFT gecikmeli.","spans":[]}
+{"id":"challenge-044","domain":"support","set":"clean","text":"Mutlu son için senaryo yeniden yazıldı.","spans":[]}
+{"id":"challenge-045","domain":"support","set":"clean","text":"Çiçek siparişleri sevgililer gününde iki katına çıktı.","spans":[]}
+{"id":"challenge-046","domain":"chat","set":"clean","text":"yarın toplantı var mı, saat kaçta","spans":[]}
+{"id":"challenge-047","domain":"chat","set":"clean","text":"kargo hala gelmedi ya, iade edeceğim","spans":[]}
+{"id":"challenge-048","domain":"legal","set":"clean","text":"TOPLANTI TUTANAĞI: GÜNDEM MADDELERİ OYBİRLİĞİYLE KABUL EDİLDİ.","spans":[]}

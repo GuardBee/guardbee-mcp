@@ -46,7 +46,7 @@ const MAX_CONTEXT_LENGTH = 240;
 const MCP_SERVER_RE =
   /\b(?:McpServer|Server)\s*\(|\bFastMCP\s*\(|\bmcp\.server\b|\bfrom\s+mcp\.server\b/i;
 const TOOL_REGISTER_RE =
-  /\.tool\s*\(|\bCallToolRequest\b|\btools\/call\b|\b@mcp\.tool\b|\b@server\.tool\b/i;
+  /\.(?:tool|registerTool)\s*\(|\bCallToolRequest\b|\btools\/call\b|\b@mcp\.tool\b|\b@server\.tool\b/i;
 
 const AUDIT_PRESENCE_RE =
   /\b(?:audit|telemetry|AuditLogger|auditLog|audit_log|logTool|log_tool|recordTool|toolCallLog|instrumentServer)\b/i;

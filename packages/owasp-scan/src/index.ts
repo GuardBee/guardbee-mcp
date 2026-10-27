@@ -10,4 +10,9 @@ export type {
   NormalizedFinding,
   Grade,
   ConnectionTarget,
+  FileCoverage,
+  LanguageCoverage,
+  ScanCoverage,
 } from "./types.js";
+export { directoryCoverage } from "./coverage.js";
+export { registerTools } from "./server.js";

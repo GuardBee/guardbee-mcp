@@ -1,6 +1,6 @@
 # guardbee-mcp
 
-[🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文**
+[🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文** | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 [guardbee.ai](https://guardbee.ai) — 面向网站的 AI 安全助手（AI Security Copilot）。
 
@@ -38,7 +38,7 @@ GuardBee 的 MCP（Model Context Protocol）服务器系列——一个 monorepo
 | [`packages/unbounded-consumption-auditor`](packages/unbounded-consumption-auditor) | `@guardbee/mcp-unbounded-consumption-auditor` | 扫描 LLM/智能体应用代码中的无限制资源消耗（"denial of wallet"，OWASP LLM Top 10 2026 #6）——缺少输出 token 上限、手写 LLM HTTP 调用缺少超时、无上限的工具调用/重试循环、显式关闭框架安全限制（LangChain max_iterations、openai-agents max_turns），以及看不出限流的 MCP 工具处理函数 |
 | [`packages/secret-scanner`](packages/secret-scanner) | `@guardbee/mcp-secret-scanner` | 扫描文件中泄露的密钥和 API key |
 | [`packages/security-proxy`](packages/security-proxy) | `@guardbee/mcp-security-proxy` | MCP 安全网关：把多个 MCP 服务器置于同一策略之后——有毒数据流（lethal trifecta）拦截、人工审批、PII 脱敏、哈希链审计日志 |
-| [`packages/security-suite`](packages/security-suite) | `@guardbee/security-suite` | secret-scanner + dependency-auditor + ssl-inspector + dns-intelligence 的组合包 |
+| [`packages/security-suite`](packages/security-suite) | `@guardbee/security-suite` | 一次安装获得下列全部扫描器和审计工具：一个按所选分组提供工具的 MCP 服务器，以及可运行任意包的 CLI |
 | [`packages/ssl-inspector`](packages/ssl-inspector) | `@guardbee/mcp-ssl-inspector` | TLS 证书/加密套件/协议检查 |
 | [`packages/vulnerability-scanner`](packages/vulnerability-scanner) | `@guardbee/mcp-vulnerability-scanner` | 触发 GuardBee 扫描、查询发现结果、AI 辅助的修复建议 |
 | [`packages/guard-core`](packages/guard-core) | `@guardbee/guard-core` | （内部）共享检测规则库——PII/密钥脱敏、prompt 注入规则、工具分类；本身不是 MCP 服务器 |
@@ -56,13 +56,13 @@ AI-security MCP 缺口跟进：**[`@guardbee/mcp-owasp-scan`](packages/owasp-sca
 
 ### 更早版本
 
-各版本的详细变更记录见英文 README 的 [Recent Changes](README.md#recent-changes-2026-10-06) 部分，以及各包的 `CHANGELOG.md`。
+各版本的详细变更记录见 [CHANGELOG.md](CHANGELOG.md)（英文）、各包的 `CHANGELOG.md` 以及 [GitHub Releases](https://github.com/GuardBee/guardbee-mcp/releases)。
 
 ## 遥测
 
-每个包默认通过 `@guardbee/mcp-telemetry` 向 GuardBee 发送使用遥测：调用了哪个工具、调用频率和耗时。首次使用时会在 stderr 打印一次提示。
+各包可以通过 `@guardbee/mcp-telemetry` 向 GuardBee 发送使用遥测：调用了哪个工具、调用频率和耗时。遥测**默认关闭**（opt-in）；除非设置 `GUARDBEE_TELEMETRY=1`，否则不会发送任何数据。开启后，首次使用时会在 stderr 打印一次提示。
 
-- **关闭方法**：`GUARDBEE_TELEMETRY=0`（或 `false`/`off`）
+- **开启方法**：`GUARDBEE_TELEMETRY=1`（或 `true`/`on`/`yes`）；取消设置即可再次关闭
 - **发送的内容**：工具名、较短（≤40 个字符）的参数值（例如 `table: "users"`、`limit: 50`）、成功/失败、耗时
 - **绝不发送的内容**：`content`/`text`/`data`/`filter`/`password`/`email`/`apiKey`/`token` 等键下的值，以及任何超过 40 个字符的字符串——它们都会被 `packages/telemetry/src/redact.ts` 中的 `redactParams()` 替换为 `"[redacted: ...]"`。因此被扫描文件/代码的完整内容，或 `insert_row`/`update_row` 调用中的真实行数据，都不会被发送。
 
@@ -94,6 +94,6 @@ pnpm changeset
 
 ## 结构
 
-- **pnpm workspaces** —— `packages/*`，真实的 `workspace:*` 依赖（例如 `security-suite` 直接从工作区依赖其他 4 个包，而不是注册表上的版本）
+- **pnpm workspaces** —— `packages/*`，真实的 `workspace:*` 依赖（例如 `security-suite` 直接从工作区依赖其他包，而不是注册表上的版本）
 - **Turborepo** —— `build`/`test`/`type-check` 流水线，按依赖图排序并缓存
 - **共享配置** —— 根目录的 `tsconfig.base.json` 和 `vitest.shared.ts`；每个包在其上叠加自己的设置

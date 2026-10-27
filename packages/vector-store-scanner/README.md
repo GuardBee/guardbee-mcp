@@ -1,12 +1,16 @@
 # @guardbee/mcp-vector-store-scanner
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/vector-store-scanner/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/vector-store-scanner/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/vector-store-scanner/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/vector-store-scanner/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/vector-store-scanner/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/vector-store-scanner/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/vector-store-scanner/DE.md)
+
+[![npm version](https://img.shields.io/npm/v/@guardbee/mcp-vector-store-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-vector-store-scanner)
+[![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-vector-store-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-vector-store-scanner)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/vector-store-scanner/LICENSE)
 
 An MCP (Model Context Protocol) server that probes a vector-database (or vector-index-capable) endpoint for **unauthenticated exposure** — the same class of misconfiguration behind repeated real-world incidents of open Elasticsearch/MongoDB/Redis instances leaking data, now aimed at the RAG-era stack: Weaviate, Qdrant, Chroma, Elasticsearch/OpenSearch, Redis, and Postgres/pgvector.
 
 Every RAG pipeline's embeddings live somewhere. If that vector store is reachable on the network without authentication, anyone who finds it can read (and often write) every document your retrieval pipeline was ever given — including anything sensitive that made it into a chunk.
 
-> This package sends usage telemetry by default (tool name + short parameters, the probed host/response contents are never included — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/telemetry/README.md).
 
 ```
 Claude ──► vector-store-scanner ──► Your vector-store endpoint
@@ -126,3 +130,7 @@ npm test             # 22 unit tests
 ## License
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Feedback
+
+Questions, ideas, or a false positive? Start a thread in [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) or [open an issue](https://github.com/GuardBee/guardbee-mcp/issues). If GuardBee is useful to you, a ⭐ on [the repository](https://github.com/GuardBee/guardbee-mcp) helps others find it.

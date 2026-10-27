@@ -1,0 +1,41 @@
+# Personal data under KVKK/GDPR: an agent working on a CRM and a database.
+# The model sees tokens instead of values, can still pass them to another tool,
+# and the proxy puts the real value back only for non-egress tools.
+version: 1
+
+upstreams:
+  crm:
+    command: npx
+    args: ["-y", "your-crm-mcp-server"]          # replace with your CRM's MCP server
+  db:
+    command: npx
+    args: ["-y", "@guardbee/mcp-db-gateway"]
+
+interceptors:
+  piiMasking:
+    enabled: true
+    preset: KVKK_SENSITIVE   # identifiers + KVKK Art. 6 special categories (health, religion, ...)
+    mode: tokenize           # <pii:tc_kimlik:7f3a9b21> instead of the value
+
+# Person names come from the optional NER model (npx @guardbee/ner download && npx @guardbee/ner serve).
+# Without it, identifiers are still masked; names are not.
+# ner:
+#   url: http://127.0.0.1:8765
+#   timeoutMs: 2000
+
+rules:
+  - id: salaries-masked
+    match: { tool: "db__query", args: { table: "salaries" } }
+    action: mask
+    mask: { fields: [salary, iban] }   # blank these JSON keys too
+  - id: ask-before-export
+    match: { label: egress }
+    action: approve                     # the person confirms in the MCP client
+
+taint:
+  mode: strict
+  basis: data      # block egress only when it carries data a sensitive tool returned
+
+audit:
+  sink: file
+  filePath: ./guardbee-audit.jsonl

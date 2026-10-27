@@ -1,12 +1,12 @@
 # @guardbee/mcp-elicitation-auditor
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 MCP server kaynağını **2026-07-28 spesifikasyonundaki elicitation anti-pattern'leri** için tarayan bir MCP server.
 
 Bu revizyon sampling ve roots'u deprecated etti. Bir server'ın istemciden bir şey istemesinin kalan yolu elicitation. Form modu veriyi istemcinin içinden toplar. URL modu kullanıcıyı, istemcinin okumaması gereken bir sayfaya gönderir.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler; taranan kod hiç gitmez — bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
 ```
 Claude ──► elicitation-auditor ──► MCP server kaynağı
@@ -55,3 +55,7 @@ elicitation-auditor:
 ```
 
 API anahtarı yok. Yalnızca statik analiz.
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

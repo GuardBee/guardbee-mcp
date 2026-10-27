@@ -3,3 +3,4 @@ export type { ScanEndpointOptions, EndpointScanResult, StoreType } from "./scann
 export { probeWeaviate, probeQdrant, probeChroma, probeElasticsearch } from "./httpProbes.js";
 export { probeRedis, probePostgres } from "./tcpProbes.js";
 export type { Finding, ProbeOutcome } from "./types.js";
+export { registerTools } from "./server.js";

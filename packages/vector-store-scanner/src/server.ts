@@ -37,16 +37,24 @@ export async function startServer() {
     version: "0.1.0",
   });
   instrumentServer(server, "vector-store-scanner");
+  registerTools(server);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
-  server.tool(
+/** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
+export function registerTools(server: McpServer): void {
+  server.registerTool(
     "scan_endpoint",
-    "Probe a vector-database (or vector-index-capable) endpoint for unauthenticated exposure — Weaviate, Qdrant, Chroma, Elasticsearch/OpenSearch (HTTP fingerprinting, escalating from instance info → collection/schema listing → actual stored data), Redis (RESP PING without AUTH), and Postgres/pgvector (wire-protocol SSLRequest + StartupMessage handshake, no real credentials sent). Read-only — never writes or authenticates with real credentials.",
     {
-      host: z.string().describe("Hostname or IP of the endpoint to probe"),
-      port: z.number().optional().describe("Port to probe (defaults to the store type's conventional port, e.g. 6333 for Qdrant)"),
-      type: z.enum(["auto", "weaviate", "qdrant", "chroma", "elasticsearch", "redis", "postgres"]).optional().describe("Store type to probe for. 'auto' (default) fingerprints the endpoint by trying each known type in turn."),
-      tls: z.boolean().optional().describe("Use https:// for HTTP-based probes (Weaviate/Qdrant/Chroma/Elasticsearch). Default: false"),
-      timeoutMs: z.number().optional().describe("Per-request timeout in milliseconds (default: 4000)"),
+      description: "Probe a vector-database (or vector-index-capable) endpoint for unauthenticated exposure — Weaviate, Qdrant, Chroma, Elasticsearch/OpenSearch (HTTP fingerprinting, escalating from instance info → collection/schema listing → actual stored data), Redis (RESP PING without AUTH), and Postgres/pgvector (wire-protocol SSLRequest + StartupMessage handshake, no real credentials sent). Read-only — never writes or authenticates with real credentials.",
+      inputSchema: {
+        host: z.string().describe("Hostname or IP of the endpoint to probe"),
+        port: z.number().optional().describe("Port to probe (defaults to the store type's conventional port, e.g. 6333 for Qdrant)"),
+        type: z.enum(["auto", "weaviate", "qdrant", "chroma", "elasticsearch", "redis", "postgres"]).optional().describe("Store type to probe for. 'auto' (default) fingerprints the endpoint by trying each known type in turn."),
+        tls: z.boolean().optional().describe("Use https:// for HTTP-based probes (Weaviate/Qdrant/Chroma/Elasticsearch). Default: false"),
+        timeoutMs: z.number().optional().describe("Per-request timeout in milliseconds (default: 4000)"),
+      },
     },
     async ({ host, port, type, tls, timeoutMs }) => {
       const result = await scanEndpoint({ host, port, type, tls, timeoutMs });
@@ -54,10 +62,12 @@ export async function startServer() {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "list_patterns",
-    "List the vector-store types this scanner can fingerprint, and what unauthenticated-access checks it runs for each",
-    {},
+    {
+      description: "List the vector-store types this scanner can fingerprint, and what unauthenticated-access checks it runs for each",
+      inputSchema: {},
+    },
     async () => {
       const lines = [
         "Supported store types and checks:\n",
@@ -92,7 +102,4 @@ export async function startServer() {
       return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }

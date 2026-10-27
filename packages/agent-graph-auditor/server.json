@@ -7,12 +7,12 @@
     "source": "github",
     "subfolder": "packages/agent-graph-auditor"
   },
-  "version": "0.1.2",
+  "version": "0.2.2",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@guardbee/mcp-agent-graph-auditor",
-      "version": "0.1.2",
+      "version": "0.2.2",
       "transport": {
         "type": "stdio"
       }

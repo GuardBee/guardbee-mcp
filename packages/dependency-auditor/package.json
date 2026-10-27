@@ -1,8 +1,8 @@
 {
   "name": "@guardbee/mcp-dependency-auditor",
-  "version": "0.2.4",
+  "version": "0.7.2",
   "mcpName": "io.github.GuardBee/dependency-auditor",
-  "description": "OSV CVE checks for npm and pip manifests. Single-package lookups also cover PyPI, crates.io, Maven, Go, and RubyGems.",
+  "description": "Dependency vulnerability scanner (OSV) for npm and pip manifests, with single-package lookups for PyPI, crates.io, Maven, Go and RubyGems; CLI and MCP server",
   "type": "module",
   "bin": {
     "guardbee-dependency-auditor": "./dist/cli.js"
@@ -11,15 +11,18 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "default": "./dist/index.js"
     }
   },
   "files": [
     "dist",
     "README.md",
-    "TR.md",
-    "ZH.md"
+    "LICENSE",
+    "CHANGELOG.md",
+    "!dist/**/*.map",
+    "!dist/**/__tests__"
   ],
   "scripts": {
     "build": "tsc",
@@ -31,7 +34,9 @@
   "dependencies": {
     "@guardbee/mcp-telemetry": "workspace:^",
     "@modelcontextprotocol/sdk": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "smol-toml": "^1.9.1",
+    "yaml": "^2.9.1"
   },
   "keywords": [
     "mcp",
@@ -40,12 +45,23 @@
     "cve",
     "osv",
     "guardbee",
-    "devtools"
+    "devtools",
+    "vulnerability-scanner",
+    "sca",
+    "npm-audit",
+    "supply-chain"
   ],
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/GuardBee/guardbee-mcp.git",
     "directory": "packages/dependency-auditor"
+  },
+  "homepage": "https://guardbee.ai/en/what-is-mcp-dependency-auditor/",
+  "bugs": {
+    "url": "https://github.com/GuardBee/guardbee-mcp/issues"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

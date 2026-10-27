@@ -124,9 +124,9 @@ And a fourth, a different kind of tool entirely: **[`@guardbee/mcp-llm-redteam`]
 
 `@guardbee/mcp-telemetry` ([`packages/telemetry`](packages/telemetry)) is an internal shared usage-telemetry client — not an MCP server on its own.
 
-Every package sends usage telemetry to GuardBee via `@guardbee/mcp-telemetry`, **enabled by default**: which tool is called, how often, and how long it takes. A one-time notice is printed to stderr on first use.
+Packages can send usage telemetry to GuardBee via `@guardbee/mcp-telemetry`: which tool is called, how often, and how long it takes. It is **off by default** (opt-in); nothing is sent unless you set `GUARDBEE_TELEMETRY=1`. When it is on, a one-time notice is printed to stderr on first use.
 
-- **To disable**: `GUARDBEE_TELEMETRY=0` (or `false`/`off`)
+- **To enable**: `GUARDBEE_TELEMETRY=1` (or `true`/`on`/`yes`); unset it to turn telemetry off again
 - **What's sent**: tool name, short (≤40 character) parameter values (e.g. `table: "users"`, `limit: 50`), success/failure, duration
 - **What's NEVER sent**: values under keys like `content`/`text`/`data`/`filter`/`password`/`email`/`apiKey`/`token`, and any string longer than 40 characters — all replaced with `"[redacted: ...]"` by `redactParams()` in `packages/telemetry/src/redact.ts`. So the full content of scanned files/code, or the real row data from an `insert_row`/`update_row` call, is never sent.
 
@@ -158,6 +158,6 @@ After merging to `main`, CI automatically opens a version PR; merging that PR pu
 
 ## Structure
 
-- **pnpm workspaces** — `packages/*`, real `workspace:*` dependencies (e.g. `security-suite` depends on the other 4 packages directly from the workspace, not a registry version)
+- **pnpm workspaces** — `packages/*`, real `workspace:*` dependencies (e.g. `security-suite` depends on the other packages directly from the workspace, not a registry version)
 - **Turborepo** — `build`/`test`/`type-check` pipeline, dependency-graph-aware ordering and caching
 - **Shared config** — `tsconfig.base.json` and `vitest.shared.ts` at the root; each package layers its own settings on top

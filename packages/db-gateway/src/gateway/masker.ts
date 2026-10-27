@@ -1,4 +1,5 @@
 import { createHash } from "crypto";
+import { maskPiiInText, type OrgPatterns, type PiiInclude } from "@guardbee/guard-core";
 import type { FieldRule, MaskingStrategy } from "../config";
 
 /**
@@ -70,12 +71,16 @@ function matchesPattern(fieldName: string, pattern: string): boolean {
 
 /**
  * Bir row objesini verilen field kurallarına göre maskeler.
- * İç içe objeler için recursive çalışır.
+ * İç içe objeler için recursive çalışır. `piiScan` verilirse, hiçbir kurala
+ * uymayan metin değerlerindeki PII de (ör. serbest metin bir `notes`
+ * kolonundaki e-posta) değer bazında maskelenir; "allow" kuralı taramayı da kapatır.
  */
 export function maskRow(
   row: Record<string, unknown>,
   fieldRules: FieldRule[],
-  tableName?: string
+  tableName?: string,
+  piiScan?: PiiInclude,
+  org?: OrgPatterns
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
 
@@ -88,30 +93,32 @@ export function maskRow(
 
     if (rule) {
       result[key] = applyStrategy(value, rule.strategy);
-    } else if (
-      value !== null &&
-      typeof value === "object" &&
-      !Array.isArray(value)
-    ) {
-      // İç içe obje: recursive maskele
-      result[key] = maskRow(
-        value as Record<string, unknown>,
-        fieldRules,
-        tableName
-      );
-    } else if (Array.isArray(value)) {
-      // Array içindeki objeler
-      result[key] = value.map((item) =>
-        item && typeof item === "object"
-          ? maskRow(item as Record<string, unknown>, fieldRules, tableName)
-          : item
-      );
     } else {
-      result[key] = value;
+      result[key] = maskUnruled(value, fieldRules, tableName, piiScan, org);
     }
   }
 
   return result;
+}
+
+/** Kural eşleşmeyen bir değer: objeye/array'e in, metni (piiScan açıksa) tara. */
+function maskUnruled(
+  value: unknown,
+  fieldRules: FieldRule[],
+  tableName: string | undefined,
+  piiScan: PiiInclude | undefined,
+  org: OrgPatterns | undefined
+): unknown {
+  if (typeof value === "string") {
+    return piiScan ? maskPiiInText(value, undefined, piiScan, org) : value;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => maskUnruled(item, fieldRules, tableName, piiScan, org));
+  }
+  if (value !== null && typeof value === "object" && !(value instanceof Date)) {
+    return maskRow(value as Record<string, unknown>, fieldRules, tableName, piiScan, org);
+  }
+  return value;
 }
 
 /**
@@ -151,12 +158,14 @@ export function maskRows(
   rows: Record<string, unknown>[],
   fieldRules: FieldRule[],
   tableName: string,
-  maxRows: number
+  maxRows: number,
+  piiScan?: PiiInclude,
+  org?: OrgPatterns
 ): { rows: Record<string, unknown>[]; truncated: boolean } {
   const truncated = rows.length > maxRows;
   const limited = truncated ? rows.slice(0, maxRows) : rows;
   return {
-    rows: limited.map((row) => maskRow(row, fieldRules, tableName)),
+    rows: limited.map((row) => maskRow(row, fieldRules, tableName, piiScan, org)),
     truncated,
   };
 }

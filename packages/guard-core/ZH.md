@@ -1,6 +1,6 @@
 # @guardbee/guard-core
 
-[🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文**
+[🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文** | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 其他 GuardBee MCP 包共用的检测规则库。它本身不是 MCP 服务器，只是一个库——你不需要直接安装这个包。
 
@@ -11,7 +11,7 @@
 | 导出 | 使用方 | 用途 |
 |---|---|---|
 | `maskPiiInText`、`maskPiiInValue`、`PII_PATTERNS` | security-proxy | 对工具结果中的土耳其身份证号（TC Kimlik No）、税号（VKN）、IBAN、银行卡、电话、电子邮件、服务商 API 密钥、私钥、数据库连接串和 JWT 进行脱敏；可选的 replacer 可以把匹配项转换为令牌 |
-| `SECRET_RULES` | secret-scanner、security-proxy | 38 条密钥规则（服务商密钥和令牌、私钥、数据库连接串、JWT）。扫描器会报告全部规则；代理只对未标记 `broad` 的 32 条进行脱敏 |
+| `SECRET_RULES` | secret-scanner、security-proxy | 76 条密钥规则（服务商密钥和令牌——云、AI 服务商、开发工具、SaaS、土耳其支付和短信服务商——私钥、数据库连接串、JWT）。扫描器会报告全部规则；代理只对未标记 `broad` 的 66 条进行脱敏 |
 | `isValidTcKimlik`、`isValidVkn`、`isValidIban`、`isValidLuhn`、`isValidTrPhone` | security-proxy、prompt-leak-scanner | 正则匹配之后的校验 |
 | `INJECTION_RULES`、`findInjections` | prompt-injection-scanner、security-proxy | 27 条英文和土耳其语注入规则，包含 base64 解码；扫描器使用其中 17 条精确规则 |
 | `scanForPromptInjection`、`scanToolResult` | security-proxy | 命中精确的 high/critical 规则时拦截，其余情况只警告 |
@@ -35,3 +35,7 @@
 ## 精确规则与通用规则
 
 注入规则和密钥规则都带有一个 `broad` 标记，用于那些在普通文本中也会匹配的模式："act as"、"developer mode"、任意 40 个字符的 base64 串、可公开的 Stripe publishable key。把结果展示给人看的静态扫描器会跳过通用注入规则；运行时代理则从不基于通用规则进行拦截或脱敏，因为在那里一次误匹配还会把会话标记为持有敏感数据，或拦下一次正常调用。
+
+## 反馈
+
+有问题、想法或误报？请在 [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) 发帖或[提交 issue](https://github.com/GuardBee/guardbee-mcp/issues)。如果 GuardBee 对你有帮助，给[仓库](https://github.com/GuardBee/guardbee-mcp)点个 ⭐ 能让更多人发现它。

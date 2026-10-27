@@ -7,8 +7,13 @@ import { createAuthenticator, type Authenticate, type Identity } from "./auth.js
 import type { GatewayConfig, ListenConfig } from "./gateway/config.js";
 import type { Gateway } from "./gateway/gateway.js";
 import { QuotaStore } from "./gateway/quota.js";
+import { BudgetStore } from "./llm/budget.js";
+import type { CounterBackend } from "./state/counters.js";
 import type { Upstream } from "./gateway/upstream.js";
 import { createGatewayServer } from "./proxy.js";
+import type { PinStore } from "./gateway/pin-store.js";
+import { createLlmHandler, type LlmHandler } from "./llm/gateway.js";
+import { createDirectory, withDirectoryGroups, type ClientFactory } from "./directory.js";
 
 type HttpListen = Extract<ListenConfig, { transport: "http" }>;
 
@@ -17,6 +22,8 @@ const MAX_BODY_BYTES = 4 * 1024 * 1024;
 export interface HttpGateway {
   /** Base URL of the MCP endpoint, e.g. http://127.0.0.1:8787/mcp */
   url: string;
+  /** Base URL of the LLM endpoints when llm is configured, e.g. http://127.0.0.1:8787/v1 */
+  llmUrl?: string;
   sessionCount(): number;
   close(): Promise<void>;
 }
@@ -67,13 +74,32 @@ export async function startHttpGateway(
   config: GatewayConfig,
   audit: AuditLogger,
   listen: HttpListen,
-  options: { authenticate?: Authenticate } = {},
+  options: { authenticate?: Authenticate; fetchImpl?: typeof fetch; ldapClient?: ClientFactory; pinStore?: PinStore; counters?: CounterBackend } = {},
 ): Promise<HttpGateway> {
   const sessions = new Map<string, Session>();
-  // One set of quota counters for every session of this process
-  const quotas = new QuotaStore();
-  const authenticate = options.authenticate ?? createAuthenticator(listen.apiKeys, listen.oidc);
+  // One set of quota counters for every session of this process (or of every replica, with state.backend: redis)
+  const quotas = new QuotaStore(Date.now, options.counters);
+  const tokenAuth = options.authenticate ?? createAuthenticator(listen.apiKeys, listen.oidc);
+  // The directory adds groups to a known user; it never makes a caller known
+  const directory = listen.ldap ? createDirectory(listen.ldap, options.ldapClient) : null;
+  const groupsFor = (user: string | undefined, groups: string[]) => withDirectoryGroups(directory, listen.ldap?.onError ?? "deny", user, groups);
+  const authenticate: Authenticate = async (authorization) => {
+    const identity = await tokenAuth(authorization);
+    return identity ? { ...identity, groups: await groupsFor(identity.user, identity.groups) } : null;
+  };
   const metadataPath = `/.well-known/oauth-protected-resource${listen.path}`;
+  const llm: LlmHandler | null = config.llm
+    ? createLlmHandler({
+        llm: config.llm,
+        config,
+        audit,
+        groupsFor,
+        // With virtual keys and no listen keys, an unknown key must not pass as the open loopback listener
+        authenticate: listen.apiKeys.length > 0 || listen.oidc || config.llm.keys.length === 0 ? authenticate : null,
+        ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+        ...(options.counters ? { budgets: new BudgetStore(Date.now, options.counters) } : {}),
+      })
+    : null;
 
   /** This gateway's public URL: configured, or from the request (behind a proxy, set oidc.resource). */
   const resourceUrl = (req: http.IncomingMessage): string => {
@@ -98,6 +124,7 @@ export async function startHttpGateway(
     const { gateway, server } = createGatewayServer(upstreams, config, audit, {
       sessionId,
       quotas,
+      ...(options.pinStore ? { pinStore: options.pinStore } : {}),
       ...(identity.user ? { identity: { user: identity.user, groups: identity.groups } } : {}),
     });
     const transport = new StreamableHTTPServerTransport({
@@ -132,7 +159,8 @@ export async function startHttpGateway(
       );
       return;
     }
-    if (path !== listen.path) {
+    if (llm && (await llm(req, res))) return;
+    if (path !== listen.path || (upstreams.length === 0 && config.llm)) {
       jsonRpcError(res, 404, "Not found");
       return;
     }
@@ -177,7 +205,9 @@ export async function startHttpGateway(
 
   const server = http.createServer((req, res) => {
     handle(req, res).catch((err) => {
-      if (!res.headersSent) jsonRpcError(res, 500, err instanceof Error ? err.message : "Internal error");
+      // 503 when the directory cannot be reached (listen.ldap.onError: deny)
+      const status = typeof (err as { status?: unknown }).status === "number" ? (err as { status: number }).status : 500;
+      if (!res.headersSent) jsonRpcError(res, status, err instanceof Error ? err.message : "Internal error");
       else res.end();
     });
   });
@@ -192,6 +222,7 @@ export async function startHttpGateway(
 
   return {
     url: `http://${host}:${port}${listen.path}`,
+    ...(config.llm ? { llmUrl: `http://${host}:${port}${config.llm.path}` } : {}),
     sessionCount: () => sessions.size,
     async close() {
       await Promise.allSettled([...sessions.values()].map((session) => session.transport.close()));

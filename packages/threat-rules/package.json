@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-threat-rules",
-  "version": "0.2.0",
+  "version": "0.4.2",
   "mcpName": "io.github.GuardBee/threat-rules",
   "description": "GuardBee MCP bridge to Agent Threat Rules (ATR) — evaluate agent/MCP events against the open Sigma-like detection standard for prompt injection, tool poisoning, context exfiltration, and MCP attacks",
   "type": "module",
@@ -11,16 +11,19 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "default": "./dist/index.js"
     }
   },
   "files": [
     "dist",
     "rules",
     "README.md",
-    "TR.md",
-    "ZH.md"
+    "LICENSE",
+    "CHANGELOG.md",
+    "!dist/**/*.map",
+    "!dist/**/__tests__"
   ],
   "scripts": {
     "build": "tsc",
@@ -30,6 +33,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
+    "@guardbee/guard-core": "workspace:^",
     "@guardbee/mcp-telemetry": "workspace:^",
     "@modelcontextprotocol/sdk": "catalog:",
     "agent-threat-rules": "^4.0.0",
@@ -57,5 +61,12 @@
     "type": "git",
     "url": "https://github.com/GuardBee/guardbee-mcp.git",
     "directory": "packages/threat-rules"
+  },
+  "homepage": "https://guardbee.ai/en/what-is-mcp-threat-rules/",
+  "bugs": {
+    "url": "https://github.com/GuardBee/guardbee-mcp/issues"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

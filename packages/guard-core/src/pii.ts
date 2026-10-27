@@ -1,4 +1,8 @@
+import { MAX_ENCODED_DEPTH, maskEncodedRuns } from "./encoded.js";
+import { NormalizedText, needsNormalization } from "./normalize.js";
+import type { OrgPatterns } from "./org-patterns.js";
 import { SECRET_RULES } from "./secrets.js";
+import { SPECIAL_CATEGORY_REPLACEMENT, findSpecialTerms, mentionsPerson } from "./special.js";
 import { isValidIban, isValidLuhn, isValidTcKimlik, isValidTrPhone, isValidVkn } from "./validators.js";
 
 export interface PiiPattern {
@@ -7,7 +11,81 @@ export interface PiiPattern {
   replacement: string;
   /** Checksum run on each regex match; a match that fails it is left as-is. */
   validate?: (rawMatch: string) => boolean;
+  /**
+   * Off unless asked for by name (`include`): network identifiers and plates
+   * are everywhere in infrastructure output, where masking them would break
+   * the tool more than it protects anyone.
+   */
+  optIn?: boolean;
 }
+
+/** Personal data categories (the rest of PII_PATTERNS are credentials). */
+export const PERSONAL_DATA_CATEGORIES = [
+  "tc_kimlik",
+  "vkn",
+  "iban",
+  "credit_card",
+  "email",
+  "phone_tr",
+  "passport",
+  "sgk_no",
+  "mersis",
+  "kep",
+  "birth_date",
+  "address",
+  "ip_address",
+  "mac_address",
+  "plate_tr",
+] as const;
+
+export const OPT_IN_PII = ["ip_address", "mac_address", "plate_tr"] as const;
+
+/**
+ * Personal data no regex finds: a model does (the NER backend in
+ * @guardbee/ner). Its spans come in through `SpanLookup`; without one these
+ * detectors find nothing.
+ */
+export const MODEL_PII = ["person_name"] as const;
+
+/** What a model-found value is replaced with, unless the replacer says otherwise. */
+export const MODEL_PII_REPLACEMENT: Record<(typeof MODEL_PII)[number], string> = {
+  person_name: "[KİŞİ]",
+};
+
+/** One value a model found in a text: offsets into that text, and the detector name. */
+export interface ModelSpan {
+  start: number;
+  end: number;
+  detector: string;
+}
+
+/**
+ * The spans a model found in a text, looked up by the text itself: models run
+ * asynchronously, masking does not, so the caller runs the model over every
+ * string first and masking asks for each one's result. A lookup that has no
+ * result for a text must throw, never return nothing: an unscanned text
+ * passed as clean is the silent fallback masking must not make.
+ */
+export type SpanLookup = (text: string) => readonly ModelSpan[];
+
+/** A model that finds personal data in texts: one list of spans per text, in order. */
+export interface ModelDetector {
+  detect(texts: readonly string[]): Promise<ModelSpan[][]>;
+}
+
+/**
+ * The whitespace-delimited run around a span holds an e-mail address or a URL:
+ * a regex detector masks that whole, where masking the name inside first
+ * would break its match and leave the rest of the address out.
+ */
+function insideAddress(text: string, start: number, end: number): boolean {
+  let from = start;
+  let to = end;
+  while (from > 0 && !/\s/.test(text[from - 1]!)) from--;
+  while (to < text.length && !/\s/.test(text[to]!)) to++;
+  return /@|:\/\//.test(text.slice(from, to));
+}
+
 
 const REPLACEMENT_BY_SECRET: Record<string, string> = {
   jwt: "[JWT-TOKEN]",
@@ -37,6 +115,21 @@ const SECRET_PATTERNS: PiiPattern[] = SECRET_RULES.filter((rule) => !rule.broad)
 // Order matters: earlier patterns mask first, so later ones never see their digits.
 // Secrets run first — a key or connection string holds digit runs that would
 // otherwise be half-masked as a phone or card number.
+/** A date in digits ("12.05.1990", "1990-05-12") or with a Turkish or English month name ("12 Şubat 1985"). */
+const MONTHS = "ocak|[şs]ubat|mart|nisan|may[ıi]s|haziran|temmuz|a[ğg]ustos|eyl[üu]l|ekim|kas[ıi]m|aral[ıi]k|january|february|march|april|may|june|july|august|september|october|november|december";
+const DATE = `\\d{1,2}[./-]\\d{1,2}[./-](?:\\d{4}|\\d{2})|\\d{4}-\\d{2}-\\d{2}|\\d{1,2}\\s+(?:${MONTHS})\\s+\\d{4}`;
+
+/**
+ * A Turkish street address without a label: neighbourhood, street, door
+ * number, then optionally flat and district/city ("Gazi Mah. Akasya Cad.
+ * No:5 D:3 Çankaya/Ankara"). All three parts are needed, so a street name in
+ * passing ("Bağdat Caddesi'nde") is not one.
+ */
+const NAME_WORDS = "(?:[\\p{Lu}\\d][\\p{L}\\d.]*\\s+){1,3}";
+const STREET_ADDRESS =
+  `${NAME_WORDS}(?:Mah\\.|Mahallesi|Mh\\.)\\s+${NAME_WORDS}(?:Cad\\.|Caddesi|Cd\\.|Sok\\.|Soka[kğ]ı?|Sk\\.|Bulvarı|Blv\\.)\\s*,?\\s*` +
+  `(?:No|Numara)\\s*[:.]?\\s*\\d+[\\p{L}]?(?:\\s*\\/\\s*\\d+)?(?:\\s*[/,]?\\s*(?:D|Daire|Kat|K)\\s*[:.]?\\s*\\d+)*(?:\\s+\\p{Lu}[\\p{L}]+\\s*/\\s*\\p{Lu}[\\p{L}]+)?`;
+
 export const PII_PATTERNS: PiiPattern[] = [
   {
     // The whole block, not just the BEGIN line the code scanner reports.
@@ -56,10 +149,66 @@ export const PII_PATTERNS: PiiPattern[] = [
     },
   },
   {
+    // Label-gated: "Pasaport No: U12345678", "Passport number 123456789"
+    name: "passport",
+    pattern: /(?<=\b(?:pasaport|passport)(?:\s+(?:no|numaras[ıi]|number|#))?\.?\s*[:#]?\s*)(?:[A-Z]{1,2}\d{6,8}|\d{9})(?![A-Za-z0-9])/gi,
+    replacement: "[PASAPORT]",
+  },
+  {
+    // Label-gated: SGK / SSK / Bağ-Kur registration numbers
+    name: "sgk_no",
+    pattern: /(?<=\b(?:SGK|SSK|Ba[ğg]-?Kur)\s*(?:sicil\s*)?(?:no|numaras[ıi])?\.?\s*[:#]?\s*)\d{7,13}(?!\d)/gi,
+    replacement: "[SGK-NO]",
+  },
+  {
+    // Label-gated: 16-digit MERSİS company number (before cards: 16 digits)
+    name: "mersis",
+    pattern: /(?<=\bMERS[İIıi]S\s*(?:no|numaras[ıi])?\.?\s*[:#]?\s*)\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}(?!\d)/gi,
+    replacement: "[MERSİS]",
+  },
+  {
+    // Label-gated: "Doğum tarihi: 12.05.1990", "doğum tarihim 12 Şubat 1985", "DOB 1990-05-12";
+    // or a date right before "doğumlu" ("12 Şubat 1985 doğumlu", "12.02.1985 tarihinde doğumlu")
+    name: "birth_date",
+    pattern: new RegExp(
+      `(?<=\\b(?:do[ğg]um\\s+tar[iİı]h(?:[iİı](?:m|n|niz)?)?|date\\s+of\\s+birth|birth\\s*date|DOB|born(?:\\s+on)?)\\s*[:#]?\\s*)(?:${DATE})(?!\\d)|(?<![\\d.])(?:${DATE})(?=\\s+(?:tarihinde\\s+)?do[ğg]umlu)`,
+      "gi",
+    ),
+    replacement: "[DOĞUM-TARİHİ]",
+  },
+  {
+    // Label-gated, with a colon, the rest of the line: "Adres: Atatürk Mah. 12. Sok. No:5"
+    // Not "IP address:", "E-mail address:", "Web address:", "Wallet address:".
+    name: "address",
+    // ADRESİ: the /i flag does not fold İ to i.
+    pattern: /(?<=(?<!\b(?:IP|MAC|e-?mail|web|wallet|billing\s+e-?mail|server|host)\s)\b(?:adres[iİı]?|ADRES[İI]?|ikametgah|address)\s*:\s*)\S[^\n]{7,199}/giu,
+    replacement: "[ADRES]",
+    // A street address has a number or a street word; a URL or a handle is not one
+    validate: (match) =>
+      !/^\s*(?:https?:|www\.|@|0x)/i.test(match) &&
+      (/\d/.test(match) || /\b(?:mah(?:alle(?:si)?)?|sok(?:ak|a[ğg]ı)?|cad(?:de(?:si)?)?|bulvar(?:ı)?|street|st\.|avenue|ave\.|road|rd\.|apt|daire|kat)\b/i.test(match)),
+  },
+  {
+    // A street address with no label (STREET_ADDRESS above). Case-sensitive: the
+    // names are capitalised, which is what keeps "adresim" out of the span.
+    name: "address",
+    pattern: new RegExp(`(?<![\\p{L}\\d])${STREET_ADDRESS}`, "gu"),
+    replacement: "[ADRES]",
+  },
+  {
     name: "tc_kimlik",
     pattern: /\b[1-9]\d{10}\b/g,
     replacement: "[TC-KİMLİK]",
     validate: isValidTcKimlik,
+  },
+  {
+    // Written with separators after its label: "TC: 100 000 001 46", "T.C. Kimlik No 100-000-001-46"
+    name: "tc_kimlik",
+    // The lookahead goes first: V8 tries a lookbehind at every position, so the cheap digit test gates it
+    pattern: /(?<!\d)(?=[1-9](?:[\s.-]?\d){10}(?!\d))(?<=\b(?:T\.?C\.?(?:\s*(?:kimlik|K[İI]ML[İI]K))?|TCKN|kimlik|K[İI]ML[İI]K)(?:\s*(?:no|numaras[ıi]|NUMARASI))?\.?\s*[:#]?\s*)[1-9](?:[\s.-]?\d){10}(?!\d)/gi,
+    replacement: "[TC-KİMLİK]",
+    // Without a separator the pattern above has it already
+    validate: (match) => /[\s.-]/.test(match) && isValidTcKimlik(match.replace(/[\s.-]/g, "")),
   },
   {
     // A bare 10-digit number is too common to call a tax number; require the label.
@@ -81,47 +230,250 @@ export const PII_PATTERNS: PiiPattern[] = [
     validate: isValidLuhn,
   },
   {
+    // Registered e-mail (KEP), before plain e-mail
+    name: "kep",
+    pattern: /\b[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)*kep\.tr\b/gi,
+    replacement: "***@[KEP]",
+  },
+  {
     name: "email",
     pattern: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
     replacement: "***@[EMAIL]",
   },
   {
+    // Spelled out to dodge scrapers: "ahmet [at] example [dot] com", "ahmet(at)example.com",
+    // "ahmet at example dot com", Turkish "nokta"
+    name: "email",
+    pattern:
+      /\b[A-Za-z0-9._%+-]+\s*(?:[[({]\s*(?:at|@)\s*[\])}]|\s(?:at|AT)\s)\s*[A-Za-z0-9-]+(?:\s*(?:\.|[[({]\s*(?:dot|nokta|\.)\s*[\])}]|\s(?:dot|DOT|nokta)\s)\s*[A-Za-z0-9-]+)*\s*(?:\.|[[({]\s*(?:dot|nokta|\.)\s*[\])}]|\s(?:dot|DOT|nokta)\s)\s*[A-Za-z]{2,6}\b/g,
+    replacement: "***@[EMAIL]",
+    // "at" and "dot" both spelled out with spaces, or a bracket somewhere: "meet at home. Com…" is not one
+    validate: (match) => /[[({]/.test(match) || /\s(?:dot|DOT|nokta)\s/.test(match),
+  },
+  {
     name: "phone_tr",
-    // Not glued to letters, `/` or `-` (ids in URLs), and either written with a
-    // +90 / 0 prefix or grouped with spaces/dashes: a bare 10-digit run is more
-    // often an id or an integer IP (2130706433) than a phone number.
-    pattern: /(?<![\w+/.#-])(?:(?:\+90|0090|0)[\s-]?)?\d{3}[\s-]?\d{3}[\s-]?\d{2}[\s-]?\d{2}(?![\w/-])/g,
+    // Not glued to letters, `/` or `-` (ids in URLs), and written with a +90 / 0
+    // prefix, an area code in parentheses ("(0532) 123 45 67"), or grouped with
+    // spaces, dashes or dots: a bare 10-digit run is more often an id or an integer IP
+    // (2130706433) than a phone number. The next pattern takes the bare ones.
+    pattern: /(?<![\w+/.#-])(?:(?:\+90|0090|0)[\s.-]?)?(?:\(0?\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{2}[\s.-]?\d{2}(?![\w/-]|\.\d)/g,
     replacement: "+90-***-***-**[TELEFON]",
-    validate: (match) => isValidTrPhone(match) && (/^(?:\+90|0)/.test(match) || /[\s-]/.test(match)),
+    validate: (match) => isValidTrPhone(match) && (/^(?:\+90|0|\()/.test(match) || /[\s.-]/.test(match)),
+  },
+  {
+    // A bare mobile number (5xx, ten digits) shortly after a word that says it is one:
+    // "numaram değişti 5321234567", "iletişim: Ayşe, 5321234567"; not "build 5321234567"
+    name: "phone_tr",
+    // The lookahead goes first: V8 tries a lookbehind at every position, so the cheap digit test gates it
+    pattern: /(?<!\d)(?=5[0-5]\d{8}(?![\w/-]))(?<=\b(?:numara\p{L}*|tel(?:efon)?\p{L}*|cep|gsm|ileti[şs]im|whatsapp|ara(?:y[ıi]n|r\s*m[ıi]s[ıi]n)|phone|mobile)\b[^\n\d]{0,40})5[0-5]\d{8}(?![\w/-])/giu,
+    replacement: "+90-***-***-**[TELEFON]",
+    validate: isValidTrPhone,
+  },
+  {
+    name: "mac_address",
+    pattern: /(?<![\w:-])[0-9A-F]{2}([:-])[0-9A-F]{2}(?:\1[0-9A-F]{2}){4}(?![\w:-])/gi,
+    replacement: "[MAC]",
+    optIn: true,
+  },
+  {
+    name: "ip_address",
+    // IPv4 with valid octets, not part of a longer dotted run (1.2.3.4.5, a version string)
+    pattern: /(?<![\w.])(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?![\w.])|(?<![\w:])(?:[0-9a-f]{0,4}:){2,7}[0-9a-f]{0,4}(?![\w:])/gi,
+    replacement: "[IP]",
+    optIn: true,
+    // IPv6 needs "::" or all eight groups, so a time like 12:30:45 is not one
+    validate: (match) => match.includes(".") || ((match.includes("::") || match.split(":").length === 8) && /[0-9a-f]/i.test(match)),
+  },
+  {
+    // 34 ABC 123 — 1 letter + 4-5 digits, 2 letters + 3-4, 3 letters + 2-3; no Q, W, X
+    name: "plate_tr",
+    pattern: /(?<![\w-])(?:0[1-9]|[1-7]\d|8[01])\s?[A-PR-VYZ]{1,3}\s?\d{2,5}(?![\w-])/g,
+    replacement: "[PLAKA]",
+    optIn: true,
+    validate: (match) => {
+      const parts = /^\d{2}\s?([A-Z]+)\s?(\d+)$/.exec(match);
+      if (!parts) return false;
+      const [letters, digits] = [parts[1]!.length, parts[2]!.length];
+      if (/^(?:GB|MB|KB|TB|PB|GHZ|MHZ|KM|CM|MM|KG|TL|MS|HZ|FPS|DPI|PX|PT|UTC|GMT)$/.test(parts[1]!)) return false;
+      return (letters === 1 && digits >= 4) || (letters === 2 && digits >= 3 && digits <= 4) || (letters === 3 && digits <= 3);
+    },
   },
 ];
 
-/** Returns what a validated match is replaced with; defaults to the pattern's fixed placeholder. */
-export type PiiReplacer = (patternName: string, match: string) => string;
+/**
+ * Returns what a validated match is replaced with. Returning `undefined` keeps
+ * the default: the pattern's fixed placeholder, or `<CATEGORY_n>` for an org
+ * block pattern. Returning the match unchanged leaves it unmasked.
+ */
+export type PiiReplacer = (patternName: string, match: string) => string | undefined;
 
-export function maskPiiInText(text: string, replace?: PiiReplacer): string {
-  let result = text;
-  for (const { name, pattern, replacement, validate } of PII_PATTERNS) {
-    result = result.replace(pattern, (match) =>
-      validate && !validate(match) ? match : replace ? replace(name, match) : replacement,
-    );
-  }
-  return result;
+/**
+ * Which detectors run: a plain set turns on opt-in detectors by name
+ * (ip_address, mac_address, plate_tr) next to the default ones; a scope from
+ * `piiScope()` (any set with `exact: true`) runs exactly the detectors in it.
+ */
+export type PiiInclude = ReadonlySet<string> & { readonly exact?: boolean };
+
+function runs(name: string, optIn: boolean | undefined, include: PiiInclude | undefined): boolean {
+  if (include?.exact) return include.has(name);
+  return !optIn || include?.has(name) === true;
 }
 
-export function maskPiiInValue(value: unknown, replace?: PiiReplacer): unknown {
-  if (typeof value === "string") {
-    return maskPiiInText(value, replace);
+/** Model-found values, replaced before the regex detectors run (whose placeholders a model may misread). */
+function maskModelSpans(text: string, spans: SpanLookup | undefined, replace: PiiReplacer | undefined, include: PiiInclude | undefined): string {
+  const found = spans?.(text);
+  if (!found || found.length === 0) return text;
+  // A "name" that lies wholly inside a special-category term ("Huntington" in "Huntington geni")
+  // is left to that category, when it runs
+  const terms = findSpecialTerms(text, (category) => runs(category, true, include));
+  const inTerm = (start: number, end: number) => terms.some((term) => term.start <= start && end <= term.end);
+  let out = "";
+  let cursor = 0;
+  for (const { start, end, detector } of [...found].sort((a, b) => a.start - b.start)) {
+    if (start < cursor || end <= start || end > text.length || !runs(detector, false, include) || insideAddress(text, start, end) || inTerm(start, end)) continue;
+    const match = text.slice(start, end);
+    const fallback = MODEL_PII_REPLACEMENT[detector as keyof typeof MODEL_PII_REPLACEMENT] ?? "[REDACTED]";
+    out += text.slice(cursor, start) + (replace?.(detector, match) ?? fallback);
+    cursor = end;
   }
-  if (Array.isArray(value)) {
-    return value.map((item) => maskPiiInValue(item, replace));
+  return out + text.slice(cursor);
+}
+
+const PERSONAL = new Set<string>(PERSONAL_DATA_CATEGORIES);
+
+/**
+ * The context rule for the special categories: the text names someone (the
+ * model found a name), holds a personal identifier, or has a word that points
+ * at a person.
+ */
+let identifiers: { pattern: RegExp; validate?: PiiPattern["validate"] }[] | undefined;
+
+function aboutPerson(text: string, spans: SpanLookup | undefined): boolean {
+  if (spans?.(text).some((span) => span.detector === "person_name")) return true;
+  // Global copies, made once: matchAll needs the g flag
+  identifiers ??= PII_PATTERNS.filter((p) => PERSONAL.has(p.name) && !p.optIn).map(({ pattern, validate }) => ({
+    pattern: new RegExp(pattern.source, pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`),
+    ...(validate ? { validate } : {}),
+  }));
+  for (const { pattern, validate } of identifiers) {
+    for (const match of text.matchAll(pattern)) if (!validate || validate(match[0])) return true;
   }
+  return mentionsPerson(text);
+}
+
+/** KVKK Art. 6 terms in `text` (already masked by the other detectors), when `original` is about a person. */
+function maskSpecial(text: string, original: string, replace: PiiReplacer | undefined, include: PiiInclude | undefined, spans: SpanLookup | undefined): string {
+  const found = findSpecialTerms(text, (category) => runs(category, true, include));
+  if (found.length === 0 || !aboutPerson(original, spans)) return text;
+  let out = "";
+  let cursor = 0;
+  for (const { start, end, detector } of found) {
+    const match = text.slice(start, end);
+    out += text.slice(cursor, start) + (replace?.(detector, match) ?? SPECIAL_CATEGORY_REPLACEMENT[detector]);
+    cursor = end;
+  }
+  return out + text.slice(cursor);
+}
+
+/** Built-in detectors only. `depth` counts the encoded runs (base64, hex) this text was decoded from. */
+function maskBuiltIn(text: string, replace: PiiReplacer | undefined, include: PiiInclude | undefined, spans?: SpanLookup, depth = 0): string {
+  const original = text;
+  text = maskModelSpans(text, spans, replace, include);
+  // The model saw only the text as sent: a decoded run gets the regex detectors
+  if (depth < MAX_ENCODED_DEPTH) text = maskEncodedRuns(text, (decoded) => maskBuiltIn(decoded, replace, include, undefined, depth + 1));
+  const masked = (name: string, replacement: string, validate: PiiPattern["validate"]) => (match: string) =>
+    validate && !validate(match) ? match : (replace?.(name, match) ?? replacement);
+
+  if (needsNormalization(text)) {
+    // Detect on the NFKC copy without invisible characters; `replace` sees the
+    // normalized value, so every spelling of a value gets the same token.
+    const working = new NormalizedText(text);
+    for (const { name, pattern, replacement, validate, optIn } of PII_PATTERNS) {
+      if (!runs(name, optIn, include)) continue;
+      working.replace(pattern, masked(name, replacement, validate));
+    }
+    return maskSpecial(working.toString(), original, replace, include, spans);
+  }
+
+  let result = text;
+  for (const { name, pattern, replacement, validate, optIn } of PII_PATTERNS) {
+    if (!runs(name, optIn, include)) continue;
+    result = result.replace(pattern, masked(name, replacement, validate));
+  }
+  return maskSpecial(result, original, replace, include, spans);
+}
+
+/** Every string in a value, depth first; `fn` returns its replacement. */
+function mapStrings(value: unknown, fn: (text: string) => string): unknown {
+  if (typeof value === "string") return fn(value);
+  if (Array.isArray(value)) return value.map((item) => mapStrings(item, fn));
   if (typeof value === "object" && value !== null) {
     const result: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value)) {
-      result[k] = maskPiiInValue(v, replace);
-    }
+    for (const [k, v] of Object.entries(value)) result[k] = mapStrings(v, fn);
     return result;
   }
   return value;
+}
+
+/**
+ * Mask validated PII with the detectors `include` selects (see `PiiInclude`).
+ * `org` adds an organization's block and allow patterns (see `OrgPatterns`);
+ * it may throw `PiiPatternTimeoutError`, and then nothing may go out.
+ * `spans` adds what a model found in each string (see `SpanLookup`).
+ */
+export function maskPiiInText(text: string, replace?: PiiReplacer, include?: PiiInclude, org?: OrgPatterns, spans?: SpanLookup): string {
+  return maskPiiInValue(text, replace, include, org, spans) as string;
+}
+
+export function maskPiiInValue(value: unknown, replace?: PiiReplacer, include?: PiiInclude, org?: OrgPatterns, spans?: SpanLookup): unknown {
+  if (!org || org.empty) return mapStrings(value, (text) => maskBuiltIn(text, replace, include, spans));
+
+  // 1. Which detected values an allow pattern exempts, decided for all of them in one pass
+  let exempt = new Map<string, string>();
+  if (org.hasAllow) {
+    const detected = new Set<string>();
+    mapStrings(value, (text) => maskBuiltIn(text, (_name, match) => (detected.add(match), match), include, spans));
+    exempt = org.allowed([...detected]);
+  }
+
+  // 2. Built-in detectors, minus the exempt values
+  const builtIn = mapStrings(value, (text) =>
+    maskBuiltIn(
+      text,
+      (name, match) => {
+        const pattern = exempt.get(match);
+        if (pattern === undefined) return replace?.(name, match);
+        org.noteAllowed(pattern, name);
+        return match;
+      },
+      include,
+      spans,
+    ),
+  );
+  if (!org.hasBlock) return builtIn;
+
+  // 3. Block patterns on what is left: a built-in detection always wins an overlap
+  const texts: string[] = [];
+  mapStrings(builtIn, (text) => (texts.push(text), text));
+  const matches = org.blockMatches(texts);
+  const numbers = new Map<string, Map<string, number>>();
+  const numbered = (category: string, match: string) => {
+    let seen = numbers.get(category);
+    if (!seen) numbers.set(category, (seen = new Map()));
+    if (!seen.has(match)) seen.set(match, seen.size + 1);
+    return `<${category}_${seen.get(match)}>`;
+  };
+  let index = 0;
+  return mapStrings(builtIn, (text) => {
+    const found = matches[index++]!;
+    if (found.length === 0) return text;
+    let out = "";
+    let cursor = 0;
+    for (const { start, end, category } of found) {
+      const match = text.slice(start, end);
+      out += text.slice(cursor, start) + (replace?.(category, match) ?? numbered(category, match));
+      cursor = end;
+    }
+    return out + text.slice(cursor);
+  });
 }

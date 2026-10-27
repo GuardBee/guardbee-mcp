@@ -1,12 +1,16 @@
 # @guardbee/mcp-oauth-auditor
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/oauth-auditor/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/oauth-auditor/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/oauth-auditor/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/oauth-auditor/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/oauth-auditor/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/oauth-auditor/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/oauth-auditor/DE.md)
+
+[![npm version](https://img.shields.io/npm/v/@guardbee/mcp-oauth-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-oauth-auditor)
+[![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-oauth-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-oauth-auditor)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/oauth-auditor/LICENSE)
 
 An MCP (Model Context Protocol) server that scans an MCP server's own authorization code for **OAuth 2.1 anti-patterns named in the MCP specification's own Security Considerations section**.
 
 The MCP spec doesn't leave this to guesswork — it explicitly calls out **token passthrough** (forwarding a client's token to a downstream API unchanged, instead of exchanging/re-scoping it) and **missing audience validation** (accepting a token whose `aud` claim was never issued for this server) as the central authorization failure modes for a server acting as an OAuth resource server. This package checks for exactly those two, plus three related anti-patterns in the same family.
 
-> This package sends usage telemetry by default (tool name + short parameters, scanned code is never included — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/telemetry/README.md).
 
 ```
 Claude ──► oauth-auditor ──► Your MCP server's auth code
@@ -77,14 +81,41 @@ npx @guardbee/mcp-oauth-auditor scan ./src --fail-on=high --format=sarif > resul
 
 ## Detected Patterns
 
-| Category | Pattern | Severity |
-|---|---|---|
-| token-passthrough | `token_passthrough_to_downstream` | critical |
-| token-validation | `missing_audience_validation` | high |
-| discovery-ssrf | `oauth_discovery_ssrf` | critical |
-| pkce | `missing_pkce_on_auth_request` | high |
-| redirect-validation | `loose_redirect_uri_validation` | high |
-| secrets-exposure | `hardcoded_oauth_client_secret` | high |
+| Category | Pattern | Severity | OWASP |
+|---|---|---|---|
+| token-passthrough | `token_passthrough_to_downstream` | critical | MCP07 |
+| token-validation | `missing_audience_validation` | high | MCP07 |
+| discovery-ssrf | `oauth_discovery_ssrf` | critical | MCP07 |
+| pkce | `missing_pkce_on_auth_request` | high | MCP07 |
+| redirect-validation | `loose_redirect_uri_validation` | high | MCP07 |
+| secrets-exposure | `hardcoded_oauth_client_secret` | high | MCP07 |
+| state-handle | `predictable_state_handle` (+ Python) — state / session handle from `Math.random`, `Date.now`, a counter | high | MCP07 |
+| state-handle | `state_handle_not_bound_to_user` — a handle from a tool argument looked up with no check that it is the caller's | medium | MCP07 |
+| mix-up | `missing_iss_validation` — authorization code redeemed without checking `iss` (RFC 9207) | medium | MCP07 |
+| auth-url | `auth_url_scheme_not_validated` — a server-provided URL opened with no scheme check (`javascript:`, `data:`, `file:`) | high | MCP07 |
+| auth-url | `auth_url_opened_via_shell` — URL interpolated into `open` / `xdg-open` / `start` through a shell | critical | MCP05 |
+| local-exposure | `local_http_server_unauthenticated` — HTTP MCP transport with no authentication | high | MCP07 |
+| local-exposure | `missing_host_origin_check` — no Host / Origin validation (DNS rebinding) | medium | MCP07 |
+| local-exposure | `listen_all_interfaces` — MCP server bound to `0.0.0.0` | medium | MCP07 |
+
+### Python and Go
+
+The language comes from the file extension, and Python- and Go-specific rules run only on their own files.
+
+- **Python** (FastAPI / Starlette / Flask, PyJWT, python-jose, authlib): `python_missing_audience_validation` (`jwt.decode` with no `audience=` and no authlib `claims_options` `aud`), `python_audience_verification_disabled` (`"verify_aud": False`), `python_token_passthrough_to_downstream` (the `Authorization` header or all of `request.headers` on a `requests` / `httpx` / client call), `missing_pkce_on_auth_request` on authlib `create_authorization_url` / `authorize_redirect` with no `code_challenge`, and the discovery SSRF, redirect, state and `0.0.0.0` rules.
+- **Go** (golang-jwt / jwx, go-oidc, golang.org/x/oauth2, go-sdk and mcp-go HTTP transports): `go_missing_audience_validation` (`jwt.Parse` with no `jwt.WithAudience`), `go_oidc_client_id_check_skipped`, `go_token_passthrough_to_downstream` (`out.Header.Set("Authorization", r.Header.Get("Authorization"))`), `go_hardcoded_oauth_client_secret`, `go_loose_redirect_uri_validation` (`strings.HasPrefix`), `go_predictable_state_handle` (math/rand, time), `go_oauth_discovery_ssrf`, `go_auth_url_opened_via_shell`, `missing_pkce_on_auth_request` on `AuthCodeURL` with no `S256ChallengeOption`, and `ListenAndServe(":8080")` as `listen_all_interfaces`.
+- **Both**: `token_passthrough_via_variable` — the incoming `Authorization` header read into a variable that is then put on an outgoing request.
+
+Every finding links its section of the [MCP spec Security Best Practices](https://modelcontextprotocol.io/specification/draft/basic/security_best_practices) (SARIF `helpUri`) and carries its OWASP MCP Top 10 id as a SARIF tag. The newer rules are heuristics over one file at a time: a check done in another module (an auth middleware, an `iss` comparison in a helper) is not seen.
+
+### Live probe
+
+```bash
+npx @guardbee/mcp-oauth-auditor probe http://127.0.0.1:3000/mcp
+```
+
+Read-only checks of a running HTTP MCP endpoint: does it answer an `initialize` without credentials (`probe_unauthenticated_access`), and does it accept a foreign `Host` (`probe_dns_rebinding_host_accepted`) or `Origin` (`probe_foreign_origin_accepted`)? It sends no credentials, calls nothing beyond `initialize`, closes any session it opened, and refuses a host that resolves to a public address unless `--allow-public`. CLI only: an agent cannot start it through the MCP tools.
+
 
 ---
 
@@ -102,7 +133,7 @@ oauth-auditor:
 
 ## Limitations (by design)
 
-- **JS/TS-oriented patterns.** `jwt.verify(`, `fetch(`/`axios(`, template-literal URL construction — a server written in Python/Go/Rust with equivalent bugs won't be recognized by name, only by the same underlying shape if it happens to use similarly-named functions.
+- **TypeScript/JavaScript, Python and Go.** Each has rules for its common libraries (above). Other languages (Rust, Java, C#, …) and other libraries are only matched where they happen to share a shape with these, e.g. a literal `client_secret` or `response_type=code`.
 - **Heuristic, not a full OAuth conformance test.** This finds specific anti-patterns in source, not a live protocol conformance check against a running authorization server. It won't catch every way an OAuth flow can be misimplemented — only the handful the MCP spec calls out as the highest-stakes ones.
 - **The absence-based checks (audience, PKCE) use a bounded text window**, not a real parser — a `jwt.verify()` call whose options object happens to be built far away from the call site (a variable passed in, rather than an inline object) won't be checked for `audience` correctly.
 
@@ -112,7 +143,7 @@ oauth-auditor:
 
 ```bash
 npm run build
-npm test             # 18 unit tests
+npm test
 ```
 
 ---
@@ -120,3 +151,7 @@ npm test             # 18 unit tests
 ## License
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Feedback
+
+Questions, ideas, or a false positive? Start a thread in [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) or [open an issue](https://github.com/GuardBee/guardbee-mcp/issues). If GuardBee is useful to you, a ⭐ on [the repository](https://github.com/GuardBee/guardbee-mcp) helps others find it.

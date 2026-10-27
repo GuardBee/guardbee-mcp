@@ -1,4 +1,4 @@
-import { getSeverity, getFixedVersion } from "./osv.js";
+import { getSeverity, getFixedVersion, isMalicious } from "./osv.js";
 import type { AuditResult, OsvVuln } from "./osv.js";
 
 // ── SARIF 2.1.0 types (minimal) ───────────────────────────────────────────────
@@ -35,11 +35,15 @@ function cveUrl(vuln: OsvVuln): string {
     : `https://osv.dev/vulnerability/${vuln.id}`;
 }
 
-function manifestUri(ecosystem: string): string {
-  if (ecosystem === "npm") return "package.json";
-  if (ecosystem === "PyPI") return "requirements.txt";
-  return "pom.xml";
-}
+const DEFAULT_MANIFEST: Record<string, string> = {
+  npm: "package.json",
+  PyPI: "requirements.txt",
+  "crates.io": "Cargo.lock",
+  Go: "go.mod",
+  RubyGems: "Gemfile.lock",
+  Packagist: "composer.lock",
+  Maven: "pom.xml",
+};
 
 export function buildSarif(toolVersion: string, results: AuditResult[]): object {
   const rulesMap = new Map<string, SarifRule>();
@@ -55,20 +59,31 @@ export function buildSarif(toolVersion: string, results: AuditResult[]): object 
           helpUri: cveUrl(vuln),
           properties: {
             "problem.severity": getSeverity(vuln),
-            tags: ["security", "supply-chain", "dependency"],
+            tags: [
+              "security",
+              "supply-chain",
+              "dependency",
+              ...(isMalicious(vuln) ? ["malicious"] : []),
+              ...(vuln.exploit?.kev ? ["known-exploited"] : []),
+            ],
           },
         });
       }
 
       const sev = getSeverity(vuln);
-      const fixed = getFixedVersion(vuln, pkg.name);
+      const fixed = getFixedVersion(vuln, pkg.name, pkg.version, pkg.ecosystem);
       const cveIds = (vuln.aliases ?? []).filter((a) => a.startsWith("CVE-")).join(", ");
 
       const msg = [
-        `${pkg.name}@${pkg.version} has a known vulnerability.`,
+        isMalicious(vuln)
+          ? `${pkg.name}@${pkg.version} is a known-malicious release. Remove it and rotate credentials on every machine that installed it.`
+          : `${pkg.name}@${pkg.version} has a known vulnerability.`,
         vuln.summary ? `Summary: ${vuln.summary}` : "",
         cveIds ? `CVE: ${cveIds}` : "",
+        vuln.exploit?.kev ? `Exploited in the wild: CISA KEV since ${vuln.exploit.kev.dateAdded}.` : "",
+        vuln.exploit?.epss ? `EPSS: ${(vuln.exploit.epss.score * 100).toFixed(1)}%.` : "",
         fixed ? `Fix: upgrade to ${pkg.name}@${fixed}` : "",
+        pkg.path && pkg.path.length > 1 ? `Installed via: ${pkg.path.join(" > ")}` : "",
       ]
         .filter(Boolean)
         .join(" ");
@@ -81,7 +96,7 @@ export function buildSarif(toolVersion: string, results: AuditResult[]): object 
           {
             physicalLocation: {
               artifactLocation: {
-                uri: manifestUri(pkg.ecosystem),
+                uri: pkg.file ?? DEFAULT_MANIFEST[pkg.ecosystem] ?? "pom.xml",
                 uriBaseId: "%SRCROOT%",
               },
             },

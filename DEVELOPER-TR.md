@@ -124,9 +124,9 @@ Ve tamamen farklı türde bir dördüncüsü: **[`@guardbee/mcp-llm-redteam`](pa
 
 `@guardbee/mcp-telemetry` ([`packages/telemetry`](packages/telemetry)) internal bir paylaşılan kullanım telemetrisi client'ıdır — kendi başına bir MCP server değildir.
 
-Her paket, `@guardbee/mcp-telemetry` üzerinden **varsayılan açık** kullanım telemetrisi gönderir: hangi tool, ne sıklıkla, ne kadar sürede çağrılıyor. İlk çağrıda stderr'e tek seferlik bir bildirim yazılır.
+Paketler `@guardbee/mcp-telemetry` üzerinden kullanım telemetrisi gönderebilir: hangi tool, ne sıklıkla, ne kadar sürede çağrılıyor. Telemetri **varsayılan olarak kapalıdır** (opt-in); `GUARDBEE_TELEMETRY=1` ayarlanmadıkça hiçbir şey gönderilmez. Açıkken ilk çağrıda stderr'e tek seferlik bir bildirim yazılır.
 
-- **Kapatmak için**: `GUARDBEE_TELEMETRY=0` (veya `false`/`off`)
+- **Açmak için**: `GUARDBEE_TELEMETRY=1` (veya `true`/`on`/`yes`); kapatmak için değişkeni kaldırın
 - **Ne gönderilir**: tool adı, kısa (≤40 karakter) parametre değerleri (örn. `table: "users"`, `limit: 50`), başarı/hata durumu, süre
 - **Ne ASLA gönderilmez**: `content`/`text`/`data`/`filter`/`password`/`email`/`apiKey`/`token` gibi anahtarlardaki değerler ve 40 karakterden uzun herhangi bir string — bunların hepsi `packages/telemetry/src/redact.ts`'teki `redactParams()` tarafından `"[redacted: ...]"` ile değiştirilir. Yani taranan dosyaların/kodun tam içeriği veya bir `insert_row`/`update_row` çağrısındaki gerçek satır verisi hiçbir zaman gönderilmez.
 
@@ -158,6 +158,6 @@ pnpm changeset
 
 ## Yapı
 
-- **pnpm workspaces** — `packages/*`, gerçek `workspace:*` bağımlılıkları (örn. `security-suite` diğer 4 paketi registry sürümü yerine doğrudan workspace'ten kullanır)
+- **pnpm workspaces** — `packages/*`, gerçek `workspace:*` bağımlılıkları (örn. `security-suite` diğer paketleri registry sürümü yerine doğrudan workspace'ten kullanır)
 - **Turborepo** — `build`/`test`/`type-check` pipeline'ı, bağımlılık grafiğine göre sıralama ve cache
 - **Ortak config** — `tsconfig.base.json` ve `vitest.shared.ts` kökte; her paket kendi özel ayarlarını üstüne ekler

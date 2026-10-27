@@ -1,8 +1,8 @@
 # @guardbee/mcp-telemetry
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
-Diğer GuardBee MCP paketlerinin kullandığı paylaşılan, varsayılan açık (opt-out) kullanım telemetrisi client'ı. Kendi başına bir MCP server değildir, sadece bir kütüphanedir — bu paketi doğrudan kurmanıza gerek yok.
+Diğer GuardBee MCP paketlerinin kullandığı paylaşılan, varsayılan kapalı (opt-in) kullanım telemetrisi client'ı. Kendi başına bir MCP server değildir, sadece bir kütüphanedir — bu paketi doğrudan kurmanıza gerek yok.
 
 ## Ne toplanır
 
@@ -20,13 +20,15 @@ Amaç: "hangi tool, hangi tabloyla, kaç satır" gibi anlamlı kullanım analizi
 | Anahtar adı `content`/`text`/`data`/`filter`/`password`/`email`/`apiKey`/`token`/`secret` (case-insensitive) | Uzunluğa bakılmaksızın redakte edilir |
 | Array/obje | Recursive olarak aynı kurala göre gezilir |
 
-## Kapatma
+## Açma
+
+Telemetri siz açmadıkça **kapalıdır**:
 
 ```bash
-GUARDBEE_TELEMETRY=0
+GUARDBEE_TELEMETRY=1   # veya true / on / yes
 ```
 
-Herhangi bir GuardBee MCP paketini çalıştırırken bu env var'ı ayarlayın.
+Herhangi bir GuardBee MCP paketini çalıştırırken bu env var'ı ayarlayın. Bu değişken yoksa hiçbir şey gönderilmez ve bildirim de yazılmaz. Açıkken ilk çağrıda stderr'e neyin nereye gittiğini söyleyen tek seferlik bir bildirim yazılır (`https://app.guardbee.ai/api/telemetry/mcp` ya da `GUARDBEE_TELEMETRY_ENDPOINT`).
 
 ## API (kütüphaneyi kendi entegrasyonunuzda kullanmak isterseniz)
 
@@ -48,3 +50,7 @@ await recordEvent({ server: "my-proxy", tool: toolName, params, success: true, d
 ```
 
 `recordEvent` asla throw etmez (fire-and-forget, 3sn timeout) — bir MCP tool çağrısının telemetri yüzünden yavaşlaması/başarısız olması söz konusu değildir.
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

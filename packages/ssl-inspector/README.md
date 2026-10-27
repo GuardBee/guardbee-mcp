@@ -1,14 +1,14 @@
 # @guardbee/mcp-ssl-inspector
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ssl-inspector/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ssl-inspector/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ssl-inspector/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ssl-inspector/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ssl-inspector/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ssl-inspector/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ssl-inspector/DE.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-ssl-inspector.svg)](https://www.npmjs.com/package/@guardbee/mcp-ssl-inspector)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-ssl-inspector.svg)](https://www.npmjs.com/package/@guardbee/mcp-ssl-inspector)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ssl-inspector/LICENSE)
 
 An MCP server that inspects TLS certificates, cipher suites, and protocol configuration for any domain. Uses Node.js's built-in `tls` module — no external dependencies.
 
-> This package sends usage telemetry by default (tool name + short parameters — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/telemetry/README.md).
 
 ---
 
@@ -88,15 +88,28 @@ You can ask Claude:
 |-------|----------|----------|
 | `CERT_EXPIRED` | 🔴 Critical | Certificate has expired |
 | `CERT_EXPIRY_CRITICAL` | 🔴 Critical | < 7 days remaining |
-| `CERT_EXPIRY_SOON` | 🟠 High | < 30 days remaining |
-| `CERT_EXPIRY_WARN` | 🟡 Medium | < 90 days remaining |
-| `CERT_CHAIN_INVALID` | 🟠 High | Chain validation error |
+| `CERT_EXPIRY_SOON` | 🟠 High | < 21 days remaining (ACME clients renew at 30: renewal is failing) |
+| `CERT_EXPIRY_WARN` | 🟡 Medium | < 30 days remaining |
+| `HOSTNAME_MISMATCH` | 🔴 Critical | The certificate is not valid for the host |
+| `CERT_REVOKED` | 🔴 Critical | The certificate has been revoked |
+| `CERT_SELF_SIGNED` | 🟠 High | Self-signed certificate |
+| `CERT_CHAIN_INCOMPLETE` | 🟠 High | The server does not send its intermediate certificate |
+| `CERT_CHAIN_INVALID` | 🟠 High | Other chain validation error |
+| `WEAK_KEY` | 🟠 High / 🔴 Critical | RSA key under 2048 bits (critical under 1024), EC key under 256 bits |
+| `WEAK_SIGNATURE` | 🟠 High | Leaf or intermediate signed with SHA-1 or MD5 |
 | `CERT_NO_SAN` | 🟡 Medium | No Subject Alternative Name |
-| `DEPRECATED_PROTOCOL` | 🟠 High | TLS 1.0 or 1.1 |
+| `DEPRECATED_PROTOCOL` | 🟠 High | The server still accepts TLS 1.0 or 1.1 (probe) |
 | `OBSOLETE_PROTOCOL` | 🔴 Critical | SSLv2 or SSLv3 |
-| `WEAK_CIPHER` | 🔴 Critical | NULL/EXPORT/RC4/anonymous cipher |
+| `WEAK_CIPHER` | 🔴 Critical / 🟠 High | Accepts NULL/EXPORT/RC4 (critical) or 3DES (high) suites (probe) |
+| `WEAK_DH` | 🟠 High / 🔴 Critical | Diffie-Hellman group under 2048 bits (critical under 1024) (probe) |
+| `NO_FORWARD_SECRECY` | 🟡 Medium | Accepts RSA key exchange ciphers (probe) |
 | `NO_HSTS` | 🟡 Medium | No HSTS header found |
 | `HSTS_SHORT_MAX_AGE` | 🔵 Low | max-age < 15552000s |
+| `NO_TLS13` | 🔵 Low | TLS 1.3 not supported (probe) |
+| `NO_OCSP_STAPLING` | 🔵 Low | No stapled OCSP response |
+| `NO_CAA` | 🔵 Low | No CAA DNS record for the domain or a parent |
+
+**Probes.** One default handshake lands on the best protocol and cipher both sides share, so a server that *also* accepts TLS 1.0 or RSA key exchange looks fine. `inspect_ssl` and the CLI therefore make a few extra handshakes, each offering only the thing under test (TLS 1.0, TLS 1.1, TLS 1.3, RSA key exchange, DHE, weak cipher families). Weak families the runtime's own OpenSSL cannot offer (Node 22 builds have no 3DES/RC4/EXPORT) are listed as *not tested* rather than passed. `--no-probes` / `probes: false` skips them; `inspect_ssl_bulk` leaves them off unless asked.
 
 ---
 
@@ -140,7 +153,7 @@ ssl-inspector:
     - shop.example.com
 ```
 
-See [`guardbee.example.yml`](guardbee.example.yml) for a sample file.
+See [`guardbee.example.yml`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ssl-inspector/guardbee.example.yml) for a sample file.
 
 ### GitHub Actions — Post-Deployment Check
 
@@ -211,3 +224,7 @@ npm run build     # TypeScript compile
 ## License
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Feedback
+
+Questions, ideas, or a false positive? Start a thread in [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) or [open an issue](https://github.com/GuardBee/guardbee-mcp/issues). If GuardBee is useful to you, a ⭐ on [the repository](https://github.com/GuardBee/guardbee-mcp) helps others find it.

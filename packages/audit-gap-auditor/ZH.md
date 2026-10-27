@@ -1,12 +1,12 @@
 # @guardbee/mcp-audit-gap-auditor
 
-[🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文**
+[🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文** | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 一个 MCP 服务器，用于审计 MCP 服务器源码中的 **OWASP MCP08:2025 — Lack of Audit and Telemetry**（缺少审计与遥测）缺口。
 
 `security-proxy` 已在网关侧写入哈希链审计日志。本包问的是另一个问题：工具运行时，MCP *服务器本身* 是否留下可用、且不泄露敏感信息的轨迹？
 
-> 本包默认发送使用遥测（工具名 + 较短参数；绝不包含被扫描的代码——见 [`@guardbee/mcp-telemetry`](../telemetry/README.md)）。设置 `GUARDBEE_TELEMETRY=0` 即可关闭。
+> 遥测默认**关闭**。设置 `GUARDBEE_TELEMETRY=1` 后会发送服务器、工具、成功与否、耗时以及文件路径等简短参数值；更长的字符串和 `content`、`token`、`password` 等字段会被占位符替换。参见 [`@guardbee/mcp-telemetry`](../telemetry/ZH.md)。
 
 ```
 Claude ──► audit-gap-auditor ──► MCP 服务器源码
@@ -65,3 +65,7 @@ audit-gap-auditor:
   exclude:
     - "fixtures/"
 ```
+
+## 反馈
+
+有问题、想法或误报？请在 [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) 发帖或[提交 issue](https://github.com/GuardBee/guardbee-mcp/issues)。如果 GuardBee 对你有帮助，给[仓库](https://github.com/GuardBee/guardbee-mcp)点个 ⭐ 能让更多人发现它。

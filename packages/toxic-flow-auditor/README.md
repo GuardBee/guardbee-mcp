@@ -2,7 +2,11 @@
 
 [![Redthread scan](https://trust.redthreadsec.com/badge/mcp/io.github.GuardBee/toxic-flow-auditor.svg)](https://trust.redthreadsec.com/v/mcp/io.github.GuardBee/toxic-flow-auditor)
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/toxic-flow-auditor/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/toxic-flow-auditor/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/toxic-flow-auditor/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/toxic-flow-auditor/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/toxic-flow-auditor/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/toxic-flow-auditor/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/toxic-flow-auditor/DE.md)
+
+[![npm version](https://img.shields.io/npm/v/@guardbee/mcp-toxic-flow-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-toxic-flow-auditor)
+[![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-toxic-flow-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-toxic-flow-auditor)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/toxic-flow-auditor/LICENSE)
 
 An MCP server that audits an MCP **tool catalog** for **toxic flows** — Simon Willison's *lethal trifecta*:
 
@@ -12,7 +16,7 @@ An MCP server that audits an MCP **tool catalog** for **toxic flows** — Simon 
 
 When one MCP server exposes all three, a single prompt injection can chain them. Mapped primarily to **OWASP MCP10:2025**.
 
-> This package sends usage telemetry by default (tool name + short parameters, scanned code is never included — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/telemetry/README.md).
 
 ```
 Claude ──► toxic-flow-auditor ──► tools/list JSON or MCP server source
@@ -34,7 +38,7 @@ Claude ──► toxic-flow-auditor ──► tools/list JSON or MCP server sour
 
 Grades **A–F**. No API key. Static / catalog analysis only — does not call live tools.
 
-The classification rules come from [`@guardbee/guard-core`](../guard-core/README.md); `@guardbee/mcp-security-proxy` uses the same rules to block toxic flows at runtime.
+The classification rules come from [`@guardbee/guard-core`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/guard-core/README.md); `@guardbee/mcp-security-proxy` uses the same rules to block toxic flows at runtime.
 
 ## Tools
 
@@ -64,3 +68,7 @@ Example catalog:
   ]
 }
 ```
+
+## Feedback
+
+Questions, ideas, or a false positive? Start a thread in [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) or [open an issue](https://github.com/GuardBee/guardbee-mcp/issues). If GuardBee is useful to you, a ⭐ on [the repository](https://github.com/GuardBee/guardbee-mcp) helps others find it.

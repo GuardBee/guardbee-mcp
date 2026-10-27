@@ -1,6 +1,10 @@
 # @guardbee/mcp-llm-redteam
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/llm-redteam/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/llm-redteam/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/llm-redteam/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/llm-redteam/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/llm-redteam/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/llm-redteam/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/llm-redteam/DE.md)
+
+[![npm version](https://img.shields.io/npm/v/@guardbee/mcp-llm-redteam.svg)](https://www.npmjs.com/package/@guardbee/mcp-llm-redteam)
+[![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-llm-redteam.svg)](https://www.npmjs.com/package/@guardbee/mcp-llm-redteam)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/llm-redteam/LICENSE)
 
 An MCP (Model Context Protocol) server that **actively** red-teams a live LLM endpoint or chatbot — not static analysis like GuardBee's other scanners, but real probe requests sent to a real target you control.
 
@@ -10,7 +14,7 @@ An MCP (Model Context Protocol) server that **actively** red-teams a live LLM en
 >
 > **No probe ever asks the target to produce genuinely harmful content.** Every probe is *canary-based*: success is measured by whether the target reproduces a random, single-use token we generate per run — proof that an out-of-character instruction was obeyed, without ever eliciting real harmful output. This keeps results deterministic (a canary can't appear by coincidence) and safe to run against a live endpoint.
 
-> This package sends usage telemetry by default (tool name + short parameters — never your API key, prompts, or the target's responses — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/telemetry/README.md).
 
 ```
 Your LLM endpoint / chatbot ◄── llm-redteam ──► Claude
@@ -116,3 +120,7 @@ npm test             # 29 unit tests
 ## License
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Feedback
+
+Questions, ideas, or a false positive? Start a thread in [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) or [open an issue](https://github.com/GuardBee/guardbee-mcp/issues). If GuardBee is useful to you, a ⭐ on [the repository](https://github.com/GuardBee/guardbee-mcp) helps others find it.

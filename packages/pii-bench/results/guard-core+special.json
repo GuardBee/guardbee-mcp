@@ -1,0 +1,666 @@
+{
+  "system": {
+    "name": "guard-core+special",
+    "description": "@guardbee/guard-core default detectors + the KVKK Art. 6 term lists (context: identifiers and person words, no names)"
+  },
+  "dataset": {
+    "name": "tr-pii-v1",
+    "documents": 560,
+    "pii": 400,
+    "clean": 160,
+    "spans": 1396
+  },
+  "metrics": {
+    "perCategory": {
+      "tc_kimlik": {
+        "support": 60,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "coverage": 1
+      },
+      "vkn": {
+        "support": 17,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "coverage": 1
+      },
+      "iban": {
+        "support": 50,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "coverage": 1
+      },
+      "credit_card": {
+        "support": 25,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "coverage": 1
+      },
+      "email": {
+        "support": 43,
+        "precision": 0.7413793103448276,
+        "recall": 1,
+        "f1": 0.8514851485148515,
+        "coverage": 1
+      },
+      "kep": {
+        "support": 16,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "coverage": 1
+      },
+      "phone_tr": {
+        "support": 94,
+        "precision": 0.8703703703703703,
+        "recall": 1,
+        "f1": 0.9306930693069307,
+        "coverage": 1
+      },
+      "passport": {
+        "support": 16,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "coverage": 1
+      },
+      "sgk_no": {
+        "support": 25,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "coverage": 1
+      },
+      "mersis": {
+        "support": 16,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "coverage": 1
+      },
+      "birth_date": {
+        "support": 50,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "coverage": 1
+      },
+      "address": {
+        "support": 68,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "coverage": 1
+      },
+      "person_name": {
+        "support": 650,
+        "precision": null,
+        "recall": 0,
+        "f1": null,
+        "coverage": 0
+      },
+      "health": {
+        "support": 60,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "coverage": 1
+      },
+      "religion_belief": {
+        "support": 32,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "coverage": 1
+      },
+      "ethnic_origin": {
+        "support": 17,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "coverage": 1
+      },
+      "political_opinion": {
+        "support": 25,
+        "precision": 1,
+        "recall": 0.64,
+        "f1": 0.7804878048780487,
+        "coverage": 0.64
+      },
+      "union_membership": {
+        "support": 26,
+        "precision": 1,
+        "recall": 0.34615384615384615,
+        "f1": 0.5142857142857142,
+        "coverage": 0.34615384615384615
+      },
+      "criminal_record": {
+        "support": 34,
+        "precision": 1,
+        "recall": 0.7647058823529411,
+        "f1": 0.8666666666666666,
+        "coverage": 0.7647058823529411
+      },
+      "sex_life": {
+        "support": 24,
+        "precision": 1,
+        "recall": 0.6666666666666666,
+        "f1": 0.8,
+        "coverage": 0.6666666666666666
+      },
+      "biometric": {
+        "support": 24,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "coverage": 0.8333333333333334
+      },
+      "genetic": {
+        "support": 24,
+        "precision": 1,
+        "recall": 0.6666666666666666,
+        "f1": 0.8,
+        "coverage": 0.6666666666666666
+      }
+    },
+    "micro": {
+      "precision": 0.9602194787379973,
+      "recall": 0.498567335243553,
+      "f1": 0.6563454812930761,
+      "coverage": 0.49570200573065903
+    },
+    "identifiers": {
+      "precision": 0.9430255402750491,
+      "recall": 1,
+      "f1": 0.9706774519716886,
+      "coverage": 1
+    },
+    "falseAlarmRate": 0.08125,
+    "otherDetections": 0
+  },
+  "intervals": {
+    "perCategory.tc_kimlik.support": [
+      47,
+      75
+    ],
+    "perCategory.tc_kimlik.precision": [
+      1,
+      1
+    ],
+    "perCategory.tc_kimlik.recall": [
+      1,
+      1
+    ],
+    "perCategory.tc_kimlik.f1": [
+      1,
+      1
+    ],
+    "perCategory.tc_kimlik.coverage": [
+      1,
+      1
+    ],
+    "perCategory.vkn.support": [
+      10,
+      26
+    ],
+    "perCategory.vkn.precision": [
+      1,
+      1
+    ],
+    "perCategory.vkn.recall": [
+      1,
+      1
+    ],
+    "perCategory.vkn.f1": [
+      1,
+      1
+    ],
+    "perCategory.vkn.coverage": [
+      1,
+      1
+    ],
+    "perCategory.iban.support": [
+      38,
+      64
+    ],
+    "perCategory.iban.precision": [
+      1,
+      1
+    ],
+    "perCategory.iban.recall": [
+      1,
+      1
+    ],
+    "perCategory.iban.f1": [
+      1,
+      1
+    ],
+    "perCategory.iban.coverage": [
+      1,
+      1
+    ],
+    "perCategory.credit_card.support": [
+      16,
+      35
+    ],
+    "perCategory.credit_card.precision": [
+      1,
+      1
+    ],
+    "perCategory.credit_card.recall": [
+      1,
+      1
+    ],
+    "perCategory.credit_card.f1": [
+      1,
+      1
+    ],
+    "perCategory.credit_card.coverage": [
+      1,
+      1
+    ],
+    "perCategory.email.support": [
+      31,
+      55
+    ],
+    "perCategory.email.precision": [
+      0.619025974025974,
+      0.8448275862068966
+    ],
+    "perCategory.email.recall": [
+      1,
+      1
+    ],
+    "perCategory.email.f1": [
+      0.7646893588896233,
+      0.9158878504672897
+    ],
+    "perCategory.email.coverage": [
+      1,
+      1
+    ],
+    "perCategory.kep.support": [
+      9,
+      25
+    ],
+    "perCategory.kep.precision": [
+      1,
+      1
+    ],
+    "perCategory.kep.recall": [
+      1,
+      1
+    ],
+    "perCategory.kep.f1": [
+      1,
+      1
+    ],
+    "perCategory.kep.coverage": [
+      1,
+      1
+    ],
+    "perCategory.phone_tr.support": [
+      77,
+      112
+    ],
+    "perCategory.phone_tr.precision": [
+      0.80908835546476,
+      0.9300258620689655
+    ],
+    "perCategory.phone_tr.recall": [
+      1,
+      1
+    ],
+    "perCategory.phone_tr.f1": [
+      0.8944708012110241,
+      0.9637444485566247
+    ],
+    "perCategory.phone_tr.coverage": [
+      1,
+      1
+    ],
+    "perCategory.passport.support": [
+      9,
+      24
+    ],
+    "perCategory.passport.precision": [
+      1,
+      1
+    ],
+    "perCategory.passport.recall": [
+      1,
+      1
+    ],
+    "perCategory.passport.f1": [
+      1,
+      1
+    ],
+    "perCategory.passport.coverage": [
+      1,
+      1
+    ],
+    "perCategory.sgk_no.support": [
+      15.975000000000001,
+      35
+    ],
+    "perCategory.sgk_no.precision": [
+      1,
+      1
+    ],
+    "perCategory.sgk_no.recall": [
+      1,
+      1
+    ],
+    "perCategory.sgk_no.f1": [
+      1,
+      1
+    ],
+    "perCategory.sgk_no.coverage": [
+      1,
+      1
+    ],
+    "perCategory.mersis.support": [
+      9,
+      24.024999999999977
+    ],
+    "perCategory.mersis.precision": [
+      1,
+      1
+    ],
+    "perCategory.mersis.recall": [
+      1,
+      1
+    ],
+    "perCategory.mersis.f1": [
+      1,
+      1
+    ],
+    "perCategory.mersis.coverage": [
+      1,
+      1
+    ],
+    "perCategory.birth_date.support": [
+      37,
+      64
+    ],
+    "perCategory.birth_date.precision": [
+      1,
+      1
+    ],
+    "perCategory.birth_date.recall": [
+      1,
+      1
+    ],
+    "perCategory.birth_date.f1": [
+      1,
+      1
+    ],
+    "perCategory.birth_date.coverage": [
+      1,
+      1
+    ],
+    "perCategory.address.support": [
+      53,
+      82
+    ],
+    "perCategory.address.precision": [
+      1,
+      1
+    ],
+    "perCategory.address.recall": [
+      1,
+      1
+    ],
+    "perCategory.address.f1": [
+      1,
+      1
+    ],
+    "perCategory.address.coverage": [
+      1,
+      1
+    ],
+    "perCategory.person_name.support": [
+      621,
+      680.025
+    ],
+    "perCategory.person_name.recall": [
+      0,
+      0
+    ],
+    "perCategory.person_name.coverage": [
+      0,
+      0
+    ],
+    "perCategory.health.support": [
+      46,
+      75
+    ],
+    "perCategory.health.precision": [
+      1,
+      1
+    ],
+    "perCategory.health.recall": [
+      1,
+      1
+    ],
+    "perCategory.health.f1": [
+      1,
+      1
+    ],
+    "perCategory.health.coverage": [
+      1,
+      1
+    ],
+    "perCategory.religion_belief.support": [
+      22,
+      43
+    ],
+    "perCategory.religion_belief.precision": [
+      1,
+      1
+    ],
+    "perCategory.religion_belief.recall": [
+      1,
+      1
+    ],
+    "perCategory.religion_belief.f1": [
+      1,
+      1
+    ],
+    "perCategory.religion_belief.coverage": [
+      1,
+      1
+    ],
+    "perCategory.ethnic_origin.support": [
+      10,
+      25
+    ],
+    "perCategory.ethnic_origin.precision": [
+      1,
+      1
+    ],
+    "perCategory.ethnic_origin.recall": [
+      1,
+      1
+    ],
+    "perCategory.ethnic_origin.f1": [
+      1,
+      1
+    ],
+    "perCategory.ethnic_origin.coverage": [
+      1,
+      1
+    ],
+    "perCategory.political_opinion.support": [
+      16,
+      35
+    ],
+    "perCategory.political_opinion.precision": [
+      1,
+      1
+    ],
+    "perCategory.political_opinion.recall": [
+      0.4209429824561403,
+      0.8286904761904761
+    ],
+    "perCategory.political_opinion.f1": [
+      0.592483660130719,
+      0.9063210227272727
+    ],
+    "perCategory.political_opinion.coverage": [
+      0.4209429824561403,
+      0.8286904761904761
+    ],
+    "perCategory.union_membership.support": [
+      17,
+      36
+    ],
+    "perCategory.union_membership.precision": [
+      1,
+      1
+    ],
+    "perCategory.union_membership.recall": [
+      0.15147727272727274,
+      0.55
+    ],
+    "perCategory.union_membership.f1": [
+      0.2631006864988558,
+      0.7096774193548387
+    ],
+    "perCategory.union_membership.coverage": [
+      0.15147727272727274,
+      0.55
+    ],
+    "perCategory.criminal_record.support": [
+      23,
+      46
+    ],
+    "perCategory.criminal_record.precision": [
+      1,
+      1
+    ],
+    "perCategory.criminal_record.recall": [
+      0.6086956521739131,
+      0.896551724137931
+    ],
+    "perCategory.criminal_record.f1": [
+      0.7567567567567568,
+      0.9454545454545454
+    ],
+    "perCategory.criminal_record.coverage": [
+      0.6086956521739131,
+      0.896551724137931
+    ],
+    "perCategory.sex_life.support": [
+      15,
+      33
+    ],
+    "perCategory.sex_life.precision": [
+      1,
+      1
+    ],
+    "perCategory.sex_life.recall": [
+      0.458125,
+      0.8637121212121212
+    ],
+    "perCategory.sex_life.f1": [
+      0.6283743842364532,
+      0.9268728222996515
+    ],
+    "perCategory.sex_life.coverage": [
+      0.458125,
+      0.8637121212121212
+    ],
+    "perCategory.biometric.support": [
+      15,
+      33.02499999999998
+    ],
+    "perCategory.biometric.precision": [
+      1,
+      1
+    ],
+    "perCategory.biometric.recall": [
+      1,
+      1
+    ],
+    "perCategory.biometric.f1": [
+      1,
+      1
+    ],
+    "perCategory.biometric.coverage": [
+      0.6666666666666666,
+      0.9629629629629629
+    ],
+    "perCategory.genetic.support": [
+      15,
+      34.02499999999998
+    ],
+    "perCategory.genetic.precision": [
+      1,
+      1
+    ],
+    "perCategory.genetic.recall": [
+      0.4613636363636364,
+      0.8571428571428571
+    ],
+    "perCategory.genetic.f1": [
+      0.6314144736842106,
+      0.923076923076923
+    ],
+    "perCategory.genetic.coverage": [
+      0.4613636363636364,
+      0.8571428571428571
+    ],
+    "micro.precision": [
+      0.9456824512534819,
+      0.9727412919881769
+    ],
+    "micro.recall": [
+      0.4725798389463644,
+      0.5239117352131903
+    ],
+    "micro.f1": [
+      0.6326025188880579,
+      0.6790694357947801
+    ],
+    "micro.coverage": [
+      0.46948284355165953,
+      0.5216590536970194
+    ],
+    "identifiers.precision": [
+      0.9215270390923034,
+      0.9603523178411307
+    ],
+    "identifiers.recall": [
+      1,
+      1
+    ],
+    "identifiers.f1": [
+      0.9591611466257847,
+      0.9797752227574856
+    ],
+    "identifiers.coverage": [
+      1,
+      1
+    ],
+    "falseAlarmRate": [
+      0.04375,
+      0.125
+    ],
+    "otherDetections": [
+      0,
+      0
+    ]
+  },
+  "bootstrapSamples": 1000,
+  "latencyMs": {
+    "p50": 0.09225000000000705,
+    "p95": 0.139489899999981,
+    "mean": 0.09341041607142893
+  },
+  "node": "v23.11.0"
+}

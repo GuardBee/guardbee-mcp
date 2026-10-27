@@ -1,0 +1,12 @@
+{
+  "name": "fx",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "debug": "2.6.8",
+    "lodash": "4.17.15"
+  },
+  "devDependencies": {
+    "minimist": "1.2.0"
+  }
+}

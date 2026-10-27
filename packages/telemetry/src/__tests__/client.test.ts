@@ -19,27 +19,29 @@ afterEach(() => {
 });
 
 describe("isTelemetryEnabled", () => {
-  it("env var yokken varsayılan açık", () => {
+  it("env var yokken varsayılan kapalı (opt-in)", () => {
     delete process.env["GUARDBEE_TELEMETRY"];
-    expect(isTelemetryEnabled()).toBe(true);
+    expect(isTelemetryEnabled()).toBe(false);
   });
 
-  it("'0', 'false', 'off' ile kapanır", () => {
-    for (const v of ["0", "false", "off", "FALSE", "Off"]) {
+  it("'1', 'true', 'on', 'yes' ile açılır", () => {
+    for (const v of ["1", "true", "on", "yes", "TRUE", " On "]) {
       process.env["GUARDBEE_TELEMETRY"] = v;
-      expect(isTelemetryEnabled()).toBe(false);
+      expect(isTelemetryEnabled()).toBe(true);
     }
   });
 
-  it("başka bir değerle açık kalır", () => {
-    process.env["GUARDBEE_TELEMETRY"] = "1";
-    expect(isTelemetryEnabled()).toBe(true);
+  it("başka bir değerle kapalı kalır", () => {
+    for (const v of ["0", "false", "off", "", "2"]) {
+      process.env["GUARDBEE_TELEMETRY"] = v;
+      expect(isTelemetryEnabled()).toBe(false);
+    }
   });
 });
 
 describe("recordEvent", () => {
   it("telemetri açıkken fetch'i doğru payload ile çağırır", async () => {
-    delete process.env["GUARDBEE_TELEMETRY"];
+    process.env["GUARDBEE_TELEMETRY"] = "1";
     const fetchMock = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -63,8 +65,8 @@ describe("recordEvent", () => {
     expect(body.success).toBe(true);
   });
 
-  it("GUARDBEE_TELEMETRY=0 iken fetch hiç çağrılmaz", async () => {
-    process.env["GUARDBEE_TELEMETRY"] = "0";
+  it("GUARDBEE_TELEMETRY yokken fetch hiç çağrılmaz", async () => {
+    delete process.env["GUARDBEE_TELEMETRY"];
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
@@ -74,7 +76,7 @@ describe("recordEvent", () => {
   });
 
   it("fetch reddedilse bile throw etmez", async () => {
-    delete process.env["GUARDBEE_TELEMETRY"];
+    process.env["GUARDBEE_TELEMETRY"] = "1";
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
 
     await expect(
@@ -83,7 +85,7 @@ describe("recordEvent", () => {
   });
 
   it("GUARDBEE_TELEMETRY_ENDPOINT override'ı kullanır", async () => {
-    delete process.env["GUARDBEE_TELEMETRY"];
+    process.env["GUARDBEE_TELEMETRY"] = "1";
     process.env["GUARDBEE_TELEMETRY_ENDPOINT"] = "http://localhost:3000/api/telemetry/mcp";
     const fetchMock = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal("fetch", fetchMock);
@@ -95,7 +97,7 @@ describe("recordEvent", () => {
   });
 
   it("ilk çağrıda stderr'e tek seferlik bildirim yazar", async () => {
-    delete process.env["GUARDBEE_TELEMETRY"];
+    process.env["GUARDBEE_TELEMETRY"] = "1";
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
     const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
 
@@ -106,8 +108,8 @@ describe("recordEvent", () => {
     expect(notices.length).toBe(1);
   });
 
-  it("opt-out iken hiç bildirim yazmaz", async () => {
-    process.env["GUARDBEE_TELEMETRY"] = "0";
+  it("kapalıyken (varsayılan) hiç bildirim yazmaz", async () => {
+    delete process.env["GUARDBEE_TELEMETRY"];
     const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
 
     await recordEvent({ server: "x", tool: "y", params: {}, success: true, durationMs: 1 });

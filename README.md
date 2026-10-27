@@ -1,10 +1,58 @@
-# guardbee-mcp
+# GuardBee MCP
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
-[guardbee.ai](https://guardbee.ai) — AI Security Copilot for websites.
+[![npm](https://img.shields.io/npm/v/@guardbee/mcp-security-proxy.svg?label=mcp-security-proxy)](https://www.npmjs.com/package/@guardbee/mcp-security-proxy)
+[![CI](https://github.com/GuardBee/guardbee-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/GuardBee/guardbee-mcp/actions/workflows/ci.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/GuardBee/guardbee-mcp/badge)](https://scorecard.dev/viewer/?uri=github.com/GuardBee/guardbee-mcp)
+[![Socket](https://socket.dev/api/badge/npm/package/@guardbee/mcp-security-proxy)](https://socket.dev/npm/package/@guardbee/mcp-security-proxy)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-GuardBee's family of MCP (Model Context Protocol) servers — a single monorepo, independent npm packages.
+**Security for AI agents and MCP.** GuardBee puts a gateway between your agents and their tools and models that masks personal data and secrets, blocks prompt injection and toxic data flows, asks before risky calls and keeps a tamper-evident audit log, plus scanners that check your code and configs against the OWASP MCP Top 10. Open source (MIT), runs on your machine, no account needed.
+
+```bash
+# Put your existing MCP servers behind the gateway (backs up your client config first)
+npx -y @guardbee/mcp-security-proxy@^1 init --client claude-desktop   # or cursor, claude-code
+
+# Check a codebase against the OWASP MCP Top 10
+npx -y @guardbee/mcp-owasp-scan scan . --fail-on=high
+```
+
+![An agent calls a CRM through GuardBee: personal data is masked, a prompt injection is blocked, and sending data out after reading untrusted and sensitive content is refused](docs/demo.gif)
+
+<sub>Run it yourself: [`examples/demo`](examples/demo) (`npm install && npm start`).</sub>
+
+## Which package should I use?
+
+| You want to… | Install | How |
+|---|---|---|
+| Protect agents at runtime: mask personal data, block injection and toxic flows, approve risky calls, keep an audit log | [`@guardbee/mcp-security-proxy`](packages/security-proxy) | Put it in front of your MCP servers (`guardbee-proxy init` imports your client config) |
+| Check a codebase against the OWASP MCP Top 10 in one pass, in CI | [`@guardbee/mcp-owasp-scan`](packages/owasp-scan) | `npx @guardbee/mcp-owasp-scan scan . --format=sarif --fail-on=high` |
+| Give an agent many GuardBee checks from one MCP server | [`@guardbee/security-suite`](packages/security-suite) | `guardbee serve` (recommended set), `--tools=code,network` or `all` |
+| Find leaked keys in files, git history or agent transcripts | [`@guardbee/mcp-secret-scanner`](packages/secret-scanner) | `npx @guardbee/mcp-secret-scanner scan . --history` |
+| Audit the MCP servers configured on developer machines | [`@guardbee/mcp-config-auditor`](packages/mcp-config-auditor) | `npx @guardbee/mcp-config-auditor discover` |
+| Let an agent query a database without seeing raw personal data | [`@guardbee/mcp-db-gateway`](packages/db-gateway) | Point it at your database with a policy |
+| Use the detectors in your own code | [`@guardbee/guard-core`](packages/guard-core) | `import { maskPiiInText } from "@guardbee/guard-core"` |
+
+Every other package is a single check (one OWASP risk, one protocol, one file type); each is in `security-suite` too. `npx @guardbee/security-suite list` shows them with what they check.
+
+## Benchmarks
+
+Detection is measured, not claimed: [`packages/pii-bench`](packages/pii-bench) is a reproducible benchmark for Turkish and international personal data, with bootstrap 95% intervals and the datasets in the repo.
+
+| Benchmark | Result |
+|---|---|
+| Identifiers (TC Kimlik, IBAN, card, phone, e-mail, …), 400 documents + 160 clean | **F1 97.1**, recall 100%, false alarms on clean documents 8.1%, 0.04 ms per document |
+| Person names with the optional NER model, same set | **F1 99.5** |
+| Hand-written hard cases for names ([tr-names-challenge](packages/pii-bench/README.md#dataset-tr-names-challenge)) | **F1 97.1**, 0 false alarms |
+| KVKK Art. 6 special categories with NER ([tr-special-challenge](packages/pii-bench/README.md#dataset-tr-special-challenge)) | **F1 97.5**, 0 false alarms |
+| Bypass suite: 5 identifiers × 16 disguises (base64, hex, URL/HTML/`\u` escapes, other scripts' digits, separators) | **80 / 80 masked**, 0 of 16 look-alike strings changed |
+
+The identifier detectors were tuned after reading this set's misses, so the challenge sets are the fairer measure; the [pii-bench README](packages/pii-bench/README.md) lists the limits. Any other detector can be run on the same data through its `System` interface.
+
+## Examples
+
+Ready-to-copy proxy policies (minimal, KVKK, coding agent, LLM gateway), client configs for Claude Desktop, Claude Code, Cursor and VS Code, and CI templates for GitHub Actions and GitLab: [`examples/`](examples).
 
 ## Packages
 
@@ -21,6 +69,7 @@ GuardBee's family of MCP (Model Context Protocol) servers — a single monorepo,
 | [`packages/model-scanner`](packages/model-scanner) | `@guardbee/mcp-model-scanner` | Scans ML model files (PyTorch, pickle, safetensors, Keras/H5, ONNX) for supply-chain risks — dangerous pickle deserialization globals, disguised/malformed safetensors headers, Keras Lambda-layer RCE, ONNX external-data path traversal |
 | [`packages/vector-store-scanner`](packages/vector-store-scanner) | `@guardbee/mcp-vector-store-scanner` | Probes vector-database endpoints (Weaviate, Qdrant, Chroma, Elasticsearch/OpenSearch, Redis, Postgres/pgvector) for unauthenticated exposure of embeddings and RAG data |
 | [`packages/prompt-leak-scanner`](packages/prompt-leak-scanner) | `@guardbee/mcp-prompt-leak-scanner` | Catches leaked credentials and PII (API keys, TC Kimlik No, credit cards, IBANs) in outbound LLM prompts — as MCP scan tools, and as a live reverse proxy in front of a real LLM API |
+| [`packages/document-scanner`](packages/document-scanner) | `@guardbee/mcp-document-scanner` | Finds PII and credentials inside PDFs, screenshots and scanned documents — PDF text layer plus optional OCR (Turkish and English) — before they reach an LLM |
 | [`packages/agent-graph-auditor`](packages/agent-graph-auditor) | `@guardbee/mcp-agent-graph-auditor` | Builds a reachability graph across multi-agent orchestration configs (LangGraph, CrewAI, AutoGen/ag2) to find transitive excessive agency — an agent that reaches a dangerous tool only through delegation to another agent |
 | [`packages/tool-poisoning-scanner`](packages/tool-poisoning-scanner) | `@guardbee/mcp-tool-poisoning-scanner` | Scans MCP server tool definitions for tool poisoning (hidden instructions embedded in a tool's description) and confused-deputy mismatches (a read-only-sounding tool whose handler has a shell/eval/file-write/env-dump sink) |
 | [`packages/rug-pull-detector`](packages/rug-pull-detector) | `@guardbee/mcp-rug-pull-detector` | Connects live to another MCP server (stdio/HTTP), baselines its tools/list response, and detects an "MCP rug pull" — a tool's description/schema/annotations silently changing after it was already approved |
@@ -38,105 +87,21 @@ GuardBee's family of MCP (Model Context Protocol) servers — a single monorepo,
 | [`packages/unbounded-consumption-auditor`](packages/unbounded-consumption-auditor) | `@guardbee/mcp-unbounded-consumption-auditor` | Scans LLM/agent application code for Unbounded Consumption ("denial of wallet", OWASP LLM Top 10 2026 #6) — missing output token limits, missing timeouts on hand-rolled LLM HTTP calls, unbounded agent tool-calling/retry loops, explicitly disabled framework safety limits (LangChain max_iterations, openai-agents max_turns), and MCP tool handlers with no visible rate limiting |
 | [`packages/secret-scanner`](packages/secret-scanner) | `@guardbee/mcp-secret-scanner` | Scans files for leaked secrets and API keys |
 | [`packages/security-proxy`](packages/security-proxy) | `@guardbee/mcp-security-proxy` | MCP security gateway: several MCP servers behind one policy, with toxic-flow (lethal trifecta) blocking, approvals, PII masking and a hash-chained audit log |
-| [`packages/security-suite`](packages/security-suite) | `@guardbee/security-suite` | Bundle of secret-scanner + dependency-auditor + ssl-inspector + dns-intelligence |
+| [`packages/security-suite`](packages/security-suite) | `@guardbee/security-suite` | Every scanner and auditor below from one install: one MCP server with the groups you pick, and a CLI that runs any package |
 | [`packages/ssl-inspector`](packages/ssl-inspector) | `@guardbee/mcp-ssl-inspector` | TLS certificate/cipher/protocol inspection |
 | [`packages/vulnerability-scanner`](packages/vulnerability-scanner) | `@guardbee/mcp-vulnerability-scanner` | Triggers GuardBee scans, queries findings, AI-assisted remediation guidance |
 | [`packages/guard-core`](packages/guard-core) | `@guardbee/guard-core` | (internal) Shared detector library — PII/secret masking, prompt injection rules, tool classification; not an MCP server on its own |
 | [`packages/telemetry`](packages/telemetry) | `@guardbee/mcp-telemetry` | (internal) Shared usage-telemetry client — not an MCP server on its own |
 
-## Recent Changes (2026-10-06, cont'd 2)
+## Security
 
-AI-security MCP gap pass follow-up: shipped **[`@guardbee/mcp-owasp-scan`](packages/owasp-scan)** (unified OWASP MCP Top 10 path + live `tools/list`, A–F, SARIF), **[`@guardbee/mcp-context-oversharing-auditor`](packages/context-oversharing-auditor)** (MCP10 context oversharing distinct from toxic-flow), Python **MCP05/OAuth** patterns on `mcp-server-auditor` / `oauth-auditor`, and a reusable **[`.github/actions/mcp-security-scan`](.github/actions/mcp-security-scan)** (+ workflow) that uploads SARIF for toxic-flow / audit-gap / context-oversharing / owasp-scan.
-
-## Recent Changes (2026-10-06, cont'd)
-
-Gap pass against [OWASP MCP Top 10](https://owasp.org/www-project-mcp-top-10/) + [github.com/topics/mcp-security](https://github.com/topics/mcp-security): **MCP05** and **MCP08** had no dedicated coverage tags/packages. Shipped **[`@guardbee/mcp-audit-gap-auditor`](packages/audit-gap-auditor)** for MCP08 and tagged `mcp-server-auditor`'s shell/eval/SQL sinks as **MCP05:2025**. **MCP09 Shadow MCP** host discovery landed in **[`mcp-config-auditor`](packages/mcp-config-auditor)** (`discover` CLI / `discover_shadow_mcp` tool): walks Cursor/Claude/Windsurf/VS Code well-known paths and flags servers missing from an organization allowlist.
-
-## Recent Changes (2026-10-06)
-
-Bridged the industry detection standard into the monorepo: **[`@guardbee/mcp-threat-rules`](packages/threat-rules)** wraps MIT-licensed [Agent Threat Rules (ATR)](https://github.com/Agent-Threat-Rule/agent-threat-rules) as a GuardBee MCP server. ATR scores runtime agent/MCP events (prompt injection, tool poisoning, exfiltration); each match includes a follow-up hint to the matching GuardBee static auditor. Also tagged `GuardBee/guardbee-mcp` on GitHub with `mcp-security` / `ai-security` so the suite appears on [github.com/topics/mcp-security](https://github.com/topics/mcp-security).
-
-## Recent Changes (2026-09-30)
-
-Added a new AI-security MCP after a gap pass against the current MCP/AI-security landscape (OWASP MCP Top 10, Simon Willison's lethal trifecta, competitor scanners that score individual tools but not combinations): **[`@guardbee/mcp-toxic-flow-auditor`](packages/toxic-flow-auditor)**. Every other GuardBee MCP auditor looks at one tool, one file, or one pattern at a time; this one asks whether the *catalog as a whole* can chain untrusted content + sensitive data + an exfil/destruct path — the failure mode where a prompt injection in a fetched page can reach vault/DB tools and then `send_*` / `delete_*`. Grades A–F, reports dangerous pairs when the full trifecta is absent, includes KVKK (`tc_kimlik`, `müşteri`) heuristics, CLI (`audit` / `scan`) + MCP tools + SARIF. Mapped to OWASP MCP10:2025.
-
-## Recent Changes (2026-09-27)
-
-Completed and shipped work found sitting uncommitted in `ai-code-scanner` from an earlier session: **custom rule packs** (`0.2.2` → `0.3.0`, minor — new capability, no breaking change). Built-in patterns cover common AI/LLM integration mistakes, but field names and internal conventions (e.g. which prop carries KVKK-regulated data) are project-specific — rather than forking the package per customer, a project can now drop JSON rule files into `.guardbee/rules/` (configurable via a new `rules-dir` key in `guardbee.yml`) that get merged with the built-ins at scan time, for both the CLI and the MCP server (`list_patterns` marks loaded custom rules `(custom)`). A rule id colliding with a built-in or another custom rule is rejected — reported on stderr, scan keeps running rather than crashing. 8 new tests (36 total): valid single-rule and multi-rule files, a rule that actually matches, and four rejection paths (id collision, missing field, invalid regex, invalid JSON) plus a missing-rules-dir case. Verified beyond the unit tests with a real end-to-end run: a genuine `.guardbee/rules/kvkk.json` file scanned against a real target file via the actual CLI binary, confirming the custom rule fires alongside the built-in patterns in the same run. `tsc --noEmit` and `npm run build` both clean.
-
-## Recent Changes (2026-09-26, cont'd 4)
-
-Follow-up to the dogfooding pass below: went further on `secret-scanner`'s doc/placeholder noise, since the first suppression-comment fix alone only cut findings 28% (1,623 → 1,162) against `IBM/mcp-context-forge` — the fork's own report had flagged this as still noisy, and sampling the actual remaining findings turned up three more concrete, fixable patterns rather than vague "noise":
-
-- **`bearer_token`** required no minimum length at all, so test fixtures like `"Bearer alpha"` and `"Bearer test-token"` (from that repo's own Rust test suite) matched just as readily as a real OAuth token — and turned out to be nearly the entire problem: 1,008 of 1,149 remaining findings, from a handful of literal test strings reused across hundreds of call sites. Real bearer tokens (JWTs, OAuth2 opaque tokens) are essentially never under 20 characters; added that floor to the pattern.
-- Added a value-shape placeholder filter, applied across all patterns except connection strings (which have their own allowlist and can legitimately contain "example" in a hostname, e.g. `example.com`): an 8+ run of one repeated character, an 8+ ascending sequential run (`abcdefgh`, `01234567` — the exact shape this package's own test fixtures used as filler, which needed rewriting to realistic pseudo-random values as a result), or a dictionary placeholder word embedded in the value (`EXAMPLE`, `PLACEHOLDER`, `CHANGEME`, etc. — this is exactly why AWS's own officially-published example key, `AKIAIOSFODNN7EXAMPLE`, is a famous universal false positive across every secret scanner; it's now correctly recognized here too).
-- Broadened the existing `<UPPER_CASE>` bracket-placeholder allowlist (already present in the connection-string and generic-secret patterns) to any bracketed text, since real docs write descriptive placeholders like `<admin login password>`, not just `<UPPER_CASE>` tokens.
-- Split Stripe's secret/restricted key patterns into live (critical, unchanged) and test-mode (new, low severity) — Stripe's own documentation states test-mode keys are safe to embed in code samples, so treating every `sk_test_...` example in a docs-heavy repo as critical was itself a source of false alarm, not a real one.
-
-Net effect on the same target repo: 1,623 → 173 findings (89%). 9 new/updated tests (33 total), covering both the new suppressions and explicit "must still detect a realistic-looking secret" cases so the fix can't regress into swallowing real positives. Verified against the real target repo, plus a monorepo-wide smoke test (21 findings, all pre-existing own-test-fixture matches). `secret-scanner` 0.2.3 → 0.2.4.
-
-## Recent Changes (2026-09-26, cont'd 3)
-
-Dogfooding pass: ran the whole scanner family against 5 real, popular open-source MCP projects (`modelcontextprotocol/servers`, `IBM/mcp-context-forge`, `cisco-ai-defense/mcp-scanner`, `semgrep/mcp`, `invariantlabs-ai/mcp-injection-experiments`) to validate against code we don't control. No real vulnerabilities turned up — every medium+ finding was a false positive — but the exercise found two real bugs in our own patterns, both fixed here with regression tests:
-
-- **`mcp-server-auditor`**'s `sql_injection_via_tool_input` (0.1.2 → 0.1.3) matched JS's `.delete(`/`.select(`/`.update(`/`.insert(` method-call syntax as if it were SQL DML, case-insensitively — `params.delete(prefix + "tags")` next to an unrelated `${params.toString()}` template literal was enough to trip it (`IBM/mcp-context-forge`'s `admin_ui/search.js`, a plain browser `URLSearchParams` helper, zero SQL anywhere nearby). Tightened to require a real SQL clause keyword (`FROM`/`INTO`/`SET`/`WHERE`/`VALUES`) between the DML keyword and the interpolation, and added a negative lookbehind so a keyword preceded by `.` (a method call) never matches. Verified isolated before/after against both the real false positive and all existing positive fixtures; re-scanned the target repo (0 findings, was 1) and the whole monorepo (0 false positives across 247 files).
-- **`secret-scanner`**'s scanner had no suppression-comment support at all, so a mature codebase that already annotates known-safe matches (`# pragma: allowlist secret`, `gitleaks:allow`, `nosec`, etc. — 464 files' worth in `IBM/mcp-context-forge` alone) got flagged anyway. Added recognition of the common conventions (detect-secrets, gitleaks, trufflehog, plus a `guardbee:allow`/`guardbee-ignore` pair) checked against the same line as the match. Re-scanning the target repo dropped findings from 1,623 to 1,162 (28%) from this alone; still noisy from unrelated doc/placeholder content, which is a separate, larger fix not attempted here. 4 new tests (3 positive suppression cases + 1 negative — an annotation on an unrelated nearby line must not suppress a real secret). `secret-scanner` 0.2.2 → 0.2.3.
-
-Also surfaced, not yet acted on: the whole family is JS/TS-pattern-oriented, so 3 of the 5 target repos (all-Python, including `IBM/mcp-context-forge`'s actual OAuth/gateway logic — exactly what `oauth-auditor` targets) got no meaningful pattern coverage.
-
-## Recent Changes (2026-09-26, cont'd 2)
-
-Added a 21st package, the last of three follow-on additions from a research pass on the current MCP/AI-security landscape: **[`@guardbee/mcp-oauth-auditor`](packages/oauth-auditor)** — scans an MCP server's own authorization code for the exact anti-patterns the MCP specification's Security Considerations section names as the central authorization risks. Token passthrough: a client's token forwarded unchanged to a downstream API instead of being exchanged/re-scoped — the token was audienced for this server, not whatever it gets forwarded to. Missing audience validation: a `jwt.verify()` call that checks a token's signature but never its `aud` claim, so a token minted for a completely different resource server verifies successfully here too — the same confused-deputy substitution from the other direction. Three adjacent patterns round it out: an OAuth/OIDC discovery URL built from client-supplied input (the shape behind a real disclosed CVE), `redirect_uri` validated with `startsWith`/`includes` instead of exact match (open-redirect bypass), and a hardcoded `client_secret`. Two of the six checks (audience, PKCE) look for an absence near a call site rather than a fixed regex, extracting the full call/URL construction first. 18 tests; found and fixed a real regex bug during development (a trailing `\b` after a `]` character can never match, since `]` isn't a word character — silently missed the bracket-notation form of header access, `req.headers['authorization']`). End-to-end verified against a fixture with all 6 anti-patterns deliberately planted (caught all 6) and the entire monorepo (401 files — zero findings in real code; the only non-test matches were the scanner's own pattern-definition source textually containing the string `jwt.verify(` inside a regex literal, not actual vulnerable usage). New package, so no changeset added.
-
-## Recent Changes (2026-09-26, cont'd)
-
-Added a 20th package: **[`@guardbee/mcp-memory-poisoning-scanner`](packages/memory-poisoning-scanner)** — targets a gap `prompt-injection-scanner` doesn't cover: that package catches an injection payload sitting in content the model reads once (a document, a scraped page); this one catches the code pattern that lets a payload become part of what the model treats as its own long-term knowledge — the same gap between reflected and stored XSS, applied to an agent's memory. Deliberately scoped narrow: ordinary conversation-buffer memory holding raw chat turns (`chatHistory.push({role: "user", content: userInput})`) is completely normal and explicitly out of scope — only *persistent, cross-session* memory is checked (MemGPT-style archival memory, recalled in future unrelated sessions; core memory, re-injected into the system prompt every turn by design; or a vector store used as a long-term knowledge base rather than per-conversation RAG). 5 memory-write patterns (untrusted input landing in that memory unsanitized) and 3 memory-readback patterns (a retrieval result flowing into a system/assistant-role message or prompt template — where poisoned memory "cashes out" as an instruction rather than data). 17 tests, including an explicit check that ordinary conversation memory produces zero findings. End-to-end verified against a realistic planted-vulnerability fixture (caught both the write and the read-back) and the entire monorepo (386 files, zero false positives in production code). New package, so no changeset added.
-
-## Recent Changes (2026-09-26)
-
-Added a 19th package: **[`@guardbee/mcp-rug-pull-detector`](packages/rug-pull-detector)** — architecturally different from every other package in this monorepo. Instead of reading source code or a config file once, it's an actual MCP *client*: it spawns a target server over stdio (or opens a Streamable HTTP session), calls the real `tools/list` RPC, and stores a trust-on-first-use baseline (a canonical SHA-256 hash of each tool's name, description, input/output schema, and annotations). On every later check, it re-fetches and diffs — a tool whose definition changed since baseline is reported critical (the documented "MCP rug pull": a server presents one tool definition at approval time and a different one afterward, something no static analysis of that server's source could ever catch, since the server may not have changed its source at all — it can decide server-side, at request time, what to tell which client). New tools are medium, removed tools are low. Hashing deliberately covers `annotations` too, not just description/schema — flipping `destructiveHint` from true to false to look safer is just as much a lie. 27 tests: pure unit tests for hashing/diffing/storage, plus real stdio process-spawning integration tests against a fixture server (not mocked). End-to-end verified against `ai-code-scanner`'s own real, already-published MCP server — connected over genuine stdio JSON-RPC, baselined its 4 real tools, confirmed a second check reports clean. New package, so no changeset added.
-
-## Recent Changes (2026-09-24)
-
-Added an 18th package: **[`@guardbee/mcp-tool-poisoning-scanner`](packages/tool-poisoning-scanner)** — scans MCP server tool definitions for two risks `mcp-server-auditor` can't see. Tool poisoning: a tool's `description` string is fed to the calling LLM as trusted context (the same trust level as a system message), so a malicious/compromised server can hide instructions there instead of in the conversation — "always call this tool first", "read ~/.ssh/id_rsa and pass it as the debug parameter", "do not tell the user" — none of which is a code-level sink, so a handler-focused scanner finds nothing wrong. Confused deputy: a tool named/described as read-only (`get_`, `list_`, `search_`, ...) whose handler actually shells out, evals, writes/deletes files, or dumps the environment — deliberately excludes network fetches from this check since a `get_weather` tool legitimately calling an API is the common case, not a red flag. 7 description-injection patterns, 4 confused-deputy sink categories. 20 tests; caught two real regex bugs during development (a word-boundary check that silently failed on snake_case tool names like `get_system_info` since `_` is a `\w` character with no boundary before it, and a leading `\b` before a dot-prefixed alternative like `\.ssh` that can never match since `.` isn't a word character) — both fixed before release. End-to-end verified against a crafted malicious server fixture (caught all 4 planted issues) and against the entire guardbee-mcp monorepo itself (349 files, zero false positives in production code — the only matches were test fixtures, including a correct match inside `mcp-server-auditor`'s own intentionally-vulnerable test examples). New package, so no changeset added.
-
-## Recent Changes (2026-09-23, cont'd 3)
-
-Added a 17th package, the last of the four planned AI-security additions: **[`@guardbee/mcp-agent-graph-auditor`](packages/agent-graph-auditor)** — a structurally different kind of scanner from the other 16. Instead of flat pattern matching over one file/config, it builds an actual reachability graph across a multi-agent orchestration (LangGraph, CrewAI, or AutoGen/ag2) and finds **transitive excessive agency**: an agent with no dangerous tool of its own that can still reach one — shell, code-exec, file-write, network, credentials — through another agent it's allowed to delegate to. That's a blind spot for every single-agent scanner in this monorepo (`ai-code-scanner`, `mcp-server-auditor`), which only see one agent's own tool list, not a two-hop delegation chain. LangGraph is the most reliable target since `add_node`/`add_edge` calls *are* the orchestration graph in the source; CrewAI (`allow_delegation` + `Crew` membership) and AutoGen (`GroupChat` co-membership, `code_execution_config`, `register_function`) require inferring delegation from framework semantics, so those are documented as heuristic. 31 tests, plus end-to-end verification against realistic fixtures for all three frameworks — correctly distinguished "direct" (single-agent) from "transitive" (delegation-crossing, always reported critical) in every case, and caught a real regex bug along the way (a constructor-extraction pattern that silently missed any Agent definition not followed by a trailing newline — fixed before release, not shipped broken). New package, so no changeset added.
-
-## Recent Changes (2026-09-23, cont'd 2)
-
-Added a 16th package, third of the four planned AI-security additions: **[`@guardbee/mcp-prompt-leak-scanner`](packages/prompt-leak-scanner)** — catches leaked credentials and PII in *outbound* LLM prompts, the moment before they leave your application, rather than in code at rest (`secret-scanner`'s job). Detection uses real checksum algorithms where one exists — the actual 11-digit Turkish national ID (TC Kimlik No) algorithm, Luhn for credit cards, ISO 7064 MOD97-10 for IBANs — instead of bare digit-count regexes, which would otherwise flag order numbers and timestamps constantly. Findings never echo the real value back (`maskedMatch` shows only `sk-…wx`-style partial reveals). Beyond the usual `scan_text`/`scan_file`/`scan_directory` MCP tools, it also ships a `scan_messages` tool that understands OpenAI/Anthropic-style chat bodies (`messages[].content`, string or content-block array, plus `system`), and a standalone `proxy` CLI command — a real reverse proxy you point your app's `baseURL` at instead of the real LLM API, which inspects only the outbound request body (monitor/redact/block policies) and streams the upstream response back untouched, so SSE/streaming completions pass through unaffected. Audit events are credential-free by design — they record which pattern fired and where, never the matched text. 29 tests, including the proxy tested in all three modes via a real local HTTP client/server round trip (not just in-process mocks), plus a manual end-to-end run as an actual subprocess against a mock upstream confirming the redacted body — not the real key — was what got forwarded. New package, so no changeset added.
-
-## Recent Changes (2026-09-23, cont'd)
-
-Added a 15th package, second of the four planned AI-security additions: **[`@guardbee/mcp-vector-store-scanner`](packages/vector-store-scanner)** — probes a vector-database endpoint for unauthenticated exposure, the same misconfiguration class behind repeated open-Elasticsearch/MongoDB/Redis incidents, now aimed at the RAG-era stack. Fingerprints Weaviate/Qdrant/Chroma/Elasticsearch via HTTP and escalates through three levels (instance info → schema/collection listing → actual stored data), so a "critical" finding always means real data was actually read back without credentials, not just that a port responded. Redis and Postgres/pgvector get from-scratch raw-protocol implementations instead of HTTP: a RESP `PING` for Redis, and a wire-protocol `SSLRequest`+`StartupMessage` handshake for Postgres that reads whether `AuthenticationOk` comes back with no password challenge — no client library, no real credentials ever sent. 22 tests against local mock HTTP/TCP servers, covering every probe's matched/unmatched fingerprint and each escalation level. New package, so no changeset added.
-
-## Recent Changes (2026-09-23)
-
-Added a 14th package, the first of four planned additions to the AI-security family: **[`@guardbee/mcp-model-scanner`](packages/model-scanner)** — unlike the other scanners, which look at your integration code or content flowing through a model, this one looks at the **model file itself** as a supply-chain artifact. A `.pt`/`.pth`/`.pkl` checkpoint is a pickle stream, and unpickling can execute arbitrary Python the instant it's loaded (`torch.load()`), not just deserialize data. The package implements a from-scratch pickle opcode disassembler (protocols 0–5, including protocol 4+'s `STACK_GLOBAL` encoding) that walks the byte stream to find every `GLOBAL`/`STACK_GLOBAL`/`INST` reference, then checks it against a 31-rule denylist (`os`, `subprocess`, `socket`, `builtins.eval`, `ctypes`, …) and an allowlist of legitimate ML-framework globals (`numpy`, `torch`, `sklearn`, …). For PyTorch's default zip-based checkpoint format, it reads the ZIP central directory directly off disk (with Zip64 support) to extract just the small `data.pkl` entry without loading a multi-gigabyte file into memory. Also validates `.safetensors` header structure (including detecting a pickle/zip disguised with a safe-looking extension), flags Keras `.h5`/`.keras` Lambda-layer RCE patterns, and flags ONNX `external_data` path-traversal references. 45 tests, end-to-end verified against fixtures produced by real CPython `pickle`/`zipfile` (not just hand-built byte buffers) — correctly caught `os.system` in both protocol-2 (`GLOBAL`) and protocol-4 (`STACK_GLOBAL`) pickle encodings, resolved to `posix.system` exactly as CPython's own pickler records it. New package, so no changeset added (existing project convention).
-
-## Recent Changes (2026-09-15)
-
-Continued growing the AI Gateway (`db-gateway`) work:
-
-- **`query_audit_log` tool** — the gateway's own audit history is now queryable, filterable by `table`/`tool`/`operation`/`deniedOnly`/`since`. It reads from an always-on in-memory ring buffer (`audit.bufferSize`, default 200) that is independent of the configured sink (console/file/http). This also fixed a bug where read and write tools each built their own `AuditLogger`, so write events would never have shown up in query results.
-- **SQLite adapter** — `createSqliteAdapter` accepts a `better-sqlite3` `Database` instance, following the same pattern as the `pg`/`mysql2` adapters (identifiers validated against the live schema via `PRAGMA table_info` before being embedded in SQL).
-- **MongoDB adapter** — `createMongoAdapter` accepts a MongoDB `Db` instance. Guards against a different risk class (not SQL injection, but "operator injection" — `$`-prefixed keys, dotted paths, operator-object filter values).
-
-Full write-up: [`packages/db-gateway/README.md#recent-changes-2026-09-15`](packages/db-gateway/README.md#recent-changes-2026-09-15).
-
-Also added a new package: **[`@guardbee/mcp-server-auditor`](packages/mcp-server-auditor)** — follows `ai-code-scanner`'s architecture (a regex pattern list, scanText/scanFile/scanDirectory, SARIF, guardbee.yml) but points it at a different target: not general LLM integration code, but **an MCP server's own tool definitions**. Does a tool name registered via `server.tool(...)` imply shell/SQL execution, does its handler pass raw tool input straight into an `exec`/`eval`/`fetch`/SQL sink, is a parameter typed `z.any()`, does it leak the entire `process.env` — 10 patterns, 5 categories, 32 tests.
-
-And a third: **[`@guardbee/mcp-prompt-injection-scanner`](packages/prompt-injection-scanner)** — reuses the same engine (scanText/scanFile/scanDirectory/SARIF) but scans **data**, not code: a RAG chunk, a scraped web page, a document. Unlike classic prompt injection, indirect prompt injection never talks to the model directly — it embeds instructions in content the model will later read (via RAG retrieval or a web fetch). Detects override phrases ("ignore previous instructions"), spoofed `System:`/`<|im_start|>` role tokens, text hidden from a human reviewer via zero-width characters or `display:none` while a scraper still extracts it, phrasing that addresses "the AI" directly, and instructions to leak the system prompt or send data to an external URL. 10 patterns, 5 categories, 30 tests — with explicit negative tests against known false-positive sources like emoji ZWJ sequences and ordinary `display:none` modals.
-
-And a fourth, a different kind of tool entirely: **[`@guardbee/mcp-llm-redteam`](packages/llm-redteam)** — while the other three scan code or content at rest, this one **actively** probes a live LLM endpoint or chatbot you control (OpenAI-compatible, Anthropic, or your own webhook) with known jailbreak/extraction/obfuscation/refusal-suppression techniques. Every probe is canary-based, not harm-based: it never asks the target to produce genuinely harmful content — success is a deterministic check for whether the target reproduced a random, single-use token, proving an override instruction was obeyed. 12 probes, 5 categories, 29 tests (target adapters tested against a mocked `fetch`), verified end-to-end via the CLI against local fake chatbot servers (a naive one that leaked 5/6 canaries, a safe one that leaked none).
+Found a vulnerability? Report it privately: see [SECURITY.md](SECURITY.md). Contributions are welcome: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Telemetry
 
-Every package sends usage telemetry to GuardBee via `@guardbee/mcp-telemetry`, **enabled by default**: which tool is called, how often, and how long it takes. A one-time notice is printed to stderr on first use.
+Packages can send usage telemetry to GuardBee via `@guardbee/mcp-telemetry`: which tool is called, how often, and how long it takes. It is **off by default** (opt-in); nothing is sent unless you set `GUARDBEE_TELEMETRY=1`. When it is on, a one-time notice is printed to stderr on first use.
 
-- **To disable**: `GUARDBEE_TELEMETRY=0` (or `false`/`off`)
+- **To enable**: `GUARDBEE_TELEMETRY=1` (or `true`/`on`/`yes`); unset it to turn telemetry off again
 - **What's sent**: tool name, short (≤40 character) parameter values (e.g. `table: "users"`, `limit: 50`), success/failure, duration
 - **What's NEVER sent**: values under keys like `content`/`text`/`data`/`filter`/`password`/`email`/`apiKey`/`token`, and any string longer than 40 characters — all replaced with `"[redacted: ...]"` by `redactParams()` in `packages/telemetry/src/redact.ts`. So the full content of scanned files/code, or the real row data from an `insert_row`/`update_row` call, is never sent.
 
@@ -166,8 +131,25 @@ pnpm changeset
 
 After merging to `main`, CI automatically opens a version PR; merging that PR publishes the changed packages to npm (see `.github/workflows/release.yml`).
 
+### Stability
+
+Packages at **1.0 or later** follow [semantic versioning](https://semver.org): a breaking change to the CLI, the MCP tool names and parameters, the config format or the exported API comes only with a new major version, and is listed in the package's `CHANGELOG.md`. New rules and detectors arrive in minor versions; they can report findings an earlier version did not. Packages still at 0.x may change between minor versions.
+
+| Package | Stable since |
+|---|---|
+| `@guardbee/mcp-security-proxy` | 1.0 |
+| `@guardbee/guard-core` | 1.0 |
+| `@guardbee/mcp-secret-scanner` | 1.0 |
+| `@guardbee/mcp-prompt-injection-scanner` | 1.0 |
+| `@guardbee/mcp-prompt-leak-scanner` | 1.0 |
+| `@guardbee/mcp-toxic-flow-auditor` | 1.0 |
+
 ## Structure
 
-- **pnpm workspaces** — `packages/*`, real `workspace:*` dependencies (e.g. `security-suite` depends on the other 4 packages directly from the workspace, not a registry version)
+- **pnpm workspaces** — `packages/*`, real `workspace:*` dependencies (e.g. `security-suite` depends on the other packages directly from the workspace, not a registry version)
 - **Turborepo** — `build`/`test`/`type-check` pipeline, dependency-graph-aware ordering and caching
 - **Shared config** — `tsconfig.base.json` and `vitest.shared.ts` at the root; each package layers its own settings on top
+
+## Project history
+
+The monorepo's earlier write-ups are in [CHANGELOG.md](CHANGELOG.md); each package's release notes are in its own `CHANGELOG.md` and on [GitHub Releases](https://github.com/GuardBee/guardbee-mcp/releases).

@@ -1,23 +1,16 @@
 # @guardbee/security-suite
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/security-suite.svg)](https://www.npmjs.com/package/@guardbee/security-suite)
+[![npm downloads](https://img.shields.io/npm/dm/@guardbee/security-suite.svg)](https://www.npmjs.com/package/@guardbee/security-suite)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Tüm GuardBee MCP güvenlik araçlarını tek pakette toplayan meta-paket. Secret scanner, dependency auditor, SSL inspector ve DNS intelligence tek kurulumla kullanılabilir.
+Tüm GuardBee MCP güvenlik araçları tek kurulumla. `guardbee serve`, seçtiğiniz paketlerin tool'larını sunan tek bir MCP sunucusudur; `guardbee <paket> …` herhangi bir paketin CLI'ını çalıştırır. 29 paket, 124 MCP tool'u.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler — bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
----
-
-## Hızlı Başlangıç
-
-```bash
-npm install -g @guardbee/security-suite
-```
-
-### Claude Desktop (MCP — tüm araçlar tek server)
+## Hızlı başlangıç
 
 ```json
 {
@@ -30,104 +23,100 @@ npm install -g @guardbee/security-suite
 }
 ```
 
----
+Bu, **önerilen** seti (31 tool) sunar: tek geçişte OWASP MCP Top 10 taraması, secret'lar, prompt injection, zehirli akışlar, MCP istemci config'leri ve bağımlılık CVE'leri. Başkalarını `--tools` ile seçin:
 
-## CLI Kullanımı
+```json
+"args": ["-y", "@guardbee/security-suite", "serve", "--tools=recommended,network"]
+```
+
+`--tools` virgülle ayrılmış grup adları ve paket kimlikleri ya da `all` alır (124 tool; Cursor dahil bazı istemciler tool sayısını sınırlar). `GUARDBEE_SUITE_TOOLS` ortam değişkeni de aynı işi yapar. Her tool'un adı paketinin önekiyle başlar, böylece iki paketin `scan_text` tool'u çakışmaz: `secrets_scan_text`, `injection_scan_text`. Bunu zaten söyleyen adlar olduğu gibi kalır (`owasp_scan_path`, `inspect_ssl`).
+
+## Gruplar
+
+| Grup | Kapsamı |
+|---|---|
+| `recommended` (varsayılan) | owasp-scan, secret-scanner, prompt-injection-scanner, toxic-flow-auditor, mcp-config-auditor, dependency-auditor |
+| `code` | Kaynak kod, config ve diskteki içerik üzerinde statik kontroller |
+| `supply-chain` | Bağımlılıklar, halüsinasyon paket adları, model dosyaları, MCP istemci config'leri, tool tanımı değişiklikleri |
+| `network` | Bir sunucuya bağlanan kontroller: TLS, DNS, vektör veritabanları, canlı bir LLM |
+| `platform` | GuardBee platformunu çağıran tool'lar (`GUARDBEE_API_KEY` gerekir) |
+| `all` | Tüm paketler |
+
+## Paketler
+
+| Kimlik | Tool öneki | Kontrol ettiği | Gruplar |
+|---|---|---|---|
+| `owasp-scan` | `owasp_` | OWASP MCP Top 10 in one pass over a codebase or a live server, A–F grade | recommended, code |
+| `secret-scanner` | `secrets_` | API keys, tokens and passwords in files, git history and agent transcripts | recommended, code |
+| `prompt-injection-scanner` | `injection_` | Prompt injection in documents, web pages and RAG content | recommended, code |
+| `toxic-flow-auditor` | `toxic_flow_` | Lethal trifecta: untrusted input, sensitive data and egress in one agent | recommended, code |
+| `mcp-config-auditor` | `mcp_config_` | MCP client configs (Cursor, Claude, Windsurf, VS Code) and shadow servers | recommended, supply-chain |
+| `dependency-auditor` | `deps_` | Known CVEs in npm and PyPI dependencies (OSV) | recommended, supply-chain |
+| `prompt-leak-scanner` | `leak_` | Credentials and PII in outbound LLM prompts, before they leave your app | code |
+| `tool-poisoning-scanner` | `poisoning_` | Hidden instructions in MCP tool descriptions and schemas | code |
+| `mcp-server-auditor` | `server_audit_` | Shell, eval, SSRF and secrets in an MCP server's source | code |
+| `oauth-auditor` | `oauth_` | OAuth 2.1 mistakes in an MCP server's auth code: token passthrough, audience, PKCE | code |
+| `audit-gap-auditor` | `audit_gap_` | Tool calls without an audit trail (OWASP MCP08) | code |
+| `context-oversharing-auditor` | `oversharing_` | Context oversharing (MCP10): session dumps, cross-user context, unscoped recalls | code |
+| `ai-code-scanner` | `ai_code_` | Insecure LLM integrations: exposed keys, unsafe model output, PII to third-party LLMs | code |
+| `agent-graph-auditor` | `agent_graph_` | Transitive excessive agency across LangGraph, CrewAI and AutoGen agents | code |
+| `a2a-auditor` | `a2a_` | Agent2Agent (A2A) implementation code: webhook SSRF, unauthenticated Agent Cards | code |
+| `elicitation-auditor` | `elicitation_` | MCP elicitation that asks users for secrets or sends them to third parties | code |
+| `memory-poisoning-scanner` | `memory_` | Untrusted input written into persistent agent memory | code |
+| `unbounded-consumption-auditor` | `consumption_` | Denial of wallet: missing token limits, timeouts and loop bounds | code |
+| `threat-rules` | `threat_rules_` | Agent Threat Rules (ATR) on text, files and agent events | code |
+| `document-scanner` | `document_` | PII and credentials in PDFs and images (OCR) before they reach an LLM | code |
+| `slopsquat-scanner` | `slopsquat_` | Hallucinated or brand-new package names (slopsquatting) | supply-chain |
+| `model-scanner` | `model_` | Malicious pickle, safetensors, Keras and ONNX model files | supply-chain |
+| `rug-pull-detector` | `rug_pull_` | MCP tool definitions that change after you approved them | supply-chain |
+| `ssl-inspector` | `ssl_` | TLS certificates, ciphers and HSTS | network |
+| `dns-intelligence` | `dns_` | DNS records, SPF/DMARC/DKIM, subdomain takeover | network |
+| `vector-store-scanner` | `vector_store_` | Unauthenticated vector databases (Weaviate, Qdrant, Chroma, pgvector…) | network |
+| `llm-redteam` | `redteam_` | Jailbreak and extraction probes against an LLM endpoint you control | network |
+| `vulnerability-scanner` | `vuln_` | GuardBee platform security scans and their findings | platform |
+| `compliance-checker` | `compliance_` | KVKK, GDPR and CCPA compliance of a website via the GuardBee API | platform |
+
+`guardbee list` bu tabloyu yazdırır. Proxy ([`mcp-security-proxy`](../security-proxy)) ve veritabanı geçidi ([`mcp-db-gateway`](../db-gateway)) suite'te yok: tool çağrısı yanıtlamak yerine başka sunucuların önünde dururlar.
+
+## CLI
 
 ```bash
-guardbee secret-scan <path>           # Secret taraması
-guardbee dep-audit <dir>              # CVE denetimi
-guardbee ssl-inspect <domain>...      # TLS denetimi
-guardbee dns-check <domain>           # DNS/SPF/DMARC kontrolü
+npm install -g @guardbee/security-suite
+
+guardbee list                                         # paketler ve gruplar
+guardbee owasp-scan scan . --fail-on=high --format=sarif > owasp.sarif
+guardbee secret-scanner scan . --history              # herhangi bir paketin CLI'ı, aynı argümanlarla
+guardbee mcp-config-auditor discover
 ```
 
-### Ortak Seçenekler
+Önceki sürümlerdeki kısayollar çalışmaya devam eder:
 
-```
---fail-on=<level>     critical | high | medium | low  (varsayılan: araç özelinde)
---format=text|json|sarif
-```
+| Kısayol | Çalıştırdığı |
+|---|---|
+| `guardbee secret-scan <path>` | `secret-scanner scan` |
+| `guardbee dep-audit <dir>` | `dependency-auditor audit` |
+| `guardbee ssl-inspect <domain>…` | `ssl-inspector inspect` |
+| `guardbee dns-check <domain>` | `dns-intelligence check` |
 
-### Örnekler
-
-```bash
-guardbee secret-scan . --fail-on=high
-guardbee dep-audit . --fail-on=critical --format=sarif > results.sarif
-guardbee ssl-inspect example.com api.example.com shop.example.com
-guardbee dns-check example.com --fail-on=medium
-```
-
----
-
-## CI/CD Entegrasyonu
-
-### GitHub Actions
+## GitHub Actions
 
 ```yaml
-name: Security Suite
-on: [push, pull_request]
-
-jobs:
-  security:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20 }
-      - run: npm ci
-
-      - name: Secret scan
-        run: npx @guardbee/security-suite secret-scan . --fail-on=high
-
-      - name: Dependency audit
-        run: npx @guardbee/security-suite dep-audit . --fail-on=high
-
-      - name: SARIF upload (GitHub Security tab)
-        if: always()
-        run: |
-          npx @guardbee/security-suite secret-scan . --format=sarif > secrets.sarif || true
-          npx @guardbee/security-suite dep-audit . --format=sarif > deps.sarif || true
-
-      - uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: secrets.sarif
-
-      - uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: deps.sarif
+- run: npx -y @guardbee/security-suite owasp-scan scan . --format=sarif --fail-on=high > owasp.sarif
+- run: npx -y @guardbee/security-suite dep-audit . --fail-on=high
+- uses: github/codeql-action/upload-sarif@v3
+  if: always()
+  with:
+    sarif_file: owasp.sarif
 ```
 
-### GitLab CI
+## 0.2'den yükseltme
 
-```yaml
-include:
-  - template: Security/Secret-Detection.gitlab-ci.yml
-
-guardbee-security:
-  image: node:20
-  script:
-    - npx @guardbee/security-suite secret-scan . --fail-on=high
-    - npx @guardbee/security-suite dep-audit . --fail-on=high
-  only:
-    - merge_requests
-    - main
-```
-
----
-
-## Dahil Olan Araçlar
-
-| Araç | Paket | Açıklama |
-|------|-------|----------|
-| `secret-scan` | `@guardbee/mcp-secret-scanner` | 40+ pattern ile secret tespiti |
-| `dep-audit` | `@guardbee/mcp-dependency-auditor` | OSV CVE veritabanı denetimi |
-| `ssl-inspect` | `@guardbee/mcp-ssl-inspector` | TLS sertifika ve cipher analizi |
-| `dns-check` | `@guardbee/mcp-dns-intelligence` | DNS, SPF, DMARC, dangling subdomain |
-
----
+`guardbee serve` eskiden dört paketten beş tool'u düz adlarla sunuyordu (`scan_directory`, `scan_file`, `audit_dependencies`, `inspect_ssl`, `check_dns`). Artık önerilen grubu önekli adlarla sunar: aynı kontroller `secrets_scan_directory`, `secrets_scan_file`, `deps_audit_directory` ve `--tools=recommended,network` ile `inspect_ssl` ve `enumerate_dns` / `dns_check_email_security` oldu. Tool'ları adıyla çağıran ajanların yeni adları kullanması gerekir.
 
 ## Lisans
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

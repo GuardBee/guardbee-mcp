@@ -1,12 +1,12 @@
 # @guardbee/mcp-oauth-auditor
 
-[🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文**
+[🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文** | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 一个 MCP（Model Context Protocol）服务器，用于扫描 MCP 服务器自身的授权代码，查找 **MCP 规范自身 Security Considerations 章节中点名的 OAuth 2.1 反模式**。
 
 MCP 规范并未把这留给猜测——它明确将**令牌透传（token passthrough）**（把客户端令牌原样转发给下游 API，而不是交换/重新限定作用域）和**缺少 audience 校验**（接受 `aud` 声明从未为本服务器签发的令牌）列为作为 OAuth 资源服务器时的核心授权失败模式。本包精确检查这两项，外加同一家族中的另外三种相关反模式。
 
-> 本包默认发送使用遥测（工具名 + 较短的参数，绝不包含被扫描的代码——见 [`@guardbee/mcp-telemetry`](../telemetry/README.md)）。设置 `GUARDBEE_TELEMETRY=0` 即可关闭。
+> 遥测默认**关闭**。设置 `GUARDBEE_TELEMETRY=1` 后会发送服务器、工具、成功与否、耗时以及文件路径等简短参数值；更长的字符串和 `content`、`token`、`password` 等字段会被占位符替换。参见 [`@guardbee/mcp-telemetry`](../telemetry/ZH.md)。
 
 ```
 Claude ──► oauth-auditor ──► Your MCP server's auth code
@@ -120,3 +120,7 @@ npm test             # 18 unit tests
 ## 许可证
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## 反馈
+
+有问题、想法或误报？请在 [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) 发帖或[提交 issue](https://github.com/GuardBee/guardbee-mcp/issues)。如果 GuardBee 对你有帮助，给[仓库](https://github.com/GuardBee/guardbee-mcp)点个 ⭐ 能让更多人发现它。

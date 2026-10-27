@@ -1,0 +1,13 @@
+# The demo policy: the defaults, with the demo CRM's tools labeled.
+version: 1
+upstreams:
+  crm:
+    command: node
+    args: ["crm-server.mjs"]
+labels:
+  crm__get_customer: [sensitive]
+  crm__read_ticket: [untrusted]
+  crm__send_email: [egress]
+audit:
+  sink: file
+  filePath: ./audit.jsonl

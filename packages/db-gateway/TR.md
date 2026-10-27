@@ -1,6 +1,6 @@
 # @guardbee/mcp-db-gateway
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-db-gateway.svg)](https://www.npmjs.com/package/@guardbee/mcp-db-gateway)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-db-gateway.svg)](https://www.npmjs.com/package/@guardbee/mcp-db-gateway)
@@ -11,7 +11,7 @@ KVKK / GDPR uyumlu MCP (Model Context Protocol) sunucusu — LLM ile veritabanı
 
 Claude veya başka bir LLM, veritabanınızı doğrudan sorgulamak yerine bu gateway üzerinden geçer. Hassas alanlar otomatik olarak maskelenir, tablo erişimleri rol bazlı kontrol edilir, her sorgu audit log'a yazılır.
 
-> Bu paket varsayılan olarak GuardBee'ye kullanım telemetrisi gönderir (tool adı + kısa parametreler, örn. tablo adı — gerçek satır verisi/filtre değerleri hiçbir zaman dahil değil, bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). Bu, gateway'in kendi local audit log'undan (`audit.filePath`) ayrı ve bağımsızdır. Kapatmak için `GUARDBEE_TELEMETRY=0`.
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
 ```
 Claude ──► MCP Gateway ──► Veritabanı
@@ -299,6 +299,22 @@ createServer({
 
 Glob pattern desteği: `*Password*`, `*Token*`, `*Secret*`
 
+### Metin kolonlarındaki PII (`piiScan`)
+
+Alan kuralları kolon adına bakar; serbest metin bir kolon (`notes`, `description`) yine de e-posta, TC kimlik ya da API anahtarı taşıyabilir. `piiScan` (varsayılan kapalı) bunları, hiçbir alan kuralının kapsamadığı her metin alanında değer bazında maskeler; iç içe objeler ve diziler dahil. Bir `allow` kuralı o alan için taramayı kapatır. `preset` / `enable` / `disable` dedektörleri seçer; presetler security proxy ile aynıdır: `ALL` (varsayılan), `KVKK`, `IDENTITY`, `IDENTIFIERS`, `SECRETS`.
+
+```ts
+createServer({ piiScan: { enabled: true, preset: "KVKK", disable: ["address"] } }, adapter);
+```
+
+CLI'dan: `GATEWAY_PII_SCAN=true` (tüm varsayılan dedektörler) ya da `GATEWAY_PII_SCAN=KVKK` (bir preset). Bilinmeyen bir preset ya da dedektör adı başlangıçta hata verir.
+
+`piiScan.blockPatterns` ve `piiScan.allowPatterns` security proxy'deki gibi kendi kalıplarınızı ekler: block kendi kimliklerinizi `<KATEGORİ_n>` olarak maskeler, allow metninin tamamı eşleşen tespit edilmiş bir değeri bırakır. 100 ms bütçesini aşan bir block kalıbı, maskelenmemiş olabilecek satırları döndürmek yerine sorguyu başarısız kılar.
+
+```ts
+createServer({ piiScan: { enabled: true, blockPatterns: [{ pattern: "CL-\\d{6}", category: "CLIENT_NO" }], allowPatterns: ["destek@acme\\.com\\.tr"] } }, adapter);
+```
+
 ---
 
 ## Rol Bazlı Erişim (RBAC)
@@ -377,3 +393,7 @@ npm run type-check   # Sadece tip kontrolü
 ## Lisans
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-server-auditor",
-  "version": "0.1.8",
+  "version": "0.2.2",
   "mcpName": "io.github.GuardBee/mcp-server-auditor",
   "description": "MCP server that audits other MCP servers' tool definitions for insecure patterns — excessive-agency tool names, shell/eval/SQL/SSRF sinks fed by raw tool input, overly permissive schemas, hardcoded secrets, and wildcard CORS",
   "type": "module",
@@ -11,15 +11,18 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "default": "./dist/index.js"
     }
   },
   "files": [
     "dist",
     "README.md",
-    "TR.md",
-    "ZH.md"
+    "LICENSE",
+    "CHANGELOG.md",
+    "!dist/**/*.map",
+    "!dist/**/__tests__"
   ],
   "scripts": {
     "build": "tsc",
@@ -29,6 +32,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
+    "@guardbee/guard-core": "workspace:^",
     "@guardbee/mcp-telemetry": "workspace:^",
     "@modelcontextprotocol/sdk": "catalog:",
     "zod": "catalog:"
@@ -47,5 +51,12 @@
     "type": "git",
     "url": "https://github.com/GuardBee/guardbee-mcp.git",
     "directory": "packages/mcp-server-auditor"
+  },
+  "homepage": "https://guardbee.ai/en/what-is-mcp-server-auditor/",
+  "bugs": {
+    "url": "https://github.com/GuardBee/guardbee-mcp/issues"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

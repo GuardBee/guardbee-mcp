@@ -2,13 +2,13 @@
 
 [![Listed on AgentHub](https://myagenthub.cn/badge/io.github.4hmetuyar/a2a-auditor)](https://myagenthub.cn/p/io.github.4hmetuyar/a2a-auditor)
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 MCP (Model Context Protocol) sunucusu — bir agent'ın kendi **Agent2Agent (A2A) protokol implementasyonunu** anti-pattern'ler için tarar. Bu kalıplar spec metninden uydurulmadı, doğrudan referans SDK'lardan (`@a2a-js/sdk`, `a2a-sdk`) ve onların kendi resmi örnek kodundan okundu.
 
 A2A'nın henüz alıntılanacak MCP-tarzı bir "Security Considerations" bölümü yok. Bu yüzden tahmin etmek yerine, bu paketin kalıpları referans SDK kaynağının kendisinde bulunan üç şeye dayanıyor: resmi push-notification sender'ı hiçbir host kontrolü yapmadan client-sağlanan bir webhook URL'ini fetch ediyor, resmi *örnek* agent boş bir security scheme ve literal bir `noAuthentication` request handler'ıyla geliyor, ve Python SDK'sının `AgentCard(...)` constructor'ı iki security kwarg'ını tamamen opsiyonel kabul ediyor — onları geçmezseniz sessizce "auth yok" anlamına geliyor.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler, taranan kod hiçbir zaman dahil değil — bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
 ```
 Claude ──► a2a-auditor ──► A2A agent'ınızın kaynak kodu
@@ -120,3 +120,7 @@ npm test             # 18 unit test
 ## Lisans
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

@@ -2,7 +2,7 @@
 
 [![Redthread scan](https://trust.redthreadsec.com/badge/mcp/io.github.GuardBee/toxic-flow-auditor.svg)](https://trust.redthreadsec.com/v/mcp/io.github.GuardBee/toxic-flow-auditor)
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 Bir MCP **tool kataloğunu** **toksik akışlar** (Simon Willison'ın *lethal trifecta*'sı) için denetleyen bir MCP server:
 
@@ -12,7 +12,7 @@ Bir MCP **tool kataloğunu** **toksik akışlar** (Simon Willison'ın *lethal tr
 
 Aynı MCP server bu üçünü birden açıyorsa, tek bir prompt injection bunları zincirleyebilir. Başlıca eşleme: **OWASP MCP10:2025**.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler; taranan kod hiç gitmez — bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
 ```
 Claude ──► toxic-flow-auditor ──► tools/list JSON veya MCP server kaynağı
@@ -52,3 +52,7 @@ Sınıflandırma kuralları [`@guardbee/guard-core`](../guard-core/TR.md)'dan ge
 npx @guardbee/mcp-toxic-flow-auditor audit <tools.json> [--fail-on=any] [--format=text|json|sarif]
 npx @guardbee/mcp-toxic-flow-auditor scan <path>        [--fail-on=any] [--format=text|json|sarif]
 ```
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

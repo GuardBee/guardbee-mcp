@@ -10,28 +10,41 @@ import type {
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 import {
+  detectTopics,
   maskPiiInValue,
+  MODEL_PII,
+  MODEL_PII_REPLACEMENT,
+  SPECIAL_CATEGORIES,
+  SPECIAL_CATEGORY_REPLACEMENT,
+  OPT_IN_PII,
+  PiiPatternTimeoutError,
+  type OrgPatternEvent,
+  PERSONAL_DATA_CATEGORIES,
   PII_PATTERNS,
   scanForPromptInjection,
   scanToolCatalog,
   scanToolResult,
   type CatalogFinding,
+  type SpanLookup,
 } from "@guardbee/guard-core";
 import { recordEvent } from "@guardbee/mcp-telemetry";
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { activeCallSpan, tracer, withCallSpan } from "../tracing.js";
 import type { AuditLogger } from "../audit/logger.js";
 import { ToolDefinitionPin, type ToolRecord } from "../interceptors/definition-drift.js";
+import { describeChange, type PinChange, type PinStore } from "./pin-store.js";
 import type { AuditEvent } from "../types.js";
+import { orgPatternsFor, piiScopesFor, type PiiScopes } from "./pii-scope.js";
 import { AnomalyDetector, type AnomalyConfig } from "./anomaly.js";
 import type { Approver } from "./approval.js";
 import type { GatewayConfig } from "./config.js";
 import { maskFields } from "./fields.js";
 import { labelTool, type Label } from "./labels.js";
 import { DataFingerprints } from "./fingerprints.js";
-import { evaluatePolicy, globToRegExp } from "./policy.js";
+import { evaluatePolicy, evaluateTopicRules, globToRegExp } from "./policy.js";
 import { QuotaStore } from "./quota.js";
 import { TaintTracker } from "./taint.js";
+import { NerError, nerDetectorFor, scanNames } from "./ner.js";
 import { PiiVault } from "./tokens.js";
 import type { CallOptions, Upstream } from "./upstream.js";
 
@@ -51,8 +64,23 @@ export interface CallerIdentity {
 }
 
 /** Pattern names that are personal data; every other PII pattern is a credential and counts as "secret". */
-const PERSONAL_DATA = new Set(["tc_kimlik", "vkn", "iban", "credit_card", "email", "phone_tr"]);
-const PLACEHOLDER = new Map(PII_PATTERNS.map((p) => [p.name, p.replacement]));
+const PERSONAL_DATA = new Set<string>([...PERSONAL_DATA_CATEGORIES, ...MODEL_PII, ...SPECIAL_CATEGORIES]);
+
+/** Base64 bytes in a content item: an image, an embedded resource or a resource's blob. */
+function blobOf(item: { type?: string }): { data: string; label: string } | null {
+  const record = item as Record<string, unknown>;
+  if (record["type"] === "image" && typeof record["data"] === "string") {
+    return { data: record["data"], label: `image (${typeof record["mimeType"] === "string" ? record["mimeType"] : "unknown type"})` };
+  }
+  // An embedded resource nests it under `resource`; a resources/read item is the resource itself
+  const nested = record["resource"];
+  const resource = (typeof nested === "object" && nested !== null ? nested : record) as Record<string, unknown>;
+  if (typeof resource["blob"] === "string") {
+    return { data: resource["blob"], label: typeof resource["uri"] === "string" ? resource["uri"] : "embedded document" };
+  }
+  return null;
+}
+const PLACEHOLDER = new Map<string, string>([...PII_PATTERNS.map((p) => [p.name, p.replacement] as const), ...Object.entries(MODEL_PII_REPLACEMENT), ...Object.entries(SPECIAL_CATEGORY_REPLACEMENT)]);
 
 type PiiHits = Record<string, number>;
 
@@ -61,6 +89,8 @@ function addHits(into: PiiHits, from: PiiHits): PiiHits {
   return into;
 }
 const PREFIX = "[GuardBee Security Proxy]";
+/** Stable code in an McpError's data when a result is withheld because masking failed (same as the LLM gateway's). */
+const MASKING_FAILED = "guardbee_masking_failed";
 
 interface ToolRoute {
   upstream: Upstream;
@@ -96,6 +126,10 @@ export class Gateway {
   private anomalyConfig?: AnomalyConfig;
   private readonly now?: () => number;
   private readonly pins = new Map<string, ToolDefinitionPin>();
+  /** Shared by every session of the process; absent when definitions are not persisted. */
+  private readonly pinStore?: PinStore;
+  /** Tools whose definition differs from the persisted one, per upstream, until approved. */
+  private readonly unpinned = new Map<string, Map<string, PinChange>>();
   private readonly tools = new Map<string, ToolRoute>();
   private readonly resources = new Map<string, Upstream>();
   private readonly prompts = new Map<string, { upstream: Upstream; name: string }>();
@@ -120,8 +154,9 @@ export class Gateway {
     private readonly config: GatewayConfig,
     private readonly audit: AuditLogger,
     private readonly approver?: Approver,
-    options: { sessionId?: string; identity?: CallerIdentity; sampler?: Sampler; quotas?: QuotaStore; now?: () => number } = {},
+    options: { sessionId?: string; identity?: CallerIdentity; sampler?: Sampler; quotas?: QuotaStore; now?: () => number; pinStore?: PinStore } = {},
   ) {
+    this.pinStore = options.pinStore;
     this.quotas = options.quotas ?? new QuotaStore(options.now);
     this.sessionId = options.sessionId;
     this.identity = options.identity;
@@ -236,6 +271,50 @@ export class Gateway {
     return this.interceptors.definitionDrift?.action ?? this.interceptors.promptInjection?.action ?? "block";
   }
 
+  private get pinAction(): "block" | "approve" | "warn" {
+    return this.interceptors.definitionDrift?.onChange ?? "approve";
+  }
+
+  /**
+   * Compare an upstream's list with its persisted pins. A changed tool is shown
+   * with its approved definition and an added one left out (block) or shown
+   * (approve: the call asks first); warn logs and shows the new list.
+   */
+  private checkPersistentPins(upstream: Upstream, tools: Tool[]): Tool[] {
+    if (!this.pinStore || !this.driftEnabled) return tools;
+    const { firstUse, changes } = this.pinStore.check(upstream.name, tools as ToolRecord[]);
+    // First use: the store pinned the list as it is
+    if (firstUse) return tools;
+    const pending = new Map<string, PinChange>();
+    for (const change of changes) {
+      const tool = this.exposed(upstream, change.tool);
+      const hashes = change.kind === "changed" ? ` (pinned ${change.pinned.hash.slice(0, 12)}, now ${change.currentHash.slice(0, 12)})` : "";
+      const action = change.kind === "removed" ? "warn" : this.pinAction;
+      this.log({
+        type: action === "block" ? "blocked" : "warn",
+        tool,
+        server: upstream.name,
+        upstream: upstream.name,
+        ruleId: `pin:${change.kind}`,
+        reason: `${describeChange(change).split("\n")[0]}${hashes} (MCP03:2025)${action === "warn" ? "" : ` — run: guardbee-proxy pins approve ${upstream.name} ${change.tool}`}`,
+        // Hashed in the audit log unless audit.includePayloads
+        input: { change: describeChange(change) },
+      });
+      if (change.kind !== "removed" && this.pinAction !== "warn") pending.set(change.tool, change);
+    }
+    this.unpinned.set(upstream.name, pending);
+    if (this.pinAction === "warn") return tools;
+    const out: Tool[] = [];
+    for (const tool of tools) {
+      const change = pending.get(tool.name);
+      if (!change) out.push(tool);
+      // The agent keeps seeing what was approved, not the rewritten description
+      else if (change.kind === "changed") out.push({ ...tool, ...change.pinned.snapshot } as Tool);
+      else if (this.pinAction === "approve") out.push(tool);
+    }
+    return out;
+  }
+
   private get resultAction(): "block" | "warn" {
     return this.interceptors.toolResultInjection?.action ?? this.interceptors.promptInjection?.action ?? "block";
   }
@@ -244,18 +323,162 @@ export class Gateway {
    * Find PII in a value (it taints the session either way) and hide it unless
    * masking is off. `force` comes from a `mask` rule and overrides "off".
    */
-  private protect<T>(value: T, force = false): { value: T; piiFound: boolean; hits: PiiHits } {
+  /**
+   * Images and blobs (embedded resources, resource contents) read with the
+   * document scanner: a PDF's text layer, OCR for images and scanned pages.
+   * `block` replaces a document holding PII or a credential with a notice.
+   */
+  private async scanDocuments<T extends { type: string }>(
+    items: T[],
+    base: { tool?: string; server?: string; upstream?: string; labels?: string[] },
+  ): Promise<{ content: T[]; hits: PiiHits }> {
+    const config = this.interceptors.documents!;
+    const { scanBytes } = await import("@guardbee/mcp-document-scanner");
     const hits: PiiHits = {};
-    const redacted = maskPiiInValue(value, (name) => {
-      const category = PERSONAL_DATA.has(name) ? name : "secret";
-      hits[category] = (hits[category] ?? 0) + 1;
-      return PLACEHOLDER.get(name) ?? "[REDACTED]";
-    }) as T;
-    const piiFound = Object.keys(hits).length > 0;
+    const out: T[] = [];
+    for (const item of items) {
+      const blob = blobOf(item);
+      if (!blob) {
+        out.push(item);
+        continue;
+      }
+      const result = await scanBytes(new Uint8Array(Buffer.from(blob.data, "base64")), blob.label, {
+        ocr: config.ocr !== false,
+        ...(config.maxBytes ? { maxBytes: config.maxBytes } : {}),
+        include: OPT_IN_PII.filter((name) => this.piiScopes(base.upstream).detect.has(name)),
+      });
+      for (const note of result.notes) this.log({ ...base, type: "warn", ruleId: "documents:unread", reason: `${blob.label}: ${note}` });
+      if (result.findings.length === 0) {
+        out.push(item);
+        continue;
+      }
+      const found: PiiHits = {};
+      for (const finding of result.findings) {
+        const category = PERSONAL_DATA.has(finding.detector) ? finding.detector : "secret";
+        found[category] = (found[category] ?? 0) + 1;
+      }
+      addHits(hits, found);
+      const summary = Object.entries(found).map(([category, count]) => `${category} ×${count}`).join(", ");
+      if (config.action === "block") {
+        this.log({ ...base, type: "blocked", ruleId: "documents:pii", reason: `${blob.label} withheld: it holds ${summary}` });
+        out.push({ type: "text", text: `${PREFIX} ${blob.label} withheld: it holds ${summary}` } as unknown as T);
+      } else {
+        this.log({ ...base, type: "warn", ruleId: "documents:pii", reason: `${blob.label} holds ${summary}` });
+        out.push(item);
+      }
+    }
+    return { content: out, hits };
+  }
+
+  /** Ids of the topics a value is about; skipped while no rule names a topic. */
+  private topicsOf(value: unknown): string[] {
+    const topics = this.config.topics ?? [];
+    if (topics.length === 0 || !this.config.rules.some((rule) => rule.match.topic !== undefined)) return [];
+    return detectTopics(value, topics).map((hit) => hit.id);
+  }
+
+  /**
+   * Topic rules on what came back (a tool result, resource or prompt), so a
+   * subject that only shows up in the answer is caught too. `already` is the
+   * rule that decided the call itself: it is not applied twice.
+   */
+  private async topicsAfter(
+    source: string,
+    upstream: Upstream,
+    value: unknown,
+    labels: readonly Label[],
+    args: Record<string, unknown> = {},
+    already?: string,
+  ): Promise<{ withheld?: string; force: boolean; maskFields?: string[] }> {
+    const topics = this.topicsOf(value);
+    const decision = evaluateTopicRules(this.config.rules, {
+      tool: source,
+      upstream: upstream.name,
+      labels,
+      tainted: this.taint.tainted,
+      args,
+      topics,
+      ...(this.identity ? { user: this.identity.user, groups: this.identity.groups } : {}),
+    });
+    if (!decision || decision.ruleId === already) return { force: false };
+    const reason = `it is about ${topics.join(", ")} (policy rule ${decision.ruleId})`;
+    const base = { tool: source, server: upstream.name, upstream: upstream.name, labels: [...labels], ruleId: decision.ruleId };
+    switch (decision.action) {
+      case "deny":
+        this.log({ ...base, type: "blocked", reason: `withheld: ${reason}` });
+        return { withheld: reason, force: false };
+      case "warn":
+        this.log({ ...base, type: "warn", reason });
+        return { force: false };
+      case "mask":
+        return { force: true, ...(decision.maskFields ? { maskFields: decision.maskFields } : {}) };
+      case "approve": {
+        const outcome = this.approver
+          ? await this.approver({ tool: source, upstream: upstream.name, args, reason: `the answer ${reason}`, ...(this.sessionId ? { sessionId: this.sessionId } : {}) })
+          : "unavailable";
+        this.log({ ...base, type: "approval", reason: `${outcome}: ${reason}` });
+        return outcome === "approved" ? { force: false } : { withheld: `${reason}; not approved (${outcome})`, force: false };
+      }
+      default:
+        return { force: false };
+    }
+  }
+
+  private async protect<T>(value: T, force: boolean, where: { upstream: string; tool: string }): Promise<{ value: T; piiFound: boolean; hits: PiiHits }> {
     const enabled = this.interceptors.piiMasking?.enabled !== false || force;
-    if (!piiFound || !enabled) return { value, piiFound, hits };
-    const tokenize = this.interceptors.piiMasking?.mode === "tokenize";
-    return { value: tokenize ? this.vault.tokenize(value) : redacted, piiFound, hits };
+    // Names first: the model is asked once for every string in the value. When it
+    // cannot answer, nothing goes out — the value may hold a name no regex knows.
+    let names: SpanLookup | undefined;
+    if (enabled && this.config.ner) {
+      try {
+        names = await scanNames(nerDetectorFor(this.config.ner), value);
+      } catch (err) {
+        const reason = err instanceof NerError ? `name detection failed: ${err.message}` : `name detection failed (${err instanceof Error ? err.name : typeof err})`;
+        this.log({ ...where, type: "blocked", ruleId: "pii:ner-failed", reason });
+        throw new McpError(ErrorCode.InternalError, `${PREFIX} Result withheld: ${reason}`, { guardbee: MASKING_FAILED });
+      }
+    }
+    const scopes = this.piiScopes(where.upstream);
+    const org = orgPatternsFor(this.interceptors.piiMasking);
+    const hits: PiiHits = {};
+    const onEvent = (event: OrgPatternEvent) =>
+      this.log({
+        ...where,
+        type: "warn",
+        ruleId: event.type === "allowed" ? "pii:allow" : "pii:allow-skipped",
+        reason:
+          event.type === "allowed"
+            ? `allow pattern ${JSON.stringify(event.pattern)} kept a ${event.detector} value unmasked`
+            : `allow pattern ${JSON.stringify(event.pattern)} ran over its time budget and was skipped`,
+      });
+    try {
+      // Every detector counts (taint, piiHits); only the selected ones and org block patterns mask
+      const redacted = org.withEvents(onEvent, () =>
+        maskPiiInValue(value, (name, match) => {
+          const custom = org.categories.has(name);
+          const category = custom ? name : PERSONAL_DATA.has(name) ? name : "secret";
+          hits[category] = (hits[category] ?? 0) + 1;
+          if (custom) return undefined;
+          return scopes.mask.has(name) ? (PLACEHOLDER.get(name) ?? "[REDACTED]") : match;
+        }, scopes.detect, org, names),
+      ) as T;
+      const piiFound = Object.keys(hits).length > 0;
+      if (!piiFound || !enabled) return { value, piiFound, hits };
+      const tokenize = this.interceptors.piiMasking?.mode === "tokenize";
+      return { value: tokenize ? this.vault.tokenize(value, scopes.mask, org, names) : redacted, piiFound, hits };
+    } catch (err) {
+      // Fail closed: a detector that threw or a block pattern that did not finish may have
+      // missed something. The error's own message may quote the result, so it goes nowhere.
+      const timeout = err instanceof PiiPatternTimeoutError;
+      const reason = timeout ? err.message : `masking failed (${err instanceof Error ? err.name : typeof err})`;
+      this.log({ ...where, type: "blocked", ruleId: timeout ? "pii:pattern-timeout" : "pii:masking-failed", reason });
+      throw new McpError(ErrorCode.InternalError, `${PREFIX} Result withheld: ${reason}`, { guardbee: MASKING_FAILED });
+    }
+  }
+
+  /** piiMasking's preset / enable / disable for this upstream (see gateway/pii-scope.ts). */
+  private piiScopes(upstream?: string): PiiScopes {
+    return piiScopesFor(this.interceptors.piiMasking, upstream);
   }
 
   async listTools(): Promise<Tool[]> {
@@ -270,6 +493,7 @@ export class Gateway {
         continue;
       }
       this.stale.delete(upstream.name);
+      tools = this.checkPersistentPins(upstream, tools);
       if (this.driftEnabled) {
         const observed = this.pinFor(upstream).observe(tools as ToolRecord[], this.driftAction);
         for (const finding of observed.findings) {
@@ -414,6 +638,20 @@ export class Gateway {
       if (scan.action === "warn") this.log({ ...base, type: "warn", input: args, reason: scan.reason });
     }
 
+    // 1b. A definition that changed since it was approved (persistent pins)
+    const unpinned = this.unpinned.get(upstream.name)?.get(route.name);
+    if (unpinned && unpinned.kind !== "removed" && this.pinStore) {
+      const reason = `${describeChange(unpinned)}\n(MCP03:2025; or run: guardbee-proxy pins approve ${upstream.name} ${route.name})`;
+      if (this.pinAction === "block") return block(reason.replace(/\n/g, " "), { ruleId: `pin:${unpinned.kind}` });
+      const refused = await askApproval(reason, { ruleId: `pin:${unpinned.kind}` });
+      if (refused) return refused;
+      // The approval event above is the record; from now on this definition is the pinned one
+      this.pinStore.approve(upstream.name, [unpinned.current]);
+      this.unpinned.get(upstream.name)?.delete(route.name);
+      // The session pinned the approved definition the agent was shown; it now holds the new one
+      this.pinFor(upstream).repin(unpinned.current as ToolRecord & { name: string });
+    }
+
     // 2. The live definition must still match the session pin
     const recheck = this.interceptors.definitionDrift?.recheck ?? "every-call";
     if (this.driftEnabled && (recheck === "every-call" || this.stale.has(upstream.name))) {
@@ -436,6 +674,7 @@ export class Gateway {
       labels,
       tainted: this.taint.tainted,
       args,
+      topics: this.topicsOf(args),
       ...(this.identity ? { user: this.identity.user, groups: this.identity.groups } : {}),
     });
     const rule = decision.ruleId ?? "defaults.action";
@@ -502,7 +741,7 @@ export class Gateway {
 
     // 5c. Quotas: only a call that is about to go out counts
     if (this.config.quotas.length > 0) {
-      const over = this.quotas.take(this.config.quotas, {
+      const over = await this.quotas.take(this.config.quotas, {
         tool: name,
         upstream: upstream.name,
         labels,
@@ -555,20 +794,40 @@ export class Gateway {
       }
     }
 
+    // 7a. Documents: PII inside images, PDFs and blobs that the text checks cannot see
+    let documentHits: PiiHits = {};
+    if (this.interceptors.documents?.enabled) {
+      const scanned = await this.scanDocuments(content, base);
+      content = scanned.content;
+      documentHits = scanned.hits;
+    }
+
+    // 7b. Topic rules on the result: a subject that only shows up in the answer
+    const topical = await this.topicsAfter(name, upstream, [content, result.structuredContent ?? null], labels, args, decision.ruleId);
+    if (topical.withheld) {
+      countRefusal();
+      return errorResult(`Tool result withheld: ${topical.withheld}`);
+    }
+
     // 8. PII: always detected (it taints the session), masked unless turned off — a `mask` rule forces it
-    const force = decision.action === "mask";
-    const text = this.protect(content, force);
+    const force = decision.action === "mask" || topical.force;
+    const text = await this.protect(content, force, { upstream: upstream.name, tool: name });
     let out: CallToolResult = { ...result, content: text.value };
     let piiFound = text.piiFound;
     // structuredContent usually repeats the text content: count the larger of the two, not both
     let hits = text.hits;
     if (result.structuredContent) {
-      const structured = this.protect(result.structuredContent, force);
+      const structured = await this.protect(result.structuredContent, force, { upstream: upstream.name, tool: name });
       out.structuredContent = structured.value;
       piiFound ||= structured.piiFound;
       for (const [category, count] of Object.entries(structured.hits)) hits[category] = Math.max(hits[category] ?? 0, count);
     }
+    if (Object.keys(documentHits).length > 0) {
+      piiFound = true;
+      addHits(hits, documentHits);
+    }
     if (decision.maskFields) out = maskFields(out, decision.maskFields);
+    if (topical.maskFields) out = maskFields(out, topical.maskFields);
 
     this.taint.observe(name, labels, piiFound);
     if (labels.includes("sensitive") || piiFound) this.fingerprints.add(name, [result.content, result.structuredContent ?? null]);
@@ -660,7 +919,7 @@ export class Gateway {
     if (leak && config.action === "block") return refuse(`${leak}; it would go to "${upstream.name}"`, "sampling:egress");
     if (leak) this.log({ ...base, type: "warn", ruleId: "sampling:egress", reason: leak });
 
-    const masked = this.protect(result.content, true);
+    const masked = await this.protect(result.content, true, { upstream: upstream.name, tool: `sampling:${upstream.name}` });
     this.log({ ...base, type: "tool_response", output: masked.value, ...(masked.piiFound ? { piiHits: masked.hits } : {}) });
     return { ...result, content: masked.value };
   }
@@ -702,15 +961,35 @@ export class Gateway {
       if (scan.action === "warn") this.log({ type: "warn", tool: source, upstream: upstream.name, reason: scan.reason });
     }
 
+    const topical = await this.topicsAfter(source, upstream, texts, ["untrusted"]);
+    if (topical.withheld) throw new Error(`${PREFIX} Resource withheld: ${topical.withheld}`);
+
     let piiFound = false;
     const hits: PiiHits = {};
-    const contents = result.contents.map((item) => {
-      if (!("text" in item) || typeof item.text !== "string") return item;
-      const text = this.protect(item.text);
+    let items = result.contents;
+    if (this.interceptors.documents?.enabled) {
+      const scanned = await this.scanDocuments(items.map((item) => ({ type: "resource", ...item })), { tool: source, upstream: upstream.name });
+      if (Object.keys(scanned.hits).length > 0) {
+        piiFound = true;
+        addHits(hits, scanned.hits);
+      }
+      // A withheld blob comes back as a text notice under the same uri
+      items = scanned.content.map((item, index) => {
+        const original = result.contents[index]!;
+        return item.type === "resource" ? original : { uri: original.uri, mimeType: "text/plain", text: (item as unknown as { text: string }).text };
+      });
+    }
+    const contents: typeof items = [];
+    for (const item of items) {
+      if (!("text" in item) || typeof item.text !== "string") {
+        contents.push(item);
+        continue;
+      }
+      const text = await this.protect(item.text, topical.force, { upstream: upstream.name, tool: source });
       piiFound ||= text.piiFound;
       addHits(hits, text.hits);
-      return { ...item, text: text.value };
-    });
+      contents.push({ ...item, text: text.value });
+    }
 
     this.taint.observe(source, ["untrusted"], piiFound);
     if (piiFound) this.fingerprints.add(source, result.contents);
@@ -758,7 +1037,9 @@ export class Gateway {
       }
       if (scan.action === "warn") this.log({ type: "warn", tool: source, upstream: route.upstream.name, reason: scan.reason });
     }
-    return { ...result, messages: this.protect(result.messages).value };
+    const topical = await this.topicsAfter(source, route.upstream, result.messages, [], args ?? {});
+    if (topical.withheld) throw new Error(`${PREFIX} Prompt withheld: ${topical.withheld}`);
+    return { ...result, messages: (await this.protect(result.messages, topical.force, { upstream: route.upstream.name, tool: source })).value };
   }
 
   /** End this session: stop listening to the shared upstreams. They stay open for other sessions. */

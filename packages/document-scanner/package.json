@@ -1,0 +1,82 @@
+{
+  "name": "@guardbee/mcp-document-scanner",
+  "version": "0.3.0",
+  "mcpName": "io.github.GuardBee/document-scanner",
+  "description": "MCP server and CLI that finds PII and credentials inside PDFs, screenshots and scanned documents — PDF text extraction plus optional OCR (Turkish and English) — before they reach an LLM",
+  "type": "module",
+  "bin": {
+    "guardbee-document-scanner": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "!dist/**/*.map",
+    "!dist/**/__tests__"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@guardbee/guard-core": "workspace:^",
+    "@guardbee/mcp-telemetry": "workspace:^",
+    "@modelcontextprotocol/sdk": "catalog:",
+    "unpdf": "^1.8.1",
+    "zod": "catalog:"
+  },
+  "peerDependencies": {
+    "@napi-rs/canvas": ">=0.1.60",
+    "tesseract.js": ">=5"
+  },
+  "peerDependenciesMeta": {
+    "@napi-rs/canvas": {
+      "optional": true
+    },
+    "tesseract.js": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@napi-rs/canvas": "^1.0.11",
+    "tesseract.js": "^7.0.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "mcp",
+    "security",
+    "ai-security",
+    "pii",
+    "ocr",
+    "pdf",
+    "dlp",
+    "kvkk",
+    "gdpr",
+    "guardbee"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git",
+    "directory": "packages/document-scanner"
+  },
+  "homepage": "https://github.com/GuardBee/guardbee-mcp/tree/main/packages/document-scanner#readme",
+  "bugs": {
+    "url": "https://github.com/GuardBee/guardbee-mcp/issues"
+  }
+}

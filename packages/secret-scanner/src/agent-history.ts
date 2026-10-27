@@ -1,7 +1,7 @@
 import { existsSync, statSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
-import { scanDirectory, scanFile, type Finding } from "./scanner.js";
+import { scanDirectory, scanFile, type Finding, type ScanOptions } from "./scanner.js";
 
 /**
  * Where coding agents keep what was said in a session. A key pasted into a
@@ -31,7 +31,9 @@ export interface AgentHistoryResult {
   durationMs: number;
 }
 
-export function scanAgentHistory(options: { home?: string; entropy?: boolean; maxFiles?: number } = {}): AgentHistoryResult {
+export function scanAgentHistory(
+  options: { home?: string; entropy?: boolean; maxFiles?: number; onSecret?: ScanOptions["onSecret"] } = {},
+): AgentHistoryResult {
   const start = Date.now();
   const home = options.home ?? homedir();
   // Transcripts are full of code the agent read: random-looking values there are mostly not secrets
@@ -46,11 +48,11 @@ export function scanAgentHistory(options: { home?: string; entropy?: boolean; ma
     let findings: Finding[];
     let files: number;
     if (statSync(path).isDirectory()) {
-      const result = scanDirectory(path, { maxFiles: options.maxFiles ?? 20_000, entropy });
+      const result = scanDirectory(path, { maxFiles: options.maxFiles ?? 20_000, entropy, onSecret: options.onSecret });
       findings = result.findings;
       files = result.scannedFiles;
     } else {
-      const result = scanFile(path, path, { entropy });
+      const result = scanFile(path, path, { entropy, onSecret: options.onSecret });
       findings = result.findings;
       files = result.skipped ? 0 : 1;
     }

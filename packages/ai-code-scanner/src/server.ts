@@ -59,18 +59,26 @@ export async function startServer() {
     version: "0.1.0",
   });
   instrumentServer(server, "ai-code-scanner");
+  registerTools(server);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
+/** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
+export function registerTools(server: McpServer): void {
   const { patterns, customCount, rulesDir } = loadServerPatterns();
   if (customCount > 0) {
     process.stderr.write(`[guardbee-ai-code-scanner] Loaded ${customCount} custom rule(s) from ${rulesDir}\n`);
   }
 
-  server.tool(
+  server.registerTool(
     "scan_text",
-    "Scan a text string or code snippet for insecure AI/LLM integration patterns (client-exposed keys, unsafe output handling, excessive agent tool permissions, PII sent to a model, prompt injection surface).",
     {
-      content: z.string().describe("The code content to scan"),
-      label: z.string().optional().describe("Optional label shown in findings (e.g. filename)"),
+      description: "Scan a text string or code snippet for insecure AI/LLM integration patterns (client-exposed keys, unsafe output handling, excessive agent tool permissions, PII sent to a model, prompt injection surface).",
+      inputSchema: {
+        content: z.string().describe("The code content to scan"),
+        label: z.string().optional().describe("Optional label shown in findings (e.g. filename)"),
+      },
     },
     async ({ content, label }) => {
       const findings = scanText(content, label, patterns);
@@ -78,11 +86,13 @@ export async function startServer() {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "scan_file",
-    "Scan a single file for insecure AI/LLM integration patterns",
     {
-      path: z.string().describe("Absolute or relative path to the file to scan"),
+      description: "Scan a single file for insecure AI/LLM integration patterns",
+      inputSchema: {
+        path: z.string().describe("Absolute or relative path to the file to scan"),
+      },
     },
     async ({ path: filePath }) => {
       const { findings, skipped } = scanFile(filePath, patterns);
@@ -97,20 +107,22 @@ export async function startServer() {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "scan_directory",
-    "Recursively scan a directory for insecure AI/LLM integration patterns. Automatically skips node_modules, .git, dist, and binary files.",
     {
-      path: z.string().describe("Absolute or relative path to the directory to scan"),
-      maxFiles: z.number().int().positive().optional().describe("Maximum number of files to scan (default: 5000)"),
-      include: z
-        .array(z.string())
-        .optional()
-        .describe("Only scan files whose path contains one of these strings (e.g. [\".ts\", \"src/agents\"])"),
-      exclude: z
-        .array(z.string())
-        .optional()
-        .describe("Skip files/dirs whose path contains one of these strings"),
+      description: "Recursively scan a directory for insecure AI/LLM integration patterns. Automatically skips node_modules, .git, dist, and binary files.",
+      inputSchema: {
+        path: z.string().describe("Absolute or relative path to the directory to scan"),
+        maxFiles: z.number().int().positive().optional().describe("Maximum number of files to scan (default: 5000)"),
+        include: z
+          .array(z.string())
+          .optional()
+          .describe("Only scan files whose path contains one of these strings (e.g. [\".ts\", \"src/agents\"])"),
+        exclude: z
+          .array(z.string())
+          .optional()
+          .describe("Skip files/dirs whose path contains one of these strings"),
+      },
     },
     async ({ path: dirPath, maxFiles, include, exclude }) => {
       const result = scanDirectory(dirPath, { maxFiles, include, exclude, patterns });
@@ -118,10 +130,12 @@ export async function startServer() {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "list_patterns",
-    "List all AI/LLM security patterns that the scanner can detect, grouped by category (including any custom rules loaded from .guardbee/rules)",
-    {},
+    {
+      description: "List all AI/LLM security patterns that the scanner can detect, grouped by category (including any custom rules loaded from .guardbee/rules)",
+      inputSchema: {},
+    },
     async () => {
       const builtinIds = new Set(AI_CODE_PATTERNS.map((p) => p.id));
       const lines = ["Supported AI/LLM security patterns:\n"];
@@ -142,7 +156,4 @@ export async function startServer() {
       return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }

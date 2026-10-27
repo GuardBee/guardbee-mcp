@@ -8,14 +8,19 @@ import {
   GetPromptRequestSchema,
   ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import type { ProxyConfig } from "./types.js";
+import { isHttpUpstream, type McpServerConfig, type ProxyConfig, type UpstreamConfig } from "./types.js";
+import { sandboxContext, sandboxIssues } from "./gateway/sandbox.js";
 import { AuditLogger } from "./audit/logger.js";
 import { chainApprovers, dashboardApprover, elicitationApprover, type Approver } from "./gateway/approval.js";
 import { fromLegacyConfig, type GatewayConfig } from "./gateway/config.js";
 import { Gateway, type CallerIdentity, type Sampler } from "./gateway/gateway.js";
 import { connectUpstream, type Upstream } from "./gateway/upstream.js";
+import { PinStore, defaultPinFile } from "./gateway/pin-store.js";
+import { ProvenanceCache, checkUpstreamProvenance, defaultProvenanceCache, sigstoreVerifier, type CheckOptions } from "./gateway/provenance.js";
 import { PolicySync } from "./gateway/policy-sync.js";
-import type { QuotaStore } from "./gateway/quota.js";
+import { QuotaStore } from "./gateway/quota.js";
+import { RedisClient } from "./state/redis.js";
+import { RedisCounters, ResilientCounters, type CounterBackend } from "./state/counters.js";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { startTracing } from "./tracing.js";
@@ -59,7 +64,7 @@ export function createGatewayServer(
   upstreams: Upstream[],
   config: GatewayConfig,
   audit: AuditLogger,
-  options: { sessionId?: string; identity?: CallerIdentity; quotas?: QuotaStore } = {}
+  options: { sessionId?: string; identity?: CallerIdentity; quotas?: QuotaStore; pinStore?: PinStore } = {}
 ): { gateway: Gateway; server: Server } {
   let server: Server | undefined;
   // Read approval settings on every request: a dashboard policy update can change them mid-session.
@@ -83,6 +88,103 @@ export function createGatewayServer(
   return { gateway, server };
 }
 
+/**
+ * The persistent pin store, when tool definitions are pinned across restarts:
+ * gateway mode with definitionDrift on (persist defaults to true). The
+ * single-server `--` form keeps per-session pins only.
+ */
+function persistentPins(config: GatewayConfig): PinStore | undefined {
+  const drift = config.interceptors.definitionDrift;
+  if (!config.namespaced || drift?.enabled === false || drift?.persist === false) return undefined;
+  return new PinStore(config.pins?.file ?? defaultPinFile());
+}
+
+export function provenanceChecker(config: GatewayConfig): CheckOptions {
+  const { offline, cacheFile, registry, pypiIndex, signers } = config.provenance;
+  return {
+    verifyBundle: sigstoreVerifier({ offline }),
+    cache: new ProvenanceCache(cacheFile ?? defaultProvenanceCache()),
+    offline,
+    ...(registry ? { registry } : {}),
+    ...(pypiIndex ? { pypiIndex } : {}),
+    ...(signers ? { signers } : {}),
+  };
+}
+
+/**
+ * The stdio upstream as it may start: checked for build provenance and pinned
+ * to the checked version. Refused (require) or doubtful (warn) packages are
+ * audit events with ruleId provenance:<status>.
+ */
+async function checkedServer(name: string, server: McpServerConfig, config: GatewayConfig, audit: AuditLogger, options: CheckOptions): Promise<McpServerConfig> {
+  const mode = server.provenance ?? config.provenance.mode;
+  const checked = await checkUpstreamProvenance(server, mode, options);
+  const result = checked.result;
+  if (!result) return checked.server;
+  const where = `[guardbee-proxy] provenance ${name}: ${result.artifact}`;
+  if (checked.action === "allow") {
+    process.stderr.write(`${where} ${result.reason}\n`);
+    return checked.server;
+  }
+  audit.log({
+    ts: new Date().toISOString(),
+    type: checked.action === "block" ? "blocked" : "warn",
+    upstream: name,
+    ruleId: `provenance:${result.status}`,
+    reason: `${result.artifact}: ${result.reason}`,
+  });
+  if (checked.action === "block") throw new Error(`${where} refused (provenance: require): ${result.reason}`);
+  process.stderr.write(`${where} not verified: ${result.reason}\n`);
+  return checked.server;
+}
+
+/**
+ * Quota and budget counters in Redis when `state.backend: redis`, with the
+ * outage rule of `state.onError`; undefined → each process counts alone.
+ */
+function sharedCounters(config: GatewayConfig, audit: AuditLogger): CounterBackend | undefined {
+  const state = config.state;
+  if (!state || state.backend !== "redis" || !state.url) return undefined;
+  const client = new RedisClient(state.url, { timeoutMs: state.timeoutMs });
+  const now = () => new Date().toISOString();
+  process.stderr.write(`[guardbee-proxy] quotas and budgets shared through ${client.target} (onError: ${state.onError})\n`);
+  return new ResilientCounters(new RedisCounters(client, state.keyPrefix), state.onError, {
+    onOutage: (err) =>
+      audit.log({
+        ts: now(),
+        type: "warn",
+        ruleId: "state:unavailable",
+        reason: `${client.target} unreachable (${err instanceof Error ? err.message : String(err)}); ${state.onError === "local" ? "counting in this process until it is back" : state.onError === "fail-open" ? "quotas and budgets not enforced until it is back" : "calls with a quota or budget refused until it is back"}`,
+      }),
+    onRecovery: () => audit.log({ ts: now(), type: "warn", ruleId: "state:recovered", reason: `${client.target} reachable again` }),
+  });
+}
+
+/** Refuse to start a sandbox that cannot work here (runtime missing, credential path exposed…): never fall back to no sandbox. */
+function checkSandbox(name: string, server: McpServerConfig, audit: AuditLogger): void {
+  if (!server.sandbox || server.sandbox.runtime === "none") return;
+  const issues = sandboxIssues(server, server.sandbox, sandboxContext(name));
+  if (issues.length === 0) return;
+  const reason = `sandbox ${server.sandbox.runtime}: ${issues.join("; ")}`;
+  audit.log({ ts: new Date().toISOString(), type: "blocked", upstream: name, ruleId: "sandbox:invalid", reason });
+  throw new Error(`[guardbee-proxy] upstream ${name}: ${reason}`);
+}
+
+async function connectSandboxed(name: string, server: UpstreamConfig, audit: AuditLogger, connect: () => Promise<Upstream>): Promise<Upstream> {
+  const sandbox = isHttpUpstream(server) ? undefined : server.sandbox;
+  if (!sandbox || sandbox.runtime === "none") return connect();
+  try {
+    const upstream = await connect();
+    const fsNote = sandbox.fs.readWrite.length ? `writable: ${sandbox.fs.readWrite.join(", ")}` : "read-only";
+    process.stderr.write(`[guardbee-proxy] upstream ${name}: sandboxed (${sandbox.runtime}, network ${sandbox.network}, ${fsNote})\n`);
+    return upstream;
+  } catch (err) {
+    const reason = `sandbox ${sandbox.runtime} failed to start: ${err instanceof Error ? err.message : String(err)}`;
+    audit.log({ ts: new Date().toISOString(), type: "blocked", upstream: name, ruleId: "sandbox:failed", reason });
+    throw err;
+  }
+}
+
 export async function startGateway(config: GatewayConfig): Promise<void> {
   const { version } = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf8")) as { version: string };
   // OTLP export when OTEL_EXPORTER_OTLP_ENDPOINT is set and the SDK is installed
@@ -92,16 +194,35 @@ export async function startGateway(config: GatewayConfig): Promise<void> {
   if (config.policy.source === "dashboard" && config.audit.dashboard) {
     await new PolicySync(config, config.audit.dashboard, config.policy.refreshSeconds).start();
   }
+  const pinStore = persistentPins(config);
+  const counters = sharedCounters(config, audit);
   const upstreams: Upstream[] = [];
-  for (const [name, server] of Object.entries(config.upstreams)) {
-    upstreams.push(await connectUpstream(name, server, { sampling: config.interceptors.sampling?.enabled === true }));
+  const provenance = provenanceChecker(config);
+  for (const [name, original] of Object.entries(config.upstreams)) {
+    const server = isHttpUpstream(original) ? original : await checkedServer(name, original, config, audit, provenance);
+    if (!isHttpUpstream(server)) checkSandbox(name, server, audit);
+    upstreams.push(
+      await connectSandboxed(name, server, audit, () => connectUpstream(name, server, {
+        sampling: config.interceptors.sampling?.enabled === true,
+        onEgressBlocked: (error) =>
+          audit.log({
+            ts: new Date().toISOString(),
+            type: "blocked",
+            upstream: name,
+            ruleId: error.rule,
+            reason: error.message,
+            destination: { host: error.host, ...(error.address ? { address: error.address } : {}) },
+          }),
+      })),
+    );
   }
 
   if (config.listen.transport === "http") {
     // Imported here: http-server.ts imports this module for createGatewayServer.
     const { startHttpGateway } = await import("./http-server.js");
-    const http = await startHttpGateway(upstreams, config, audit, config.listen);
+    const http = await startHttpGateway(upstreams, config, audit, config.listen, { ...(pinStore ? { pinStore } : {}), ...(counters ? { counters } : {}) });
     process.stderr.write(`[guardbee-proxy] listening on ${http.url}\n`);
+    if (http.llmUrl) process.stderr.write(`[guardbee-proxy] LLM gateway on ${http.llmUrl} (chat/completions, messages, models)\n`);
     const shutdown = async () => {
       await http.close();
       await audit.close();
@@ -114,7 +235,7 @@ export async function startGateway(config: GatewayConfig): Promise<void> {
     return;
   }
 
-  const { gateway, server } = createGatewayServer(upstreams, config, audit);
+  const { gateway, server } = createGatewayServer(upstreams, config, audit, { ...(pinStore ? { pinStore } : {}), ...(counters ? { quotas: new QuotaStore(Date.now, counters) } : {}) });
   await server.connect(new StdioServerTransport());
 
   // The client usually just closes stdin; without this the process ended with

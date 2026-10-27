@@ -1,12 +1,16 @@
 # @guardbee/mcp-tool-poisoning-scanner
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/tool-poisoning-scanner/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/tool-poisoning-scanner/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/tool-poisoning-scanner/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/tool-poisoning-scanner/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/tool-poisoning-scanner/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/tool-poisoning-scanner/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/tool-poisoning-scanner/DE.md)
+
+[![npm version](https://img.shields.io/npm/v/@guardbee/mcp-tool-poisoning-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-tool-poisoning-scanner)
+[![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-tool-poisoning-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-tool-poisoning-scanner)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/tool-poisoning-scanner/LICENSE)
 
 An MCP (Model Context Protocol) server that scans other MCP servers' tool definitions for **tool poisoning** and **confused-deputy** tools — two distinct ways an MCP server's own `server.tool(...)` registration can be dangerous without a single unsafe line ever running.
 
 `mcp-server-auditor` already catches a tool whose *handler* does something dangerous with raw input. This package catches the two things that scanner structurally can't see: a dangerous instruction hiding in the tool's *description* (no code involved at all), and a tool whose *name/description* lies about what its handler actually does.
 
-> This package sends usage telemetry by default (tool name + short parameters, scanned source is never included — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/telemetry/README.md).
 
 ```
 Claude ──► tool-poisoning-scanner ──► An MCP server's source
@@ -32,6 +36,7 @@ The second check, confused-deputy, is a different failure mode: a tool named and
 - **Annotation lie**: `readOnlyHint: true` next to a description that deletes, drops, or executes
 - **Live catalog**: `scanToolCatalog` runs the description checks against a `tools/list` payload, which `rug-pull-detector` calls on every check
 - **4 confused-deputy sink categories**: process-execution, code-execution, filesystem-write, credentials-exposure — checked only against tools whose name/description implies read-only behavior
+- **Python and Go servers**: FastMCP / official Python SDK `@mcp.tool()` (docstrings, `description=`, `Field(description=...)`, `readOnlyHint`), low-level `types.Tool(...)` followed into the `call_tool` branch that runs it, the official Go SDK (`mcp.AddTool(s, &mcp.Tool{...}, h)` with `jsonschema` struct tags) and mark3labs/mcp-go (`mcp.NewTool(...)`, `mcp.WithDescription`, `mcp.Description`), each with that language's sinks (`subprocess`/`os.system`, `eval`/`exec`, `open(..., "w")`, `os.environ`; `exec.Command`, `os.WriteFile`/`os.Remove`, `os.Environ()`)
 - Bounded, next-tool-aware extraction — a sink in tool B's handler is never misattributed to tool A
 - SARIF 2.1.0 output — CI/CD integration (GitHub Code Scanning, etc.)
 - Config file support via `guardbee.yml`
@@ -107,7 +112,8 @@ tool-poisoning-scanner:
 
 ## Limitations (by design)
 
-- **Scope**: the MCP TypeScript SDK's `server.tool(name, description, schema, handler)` convenience form — the shape every GuardBee server in this monorepo uses. The lower-level `setRequestHandler(ListToolsRequestSchema, ...)` style (returning a raw array of `{name, description, inputSchema}` objects) isn't covered yet, nor are Python MCP servers.
+- **Scope**: TypeScript/JavaScript (`server.tool(...)` and `server.registerTool(...)`), Python (`@mcp.tool()` decorators and the low-level `Tool(...)` + `@server.call_tool()` form) and Go (official go-sdk, mark3labs/mcp-go). The language comes from the file extension (`scan_text` takes a `language`). The TypeScript `setRequestHandler(ListToolsRequestSchema, ...)` style (a raw array of `{name, description, inputSchema}` objects) isn't covered yet, nor are Rust, Java, Kotlin, C# or other languages.
+- **Lexical, not a parser**: Python and Go are read with bounded bracket/string/indentation rules, not a full AST. A handler registered through several layers of indirection (a tool table built at runtime, a handler passed through a wrapper) is matched on its registration only: its description is checked, its sinks are not.
 - **Confused-deputy is name/description-keyword-based**, not a semantic analysis — a tool that avoids read-only-sounding words entirely won't be checked against the sink catalog, and a genuinely mislabeled tool using unusual phrasing could be missed.
 - These are **heuristic** findings tuned for a low false-positive rate (verified against 349 real files in this monorepo with zero false positives in production code) — every finding should still be reviewed.
 
@@ -117,7 +123,7 @@ tool-poisoning-scanner:
 
 ```bash
 npm run build
-npm test             # 20 unit tests
+npm test
 ```
 
 ---
@@ -125,3 +131,7 @@ npm test             # 20 unit tests
 ## License
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Feedback
+
+Questions, ideas, or a false positive? Start a thread in [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) or [open an issue](https://github.com/GuardBee/guardbee-mcp/issues). If GuardBee is useful to you, a ⭐ on [the repository](https://github.com/GuardBee/guardbee-mcp) helps others find it.

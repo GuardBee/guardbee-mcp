@@ -1,8 +1,8 @@
 {
   "name": "@guardbee/mcp-owasp-scan",
-  "version": "0.2.2",
+  "version": "0.3.3",
   "mcpName": "io.github.GuardBee/owasp-scan",
-  "description": "Unified OWASP MCP Top 10 scanner — one CLI/MCP that orchestrates GuardBee auditors against a path or a live tools/list, maps findings to MCP01–MCP10, and grades A–F",
+  "description": "OWASP MCP Top 10 scanner: one CLI and MCP server that runs GuardBee's auditors over a codebase or a live MCP server, maps findings to MCP01–MCP10 and grades A–F",
   "type": "module",
   "bin": {
     "guardbee-owasp-scan": "./dist/cli.js"
@@ -11,15 +11,18 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "default": "./dist/index.js"
     }
   },
   "files": [
     "dist",
     "README.md",
-    "TR.md",
-    "ZH.md"
+    "LICENSE",
+    "CHANGELOG.md",
+    "!dist/**/*.map",
+    "!dist/**/__tests__"
   ],
   "scripts": {
     "build": "tsc",
@@ -29,6 +32,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
+    "@guardbee/guard-core": "workspace:^",
     "@guardbee/mcp-audit-gap-auditor": "workspace:^",
     "@guardbee/mcp-context-oversharing-auditor": "workspace:^",
     "@guardbee/mcp-config-auditor": "workspace:^",
@@ -49,7 +53,11 @@
     "owasp",
     "owasp-mcp-top-10",
     "guardbee",
-    "devtools"
+    "devtools",
+    "security-scanner",
+    "mcp-scanner",
+    "sarif",
+    "ci"
   ],
   "license": "MIT",
   "publishConfig": {
@@ -59,5 +67,12 @@
     "type": "git",
     "url": "https://github.com/GuardBee/guardbee-mcp.git",
     "directory": "packages/owasp-scan"
+  },
+  "homepage": "https://guardbee.ai/en/what-is-mcp-owasp-scan/",
+  "bugs": {
+    "url": "https://github.com/GuardBee/guardbee-mcp/issues"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

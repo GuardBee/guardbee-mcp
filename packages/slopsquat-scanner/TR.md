@@ -1,12 +1,12 @@
 # @guardbee/mcp-slopsquat-scanner
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 Bir projenin kendi manifest dosyalarında (`package.json`, `requirements.txt`, `pyproject.toml`) beyan edilen her bağımlılığı **gerçek** npm/PyPI registry'sine karşı kontrol eden bir MCP (Model Context Protocol) sunucusu — yerel bir veritabanına değil, gerçek bir ağ sorgusuna karşı.
 
 LLM kod asistanları, ölçülebilir bir oranda gerçekmiş gibi görünen paket isimleri uyduruyor — açık kaynak modeller üzerine yapılan araştırmalar bu oranı yaklaşık %21.7 olarak veriyor. Saldırganlar bunu biliyor ve tam olarak bu isimleri npm/PyPI'de önceden kayıt ettiriyor; böylece aynı öneriyi kopyalayan bir sonraki kişi bir kurulum hatası almıyor — saldırganın kodunu kuruyor. Bu **slopsquatting**'dir ve bir yazım hatası (typo-squat) gibi gözle yakalanacak bir yanlış yazım yoktur: uydurulan isim genellikle gerçek paketten *daha* inandırıcı görünür.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (araç adı + kısa parametreler, taranan manifest dosyaları asla dahil edilmez — bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). `GUARDBEE_TELEMETRY=0` ile kapatabilirsiniz.
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
 ```
 Claude ──► slopsquat-scanner ──► registry.npmjs.org / pypi.org
@@ -110,3 +110,7 @@ npm test             # 18 birim testi
 ## Lisans
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

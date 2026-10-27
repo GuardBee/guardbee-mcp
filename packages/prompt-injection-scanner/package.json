@@ -1,8 +1,8 @@
 {
   "name": "@guardbee/mcp-prompt-injection-scanner",
-  "version": "0.2.11",
+  "version": "1.0.2",
   "mcpName": "io.github.GuardBee/prompt-injection-scanner",
-  "description": "MCP server that scans documents, scraped pages, and RAG content for indirect prompt injection payloads — instruction-override phrases, spoofed chat-template roles, hidden/invisible text, content addressing the AI directly, and data-exfiltration attempts",
+  "description": "Prompt injection scanner for documents, web pages and RAG content: instruction overrides, spoofed chat roles, hidden text and data-exfiltration attempts, as a CLI and an MCP server",
   "type": "module",
   "bin": {
     "guardbee-prompt-injection-scanner": "./dist/cli.js"
@@ -11,15 +11,18 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "default": "./dist/index.js"
     }
   },
   "files": [
     "dist",
     "README.md",
-    "TR.md",
-    "ZH.md"
+    "LICENSE",
+    "CHANGELOG.md",
+    "!dist/**/*.map",
+    "!dist/**/__tests__"
   ],
   "scripts": {
     "build": "tsc",
@@ -42,12 +45,23 @@
     "rag-security",
     "sast",
     "guardbee",
-    "devtools"
+    "devtools",
+    "llm-security",
+    "guardrails",
+    "prompt-injection-detection",
+    "security-scanner"
   ],
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/GuardBee/guardbee-mcp.git",
     "directory": "packages/prompt-injection-scanner"
+  },
+  "homepage": "https://guardbee.ai/en/what-is-mcp-prompt-injection-scanner/",
+  "bugs": {
+    "url": "https://github.com/GuardBee/guardbee-mcp/issues"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

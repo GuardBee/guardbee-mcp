@@ -1,5 +1,7 @@
 import * as tls from "tls";
-import * as net from "net";
+import { X509Certificate } from "crypto";
+import { promises as dns } from "dns";
+import { cipherBits, probeHost, weakSignature, type ProbeResult } from "./probes.js";
 
 export interface CertInfo {
   subject: Record<string, string>;
@@ -32,6 +34,17 @@ export interface TlsInspectResult {
   cert?: CertInfo;
   chainDepth?: number;
   chainValid?: boolean;
+  /** Leaf public key, e.g. "rsa" 2048 or "ec" prime256v1 (256). */
+  keyType?: string;
+  keyBits?: number;
+  /** A weak hash in the leaf's or an intermediate's signature (SHA-1, MD5). */
+  weakSignature?: string;
+  /** The server stapled an OCSP response. */
+  ocspStapled?: boolean;
+  /** What the server accepts beyond the default handshake (see probes.ts). */
+  probes?: ProbeResult;
+  /** CAA records restricting which CAs may issue for the domain. */
+  caa?: string[];
 
   // Security flags
   supportsHsts?: boolean;
@@ -75,9 +88,30 @@ function daysUntil(dateStr: string): number {
   return Math.floor((target - now) / (1000 * 60 * 60 * 24));
 }
 
-function cipherStrength(cipherName: string): number {
-  const m = cipherName.match(/(\d+)/);
-  return m ? parseInt(m[1], 10) : 128;
+/** Chain errors from OpenSSL, told apart: each needs a different fix. */
+function chainFinding(error: string): Finding {
+  if (/SELF_SIGNED/.test(error)) {
+    return { severity: "high", code: "CERT_SELF_SIGNED", message: `Self-signed certificate (${error}): browsers and clients will not trust it` };
+  }
+  if (/UNABLE_TO_VERIFY_LEAF_SIGNATURE|UNABLE_TO_GET_ISSUER_CERT/.test(error)) {
+    return { severity: "high", code: "CERT_CHAIN_INCOMPLETE", message: `Incomplete chain (${error}): the server does not send its intermediate certificate` };
+  }
+  if (/CERT_REVOKED/.test(error)) return { severity: "critical", code: "CERT_REVOKED", message: "The certificate has been revoked" };
+  return { severity: "high", code: "CERT_CHAIN_INVALID", message: `Certificate chain invalid: ${error}` };
+}
+
+/** CAA records for the domain or its nearest parent that has them. */
+async function lookupCaa(host: string): Promise<string[] | undefined> {
+  const labels = host.split(".");
+  for (let i = 0; i < labels.length - 1; i++) {
+    try {
+      const records = await dns.resolveCaa(labels.slice(i).join("."));
+      if (records.length > 0) return records.map((r) => `${r.critical ? "!" : ""}${Object.entries(r).filter(([k]) => k !== "critical").map(([k, v]) => `${k} ${v}`).join(" ")}`);
+    } catch {
+      // NODATA / NXDOMAIN: try the parent
+    }
+  }
+  return undefined;
 }
 
 // ── Main inspect function ─────────────────────────────────────────────────────
@@ -85,11 +119,18 @@ function cipherStrength(cipherName: string): number {
 export async function inspectHost(
   host: string,
   port: number = 443,
-  timeoutMs: number = 10_000
+  timeoutMs: number = 10_000,
+  options: {
+    /** Extra handshakes for legacy protocols, static RSA, DH size and weak ciphers (default true). */
+    probes?: boolean;
+    /** DNS CAA lookup (default true). */
+    caa?: boolean;
+  } = {},
 ): Promise<TlsInspectResult> {
   const result: TlsInspectResult = { host, port, reachable: false, findings: [] };
 
   return new Promise((resolve) => {
+    let ocspStapled = false;
     const timer = setTimeout(() => {
       socket.destroy();
       result.error = `Connection timed out after ${timeoutMs}ms`;
@@ -98,7 +139,17 @@ export async function inspectHost(
     }, timeoutMs);
 
     const socket = tls.connect(
-      { host, port, servername: host, rejectUnauthorized: false, timeout: timeoutMs },
+      {
+        host,
+        port,
+        servername: host,
+        rejectUnauthorized: false,
+        timeout: timeoutMs,
+        // A server that only speaks TLS 1.0 must still be inspected, not reported unreachable
+        minVersion: "TLSv1",
+        ciphers: "DEFAULT:@SECLEVEL=0",
+        requestOCSP: true,
+      },
       () => {
         clearTimeout(timer);
         result.reachable = true;
@@ -108,7 +159,7 @@ export async function inspectHost(
 
         const cipher = socket.getCipher();
         result.cipher = cipher?.name;
-        result.cipherStrength = cipher?.name ? cipherStrength(cipher.name) : undefined;
+        result.cipherStrength = cipher?.name ? cipherBits(cipher.name) : undefined;
 
         const peerCert = socket.getPeerCertificate(true);
 
@@ -147,14 +198,56 @@ export async function inspectHost(
             result.findings.push({ severity: "critical", code: "CERT_EXPIRED", message: `Certificate expired ${Math.abs(days)} days ago` });
           } else if (days < 7) {
             result.findings.push({ severity: "critical", code: "CERT_EXPIRY_CRITICAL", message: `Certificate expires in ${days} days` });
+          } else if (days < 21) {
+            // Let's Encrypt and most ACME clients renew with 30 days left: under 21, renewal is failing
+            result.findings.push({ severity: "high", code: "CERT_EXPIRY_SOON", message: `Certificate expires in ${days} days (automatic renewal may be failing)` });
           } else if (days < 30) {
-            result.findings.push({ severity: "high", code: "CERT_EXPIRY_SOON", message: `Certificate expires in ${days} days` });
-          } else if (days < 90) {
             result.findings.push({ severity: "medium", code: "CERT_EXPIRY_WARN", message: `Certificate expires in ${days} days` });
           }
 
-          if (!socket.authorized) {
-            result.findings.push({ severity: "high", code: "CERT_CHAIN_INVALID", message: `Certificate chain invalid: ${socket.authorizationError ?? "unknown"}` });
+          // The leaf's expiry is reported above; an expired chain says the same thing again
+          const chainError = String(socket.authorizationError ?? "");
+          if (!socket.authorized && !(certInfo.isExpired && chainError === "CERT_HAS_EXPIRED")) {
+            result.findings.push(chainFinding(chainError || "unknown"));
+          }
+
+          // rejectUnauthorized is off, so the name is checked here
+          const identity = tls.checkServerIdentity(host, peerCert);
+          if (identity) {
+            result.findings.push({ severity: "critical", code: "HOSTNAME_MISMATCH", message: `The certificate is not valid for ${host}: ${identity.message}` });
+          }
+
+          // Key strength
+          try {
+            const x509 = new X509Certificate(peerCert.raw);
+            const key = x509.publicKey;
+            const details = key.asymmetricKeyDetails ?? {};
+            result.keyType = key.asymmetricKeyType;
+            if (key.asymmetricKeyType === "rsa" && details.modulusLength) {
+              result.keyBits = details.modulusLength;
+              if (details.modulusLength < 1024) {
+                result.findings.push({ severity: "critical", code: "WEAK_KEY", message: `RSA key is ${details.modulusLength} bits` });
+              } else if (details.modulusLength < 2048) {
+                result.findings.push({ severity: "high", code: "WEAK_KEY", message: `RSA key is ${details.modulusLength} bits (use 2048 or more)` });
+              }
+            } else if (key.asymmetricKeyType === "ec" && details.namedCurve) {
+              const bits = Number(/(\d{3})/.exec(details.namedCurve)?.[1] ?? 256);
+              result.keyBits = bits;
+              if (bits < 256) result.findings.push({ severity: "high", code: "WEAK_KEY", message: `EC key on ${details.namedCurve} is under 256 bits` });
+            }
+          } catch {
+            // An unusual key type: nothing to judge
+          }
+
+          // Weak hash in the leaf's or an intermediate's signature (a root's own signature does not matter)
+          for (let c: tls.DetailedPeerCertificate | undefined = peerCert, i = 0; c && i < 10; c = c.issuerCertificate, i++) {
+            if (c.issuerCertificate === c) break;
+            const weak = c.raw ? weakSignature(c.raw) : null;
+            if (weak) {
+              result.weakSignature = weak;
+              result.findings.push({ severity: "high", code: "WEAK_SIGNATURE", message: `${i === 0 ? "The certificate" : "An intermediate certificate"} is signed with ${weak}` });
+              break;
+            }
           }
 
           if (certInfo.subjectAltNames.length === 0) {
@@ -179,19 +272,67 @@ export async function inspectHost(
           result.findings.push({ severity: "high", code: "WEAK_CIPHER_STRENGTH", message: `Cipher key length too short: ${result.cipherStrength} bits` });
         }
 
-        if (result.findings.length === 0) {
-          result.findings.push({ severity: "info", code: "OK", message: "No issues found" });
-        }
-
         socket.end();
-        resolve(result);
+        void finish();
       }
     );
+
+    socket.on("OCSPResponse", (response: Buffer) => {
+      ocspStapled = Boolean(response && response.length > 0);
+    });
+
+    /** Checks that need more connections or DNS, after the main handshake. */
+    const finish = async () => {
+      result.ocspStapled = ocspStapled;
+      // Only meaningful for a publicly trusted certificate
+      if (!ocspStapled && result.chainValid) {
+        result.findings.push({ severity: "low", code: "NO_OCSP_STAPLING", message: "The server does not staple an OCSP response (clients must ask the CA themselves)" });
+      }
+
+      if (options.probes !== false) {
+        const probes = await probeHost(host, port, timeoutMs);
+        result.probes = probes;
+        // The main handshake landing on TLS 1.0/1.1 already produced this finding
+        const legacy = [probes.tls10 && "TLS 1.0", probes.tls11 && "TLS 1.1"].filter((v): v is string => Boolean(v));
+        if (legacy.length > 0 && !result.findings.some((f) => f.code === "DEPRECATED_PROTOCOL")) {
+          result.findings.push({ severity: "high", code: "DEPRECATED_PROTOCOL", message: `The server still accepts ${legacy.join(" and ")}; allow TLS 1.2 and 1.3 only` });
+        }
+        if (probes.tls13 === false) {
+          result.findings.push({ severity: "low", code: "NO_TLS13", message: "The server does not support TLS 1.3" });
+        }
+        if (probes.staticRsa) {
+          result.findings.push({ severity: "medium", code: "NO_FORWARD_SECRECY", message: "The server accepts RSA key exchange ciphers: recorded traffic can be decrypted later if the key leaks" });
+        }
+        if (probes.dhBits !== undefined && probes.dhBits < 2048) {
+          result.findings.push({ severity: probes.dhBits < 1024 ? "critical" : "high", code: "WEAK_DH", message: `The server's Diffie-Hellman group is ${probes.dhBits} bits (use 2048 or more, or ECDHE)` });
+        }
+        for (const family of probes.weakCiphers) {
+          result.findings.push({ severity: family === "3DES" ? "high" : "critical", code: "WEAK_CIPHER", message: `The server accepts ${family} cipher suites` });
+        }
+      }
+
+      if (options.caa !== false && !/^[\d.]+$|:/.test(host)) {
+        result.caa = await lookupCaa(host);
+        if (!result.caa) {
+          result.findings.push({ severity: "low", code: "NO_CAA", message: "No CAA DNS record: any certificate authority may issue certificates for this domain" });
+        }
+      }
+
+      if (result.findings.length === 0) {
+        result.findings.push({ severity: "info", code: "OK", message: "No issues found" });
+      }
+      resolve(result);
+    };
 
     socket.on("error", (err: Error) => {
       clearTimeout(timer);
       result.error = err.message;
-      result.findings.push({ severity: "high", code: "CONNECTION_ERROR", message: err.message });
+      // A handshake failure here, with every protocol and cipher this runtime has on offer,
+      // usually means the server only speaks something it cannot (RC4, 3DES, SSLv3)
+      const hint = /handshake failure|no shared cipher|unsupported protocol|wrong version number/i.test(err.message)
+        ? " — the server may only offer protocols or ciphers this runtime cannot use (SSLv3, RC4, 3DES), which would itself be critical; check with testssl.sh"
+        : "";
+      result.findings.push({ severity: "high", code: "CONNECTION_ERROR", message: `${err.message}${hint}` });
       resolve(result);
     });
 
@@ -244,6 +385,14 @@ export function formatInspectReport(results: TlsInspectResult[]): string {
     lines.push(`│  Protocol  : ${r.protocol ?? "unknown"}`);
     lines.push(`│  Cipher    : ${r.cipher ?? "unknown"} (${r.cipherStrength ?? "?"} bit)`);
     lines.push(`│  Chain     : depth=${r.chainDepth ?? "?"} valid=${r.chainValid ? "yes" : "no"}`);
+    if (r.keyType) lines.push(`│  Key       : ${r.keyType.toUpperCase()} ${r.keyBits ?? "?"} bit${r.weakSignature ? ` · signed with ${r.weakSignature}` : ""}`);
+    if (r.probes) {
+      const accepted = [r.probes.tls10 && "TLS 1.0", r.probes.tls11 && "TLS 1.1", "TLS 1.2", r.probes.tls13 && "TLS 1.3"].filter(Boolean).join(", ");
+      lines.push(`│  Accepts   : ${accepted}${r.probes.staticRsa ? " · RSA key exchange" : ""}${r.probes.dhBits ? ` · DH ${r.probes.dhBits} bit` : ""}`);
+      if (r.probes.notTested.length > 0) lines.push(`│  Not tested: ${r.probes.notTested.join(", ")} (not in this runtime's OpenSSL)`);
+    }
+    if (r.ocspStapled !== undefined) lines.push(`│  OCSP      : ${r.ocspStapled ? "stapled" : "not stapled"}`);
+    if (r.caa) lines.push(`│  CAA       : ${r.caa.join("; ")}`);
 
     if (r.cert) {
       const c = r.cert;

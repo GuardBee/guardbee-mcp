@@ -1,17 +1,17 @@
 # @guardbee/mcp-db-gateway
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/db-gateway/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/db-gateway/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/db-gateway/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/db-gateway/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/db-gateway/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/db-gateway/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/db-gateway/DE.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-db-gateway.svg)](https://www.npmjs.com/package/@guardbee/mcp-db-gateway)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-db-gateway.svg)](https://www.npmjs.com/package/@guardbee/mcp-db-gateway)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/db-gateway/LICENSE)
 [![Smithery](https://smithery.ai/badge/guardbee/mcp-db-gateway)](https://smithery.ai/servers/guardbee/mcp-db-gateway)
 
 A KVKK / GDPR-compliant MCP (Model Context Protocol) server — adds a security layer between an LLM and a database.
 
 Instead of querying your database directly, Claude (or any other LLM) goes through this gateway. Sensitive fields are masked automatically, table access is role-controlled, and every query is written to an audit log.
 
-> This package sends usage telemetry to GuardBee by default (tool name + short parameters, e.g. a table name — real row data/filter values are never included, see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). This is separate from and independent of the gateway's own local audit log (`audit.filePath`). Disable with `GUARDBEE_TELEMETRY=0`.
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/telemetry/README.md).
 
 ```
 Claude ──► MCP Gateway ──► Database
@@ -299,6 +299,22 @@ createServer({
 
 Glob pattern support: `*Password*`, `*Token*`, `*Secret*`
 
+### PII inside text columns (`piiScan`)
+
+Field rules go by column name, so a free-text column (`notes`, `description`) can still carry an e-mail, a TC kimlik or an API key. `piiScan` (off by default) masks those by value in every text field no field rule covers, nested objects and arrays included; an `allow` rule turns it off for that field. `preset` / `enable` / `disable` pick the detectors, with the same presets as the security proxy: `ALL` (default), `KVKK`, `IDENTITY`, `IDENTIFIERS`, `SECRETS`.
+
+```ts
+createServer({ piiScan: { enabled: true, preset: "KVKK", disable: ["address"] } }, adapter);
+```
+
+From the CLI: `GATEWAY_PII_SCAN=true` (every default detector) or `GATEWAY_PII_SCAN=KVKK` (a preset). An unknown preset or detector name fails at startup.
+
+`piiScan.blockPatterns` and `piiScan.allowPatterns` add your own patterns, as in the security proxy: block masks your ids as `<CATEGORY_n>`, allow leaves a detected value whose whole text matches. A block pattern that runs over its 100 ms budget fails the query rather than return rows it may not have masked.
+
+```ts
+createServer({ piiScan: { enabled: true, blockPatterns: [{ pattern: "CL-\\d{6}", category: "CLIENT_NO" }], allowPatterns: ["destek@acme\\.com\\.tr"] } }, adapter);
+```
+
 ---
 
 ## Role-Based Access (RBAC)
@@ -377,3 +393,7 @@ npm run type-check   # type-check only
 ## License
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Feedback
+
+Questions, ideas, or a false positive? Start a thread in [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) or [open an issue](https://github.com/GuardBee/guardbee-mcp/issues). If GuardBee is useful to you, a ⭐ on [the repository](https://github.com/GuardBee/guardbee-mcp) helps others find it.

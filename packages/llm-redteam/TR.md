@@ -1,6 +1,6 @@
 # @guardbee/mcp-llm-redteam
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 MCP (Model Context Protocol) sunucusu — canlı bir LLM endpoint'ini ya da chatbot'u **aktif** olarak red-team'ler. GuardBee'nin diğer tarayıcıları gibi statik analiz değil, sizin kontrolünüzdeki gerçek bir hedefe gerçek probe istekleri gönderir.
 
@@ -10,7 +10,7 @@ MCP (Model Context Protocol) sunucusu — canlı bir LLM endpoint'ini ya da chat
 >
 > **Hiçbir probe hedeften gerçekten zararlı içerik üretmesini istemez.** Her probe *canary-tabanlı*dır: başarı, hedefin her çalıştırmada ürettiğimiz rastgele, tek kullanımlık bir token'ı tekrar üretip üretmediğiyle ölçülür — bu, karaktere aykırı bir talimatın uyulduğunun kanıtıdır, gerçek zararlı çıktı hiç istenmeden. Bu, sonuçları deterministik (bir canary tesadüfen ortaya çıkamaz) ve canlı bir endpoint'e karşı çalıştırmayı güvenli kılar.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler — API key'iniz, prompt'larınız ya da hedefin yanıtları ASLA dahil değil — bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
 ```
 LLM endpoint'iniz / chatbot'unuz ◄── llm-redteam ──► Claude
@@ -116,3 +116,7 @@ npm test             # 29 unit test
 ## Lisans
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

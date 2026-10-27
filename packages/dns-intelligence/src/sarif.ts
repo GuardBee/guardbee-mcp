@@ -39,41 +39,45 @@ const HELP_URLS: Record<string, string> = {
   DMARC_POLICY_NONE: "https://guardbee.ai/docs/dns#dmarc",
 };
 
-export function buildSarif(
-  toolVersion: string,
-  domain: string,
-  findings: Finding[]
-): object {
+export function buildSarif(toolVersion: string, domain: string, findings: Finding[]): object {
+  return buildSarifMulti(toolVersion, [{ domain, findings }]);
+}
+
+const EMAIL_CODES = /^(SPF|DMARC|DKIM|MX|MTA_STS|TLSRPT)_/;
+
+/** One SARIF run covering several domains; each result's location is dns://<domain>. */
+export function buildSarifMulti(toolVersion: string, domains: Array<{ domain: string; findings: Finding[] }>): object {
   const rulesMap = new Map<string, SarifRule>();
   const sarifResults: SarifResult[] = [];
-  const domainUri = `dns://${domain}`;
 
-  for (const f of findings) {
-    if (!rulesMap.has(f.code)) {
-      rulesMap.set(f.code, {
-        id: f.code,
-        name: f.code.replace(/_/g, ""),
-        shortDescription: { text: f.message },
-        helpUri: HELP_URLS[f.code] ?? "https://guardbee.ai/docs/dns",
-        properties: {
-          "problem.severity": f.severity,
-          tags: ["security", "dns", "email-security"],
-        },
+  for (const { domain, findings } of domains) {
+    for (const f of findings.filter((x) => x.severity !== "info")) {
+      if (!rulesMap.has(f.code)) {
+        rulesMap.set(f.code, {
+          id: f.code,
+          name: f.code.replace(/_/g, ""),
+          shortDescription: { text: f.message },
+          helpUri: HELP_URLS[f.code] ?? "https://guardbee.ai/docs/dns",
+          properties: {
+            "problem.severity": f.severity,
+            tags: ["security", "dns", ...(EMAIL_CODES.test(f.code) ? ["email-security"] : [])],
+          },
+        });
+      }
+
+      sarifResults.push({
+        ruleId: f.code,
+        level: severityToLevel(f.severity),
+        message: { text: `${domain}: ${f.message}` },
+        locations: [
+          {
+            physicalLocation: {
+              artifactLocation: { uri: `dns://${domain}` },
+            },
+          },
+        ],
       });
     }
-
-    sarifResults.push({
-      ruleId: f.code,
-      level: severityToLevel(f.severity),
-      message: { text: `${domain}: ${f.message}` },
-      locations: [
-        {
-          physicalLocation: {
-            artifactLocation: { uri: domainUri },
-          },
-        },
-      ],
-    });
   }
 
   return {

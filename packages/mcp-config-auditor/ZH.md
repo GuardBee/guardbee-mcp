@@ -1,6 +1,6 @@
 # @guardbee/mcp-config-auditor
 
-[🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文**
+[🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文** | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 一个 MCP 服务器，用于审计机器上的 MCP 客户端配置：Cursor `mcp.json`、Claude Desktop `claude_desktop_config.json`、Windsurf `mcp_config.json` 以及 VS Code `mcp.json`。
 
@@ -107,3 +107,7 @@ mcp-config-auditor:
 ```
 
 影子检测需要该清单，因为客户端配置不列出工具。`rug-pull-detector` 可以收集实时 `tools/list`；本包比较多份此类列表。
+
+## 反馈
+
+有问题、想法或误报？请在 [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) 发帖或[提交 issue](https://github.com/GuardBee/guardbee-mcp/issues)。如果 GuardBee 对你有帮助，给[仓库](https://github.com/GuardBee/guardbee-mcp)点个 ⭐ 能让更多人发现它。

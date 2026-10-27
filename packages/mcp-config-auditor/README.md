@@ -1,10 +1,16 @@
 # @guardbee/mcp-config-auditor
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/mcp-config-auditor/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/mcp-config-auditor/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/mcp-config-auditor/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/mcp-config-auditor/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/mcp-config-auditor/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/mcp-config-auditor/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/mcp-config-auditor/DE.md)
+
+[![npm version](https://img.shields.io/npm/v/@guardbee/mcp-config-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-config-auditor)
+[![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-config-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-config-auditor)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/mcp-config-auditor/LICENSE)
 
 An MCP server that audits the MCP client config on a machine: Cursor `mcp.json`, Claude Desktop `claude_desktop_config.json`, Windsurf `mcp_config.json`, and VS Code `mcp.json`.
 
 `mcp-server-auditor` reads an MCP server's source. This package reads the config that decides which servers an agent will run. It does not start those servers and it does not send the config anywhere.
+
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/telemetry/README.md).
 
 ```
 Claude ──► mcp-config-auditor ──► mcp.json  (or host-wide discover)
@@ -24,6 +30,7 @@ Claude ──► mcp-config-auditor ──► mcp.json  (or host-wide discover)
 | Pattern | Severity | OWASP | What it means |
 |---|---|---|---|
 | `unpinned_package` | high | MCP04:2025 | A launcher (`npx`, `uvx`, `pnpm`, `yarn`, `bunx`, `pipx`) runs a package with no `major.minor.patch` pin |
+| `unpinned_container_image` | high | MCP04:2025 | `docker run` / `podman run` starts an image by tag, not by `@sha256:` digest |
 | `typosquat_package` | critical | MCP04:2025 | The package name is one edit from a known MCP server package |
 | `secret_in_env` | critical | MCP01:2025 | A credential-shaped value or a sensitive key with a long literal |
 | `secret_in_args` | critical | MCP01:2025 | A token on the command line |
@@ -70,7 +77,15 @@ npx @guardbee/mcp-config-auditor discover --allowlist=./mcp-allowlist.json --fai
 
 ### Shadow MCP discover (MCP09)
 
-Walks well-known Cursor / Claude Desktop / Claude Code / Windsurf / VS Code paths on this machine and compares every installed server to an organization allowlist. Does not start servers.
+Walks well-known Cursor / Claude Desktop / Claude Code / Windsurf / VS Code / Gemini CLI / Cline / Zed paths on this machine and compares every installed server to an organization allowlist. Does not start servers. Claude Code's per-project servers (`projects["<path>"].mcpServers` in `~/.claude.json`) are listed under `claude-code:<path>`; Zed's `context_servers` and JSON with comments are understood.
+
+**Inventory.** `--format=json` adds an `inventory`: for every server its client, config path, name, transport, command and arguments, npm/PyPI package with version and whether it is pinned, URL, the **names** of its env variables and headers, auto-approve, and the findings for it. It never holds a secret: env and header values are left out, argument values after `--token`/`--api-key`-style flags, `KEY=value` pairs, provider tokens and passwords in connection strings are `[redacted]`, and URLs lose their credentials and query values. `--format=text` prints the same list; `--format=sarif` the findings.
+
+**Organisation-wide.** `--upload` sends the inventory to the GuardBee dashboard (`GUARDBEE_API_KEY`, a workspace key with the `gateway.write` scope), which keeps the latest inventory per machine; run it from your device-management tool or a login script. The machine's host name, OS and OS user name are included — `--no-user` leaves the user out.
+
+```bash
+GUARDBEE_API_KEY=gb_… npx @guardbee/mcp-config-auditor discover --allowlist=./mcp-allowlist.json --upload --fail-on=none
+```
 
 Allowlist JSON:
 
@@ -107,3 +122,7 @@ Tool inventory shape:
 ```
 
 Shadowing needs that inventory because a client config does not list tools. `rug-pull-detector` can collect a live `tools/list`; this package compares several of those lists.
+
+## Feedback
+
+Questions, ideas, or a false positive? Start a thread in [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) or [open an issue](https://github.com/GuardBee/guardbee-mcp/issues). If GuardBee is useful to you, a ⭐ on [the repository](https://github.com/GuardBee/guardbee-mcp) helps others find it.

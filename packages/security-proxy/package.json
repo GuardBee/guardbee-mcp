@@ -1,16 +1,16 @@
 {
   "name": "@guardbee/mcp-security-proxy",
-  "version": "1.13.0",
+  "version": "1.30.0",
   "mcpName": "io.github.GuardBee/security-proxy",
-  "description": "MCP security gateway: several MCP servers behind one policy, with toxic-flow (lethal trifecta) blocking, approvals, PII masking and a hash-chained audit log",
+  "description": "MCP security gateway and LLM firewall: masks PII and secrets, blocks prompt injection and toxic flows (lethal trifecta), approves risky calls and keeps a hash-chained audit log, for MCP servers and LLM APIs",
   "author": "GuardBee <hello@guardbee.ai>",
   "license": "MIT",
-  "homepage": "https://github.com/GuardBee/guardbee-mcp/tree/main/packages/security-proxy#readme",
   "repository": {
     "type": "git",
     "url": "https://github.com/GuardBee/guardbee-mcp.git",
     "directory": "packages/security-proxy"
   },
+  "homepage": "https://guardbee.ai/en/what-is-mcp-security-proxy/",
   "bugs": {
     "url": "https://github.com/GuardBee/guardbee-mcp/issues"
   },
@@ -24,21 +24,43 @@
     "audit",
     "guardbee",
     "llm",
-    "claude"
+    "claude",
+    "mcp-gateway",
+    "llm-gateway",
+    "ai-gateway",
+    "guardrails",
+    "firewall",
+    "llm-firewall",
+    "dlp",
+    "pii-masking",
+    "data-masking",
+    "openai",
+    "anthropic"
   ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./dist/*": "./dist/*",
+    "./package.json": "./package.json"
+  },
   "bin": {
-    "guardbee-proxy": "dist/cli.js"
+    "guardbee-proxy": "dist/cli.js",
+    "guardbee-hook": "dist/hook-cli.js"
   },
   "files": [
     "dist",
     "README.md",
-    "TR.md",
-    "ZH.md"
+    "LICENSE",
+    "CHANGELOG.md",
+    "!dist/**/*.map",
+    "!dist/**/__tests__"
   ],
   "engines": {
-    "node": ">=18"
+    "node": ">=22.9.0"
   },
   "scripts": {
     "build": "tsc",
@@ -51,21 +73,30 @@
   },
   "dependencies": {
     "@guardbee/guard-core": "workspace:^",
+    "@guardbee/mcp-document-scanner": "workspace:^",
     "@guardbee/mcp-telemetry": "workspace:^",
-    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "@opentelemetry/api": "^1.9.1",
+    "@sigstore/bundle": "^4.0.0",
+    "@sigstore/protobuf-specs": "^0.5.2",
+    "@sigstore/tuf": "^4.0.2",
+    "@sigstore/verify": "^3.1.1",
     "jose": "^6.2.12",
+    "ldapts": "^9.2.0",
     "yaml": "^2.9.1",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@opentelemetry/exporter-trace-otlp-http": "^0.223.0",
-    "@opentelemetry/resources": "^2.12.0",
-    "@opentelemetry/sdk-trace-base": "^2.12.0"
+    "@opentelemetry/exporter-trace-otlp-http": "^0.300.0",
+    "@opentelemetry/resources": "^3.0.0",
+    "@opentelemetry/sdk-trace-base": "^2.12.0",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "openai": "^7.39.0"
   },
   "peerDependencies": {
-    "@opentelemetry/exporter-trace-otlp-http": "^0.223.0",
-    "@opentelemetry/resources": "^2.12.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.300.0",
+    "@opentelemetry/resources": "^3.0.0",
     "@opentelemetry/sdk-trace-base": "^2.12.0"
   },
   "peerDependenciesMeta": {

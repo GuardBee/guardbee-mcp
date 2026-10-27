@@ -1,7 +1,8 @@
 import { readFileSync, statSync, readdirSync } from "fs";
 import { join, relative, extname } from "path";
+import { extractSourceTools, languageOf, sinkRulesFor, type SourceLanguage } from "@guardbee/guard-core";
 import { annotationContradicts, matchSurface } from "./catalog.js";
-import { MISMATCH_SINK_RULES, READ_ONLY_HINT } from "./patterns.js";
+import { READ_ONLY_HINT } from "./patterns.js";
 
 export interface Finding {
   patternId: string;
@@ -11,6 +12,8 @@ export interface Finding {
   recommendation: string;
   /** OWASP MCP Top 10 tag. Present on findings produced by the current rules. */
   owasp?: string;
+  /** Source language the finding was read from (typescript, javascript, python, go). */
+  language?: SourceLanguage;
   file?: string;
   line: number;
   column: number;
@@ -55,16 +58,16 @@ interface ToolBlock {
 }
 
 /**
- * Finds every `.tool("name", ...)` registration (the MCP TypeScript SDK's
- * `McpServer.tool()` convenience form — the shape every GuardBee server in
- * this monorepo uses) and captures its name, description (if the very next
- * argument is a string literal), and a bounded window of following source as
+ * Finds every `.tool("name", ...)` and `.registerTool("name", { ... }, ...)`
+ * registration (the MCP TypeScript SDK's two forms) and captures its name,
+ * description (the next argument when it is a string literal, or the
+ * `description` field of registerTool's config object), and a bounded window of following source as
  * a stand-in for "the rest of this tool's definition". Each block is capped
  * at the next tool registration so a sink in tool B's handler is never
  * misattributed to tool A.
  */
 export function extractToolBlocks(text: string): ToolBlock[] {
-  const nameRe = /\.tool\(\s*["'`]([\w.-]+)["'`]\s*,\s*/g;
+  const nameRe = /\.(?:tool|registerTool)\(\s*["'`]([\w.-]+)["'`]\s*,\s*/g;
   const starts: Array<{ name: string; start: number; afterName: number }> = [];
   let m: RegExpExecArray | null;
   while ((m = nameRe.exec(text)) !== null) {
@@ -79,9 +82,14 @@ export function extractToolBlocks(text: string): ToolBlock[] {
     let description: string | null = null;
     let descriptionOffset = -1;
     const descMatch = /^(["'`])((?:\\.|(?!\1)[^\\])*)\1\s*,/.exec(rest);
+    // registerTool("name", { title?, description: "...", inputSchema, ... }, handler)
+    const configMatch = descMatch ? null : /^\{[^{}]*?\bdescription\s*:\s*(["'`])((?:\\.|(?!\1)[^\\])*)\1/.exec(rest);
     if (descMatch) {
       description = descMatch[2];
       descriptionOffset = entry.afterName + 1; // skip the opening quote
+    } else if (configMatch) {
+      description = configMatch[2];
+      descriptionOffset = entry.afterName + configMatch[0].length - configMatch[2].length - 1;
     }
 
     return { name: entry.name, description, descriptionOffset, body: rest, offset: entry.afterName };
@@ -110,17 +118,59 @@ function locationOf(text: string, absoluteIndex: number): { line: number; column
   return { line, column };
 }
 
-export function scanText(text: string, filePath?: string): Finding[] {
-  const findings: Finding[] = [];
-  const blocks = extractToolBlocks(text);
+/** A tool definition in any supported language, as the checks below see it. */
+interface ScannedTool {
+  name: string;
+  description: { text: string; index: number } | null;
+  /** Parameter descriptions and other schema strings, absolute offsets. */
+  schemaStrings: Array<{ text: string; index: number }>;
+  readOnlyHint: boolean;
+  /** Handler code: [start, end) offsets. */
+  code: Array<[number, number]>;
+}
 
-  for (const block of blocks) {
+function typescriptTools(text: string): ScannedTool[] {
+  return extractToolBlocks(text).map((block) => ({
+    name: block.name,
+    description: block.description === null ? null : { text: block.description, index: block.descriptionOffset },
+    schemaStrings: extractSchemaStrings(block.body)
+      .map((s) => ({ text: s.text, index: block.offset + s.index }))
+      // registerTool's own `description:` field is the tool description
+      .filter((s) => s.index !== block.descriptionOffset),
+    readOnlyHint: /readOnlyHint\s*:\s*true/.test(block.body),
+    code: [[block.offset, block.offset + block.body.length]],
+  }));
+}
+
+function toolsOf(text: string, language: SourceLanguage | undefined): ScannedTool[] {
+  if (language === "python" || language === "go") {
+    return extractSourceTools(text, language).map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      schemaStrings: tool.schemaStrings,
+      readOnlyHint: tool.readOnlyHint,
+      code: tool.handler,
+    }));
+  }
+  return typescriptTools(text);
+}
+
+/**
+ * Scans MCP server source. The language comes from `filePath`'s extension
+ * (or `language`): Python (FastMCP decorators, low-level Tool()) and Go
+ * (official go-sdk, mark3labs/mcp-go) have their own readers; anything
+ * else is read as TypeScript/JavaScript.
+ */
+export function scanText(text: string, filePath?: string, language: SourceLanguage | undefined = filePath ? languageOf(filePath) : undefined): Finding[] {
+  const findings: Finding[] = [];
+  const lang = language ?? "typescript";
+  const sinks = sinkRulesFor(lang);
+
+  for (const tool of toolsOf(text, lang)) {
     // ── Check 1: description, parameter descriptions, and enum values ────────
     const surfaces: Array<{ text: string; index: number; field: string }> = [];
-    if (block.description) surfaces.push({ text: block.description, index: block.descriptionOffset, field: "description" });
-    for (const schema of extractSchemaStrings(block.body)) {
-      surfaces.push({ text: schema.text, index: block.offset + schema.index, field: "parameter" });
-    }
+    if (tool.description) surfaces.push({ ...tool.description, field: "description" });
+    for (const schema of tool.schemaStrings) surfaces.push({ ...schema, field: "parameter" });
     for (const surface of surfaces) {
       for (const hit of matchSurface(surface.text)) {
         const { line, column } = locationOf(text, surface.index + hit.index);
@@ -131,30 +181,32 @@ export function scanText(text: string, filePath?: string): Finding[] {
           severity: hit.severity,
           recommendation: hit.recommendation,
           owasp: hit.owasp,
+          language: lang,
           file: filePath,
           line,
           column,
-          match: `tool "${block.name}" ${surface.field}: ${hit.match.trim().slice(0, MAX_CONTEXT_LENGTH)}`,
+          match: `tool "${tool.name}" ${surface.field}: ${hit.match.trim().slice(0, MAX_CONTEXT_LENGTH)}`,
           context: surface.text.trim().slice(0, MAX_CONTEXT_LENGTH),
         });
       }
     }
 
-    if (block.description && /readOnlyHint\s*:\s*true/.test(block.body) && annotationContradicts(block.description)) {
-      const { line, column } = locationOf(text, block.descriptionOffset);
+    if (tool.description && tool.readOnlyHint && annotationContradicts(tool.description.text)) {
+      const { line, column } = locationOf(text, tool.description.index);
       findings.push({
         patternId: "annotation_readonly_lie",
-        patternName: `Confused deputy: "${block.name}" sets readOnlyHint but the description mutates or executes`,
+        patternName: `Confused deputy: "${tool.name}" sets readOnlyHint but the description mutates or executes`,
         category: "confused-deputy",
         severity: "high",
         recommendation:
           "readOnlyHint: true tells a client this tool will not change state. A description that deletes, drops, or executes contradicts that annotation.",
         owasp: "MCP03:2025",
+        language: lang,
         file: filePath,
         line,
         column,
-        match: `tool "${block.name}": ${block.description.trim().slice(0, MAX_CONTEXT_LENGTH)}`,
-        context: block.description.trim().slice(0, MAX_CONTEXT_LENGTH),
+        match: `tool "${tool.name}": ${tool.description.text.trim().slice(0, MAX_CONTEXT_LENGTH)}`,
+        context: tool.description.text.trim().slice(0, MAX_CONTEXT_LENGTH),
       });
     }
 
@@ -162,28 +214,32 @@ export function scanText(text: string, filePath?: string): Finding[] {
     // Tool names are usually snake_case/kebab-case, so "_"/"-" must become word
     // separators before testing — otherwise "get_system_info" is one long \w
     // token to the regex engine and \bget\b never matches inside it.
-    const normalizedName = block.name.replace(/[_-]/g, " ");
-    const promisedReadOnly = READ_ONLY_HINT.test(normalizedName) || (block.description ? READ_ONLY_HINT.test(block.description) : false);
+    const normalizedName = tool.name.replace(/[_-]/g, " ");
+    const promisedReadOnly =
+      tool.readOnlyHint || READ_ONLY_HINT.test(normalizedName) || (tool.description ? READ_ONLY_HINT.test(tool.description.text) : false);
     if (!promisedReadOnly) continue;
 
-    for (const rule of MISMATCH_SINK_RULES) {
-      const sm = rule.pattern.exec(block.body);
-      if (!sm) continue;
-      const absoluteIndex = block.offset + sm.index;
-      const { line, column } = locationOf(text, absoluteIndex);
-      findings.push({
-        patternId: `confused_deputy_${rule.id}`,
-        patternName: `Confused deputy: "${block.name}" reads as read-only but handler has a ${rule.category} sink`,
-        category: "confused-deputy",
-        severity: rule.severity,
-        recommendation: rule.recommendation,
-        owasp: "MCP03:2025",
-        file: filePath,
-        line,
-        column,
-        match: `tool "${block.name}": ${sm[0].trim().slice(0, MAX_CONTEXT_LENGTH)}`,
-        context: (block.description ?? block.name).trim().slice(0, MAX_CONTEXT_LENGTH),
-      });
+    for (const rule of sinks) {
+      for (const [start, end] of tool.code) {
+        const sm = rule.pattern.exec(text.slice(start, end));
+        if (!sm) continue;
+        const { line, column } = locationOf(text, start + sm.index);
+        findings.push({
+          patternId: `confused_deputy_${rule.id}`,
+          patternName: `Confused deputy: "${tool.name}" reads as read-only but handler has a ${rule.category} sink`,
+          category: "confused-deputy",
+          severity: rule.severity,
+          recommendation: rule.recommendation,
+          owasp: "MCP03:2025",
+          language: lang,
+          file: filePath,
+          line,
+          column,
+          match: `tool "${tool.name}": ${sm[0].trim().slice(0, MAX_CONTEXT_LENGTH)}`,
+          context: (tool.description?.text ?? tool.name).trim().slice(0, MAX_CONTEXT_LENGTH),
+        });
+        break;
+      }
     }
   }
 

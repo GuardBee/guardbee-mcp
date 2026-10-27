@@ -38,13 +38,21 @@ export async function startServer() {
     version: "0.1.0",
   });
   instrumentServer(server, "prompt-injection-scanner");
+  registerTools(server);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
-  server.tool(
+/** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
+export function registerTools(server: McpServer): void {
+  server.registerTool(
     "scan_text",
-    "Scan a text string — a RAG chunk, a scraped web page, a document, a tool result — for indirect prompt injection payloads (instruction-override phrases, spoofed chat-template roles, hidden/invisible text, content addressing 'the AI' directly, data-exfiltration attempts) before it reaches a model's context.",
     {
-      content: z.string().describe("The text content to scan"),
-      label: z.string().optional().describe("Optional label shown in findings (e.g. source URL or filename)"),
+      description: "Scan a text string — a RAG chunk, a scraped web page, a document, a tool result — for indirect prompt injection payloads (instruction-override phrases, spoofed chat-template roles, hidden/invisible text, content addressing 'the AI' directly, data-exfiltration attempts) before it reaches a model's context.",
+      inputSchema: {
+        content: z.string().describe("The text content to scan"),
+        label: z.string().optional().describe("Optional label shown in findings (e.g. source URL or filename)"),
+      },
     },
     async ({ content, label }) => {
       const findings = scanText(content, label);
@@ -52,11 +60,13 @@ export async function startServer() {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "scan_file",
-    "Scan a single file (a knowledge-base document, an HTML page, extracted text) for indirect prompt injection payloads",
     {
-      path: z.string().describe("Absolute or relative path to the file to scan"),
+      description: "Scan a single file (a knowledge-base document, an HTML page, extracted text) for indirect prompt injection payloads",
+      inputSchema: {
+        path: z.string().describe("Absolute or relative path to the file to scan"),
+      },
     },
     async ({ path: filePath }) => {
       const { findings, skipped } = scanFile(filePath);
@@ -71,20 +81,22 @@ export async function startServer() {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "scan_directory",
-    "Recursively scan a directory — e.g. a RAG knowledge base or a corpus of scraped pages — for indirect prompt injection payloads. Automatically skips node_modules, .git, dist, and binary files.",
     {
-      path: z.string().describe("Absolute or relative path to the directory to scan"),
-      maxFiles: z.number().int().positive().optional().describe("Maximum number of files to scan (default: 5000)"),
-      include: z
-        .array(z.string())
-        .optional()
-        .describe("Only scan files whose path contains one of these strings (e.g. [\".md\", \"knowledge-base/\"])"),
-      exclude: z
-        .array(z.string())
-        .optional()
-        .describe("Skip files/dirs whose path contains one of these strings"),
+      description: "Recursively scan a directory — e.g. a RAG knowledge base or a corpus of scraped pages — for indirect prompt injection payloads. Automatically skips node_modules, .git, dist, and binary files.",
+      inputSchema: {
+        path: z.string().describe("Absolute or relative path to the directory to scan"),
+        maxFiles: z.number().int().positive().optional().describe("Maximum number of files to scan (default: 5000)"),
+        include: z
+          .array(z.string())
+          .optional()
+          .describe("Only scan files whose path contains one of these strings (e.g. [\".md\", \"knowledge-base/\"])"),
+        exclude: z
+          .array(z.string())
+          .optional()
+          .describe("Skip files/dirs whose path contains one of these strings"),
+      },
     },
     async ({ path: dirPath, maxFiles, include, exclude }) => {
       const result = scanDirectory(dirPath, { maxFiles, include, exclude });
@@ -92,10 +104,12 @@ export async function startServer() {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "list_patterns",
-    "List all indirect prompt injection patterns that the scanner can detect, grouped by category",
-    {},
+    {
+      description: "List all indirect prompt injection patterns that the scanner can detect, grouped by category",
+      inputSchema: {},
+    },
     async () => {
       const lines = ["Supported indirect prompt injection patterns:\n"];
       const byCategory = new Map<string, typeof INJECTION_PATTERNS>();
@@ -112,7 +126,4 @@ export async function startServer() {
       return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }

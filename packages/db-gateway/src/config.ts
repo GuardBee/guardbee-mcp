@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { checkOrgPatterns, checkPiiDetectorNames, orgPatternShape, piiSelectionShape } from "@guardbee/guard-core";
 
 /**
  * Per-field masking rule.
@@ -141,6 +142,23 @@ export const GatewayConfigSchema = z.object({
     { field: "privateKey",     strategy: "redact" },
   ]),
 
+  /**
+   * Değer bazlı PII taraması (varsayılan kapalı): hiçbir fieldRule'a uymayan
+   * metin kolonlarında (ör. `notes`, `description`) bulunan TC kimlik, IBAN,
+   * e-posta, API anahtarı vb. maskelenir. `preset` / `enable` / `disable`
+   * hangi dedektörlerin çalışacağını seçer (guard-core presetleri).
+   * `blockPatterns` kurumun kendi kalıplarını (dosya no, müşteri kodu) maskeler,
+   * `allowPatterns` tespit edilmiş bir değeri (ör. herkese açık destek adresi) bırakır.
+   */
+  piiScan: z
+    .object({ enabled: z.boolean().default(true), ...piiSelectionShape, ...orgPatternShape })
+    .strict()
+    .superRefine((scan, ctx) => {
+      checkPiiDetectorNames(scan, ctx);
+      checkOrgPatterns(scan, ctx);
+    })
+    .optional(),
+
   /** Tablo bazlı erişim kuralları */
   tableRules: z.array(TableRuleSchema).default([]),
 
@@ -197,7 +215,16 @@ export function loadConfig(overrides?: Partial<GatewayConfig>): GatewayConfig {
     databaseUrl: process.env.DATABASE_URL ?? "",
     serverName: process.env.GATEWAY_SERVER_NAME,
     activeRole: process.env.GATEWAY_ROLE,
+    ...piiScanFromEnv(process.env.GATEWAY_PII_SCAN),
     ...overrides,
   };
   return GatewayConfigSchema.parse(raw);
+}
+
+/** GATEWAY_PII_SCAN: "1" / "true" scans with every default detector, a preset name (KVKK, SECRETS, …) with that preset. */
+function piiScanFromEnv(value: string | undefined): { piiScan?: unknown } {
+  const v = value?.trim();
+  if (!v || /^(0|false|off|no)$/i.test(v)) return {};
+  if (/^(1|true|on|yes)$/i.test(v)) return { piiScan: { enabled: true } };
+  return { piiScan: { enabled: true, preset: v.toUpperCase() } };
 }

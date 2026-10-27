@@ -10,6 +10,7 @@ import {
   parseToolsJson,
 } from "@guardbee/mcp-toxic-flow-auditor";
 import { scanDirectory as scanPoisonDir, scanFile as poisonScanFile, scanToolCatalog } from "@guardbee/mcp-tool-poisoning-scanner";
+import { directoryCoverage, fileCoverage, summarize } from "./coverage.js";
 import { discoverShadowMcp, loadAllowlistFile, type Allowlist } from "@guardbee/mcp-config-auditor";
 import { statSync, readFileSync } from "fs";
 import { gradeFromFindings } from "./grade.js";
@@ -168,6 +169,7 @@ export function scanPath(targetPath: string, options: PathScanOptions = {}): Owa
   pushNormalized(
     findings,
     oauth.findings.map((f) => ({
+      owasp: f.owasp,
       patternId: f.patternId,
       patternName: f.patternName,
       severity: f.severity,
@@ -253,7 +255,7 @@ export function scanPath(targetPath: string, options: PathScanOptions = {}): Owa
     findings.push(...runDiscover(options.allowlistPath));
   }
 
-  return buildReport("path", targetPath, findings, start, { scannedFiles });
+  return buildReport("path", targetPath, findings, start, { scannedFiles, coverage: directoryCoverage(targetPath, { maxFiles, exclude }) });
 }
 
 function scanSingleFile(filePath: string, start: number): OwaspReport {
@@ -291,6 +293,7 @@ function scanSingleFile(filePath: string, start: number): OwaspReport {
   pushNormalized(
     findings,
     oauthScanFile(filePath).findings.map((f) => ({
+      owasp: f.owasp,
       patternId: f.patternId,
       patternName: f.patternName,
       severity: f.severity,
@@ -365,7 +368,8 @@ function scanSingleFile(filePath: string, start: number): OwaspReport {
     );
   }
 
-  return buildReport("path", filePath, findings, start, { scannedFiles: 1 });
+  const coverage = fileCoverage(filePath);
+  return buildReport("path", filePath, findings, start, { scannedFiles: 1, coverage: summarize(coverage ? [coverage] : []) });
 }
 
 function runDiscover(allowlistPath?: string): NormalizedFinding[] {

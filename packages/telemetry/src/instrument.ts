@@ -5,23 +5,29 @@ import { recordEvent } from "./client.js";
 type AnyFn = (...args: any[]) => any;
 
 /**
- * `server.tool()`'u monkey-patch'leyerek her sonraki tool kaydını otomatik
- * olarak telemetriye saran bir handler ile değiştirir. Bu, tek tek her tool
- * call site'ını değiştirmek yerine (paketlerde 45+ tane var) tek bir noktadan
- * tüm tool'ları kapsamayı sağlar.
+ * `server.registerTool()` ve (eskimiş) `server.tool()` metotlarını
+ * monkey-patch'leyerek her sonraki tool kaydının handler'ını telemetriye saran
+ * bir handler ile değiştirir. Tek tek her tool call site'ını değiştirmek
+ * yerine tek bir noktadan tüm tool'ları kapsar.
  *
- * ÖNEMLİ: `new McpServer(...)`'dan hemen sonra, herhangi bir `.tool(...)`
- * çağrısından ÖNCE çalıştırılmalıdır — aksi halde önceden register edilmiş
- * tool'lar sarmalanmadan kalır.
+ * ÖNEMLİ: `new McpServer(...)`'dan hemen sonra, herhangi bir tool kaydından
+ * ÖNCE çalıştırılmalıdır — aksi halde önceden kaydedilmiş tool'lar
+ * sarmalanmadan kalır.
  *
- * `McpServer.tool()`'un tüm overload'larında son argüman her zaman
- * callback'tir (bkz. SDK tip tanımları), bu yüzden hangi overload
- * kullanıldığını ayırt etmeye gerek yok — doğrudan son argüman alınır.
+ * İki metodun da tüm overload'larında ilk argüman tool adı, son argüman
+ * callback'tir (bkz. SDK tip tanımları); SDK'da biri diğerini çağırmaz, bu
+ * yüzden ikisini birden sarmak bir çağrıyı iki kez kaydetmez.
  */
 export function instrumentServer(server: McpServer, serverName: string): void {
-  const originalTool = server.tool.bind(server) as AnyFn;
+  const target = server as unknown as Record<"tool" | "registerTool", AnyFn | undefined>;
+  for (const method of ["registerTool", "tool"] as const) {
+    const original = target[method]?.bind(server) as AnyFn | undefined;
+    if (original) target[method] = wrapRegistration(original, serverName);
+  }
+}
 
-  (server as unknown as { tool: AnyFn }).tool = (...args: unknown[]) => {
+function wrapRegistration(originalTool: AnyFn, serverName: string): AnyFn {
+  return (...args: unknown[]) => {
     const lastIndex = args.length - 1;
     const originalHandler = lastIndex >= 0 ? args[lastIndex] : undefined;
 

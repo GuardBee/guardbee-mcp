@@ -1,6 +1,6 @@
 # @guardbee/mcp-dns-intelligence
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-dns-intelligence.svg)](https://www.npmjs.com/package/@guardbee/mcp-dns-intelligence)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-dns-intelligence.svg)](https://www.npmjs.com/package/@guardbee/mcp-dns-intelligence)
@@ -8,17 +8,17 @@
 
 DNS kayıtlarını sıralayan, SPF / DMARC / DKIM yapılandırma hatalarını tespit eden ve asılı (dangling) subdomain'leri bulan MCP sunucusu. Node.js yerleşik `dns/promises` kullanır — harici bağımlılık yoktur.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler — bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
 ---
 
 ## Özellikler
 
 - **Tam DNS Sıralaması** — A, AAAA, MX, NS, TXT, CNAME, SOA kayıtları
-- **SPF Analizi** — `+all`, `?all`, fazla DNS sorgusu, yinelenen kayıt tespiti
+- **SPF Analizi** — `+all`, `?all`, yinelenen kayıtlar ve alıcı sunucuların saydığı biçimde RFC 7208 sınırları: iç içe `include`/`redirect` dahil DNS sorguları (en fazla 10), boş sorgular (en fazla 2), include döngüleri ve eksik include'lar
 - **DMARC Analizi** — Politika (`none`/`quarantine`/`reject`), `pct`, `rua` adresi eksikliği
 - **DKIM Kontrolü** — 9 yaygın seçici probu (`default`, `google`, `selector1`, `mail`, vb.)
-- **Subdomain Sıralaması** — 60+ yaygın alt alan; asılı CNAME tespiti (14 bulut sağlayıcısı)
+- **Subdomain Keşfi** — Certificate Transparency kayıtlarından adlar (crt.sh ve Cert Spotter paralel sorgulanır; yalnızca alan adı gönderilir) ve 75 adlık kelime listesi; wildcard DNS ayıklanır; her canlı ad subdomain ele geçirmeye karşı kontrol edilir
 - **E-posta Güvenliği Özeti** — SPF + DMARC + DKIM birleşik analizi ve kopyalanabilir düzeltme önerileri
 - **23 Unit Test** — Ağ bağlantısı gerektirmeyen saf mantık testleri
 
@@ -49,8 +49,10 @@ npm install -g @guardbee/mcp-dns-intelligence
 
 | Tool | Açıklama |
 |------|----------|
-| `enumerate_dns` | Domain için tüm DNS kayıtlarını sıralar ve SPF/DMARC/DKIM analizi yapar |
-| `enumerate_subdomains` | Yaygın subdomain'leri dener; asılı CNAME'leri işaretler |
+| `enumerate_dns` | A–F notlu tam DNS kontrolü: kayıtlar, SPF/DMARC/DKIM, MTA-STS, DNSSEC, CAA, nameserver'lar |
+| `audit_domains` | 20'ye kadar alan adını denetler, notlarını ve en önemli bulgularını karşılaştırır |
+| `enumerate_subdomains` | Yaygın subdomain'leri dener (wildcard'ı ayırt eder); subdomain ele geçirmelerini tespit eder |
+| `check_takeover` | Verilen host adlarını subdomain ele geçirmeye karşı kontrol eder |
 | `check_email_security` | SPF + DMARC + DKIM birleşik denetimi ve düzeltme önerileri |
 | `lookup_dns` | Belirli bir kayıt türü için hedefli DNS sorgusu (A/MX/TXT/vb.) |
 
@@ -95,6 +97,12 @@ Email Security Check: example.com
 | `SPF_NO_ALL` | 🟡 Medium | `all` mekanizması yok |
 | `SPF_TOO_MANY_LOOKUPS` | 🟠 High | > 10 DNS sorgusu — SPF hatasına yol açar |
 | `SPF_DUPLICATE` | 🟠 High | Birden fazla SPF kaydı |
+| `SPF_AT_LOOKUP_LIMIT` | 🔵 Low | Tam 10 sorgu — bir include daha SPF'yi bozar |
+| `SPF_TOO_MANY_VOID_LOOKUPS` | 🟠 High | 2'den fazla include kayıt döndürmüyor |
+| `SPF_INCLUDE_MISSING` | 🟠 High | Bir `include`/`redirect` hedefinde SPF kaydı yok (permerror) |
+| `SPF_INCLUDE_DUPLICATE` | 🟠 High | Dahil edilen alan adı birden fazla SPF kaydı yayınlıyor |
+| `SPF_INCLUDE_LOOP` | 🟠 High | Include'lar değerlendirilen kayda geri dönüyor |
+| `SPF_PTR` | 🔵 Low | Kullanımdan kalkmış `ptr` mekanizması |
 
 ## DMARC Bulguları
 
@@ -105,12 +113,69 @@ Email Security Check: example.com
 | `DMARC_POLICY_NONE` | 🟡 Medium | `p=none` — izleme modu, engelleme yok |
 | `DMARC_PCT_LOW` | 🔵 Low | `pct` < 100 — kısmi uygulama |
 | `DMARC_NO_RUA` | 🔵 Low | Toplu rapor adresi (`rua`) yok |
+| `DMARC_MULTIPLE` | 🟠 High | Birden fazla DMARC kaydı — alıcılar hepsini yok sayar |
+| `DMARC_INVALID_POLICY` | 🟠 High | `p=` değeri none, quarantine veya reject değil |
+| `DMARC_SUBDOMAINS_NONE` | 🟡 Medium | `sp=none` alt alan adlarını taklide açık bırakır |
+| `DOMAIN_NOT_FOUND` | 🟠 High | Alan adı yok (NXDOMAIN) |
 
-## Asılı Subdomain Tespiti
+Kendi DMARC kaydı olmayan alt alan adları, alıcıların yaptığı gibi üst alan adının kaydını (`sp=` politikasıyla) devralır. Alt alan adı taraması wildcard DNS'i tespit eder ve yalnızca wildcard'ın yanıtladığı adları listelemez.
 
-CNAME'i aşağıdaki sağlayıcılardan birine işaret edip çözümlenemeyen subdomain'ler **asılı (dangling)** olarak işaretlenir ve subdomain ele geçirme riski taşır:
+## DKIM, MX ve Taşıma Güvenliği Bulguları
 
-AWS S3, Azure App Service, GitHub Pages, Heroku, Netlify, Vercel, Cloudflare Pages, Surge, Pantheon, WP Engine, Ghost, Shopify, Fastly, AWS CloudFront
+| Kod | Önem | Açıklama |
+|-----|----------|----------|
+| `DKIM_NOT_FOUND` | 🟡 Medium | ~35 yaygın seçicide DKIM anahtarı yok (kendi seçicinizi `dkimSelectors` ile verin) |
+| `DKIM_KEY_WEAK` | 🟠 High | 1024 bitten küçük RSA anahtarı |
+| `DKIM_KEY_1024` | 🟡 Medium | 1024 bit RSA anahtarı — 2048'e yenileyin (RFC 8301) |
+| `DKIM_KEY_INVALID` | 🟡 Medium | Yayınlanan anahtar okunamıyor |
+| `DKIM_TESTING` | 🔵 Low | `t=y` test modu |
+| `MX_UNRESOLVABLE` | 🟠 High | Bir MX sunucusunun A/AAAA kaydı yok |
+| `MTA_STS_MISSING` | 🔵 Low | MTA-STS yok: gelen posta düz metne düşürülebilir |
+| `MTA_STS_MX_MISMATCH` | 🟠 High | Enforce politikası canlı bir MX'i listelemiyor — uyumlu göndericiler teslim etmez |
+| `MTA_STS_POLICY_UNREACHABLE` / `_INVALID` | 🟡 Medium | Politika dosyası yok, yönlendiriliyor veya bozuk — göndericiler MTA-STS'i yok sayar |
+| `MTA_STS_TESTING` / `_MODE_NONE` / `_MAX_AGE_SHORT` | 🔵 Low | Uygulanmıyor, geri çekilmiş veya `max_age` bir günden kısa |
+| `TLSRPT_MISSING` / `_INVALID` | 🔵 Low | MTA-STS'in yanında kullanılabilir TLS-RPT yok |
+
+`SPF_MISSING`, alan adının MX kaydı varsa 🟠 High (başlangıç kaydıyla, örn. Google Workspace için `v=spf1 include:_spf.google.com ~all`), yoksa 🟡 Medium'dur (`v=spf1 -all` önerilir).
+
+## Nameserver Bulguları
+
+Zone'un her nameserver'ı doğrudan DNS üzerinden (UDP/TCP 53) sorgulanır: özyinelemesiz bir SOA sorgusu, bir AXFR isteği (yalnızca ilk mesajlar okunur — zone asla indirilmez) ve sunucunun barındırmadığı bir ad için özyinelemeli bir sorgu. `--no-ns-probe` / `nameserverProbe: false` ile atlanır.
+
+| Kod | Önem | Açıklama |
+|-----|----------|----------|
+| `NS_AXFR_ALLOWED` | 🟠 High | Herkes zone'un tamamını indirebilir (zone transferi) |
+| `NS_LAME` | 🟠 High | Listelenen bir nameserver yetkili yanıt vermiyor (REFUSED, SERVFAIL, AA yok veya yanıt yok) |
+| `NS_UNRESOLVABLE` | 🟠 High | Bir nameserver'ın kendi adının adresi yok |
+| `NS_OPEN_RESOLVER` | 🟡 Medium | Nameserver herkese özyinelemeli yanıt veriyor (amplifikasyon, önbellek zehirleme) |
+| `NS_SOA_SERIAL_MISMATCH` | 🔵 Low | Aynı birincil sunucuya bağlı sunucular farklı serial döndürüyor (çoklu sağlayıcı kurulumları birincile göre karşılaştırılır) |
+
+## DNSSEC ve CAA Bulguları
+
+| Kod | Önem | Açıklama |
+|-----|----------|----------|
+| `DNSSEC_BROKEN` | 🔴 Critical | Doğrulama başarısız — doğrulayan resolver'lar (Google, Cloudflare, çoğu ISP) alan adını çözemez |
+| `DNSSEC_NO_DS` | 🟡 Medium | Zone imzalı ama üst zone'da DS yok; hiçbir şey doğrulanmıyor |
+| `DNSSEC_WEAK_ALGORITHM` | 🟡 Medium | Kullanımdan kalkmış imza algoritması (RSASHA1, RSAMD5, DSA, GOST; RFC 8624) |
+| `DNSSEC_DS_SHA1` | 🔵 Low | Tek DS özeti SHA-1 |
+| `DNSSEC_DISABLED` | 🔵 Low | Zone imzalı değil |
+| `CAA_BLOCKS_CURRENT_CA` | 🟡 Medium | CAA, canlı sertifikayı veren CA'ya izin vermiyor — yenileme başarısız olur |
+| `CAA_UNKNOWN_CRITICAL` | 🟠 High | CA'ların anlamadığı kritik bir CAA etiketi — her CA reddetmek zorunda |
+| `CAA_MISSING` | 🔵 Low | Ağaçta hiç CAA yok: herhangi bir CA sertifika verebilir |
+
+DNSSEC, Node'un resolver'ı DS/DNSKEY kayıtlarını ve AD bayrağını göremediği için DNS-over-HTTPS (dns.google) üzerinden, doğrulayan bir sorgu ile `cd=1` (doğrulama kapalı) sorgu karşılaştırılarak okunur. CAA, RFC 8659'a göre (en yakın üst alan adı) bulunur ve :443'teki sertifikanın vereni bununla karşılaştırılır. İki kontrol de `http: false` ile atlanır.
+
+## Subdomain Ele Geçirme Tespiti
+
+CNAME'i olan her canlı subdomain, CNAME zinciri (en fazla 5 adım) izlenerek kontrol edilir. Wildcard kaydı da kontrol edilir: asılı bir `*.alanadi`, listelenmeyen her adı ele geçirilebilir yapar.
+
+| Risk | Ne zaman | Sağlayıcılar |
+|---|---|---|
+| ⚠️ **ele geçirilebilir** | Sağlayıcı adı herkesin almasına izin verir | AWS S3 (`NoSuchBucket` sayfası), Microsoft Azure ve AWS Elastic Beanstalk (CNAME hedefi NXDOMAIN), Surge.sh (`project not found`) ve **kayıtsız** bir alan adına giden her CNAME |
+| ⚠️ **elle doğrula** | Kaynak silinmiş ama sağlayıcı alan adı doğrulaması isteyebilir | GitHub Pages, Heroku, Netlify, Vercel, Ghost, Pantheon, WordPress.com, Help Scout, Tumblr, ngrok |
+| 🧹 **bayat** | Hedef silinmiş ama yalnızca sahibinin kontrol ettiği kayıtlı bir alan adı altında — kaydı silin; ele geçirme değildir, CI'ı kırmaz | diğer sağlayıcılar |
+
+Her sayfa parmak izi, sağlayıcıdaki rastgele sahiplenilmemiş bir adla doğrulandı; "bulunamadı" sayfası artık sabit bir işaret taşımayan sağlayıcılar listede yok. HTTP kontrolleri subdomain'e tek bir `GET /` gönderir (önce HTTPS, sonra HTTP); `--no-http` / `httpProbe: false` ile kapatılır. Bildiğiniz host adları için `check_takeover` / `takeover <host…>` kullanın.
 
 ---
 
@@ -133,7 +198,13 @@ npx @guardbee/mcp-dns-intelligence subdomains example.com --concurrency=50
 
 # JSON çıktı
 npx @guardbee/mcp-dns-intelligence check example.com --format=json
+
+# Birden fazla alan adı: her birine A–F notu ve özet tablo (alan adı verilmezse guardbee.yml'deki tüm alan adları)
+npx @guardbee/mcp-dns-intelligence check example.com example.de example.co.uk
+npx @guardbee/mcp-dns-intelligence check --format=sarif > dns.sarif
 ```
+
+Notlar: her bulgu puan düşürür (critical 40, high 20, medium 8, low 2) ve en kötü bulgu notu sınırlar — herhangi bir critical F, herhangi bir high en fazla C, herhangi bir medium en fazla B.
 
 **Exit kodları:** `0` = sorun yok · `1` = threshold üstü bulgu / dangling subdomain · `2` = hata
 
@@ -215,3 +286,7 @@ npm run build     # TypeScript derleme
 ## Lisans
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

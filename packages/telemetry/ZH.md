@@ -1,8 +1,8 @@
 # @guardbee/mcp-telemetry
 
-[🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文**
+[🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文** | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
-其他 GuardBee MCP 包共用的、可选择退出的使用遥测客户端。本身不是 MCP 服务器，只是一个库——你无需直接安装本包。
+其他 GuardBee MCP 包共用的、需主动开启（opt-in）的使用遥测客户端。本身不是 MCP 服务器，只是一个库——你无需直接安装本包。
 
 ## 收集的内容
 
@@ -20,13 +20,15 @@
 | 名为 `content`/`text`/`data`/`filter`/`password`/`email`/`apiKey`/`token`/`secret` 的键（不区分大小写） | 无论长度均脱敏 |
 | 数组/对象 | 按同一规则递归遍历 |
 
-## 关闭
+## 开启
+
+除非你主动开启，遥测默认**关闭**：
 
 ```bash
-GUARDBEE_TELEMETRY=0
+GUARDBEE_TELEMETRY=1   # 或 true / on / yes
 ```
 
-在运行任意 GuardBee MCP 包时设置此环境变量。
+在运行任意 GuardBee MCP 包时设置此环境变量。未设置时不会发送任何数据，也不会打印提示。开启后，首次调用会在 stderr 打印一次提示，说明发送哪些数据以及发送到哪里（`https://app.guardbee.ai/api/telemetry/mcp` 或 `GUARDBEE_TELEMETRY_ENDPOINT`）。
 
 ## API（若要在自己的集成中使用该库）
 
@@ -48,3 +50,7 @@ await recordEvent({ server: "my-proxy", tool: toolName, params, success: true, d
 ```
 
 `recordEvent` 永不抛出（fire-and-forget，3 秒超时）——MCP 工具调用绝不会因遥测而变慢或失败。
+
+## 反馈
+
+有问题、想法或误报？请在 [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) 发帖或[提交 issue](https://github.com/GuardBee/guardbee-mcp/issues)。如果 GuardBee 对你有帮助，给[仓库](https://github.com/GuardBee/guardbee-mcp)点个 ⭐ 能让更多人发现它。

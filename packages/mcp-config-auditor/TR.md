@@ -1,8 +1,10 @@
 # @guardbee/mcp-config-auditor
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 Bir ajanın hangi MCP sunucularını çalıştıracağına karar veren istemci config'ini tarar: Cursor `mcp.json`, Claude Desktop `claude_desktop_config.json`, Windsurf `mcp_config.json` ve VS Code `mcp.json`.
+
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
 `mcp-server-auditor` sunucunun kaynağını okur. Bu paket ajanın çalıştıracağı sunucuları seçen dosyayı okur. O sunucuları başlatmaz ve config'i makine dışına göndermez.
 
@@ -11,6 +13,7 @@ Bir ajanın hangi MCP sunucularını çalıştıracağına karar veren istemci c
 | Kalıp | Şiddet | OWASP | Anlamı |
 |---|---|---|---|
 | `unpinned_package` | high | MCP04:2025 | `npx`, `uvx`, `pnpm`, `yarn`, `bunx` veya `pipx` sürüm sabitlemesi olmayan bir paket çalıştırıyor |
+| `unpinned_container_image` | high | MCP04:2025 | `docker run` / `podman run` imajı `@sha256:` digest'i yerine tag ile başlatıyor |
 | `typosquat_package` | critical | MCP04:2025 | Paket adı bilinen bir MCP sunucu paketine bir karakter uzak |
 | `secret_in_env` | critical | MCP01:2025 | Ortam bloğunda credential |
 | `secret_in_args` | critical | MCP01:2025 | Komut satırında token |
@@ -47,3 +50,17 @@ npx @guardbee/mcp-config-auditor discover --allowlist=./mcp-allowlist.json --fai
 `discover` (OWASP MCP09) Cursor / Claude / Windsurf / VS Code yollarını tarar ve kurulu sunucuları org allowlist ile karşılaştırır.
 
 Dizin taraması `mcp.json`, `mcp_config.json`, `claude_desktop_config.json` ve `SKILL.md` açar. Adı `SKILL.md` olan bir dosya agent skill'i olarak denetlenir. Aynı ad ve benzeyen ad bulguları dizin taramasında çıkar; tek dosya diğer skill'leri göremez. Sunucular arası gölgeleme ayrıca tool envanteri ister, çünkü istemci config'i tool listesi içermez.
+
+## Shadow MCP keşfi ve envanter
+
+`discover`, Cursor, Claude Desktop, Claude Code (proje bazlı server'lar dahil: `claude-code:<yol>`), Windsurf, VS Code, Gemini CLI, Cline ve Zed yapılandırmalarını tarar ve her server'ı kurum allowlist'i ile karşılaştırır. `--format=json` her server için bir **envanter** üretir: istemci, yol, transport, komut, paket ve sürüm (sabitlenmiş mi), URL, env ve header **adları**, auto-approve ve bulgular. Gizli değer içermez: env/header değerleri alınmaz, `--token` benzeri bayrak değerleri ve bağlantı dizesi parolaları `[redacted]` olur, URL'lerden kimlik bilgisi ve sorgu değerleri atılır.
+
+`--upload` envanteri GuardBee dashboard'una gönderir (`GUARDBEE_API_KEY`, `gateway.write` kapsamı); host adı, işletim sistemi ve kullanıcı adı eklenir, `--no-user` ile kullanıcı adı çıkarılır.
+
+```bash
+GUARDBEE_API_KEY=gb_… npx @guardbee/mcp-config-auditor discover --allowlist=./mcp-allowlist.json --upload --fail-on=none
+```
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

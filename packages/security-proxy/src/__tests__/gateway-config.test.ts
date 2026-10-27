@@ -25,7 +25,7 @@ describe("parseGatewayYaml", () => {
     expect(cfg.namespaced).toBe(true);
     expect(cfg.taint).toEqual({ mode: "strict", basis: "capability" });
     expect(cfg.defaults).toEqual({ action: "allow" });
-    expect(cfg.audit).toEqual({ enabled: true, sink: "console", includePayloads: false });
+    expect(cfg.audit).toEqual({ enabled: true, sink: "console", includePayloads: false, exporters: [] });
     expect(cfg.upstreams["github"]).toEqual({
       command: "npx",
       args: ["-y", "@modelcontextprotocol/server-github"],

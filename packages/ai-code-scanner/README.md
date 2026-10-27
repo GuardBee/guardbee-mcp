@@ -1,12 +1,16 @@
 # @guardbee/mcp-ai-code-scanner
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ai-code-scanner/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ai-code-scanner/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ai-code-scanner/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ai-code-scanner/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ai-code-scanner/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ai-code-scanner/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ai-code-scanner/DE.md)
+
+[![npm version](https://img.shields.io/npm/v/@guardbee/mcp-ai-code-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-ai-code-scanner)
+[![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-ai-code-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-ai-code-scanner)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ai-code-scanner/LICENSE)
 
 An MCP (Model Context Protocol) server that scans your codebase for security patterns commonly found in LLM/AI integrations.
 
 While `secret-scanner` looks for leaked secrets/API keys, this package looks for **patterns**: how much a model's output is trusted, how privileged the tools it can call are, what data is sent to a third-party LLM — risks that a static credential scan can't catch.
 
-> This package sends usage telemetry by default (tool name + short parameters, the scanned code is never included — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/telemetry/README.md).
 
 ```
 Claude ──► ai-code-scanner ──► Your codebase
@@ -141,3 +145,7 @@ npm test             # 36 unit tests
 ## License
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Feedback
+
+Questions, ideas, or a false positive? Start a thread in [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) or [open an issue](https://github.com/GuardBee/guardbee-mcp/issues). If GuardBee is useful to you, a ⭐ on [the repository](https://github.com/GuardBee/guardbee-mcp) helps others find it.

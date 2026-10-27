@@ -39,13 +39,21 @@ export async function startServer() {
     version: "0.1.0",
   });
   instrumentServer(server, "toxic-flow-auditor");
+  registerTools(server);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
-  server.tool(
+/** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
+export function registerTools(server: McpServer): void {
+  server.registerTool(
     "audit_catalog",
-    "Audit a tools/list-shaped JSON catalog for the lethal trifecta (toxic flow): untrusted content + sensitive/private data + exfiltration or destruction on the same MCP server. Returns an A–F grade.",
     {
-      catalog: z.string().describe("JSON array of tools, or { tools: [...] } from tools/list"),
-      label: z.string().optional().describe("Optional label for the server/catalog"),
+      description: "Audit a tools/list-shaped JSON catalog for the lethal trifecta (toxic flow): untrusted content + sensitive/private data + exfiltration or destruction on the same MCP server. Returns an A–F grade.",
+      inputSchema: {
+        catalog: z.string().describe("JSON array of tools, or { tools: [...] } from tools/list"),
+        label: z.string().optional().describe("Optional label for the server/catalog"),
+      },
     },
     async ({ catalog, label }) => {
       const tools = parseToolsJson(catalog);
@@ -54,12 +62,14 @@ export async function startServer() {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "scan_source",
-    "Scan TypeScript/JavaScript MCP server source for .tool(...) registrations and audit them for toxic flows",
     {
-      content: z.string().describe("Source code to scan"),
-      label: z.string().optional(),
+      description: "Scan TypeScript/JavaScript MCP server source for .registerTool(...) and .tool(...) registrations and audit them for toxic flows",
+      inputSchema: {
+        content: z.string().describe("Source code to scan"),
+        label: z.string().optional(),
+      },
     },
     async ({ content, label }) => {
       const result = scanSourceText(content, label);
@@ -67,10 +77,12 @@ export async function startServer() {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "scan_file",
-    "Scan a single source file for toxic flows",
-    { path: z.string() },
+    {
+      description: "Scan a single source file for toxic flows",
+      inputSchema: { path: z.string() },
+    },
     async ({ path: filePath }) => {
       const { result, skipped } = scanSourceFile(filePath);
       if (skipped) {
@@ -80,13 +92,15 @@ export async function startServer() {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "scan_directory",
-    "Recursively scan a directory of MCP server source for toxic flows across all registered tools",
     {
-      path: z.string(),
-      maxFiles: z.number().int().positive().optional(),
-      exclude: z.array(z.string()).optional(),
+      description: "Recursively scan a directory of MCP server source for toxic flows across all registered tools",
+      inputSchema: {
+        path: z.string(),
+        maxFiles: z.number().int().positive().optional(),
+        exclude: z.array(z.string()).optional(),
+      },
     },
     async ({ path: dirPath, maxFiles, exclude }) => {
       const result = scanDirectory(dirPath, { maxFiles, exclude });
@@ -101,10 +115,12 @@ export async function startServer() {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "explain_trifecta",
-    "Explain the lethal trifecta / toxic-flow model this auditor uses",
-    {},
+    {
+      description: "Explain the lethal trifecta / toxic-flow model this auditor uses",
+      inputSchema: {},
+    },
     async () => ({
       content: [
         {
@@ -123,9 +139,6 @@ export async function startServer() {
       ],
     })
   );
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }
 
 export type { Finding };

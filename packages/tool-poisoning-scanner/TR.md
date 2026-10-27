@@ -1,12 +1,12 @@
 # @guardbee/mcp-tool-poisoning-scanner
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 MCP (Model Context Protocol) sunucusu — başka MCP sunucularının tool tanımlarını **tool poisoning** ve **confused-deputy** tool'lar için tarar: bir MCP server'ın kendi `server.tool(...)` kaydının, hiçbir güvensiz satır hiç çalışmadan tehlikeli olabileceği iki farklı yol.
 
 `mcp-server-auditor` zaten *handler*'ı ham girdiyle tehlikeli bir şey yapan bir tool'u yakalıyor. Bu paket o scanner'ın yapısal olarak göremediği iki şeyi yakalıyor: tool'un *description*'ında gizlenen tehlikeli bir talimat (hiç kod yok) ve *isim/description*'ı handler'ının gerçekte ne yaptığı konusunda yalan söyleyen bir tool.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler, taranan kaynak hiçbir zaman dahil değil — bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
 ```
 Claude ──► tool-poisoning-scanner ──► Bir MCP server'ın kaynağı
@@ -32,6 +32,7 @@ Bir tool'un `description`'ı, bir insanın server'ı kurmadan önce okuduğu dok
 - **Annotation yalanı**: yıkıcı bir açıklamanın yanında `readOnlyHint: true`
 - **Canlı katalog**: `scanToolCatalog` bir `tools/list` yüküne bakar; `rug-pull-detector` her kontrolde bunu çağırır
 - **4 confused-deputy sink kategorisi**: process-execution, code-execution, filesystem-write, credentials-exposure — sadece isim/description'ı read-only ima eden tool'lara karşı kontrol ediliyor
+- **Python ve Go server'ları**: FastMCP / resmi Python SDK `@mcp.tool()` (docstring, `description=`, `Field(description=...)`, `readOnlyHint`), düşük seviyeli `types.Tool(...)` ve onu çalıştıran `call_tool` dalı, resmi Go SDK (`mcp.AddTool(s, &mcp.Tool{...}, h)`, `jsonschema` struct tag'leri) ve mark3labs/mcp-go (`mcp.NewTool(...)`, `mcp.WithDescription`, `mcp.Description`); her dil kendi sink'leriyle (`subprocess`/`os.system`, `eval`/`exec`, `open(..., "w")`, `os.environ`; `exec.Command`, `os.WriteFile`/`os.Remove`, `os.Environ()`)
 - Sınırlı, bir-sonraki-tool'dan-haberdar extraction — tool B'nin handler'ındaki bir sink asla tool A'ya yanlış atfedilmiyor
 - SARIF 2.1.0 çıktısı — CI/CD entegrasyonu (GitHub Code Scanning vb.)
 - `guardbee.yml` ile config dosyası desteği
@@ -107,7 +108,8 @@ tool-poisoning-scanner:
 
 ## Kısıtlamalar (bilinçli tasarım)
 
-- **Kapsam**: MCP TypeScript SDK'nın `server.tool(name, description, schema, handler)` convenience formu — bu monorepo'daki her GuardBee server'ının kullandığı şekil. Düşük-seviyeli `setRequestHandler(ListToolsRequestSchema, ...)` tarzı (ham bir `{name, description, inputSchema}` objesi dizisi döndüren) henüz kapsanmıyor, Python MCP server'ları da.
+- **Kapsam**: TypeScript/JavaScript (`server.tool(...)` ve `server.registerTool(...)`), Python (`@mcp.tool()` dekoratörleri ve düşük seviyeli `Tool(...)` + `@server.call_tool()`) ve Go (resmi go-sdk, mark3labs/mcp-go). Dil dosya uzantısından anlaşılır (`scan_text` bir `language` alır). TypeScript'te `setRequestHandler(ListToolsRequestSchema, ...)` tarzı (ham bir `{name, description, inputSchema}` dizisi) henüz kapsanmıyor; Rust, Java, Kotlin, C# ve diğer diller de.
+- **Sözcüksel okuma, parser değil**: Python ve Go sınırlı parantez/string/girinti kurallarıyla okunur, tam bir AST ile değil. Birkaç dolaylı katmanla kaydedilen bir handler'da (çalışma anında kurulan bir tool tablosu, bir sarmalayıcıdan geçen handler) yalnızca kayıt eşleşir: açıklaması kontrol edilir, sink'leri edilmez.
 - **Confused-deputy isim/description-anahtar-kelime tabanlı**, semantik bir analiz değil — read-only görünümlü kelimelerden tamamen kaçınan bir tool sink kataloğuna karşı hiç kontrol edilmez, ve gerçekten yanlış etiketlenmiş ama alışılmadık ifadeler kullanan bir tool kaçırılabilir.
 - Bunlar düşük yanlış-pozitif oranı için ayarlanmış **heuristic** bulgulardır (bu monorepo'daki 349 gerçek dosyaya karşı doğrulandı, production kodunda yanlış-pozitif yok) — her bulgu yine de gözden geçirilmeli.
 
@@ -125,3 +127,7 @@ npm test             # 20 unit test
 ## Lisans
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

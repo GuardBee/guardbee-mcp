@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-oauth-auditor",
-  "version": "0.1.5",
+  "version": "0.3.0",
   "mcpName": "io.github.GuardBee/oauth-auditor",
   "description": "MCP server that scans an MCP server's own authorization code for OAuth 2.1 anti-patterns named in the MCP spec's Security Considerations: token passthrough, missing audience validation, OAuth/OIDC discovery SSRF, missing PKCE, loose redirect_uri validation, and hardcoded client secrets",
   "type": "module",
@@ -11,15 +11,18 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "default": "./dist/index.js"
     }
   },
   "files": [
     "dist",
     "README.md",
-    "TR.md",
-    "ZH.md"
+    "LICENSE",
+    "CHANGELOG.md",
+    "!dist/**/*.map",
+    "!dist/**/__tests__"
   ],
   "scripts": {
     "build": "tsc",
@@ -29,6 +32,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
+    "@guardbee/guard-core": "workspace:^",
     "@guardbee/mcp-telemetry": "workspace:^",
     "@modelcontextprotocol/sdk": "catalog:",
     "zod": "catalog:"
@@ -49,5 +53,12 @@
     "type": "git",
     "url": "https://github.com/GuardBee/guardbee-mcp.git",
     "directory": "packages/oauth-auditor"
+  },
+  "homepage": "https://guardbee.ai/en/what-is-mcp-oauth-auditor/",
+  "bugs": {
+    "url": "https://github.com/GuardBee/guardbee-mcp/issues"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

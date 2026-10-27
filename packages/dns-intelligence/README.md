@@ -1,24 +1,24 @@
 # @guardbee/mcp-dns-intelligence
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/dns-intelligence/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/dns-intelligence/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/dns-intelligence/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/dns-intelligence/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/dns-intelligence/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/dns-intelligence/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/dns-intelligence/DE.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-dns-intelligence.svg)](https://www.npmjs.com/package/@guardbee/mcp-dns-intelligence)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-dns-intelligence.svg)](https://www.npmjs.com/package/@guardbee/mcp-dns-intelligence)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/dns-intelligence/LICENSE)
 
-An MCP server that enumerates DNS records, detects SPF / DMARC / DKIM misconfigurations, and finds dangling subdomains. Uses Node.js's built-in `dns/promises` — no external dependencies.
+An MCP server that enumerates DNS records, detects SPF / DMARC / DKIM misconfigurations, and finds subdomains (Certificate Transparency + wordlist) that can be taken over. Uses Node.js's built-in `dns/promises` — no external dependencies.
 
-> This package sends usage telemetry by default (tool name + short parameters — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/telemetry/README.md).
 
 ---
 
 ## Features
 
 - **Full DNS Enumeration** — A, AAAA, MX, NS, TXT, CNAME, SOA records
-- **SPF Analysis** — `+all`, `?all`, excessive DNS lookups, duplicate record detection
+- **SPF Analysis** — `+all`, `?all`, duplicate records, and the RFC 7208 limits counted the way receivers do: DNS lookups across nested `include`/`redirect` (max 10), void lookups (max 2), include loops and missing includes
 - **DMARC Analysis** — policy (`none`/`quarantine`/`reject`), `pct`, missing `rua` address
 - **DKIM Check** — probes 9 common selectors (`default`, `google`, `selector1`, `mail`, etc.)
-- **Subdomain Enumeration** — 60+ common subdomains; dangling CNAME detection (14 cloud providers)
+- **Subdomain Discovery** — names from Certificate Transparency logs (crt.sh and Cert Spotter, queried in parallel; only the domain name is sent) plus a 75-name wordlist, with wildcard DNS filtered out; every live name is checked for subdomain takeover
 - **Email Security Summary** — combined SPF + DMARC + DKIM analysis with copy-pasteable fix recommendations
 - **23 Unit Tests** — pure logic tests, no network connection required
 
@@ -49,8 +49,10 @@ Add to `claude_desktop_config.json`:
 
 | Tool | Description |
 |------|----------|
-| `enumerate_dns` | Enumerates all DNS records for a domain and runs SPF/DMARC/DKIM analysis |
-| `enumerate_subdomains` | Probes common subdomains; flags dangling CNAMEs |
+| `enumerate_dns` | Full DNS check with an A–F grade: records, SPF/DMARC/DKIM, MTA-STS, DNSSEC, CAA, nameservers |
+| `audit_domains` | Audits up to 20 domains and compares their grades and top findings |
+| `enumerate_subdomains` | Probes common subdomains (wildcard-aware); detects subdomain takeovers |
+| `check_takeover` | Checks given hostnames for subdomain takeover |
 | `check_email_security` | Combined SPF + DMARC + DKIM audit with fix recommendations |
 | `lookup_dns` | Targeted DNS lookup for a specific record type (A/MX/TXT/etc.) |
 
@@ -95,6 +97,12 @@ Email Security Check: example.com
 | `SPF_NO_ALL` | 🟡 Medium | No `all` mechanism |
 | `SPF_TOO_MANY_LOOKUPS` | 🟠 High | > 10 DNS lookups — causes SPF to fail |
 | `SPF_DUPLICATE` | 🟠 High | Multiple SPF records |
+| `SPF_AT_LOOKUP_LIMIT` | 🔵 Low | Exactly 10 lookups — one more include breaks SPF |
+| `SPF_TOO_MANY_VOID_LOOKUPS` | 🟠 High | More than 2 includes return no record |
+| `SPF_INCLUDE_MISSING` | 🟠 High | An `include`/`redirect` target has no SPF record (permerror) |
+| `SPF_INCLUDE_DUPLICATE` | 🟠 High | An included domain publishes several SPF records |
+| `SPF_INCLUDE_LOOP` | 🟠 High | Includes loop back to a record being evaluated |
+| `SPF_PTR` | 🔵 Low | Uses the deprecated `ptr` mechanism |
 
 ## DMARC Findings
 
@@ -105,12 +113,69 @@ Email Security Check: example.com
 | `DMARC_POLICY_NONE` | 🟡 Medium | `p=none` — monitoring mode, no enforcement |
 | `DMARC_PCT_LOW` | 🔵 Low | `pct` < 100 — partial enforcement |
 | `DMARC_NO_RUA` | 🔵 Low | No aggregate report address (`rua`) |
+| `DMARC_MULTIPLE` | 🟠 High | Several DMARC records — receivers ignore all of them |
+| `DMARC_INVALID_POLICY` | 🟠 High | `p=` is not none, quarantine or reject |
+| `DMARC_SUBDOMAINS_NONE` | 🟡 Medium | `sp=none` leaves subdomains spoofable |
+| `DOMAIN_NOT_FOUND` | 🟠 High | The domain does not exist (NXDOMAIN) |
 
-## Dangling Subdomain Detection
+Subdomains without their own DMARC record inherit the parent domain's (`sp=` policy), as receivers do. Subdomain enumeration detects wildcard DNS and leaves out names answered only by the wildcard.
 
-Subdomains whose CNAME points to one of the following providers but doesn't resolve are flagged as **dangling** and carry a subdomain-takeover risk:
+## DKIM, MX and Transport Findings
 
-AWS S3, Azure App Service, GitHub Pages, Heroku, Netlify, Vercel, Cloudflare Pages, Surge, Pantheon, WP Engine, Ghost, Shopify, Fastly, AWS CloudFront
+| Code | Severity | Description |
+|-----|----------|----------|
+| `DKIM_NOT_FOUND` | 🟡 Medium | No DKIM key under ~35 common selectors (pass yours via `dkimSelectors`) |
+| `DKIM_KEY_WEAK` | 🟠 High | RSA key under 1024 bits |
+| `DKIM_KEY_1024` | 🟡 Medium | 1024-bit RSA key — rotate to 2048 (RFC 8301) |
+| `DKIM_KEY_INVALID` | 🟡 Medium | Published key cannot be parsed |
+| `DKIM_TESTING` | 🔵 Low | `t=y` test mode |
+| `MX_UNRESOLVABLE` | 🟠 High | An MX host has no A/AAAA record |
+| `MTA_STS_MISSING` | 🔵 Low | No MTA-STS: inbound mail can be downgraded to plaintext |
+| `MTA_STS_MX_MISMATCH` | 🟠 High | Enforce policy omits a live MX — compliant senders refuse to deliver |
+| `MTA_STS_POLICY_UNREACHABLE` / `_INVALID` | 🟡 Medium | Policy file missing, redirected or malformed — senders ignore MTA-STS |
+| `MTA_STS_TESTING` / `_MODE_NONE` / `_MAX_AGE_SHORT` | 🔵 Low | Not enforcing, withdrawn, or `max_age` under a day |
+| `TLSRPT_MISSING` / `_INVALID` | 🔵 Low | No usable TLS-RPT next to MTA-STS |
+
+`SPF_MISSING` is 🟠 High when the domain has MX records (with a starting record, e.g. `v=spf1 include:_spf.google.com ~all` for Google Workspace) and 🟡 Medium otherwise (suggests `v=spf1 -all`).
+
+## Nameserver Findings
+
+Each nameserver of a zone is queried directly over DNS (UDP/TCP 53): an SOA query without recursion, an AXFR request (only the first messages are read — the zone is never downloaded), and a recursive query for a name it does not host. Skip with `--no-ns-probe` / `nameserverProbe: false`.
+
+| Code | Severity | Description |
+|-----|----------|----------|
+| `NS_AXFR_ALLOWED` | 🟠 High | Anyone can download the whole zone (zone transfer) |
+| `NS_LAME` | 🟠 High | A listed nameserver does not answer authoritatively (REFUSED, SERVFAIL, no AA, or no answer) |
+| `NS_UNRESOLVABLE` | 🟠 High | A nameserver's own name has no address |
+| `NS_OPEN_RESOLVER` | 🟡 Medium | The nameserver answers recursive queries for anyone (amplification, cache poisoning) |
+| `NS_SOA_SERIAL_MISMATCH` | 🔵 Low | Servers of the same primary return different serials (multi-provider setups are compared per primary) |
+
+## DNSSEC and CAA Findings
+
+| Code | Severity | Description |
+|-----|----------|----------|
+| `DNSSEC_BROKEN` | 🔴 Critical | Validation fails — validating resolvers (Google, Cloudflare, most ISPs) cannot resolve the domain |
+| `DNSSEC_NO_DS` | 🟡 Medium | Zone is signed but the parent has no DS, so nothing is validated |
+| `DNSSEC_WEAK_ALGORITHM` | 🟡 Medium | Deprecated signing algorithm (RSASHA1, RSAMD5, DSA, GOST; RFC 8624) |
+| `DNSSEC_DS_SHA1` | 🔵 Low | The only DS digest is SHA-1 |
+| `DNSSEC_DISABLED` | 🔵 Low | Zone is not signed |
+| `CAA_BLOCKS_CURRENT_CA` | 🟡 Medium | CAA does not allow the CA that issued the live certificate — its renewal will fail |
+| `CAA_UNKNOWN_CRITICAL` | 🟠 High | A critical CAA tag CAs do not understand — every CA must refuse |
+| `CAA_MISSING` | 🔵 Low | No CAA anywhere up the tree: any CA may issue |
+
+DNSSEC is read through DNS-over-HTTPS (dns.google), comparing a validating query with a `cd=1` (checking disabled) one, because Node's resolver cannot see DS/DNSKEY records or the AD flag. CAA follows RFC 8659 (nearest ancestor), and the issuer of the certificate served on :443 is compared against it. Both checks are skipped with `http: false`.
+
+## Subdomain Takeover Detection
+
+Each live subdomain with a CNAME is checked, following the CNAME chain (up to 5 hops). The wildcard record is checked too: a dangling `*.domain` makes every unlisted name claimable.
+
+| Risk | When | Providers |
+|---|---|---|
+| ⚠️ **takeover possible** | The provider lets anyone claim the name | AWS S3 (`NoSuchBucket` page), Microsoft Azure and AWS Elastic Beanstalk (CNAME target NXDOMAIN), Surge.sh (`project not found`), and any CNAME into a domain that is **not registered** |
+| ⚠️ **verify manually** | The resource is gone, but the provider can require domain verification | GitHub Pages, Heroku, Netlify, Vercel, Ghost, Pantheon, WordPress.com, Help Scout, Tumblr, ngrok |
+| 🧹 **stale** | The target is gone but sits under a registered domain only its owner controls — delete the record; not a takeover, does not fail CI | any other provider |
+
+Each page fingerprint was checked against a random unclaimed name on the provider. Providers whose "not found" page no longer carries a stable marker are not listed. HTTP checks send one `GET /` to the subdomain (HTTPS, then HTTP); turn them off with `--no-http` / `httpProbe: false`. Use `check_takeover` / `takeover <host…>` for hostnames you already know.
 
 ---
 
@@ -133,7 +198,13 @@ npx @guardbee/mcp-dns-intelligence subdomains example.com --concurrency=50
 
 # JSON output
 npx @guardbee/mcp-dns-intelligence check example.com --format=json
+
+# Several domains with an A–F grade each and a summary table (or every domain in guardbee.yml when none is given)
+npx @guardbee/mcp-dns-intelligence check example.com example.de example.co.uk
+npx @guardbee/mcp-dns-intelligence check --format=sarif > dns.sarif
 ```
+
+Grades: each finding deducts points (critical 40, high 20, medium 8, low 2) and the worst finding caps the grade — any critical is F, any high at most C, any medium at most B.
 
 **Exit codes:** `0` = no issues · `1` = findings above threshold / dangling subdomain · `2` = error
 
@@ -150,7 +221,7 @@ dns-intelligence:
     - staging.example.com
 ```
 
-See [`guardbee.example.yml`](guardbee.example.yml) for a sample file.
+See [`guardbee.example.yml`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/dns-intelligence/guardbee.example.yml) for a sample file.
 
 ### GitHub Actions — DNS Security Audit
 
@@ -215,3 +286,7 @@ npm run build     # TypeScript compile
 ## License
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Feedback
+
+Questions, ideas, or a false positive? Start a thread in [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) or [open an issue](https://github.com/GuardBee/guardbee-mcp/issues). If GuardBee is useful to you, a ⭐ on [the repository](https://github.com/GuardBee/guardbee-mcp) helps others find it.

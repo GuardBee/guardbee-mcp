@@ -1,6 +1,6 @@
 # @guardbee/mcp-llm-redteam
 
-[🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文**
+[🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文** | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 一个 MCP（Model Context Protocol）服务器，用于**主动**对运行中的 LLM 端点或聊天机器人做红队测试——不像 GuardBee 其他扫描器做静态分析，而是向你控制的真实目标发送真实探测请求。
 
@@ -10,7 +10,7 @@
 >
 > **任何探测都不会要求目标生成真正有害的内容。** 每次探测都基于 *canary*：成功与否取决于目标是否复现我们每次运行生成的随机一次性令牌——证明越权指令被服从，却从不诱发真实有害输出。这使结果确定（canary 不可能巧合出现），且可安全地对运行中端点执行。
 
-> 本包默认发送使用遥测（工具名 + 较短参数——绝不包含你的 API 密钥、prompt 或目标响应——见 [`@guardbee/mcp-telemetry`](../telemetry/README.md)）。设置 `GUARDBEE_TELEMETRY=0` 即可关闭。
+> 遥测默认**关闭**。设置 `GUARDBEE_TELEMETRY=1` 后会发送服务器、工具、成功与否、耗时以及文件路径等简短参数值；更长的字符串和 `content`、`token`、`password` 等字段会被占位符替换。参见 [`@guardbee/mcp-telemetry`](../telemetry/ZH.md)。
 
 ```
 Your LLM endpoint / chatbot ◄── llm-redteam ──► Claude
@@ -116,3 +116,7 @@ npm test             # 29 unit tests
 ## 许可证
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## 反馈
+
+有问题、想法或误报？请在 [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) 发帖或[提交 issue](https://github.com/GuardBee/guardbee-mcp/issues)。如果 GuardBee 对你有帮助，给[仓库](https://github.com/GuardBee/guardbee-mcp)点个 ⭐ 能让更多人发现它。

@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { checkOrgPatterns, orgPatternShape } from "./org-patterns.js";
+import { checkPiiDetectorNames, piiSelectionSchema, piiSelectionShape } from "./presets.js";
 
 /**
  * The policy part of a GuardBee MCP gateway config: what may run and how.
@@ -31,6 +33,8 @@ export const policyRuleSchema = z
         args: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
         user: z.string().min(1).optional(),
         group: z.string().min(1).optional(),
+        /** Id of a topic in `topics`: the arguments, result or prompt are about it. */
+        topic: z.string().min(1).optional(),
       })
       .strict(),
     action: actionSchema,
@@ -62,9 +66,22 @@ export const quotaRuleSchema = z
   })
   .strict();
 
+/** A subject a rule can match on (see topics.ts for how terms match). */
+export const topicSchema = z
+  .object({
+    id: z.string().regex(/^[a-z0-9][a-z0-9_-]*$/, "topic ids use lower-case letters, digits, - and _"),
+    description: z.string().max(500).optional(),
+    terms: z.array(z.string().trim().min(1).max(200)).min(1).max(500),
+    minMatches: z.number().int().positive().default(1),
+  })
+  .strict()
+  .refine((topic) => topic.minMatches <= topic.terms.length, { message: "minMatches is larger than the number of terms", path: ["minMatches"] });
+
 /** Every field has a default, so `{}` is a valid (allow-all, strict-taint) policy. */
 export const policyShape = {
   labels: z.record(z.string(), z.array(labelSchema)).default({}),
+  /** Subjects for `match.topic`, e.g. mergers & acquisitions, salaries, unreleased source code. */
+  topics: z.array(topicSchema).default([]),
   /**
    * Which tools the agent sees, by the name it sees (globs). `expose` is an
    * allowlist (absent: every tool), `hide` removes tools after it. A hidden
@@ -104,7 +121,15 @@ export const policyShape = {
     .object({
       promptInjection: interceptorSchema.optional(),
       toolResultInjection: interceptorSchema.optional(),
-      definitionDrift: interceptorSchema.extend({ recheck: z.enum(["every-call", "on-change"]).optional() }).optional(),
+      definitionDrift: interceptorSchema
+        .extend({
+          recheck: z.enum(["every-call", "on-change"]).optional(),
+          /** Keep approved definitions across sessions and restarts (gateway mode default: on). */
+          persist: z.boolean().optional(),
+          /** A definition that differs from the persisted one: refuse, ask the person, or log (default: approve). */
+          onChange: z.enum(["block", "approve", "warn"]).optional(),
+        })
+        .optional(),
       /** Poisoned tool definitions in tools/list (injected instructions, hidden characters, read-only lies). */
       toolPoisoning: interceptorSchema.optional(),
       /** Credentials (provider keys, private keys, DB URLs with passwords) in the arguments of an egress tool. */
@@ -125,9 +150,28 @@ export const policyShape = {
           enabled: z.boolean(),
           patterns: z.array(z.string()).optional(),
           mode: z.enum(["redact", "tokenize"]).optional(),
+          /** Opt-in detectors: network identifiers and plates are off unless listed. */
+          include: z.array(z.enum(["ip_address", "mac_address", "plate_tr"])).optional(),
           detokenizeForEgress: z.boolean().optional(),
+          /** Which detectors mask: a preset, then enable / disable by detector name. */
+          ...piiSelectionShape,
+          /** Per upstream (or LLM provider) by name: replaces the selection above for it. */
+          upstreams: z.record(z.string(), piiSelectionSchema).optional(),
+          /** The organization's own patterns: block masks what no detector knows, allow exempts detected values. */
+          ...orgPatternShape,
         })
         .strict()
+        .superRefine((masking, ctx) => {
+          checkPiiDetectorNames(masking, ctx);
+          checkOrgPatterns(masking, ctx);
+        })
+        .optional(),
+      /**
+       * PII and credentials inside images, PDFs and other blobs in tool results
+       * and resources (text layer, OCR when tesseract.js is installed). Off by default.
+       */
+      documents: interceptorSchema
+        .extend({ ocr: z.boolean().optional(), maxBytes: z.number().int().positive().max(100 * 1024 * 1024).optional() })
         .optional(),
       /** Behaviour over a session: call bursts, sweeps of sensitive reads, bulk destructive calls, repeated blocks. */
       anomaly: interceptorSchema
@@ -143,7 +187,29 @@ export const policyShape = {
     .default({}),
 };
 
-export const gatewayPolicySchema = z.object(policyShape).strict();
+/**
+ * Cross-field checks the object shape cannot express: unique topic ids, and
+ * every `match.topic` naming a defined topic. Shared with the proxy's YAML
+ * schema, which spreads policyShape into a larger object.
+ */
+export function checkTopicReferences(
+  policy: { topics: readonly { id: string }[]; rules: readonly { match: { topic?: string | undefined } }[] },
+  ctx: z.RefinementCtx,
+): void {
+  const ids = new Set<string>();
+  for (const [index, topic] of policy.topics.entries()) {
+    if (ids.has(topic.id)) ctx.addIssue({ code: "custom", path: ["topics", index, "id"], message: `duplicate topic id "${topic.id}"` });
+    ids.add(topic.id);
+  }
+  for (const [index, rule] of policy.rules.entries()) {
+    const topic = rule.match.topic;
+    if (topic !== undefined && !ids.has(topic)) {
+      ctx.addIssue({ code: "custom", path: ["rules", index, "match", "topic"], message: `no topic with id "${topic}" in topics` });
+    }
+  }
+}
+
+export const gatewayPolicySchema = z.object(policyShape).strict().superRefine(checkTopicReferences);
 
 export type GatewayPolicy = z.infer<typeof gatewayPolicySchema>;
 

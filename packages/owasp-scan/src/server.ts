@@ -10,6 +10,9 @@ function formatReport(report: OwaspReport): string {
   const lines: string[] = [
     `Grade ${report.grade} (${report.score}/100) — ${report.totalFindings} finding(s), ${report.durationMs}ms`,
     `mode=${report.mode} label=${report.label}`,
+    ...(report.coverage?.languages.length
+      ? [`languages: ${report.coverage.languages.map((l) => `${l.language} ${l.files} file(s)${l.analysis === "full" ? `, ${l.tools} tool(s)` : ", patterns only"}`).join("; ")}`]
+      : []),
     "",
   ];
   for (const bucket of report.byOwasp) {
@@ -32,15 +35,23 @@ export async function startServer() {
     version: "0.1.0",
   });
   instrumentServer(server, "owasp-scan");
+  registerTools(server);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
-  server.tool(
+/** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
+export function registerTools(server: McpServer): void {
+  server.registerTool(
     "owasp_scan_path",
-    "Run a unified OWASP MCP Top 10 scan over a filesystem path — orchestrates secret, server, oauth, audit-gap, context-oversharing, toxic-flow, and tool-poisoning auditors; returns A–F grade.",
     {
-      path: z.string().describe("File or directory to scan"),
-      maxFiles: z.number().int().positive().optional(),
-      discoverShadow: z.boolean().optional().describe("Also discover Shadow MCP on this host (MCP09)"),
-      allowlistPath: z.string().optional().describe("Allowlist file for Shadow MCP discover"),
+      description: "Run a unified OWASP MCP Top 10 scan over a filesystem path — orchestrates secret, server, oauth, audit-gap, context-oversharing, toxic-flow, and tool-poisoning auditors; returns A–F grade.",
+      inputSchema: {
+        path: z.string().describe("File or directory to scan"),
+        maxFiles: z.number().int().positive().optional(),
+        discoverShadow: z.boolean().optional().describe("Also discover Shadow MCP on this host (MCP09)"),
+        allowlistPath: z.string().optional().describe("Allowlist file for Shadow MCP discover"),
+      },
     },
     async ({ path, maxFiles, discoverShadow, allowlistPath }) => {
       const report = scanPath(path, { maxFiles, discoverShadow, allowlistPath });
@@ -48,13 +59,15 @@ export async function startServer() {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "owasp_scan_live",
-    "Connect to a live MCP server (stdio or HTTP), call tools/list, then grade toxic-flow + tool-poisoning (MCP03/MCP10).",
     {
-      url: z.string().url().optional().describe("Streamable HTTP MCP URL"),
-      command: z.string().optional().describe("stdio command to spawn"),
-      args: z.array(z.string()).optional(),
+      description: "Connect to a live MCP server (stdio or HTTP), call tools/list, then grade toxic-flow + tool-poisoning (MCP03/MCP10).",
+      inputSchema: {
+        url: z.string().url().optional().describe("Streamable HTTP MCP URL"),
+        command: z.string().optional().describe("stdio command to spawn"),
+        args: z.array(z.string()).optional(),
+      },
     },
     async ({ url, command, args }) => {
       if (url) {
@@ -69,12 +82,14 @@ export async function startServer() {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "owasp_scan_catalog",
-    "Audit a tools/list JSON dump for toxic flows and tool-description poisoning (MCP03/MCP10).",
     {
-      catalog: z.string().describe("JSON string: { tools: [...] } or a bare tools array"),
-      label: z.string().optional(),
+      description: "Audit a tools/list JSON dump for toxic flows and tool-description poisoning (MCP03/MCP10).",
+      inputSchema: {
+        catalog: z.string().describe("JSON string: { tools: [...] } or a bare tools array"),
+        label: z.string().optional(),
+      },
     },
     async ({ catalog, label }) => {
       const report = scanCatalogJson(catalog, label);
@@ -82,10 +97,12 @@ export async function startServer() {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "list_owasp_coverage",
-    "List OWASP MCP Top 10 categories and which GuardBee scanners cover them in this meta-scan",
-    {},
+    {
+      description: "List OWASP MCP Top 10 categories and which GuardBee scanners cover them in this meta-scan",
+      inputSchema: {},
+    },
     async () => {
       const lines = ["OWASP MCP Top 10 coverage in @guardbee/mcp-owasp-scan:\n"];
       for (const [id, title] of Object.entries(OWASP_TITLES)) {
@@ -99,7 +116,4 @@ export async function startServer() {
       return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }

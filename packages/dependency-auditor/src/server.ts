@@ -4,53 +4,35 @@ import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
 import { parseNpmManifest } from "./parsers/npm.js";
 import { parsePipRequirements } from "./parsers/pip.js";
-import { queryOsvBatch, getSeverity, getFixedVersion, type Ecosystem } from "./osv.js";
-import type { AuditResult } from "./osv.js";
+import { queryOsvBatch, type Ecosystem, type AuditResult } from "./osv.js";
+import { formatReport } from "./report.js";
+import { enrichExploitability } from "./exploit.js";
+import { auditDependencies } from "./audit.js";
+import { parseOtherEcosystems } from "./parsers/other-locks.js";
+import type { Dependency } from "./parsers/npm.js";
 
-function formatReport(
-  results: AuditResult[],
-  ecosystem: string,
-  durationMs: number
-): string {
-  const vulnerable = results.filter((r) => r.vulns.length > 0);
-  const totalVulns = results.reduce((s, r) => s + r.vulns.length, 0);
+const exploitDataParam = z
+  .boolean()
+  .optional()
+  .describe("Add CISA KEV (exploited in the wild) and FIRST EPSS data and order findings by it (default: true; sends CVE IDs only)");
 
-  if (totalVulns === 0) {
-    return `✅ No known vulnerabilities found in ${results.length} ${ecosystem} packages (${durationMs}ms).`;
-  }
-
-  const counts = { critical: 0, high: 0, medium: 0, low: 0, unknown: 0 };
-  for (const r of vulnerable) {
-    for (const v of r.vulns) {
-      counts[getSeverity(v)]++;
+/** Query OSV, optionally add KEV/EPSS, and return the report notes. */
+async function audit(
+  packages: Dependency[] | Array<{ name: string; version: string; ecosystem: Ecosystem }>,
+  exploitData: boolean,
+  ecosystem?: Ecosystem
+): Promise<{ results: AuditResult[]; notes: string[] }> {
+  const results = ecosystem
+    ? await auditDependencies(packages as Dependency[], ecosystem)
+    : await queryOsvBatch(packages as Array<{ name: string; version: string; ecosystem: Ecosystem }>);
+  const notes: string[] = [];
+  if (exploitData) {
+    const unavailable = await enrichExploitability(results);
+    if (unavailable.length > 0) {
+      notes.push(`ℹ️  Exploit data unavailable from ${unavailable.join(" and ")}; findings are ordered by severity only.`);
     }
   }
-
-  const lines: string[] = [
-    `⚠️  Found ${totalVulns} vulnerabilit${totalVulns === 1 ? "y" : "ies"} in ${vulnerable.length}/${results.length} ${ecosystem} packages (${durationMs}ms)`,
-    `   Critical: ${counts.critical}  High: ${counts.high}  Medium: ${counts.medium}  Low: ${counts.low}  Unknown: ${counts.unknown}`,
-    "",
-  ];
-
-  for (const result of vulnerable) {
-    for (const vuln of result.vulns) {
-      const sev = getSeverity(vuln);
-      const fixed = getFixedVersion(vuln, result.name);
-      const cveIds = (vuln.aliases ?? []).filter((a) => a.startsWith("CVE-")).join(", ");
-      const nvdUrl = cveIds
-        ? `https://nvd.nist.gov/vuln/detail/${cveIds.split(", ")[0]}`
-        : `https://osv.dev/vulnerability/${vuln.id}`;
-
-      lines.push(`[${sev.toUpperCase()}] ${result.name}@${result.version}`);
-      lines.push(`  ID      : ${vuln.id}${cveIds ? ` (${cveIds})` : ""}`);
-      lines.push(`  Summary : ${vuln.summary ?? "No summary available"}`);
-      if (fixed) lines.push(`  Fix     : upgrade to ${result.name}@${fixed}`);
-      lines.push(`  Details : ${nvdUrl}`);
-      lines.push("");
-    }
-  }
-
-  return lines.join("\n");
+  return { results, notes };
 }
 
 export async function startServer() {
@@ -59,18 +41,27 @@ export async function startServer() {
     version: "0.1.0",
   });
   instrumentServer(server, "dependency-auditor");
+  registerTools(server);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
-  server.tool(
+/** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
+export function registerTools(server: McpServer): void {
+  server.registerTool(
     "audit_npm",
-    "Audit npm dependencies from a package.json (and optionally package-lock.json) for known CVEs using the OSV database",
     {
-      directory: z.string().describe("Path to the directory containing package.json"),
-      includeDevDeps: z
-        .boolean()
-        .optional()
-        .describe("Include devDependencies in the audit (default: false)"),
+      description: "Audit npm dependencies for known CVEs using the OSV database. Reads exact versions from package-lock.json, npm-shrinkwrap.json, pnpm-lock.yaml, yarn.lock (v1 and berry) or bun.lock, falling back to package.json ranges",
+      inputSchema: {
+        directory: z.string().describe("Path to the directory containing package.json"),
+        includeDevDeps: z
+          .boolean()
+          .optional()
+          .describe("Include devDependencies in the audit (default: false)"),
+        exploitData: exploitDataParam,
+      },
     },
-    async ({ directory, includeDevDeps = false }) => {
+    async ({ directory, includeDevDeps = false, exploitData = true }) => {
       const start = Date.now();
       let deps = parseNpmManifest(directory);
 
@@ -82,23 +73,30 @@ export async function startServer() {
 
       if (!includeDevDeps) deps = deps.filter((d) => !d.isDev);
 
-      const packages = deps.map((d) => ({ name: d.name, version: d.version, ecosystem: "npm" as Ecosystem }));
-      const results = await queryOsvBatch(packages);
-      const report = formatReport(results, "npm", Date.now() - start);
+      const { results, notes } = await audit(deps, exploitData, "npm");
+      const report = formatReport(results, "npm", Date.now() - start, notes);
 
       return { content: [{ type: "text", text: report }] };
     }
   );
 
-  server.tool(
+  server.registerTool(
     "audit_pip",
-    "Audit Python dependencies from requirements.txt or pyproject.toml for known CVEs using the OSV database",
     {
-      directory: z.string().describe("Path to the directory containing requirements.txt or pyproject.toml"),
+      description: "Audit Python dependencies for known CVEs using the OSV database. Reads exact versions from uv.lock, poetry.lock or Pipfile.lock, falling back to requirements.txt / pyproject.toml",
+      inputSchema: {
+        directory: z.string().describe("Path to the directory containing requirements.txt or pyproject.toml"),
+        includeDevDeps: z
+          .boolean()
+          .optional()
+          .describe("Include dev groups from poetry.lock, uv.lock or Pipfile.lock (default: false)"),
+        exploitData: exploitDataParam,
+      },
     },
-    async ({ directory }) => {
+    async ({ directory, includeDevDeps = false, exploitData = true }) => {
       const start = Date.now();
-      const deps = parsePipRequirements(directory);
+      let deps = parsePipRequirements(directory);
+      if (!includeDevDeps) deps = deps.filter((d) => !d.isDev);
 
       if (deps.length === 0) {
         return {
@@ -106,40 +104,45 @@ export async function startServer() {
         };
       }
 
-      const packages = deps.map((d) => ({ name: d.name, version: d.version, ecosystem: "PyPI" as Ecosystem }));
-      const results = await queryOsvBatch(packages);
-      const report = formatReport(results, "pip", Date.now() - start);
+      const { results, notes } = await audit(deps, exploitData, "PyPI");
+      const report = formatReport(results, "pip", Date.now() - start, notes);
 
       return { content: [{ type: "text", text: report }] };
     }
   );
 
-  server.tool(
+  server.registerTool(
     "audit_package",
-    "Audit a single package by name, version, and ecosystem",
     {
-      name: z.string().describe("Package name"),
-      version: z.string().describe("Package version (e.g. 1.2.3)"),
-      ecosystem: z
-        .enum(["npm", "PyPI", "crates.io", "Maven", "Go", "RubyGems"])
-        .describe("Package ecosystem"),
+      description: "Audit a single package by name, version, and ecosystem",
+      inputSchema: {
+        name: z.string().describe("Package name"),
+        version: z.string().describe("Package version (e.g. 1.2.3)"),
+        ecosystem: z
+          .enum(["npm", "PyPI", "crates.io", "Maven", "Go", "RubyGems", "Packagist"])
+          .describe("Package ecosystem"),
+        exploitData: exploitDataParam,
+      },
     },
-    async ({ name, version, ecosystem }) => {
+    async ({ name, version, ecosystem, exploitData = true }) => {
       const start = Date.now();
-      const results = await queryOsvBatch([{ name, version, ecosystem: ecosystem as Ecosystem }]);
-      const report = formatReport(results, ecosystem, Date.now() - start);
+      const { results, notes } = await audit([{ name, version, ecosystem: ecosystem as Ecosystem }], exploitData);
+      const report = formatReport(results, ecosystem, Date.now() - start, notes);
       return { content: [{ type: "text", text: report }] };
     }
   );
 
-  server.tool(
+  server.registerTool(
     "audit_directory",
-    "Auto-detect and audit npm and pip manifests (package.json, requirements.txt, pyproject.toml) in a directory",
     {
-      directory: z.string().describe("Path to the project root directory"),
-      includeDevDeps: z.boolean().optional().describe("Include dev dependencies for npm (default: false)"),
+      description: "Auto-detect and audit every supported project in a directory: npm (package-lock, pnpm, yarn, bun), Python (uv, Poetry, Pipenv, requirements), Rust (Cargo.lock), Go (go.mod), Ruby (Gemfile.lock) and PHP (composer.lock)",
+      inputSchema: {
+        directory: z.string().describe("Path to the project root directory"),
+        includeDevDeps: z.boolean().optional().describe("Include dev dependencies (default: false)"),
+        exploitData: exploitDataParam,
+      },
     },
-    async ({ directory, includeDevDeps = false }) => {
+    async ({ directory, includeDevDeps = false, exploitData = true }) => {
       const start = Date.now();
       const lines: string[] = [];
 
@@ -147,19 +150,27 @@ export async function startServer() {
       let npmDeps = parseNpmManifest(directory);
       if (npmDeps.length > 0) {
         if (!includeDevDeps) npmDeps = npmDeps.filter((d) => !d.isDev);
-        const npmPkgs = npmDeps.map((d) => ({ name: d.name, version: d.version, ecosystem: "npm" as Ecosystem }));
-        const npmResults = await queryOsvBatch(npmPkgs);
+        const { results, notes } = await audit(npmDeps, exploitData, "npm");
         lines.push("── npm ─────────────────────────────────────────");
-        lines.push(formatReport(npmResults, "npm", 0));
+        lines.push(formatReport(results, "npm", 0, notes));
       }
 
       // pip
-      const pipDeps = parsePipRequirements(directory);
+      let pipDeps = parsePipRequirements(directory);
+      if (!includeDevDeps) pipDeps = pipDeps.filter((d) => !d.isDev);
       if (pipDeps.length > 0) {
-        const pipPkgs = pipDeps.map((d) => ({ name: d.name, version: d.version, ecosystem: "PyPI" as Ecosystem }));
-        const pipResults = await queryOsvBatch(pipPkgs);
+        const { results, notes } = await audit(pipDeps, exploitData, "PyPI");
         lines.push("── pip ─────────────────────────────────────────");
-        lines.push(formatReport(pipResults, "pip", 0));
+        lines.push(formatReport(results, "pip", 0, notes));
+      }
+
+      // Cargo, Go, RubyGems, Composer
+      for (const { ecosystem, label, deps: found } of parseOtherEcosystems(directory)) {
+        const deps = includeDevDeps ? found : found.filter((d) => !d.isDev);
+        if (deps.length === 0) continue;
+        const { results, notes } = await audit(deps, exploitData, ecosystem);
+        lines.push(`── ${label} ${"─".repeat(Math.max(3, 44 - label.length))}`);
+        lines.push(formatReport(results, ecosystem, 0, notes));
       }
 
       if (lines.length === 0) {
@@ -172,7 +183,4 @@ export async function startServer() {
       return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }

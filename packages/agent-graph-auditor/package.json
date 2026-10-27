@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-agent-graph-auditor",
-  "version": "0.1.2",
+  "version": "0.2.2",
   "mcpName": "io.github.GuardBee/agent-graph-auditor",
   "description": "MCP server that builds a reachability graph across multi-agent orchestration configs (LangGraph, CrewAI, AutoGen/ag2) to find transitive excessive agency — an agent with no dangerous tool of its own that can still reach one through delegation or group membership",
   "type": "module",
@@ -11,15 +11,18 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "default": "./dist/index.js"
     }
   },
   "files": [
     "dist",
     "README.md",
-    "TR.md",
-    "ZH.md"
+    "LICENSE",
+    "CHANGELOG.md",
+    "!dist/**/*.map",
+    "!dist/**/__tests__"
   ],
   "scripts": {
     "build": "tsc",
@@ -50,5 +53,12 @@
     "type": "git",
     "url": "https://github.com/GuardBee/guardbee-mcp.git",
     "directory": "packages/agent-graph-auditor"
+  },
+  "homepage": "https://guardbee.ai/en/what-is-mcp-agent-graph-auditor/",
+  "bugs": {
+    "url": "https://github.com/GuardBee/guardbee-mcp/issues"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

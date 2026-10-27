@@ -38,13 +38,21 @@ export async function startServer() {
     version: "0.1.0",
   });
   instrumentServer(server, "oauth-auditor");
+  registerTools(server);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
-  server.tool(
+/** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
+export function registerTools(server: McpServer): void {
+  server.registerTool(
     "scan_text",
-    "Scan an MCP server's authorization code for OAuth 2.1 anti-patterns named in the MCP spec's own Security Considerations: token passthrough (forwarding a client's token to a downstream API unchanged), missing audience validation on JWT verification, OAuth/OIDC discovery SSRF, missing PKCE, loose redirect_uri validation, and hardcoded client secrets.",
     {
-      content: z.string().describe("The code content to scan"),
-      label: z.string().optional().describe("Optional label shown in findings (e.g. filename)"),
+      description: "Scan an MCP server's authorization code for OAuth 2.1 anti-patterns named in the MCP spec's own Security Considerations: token passthrough (forwarding a client's token to a downstream API unchanged), missing audience validation on JWT verification, OAuth/OIDC discovery SSRF, missing PKCE, loose redirect_uri validation, and hardcoded client secrets.",
+      inputSchema: {
+        content: z.string().describe("The code content to scan"),
+        label: z.string().optional().describe("Optional label shown in findings (e.g. filename)"),
+      },
     },
     async ({ content, label }) => {
       const findings = scanText(content, label);
@@ -52,10 +60,12 @@ export async function startServer() {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "scan_file",
-    "Scan a single file for OAuth/token-handling anti-patterns",
-    { path: z.string().describe("Absolute or relative path to the file to scan") },
+    {
+      description: "Scan a single file for OAuth/token-handling anti-patterns",
+      inputSchema: { path: z.string().describe("Absolute or relative path to the file to scan") },
+    },
     async ({ path: filePath }) => {
       const { findings, skipped } = scanFile(filePath);
       if (skipped) {
@@ -65,14 +75,16 @@ export async function startServer() {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "scan_directory",
-    "Recursively scan a directory of MCP server source for OAuth/token-handling anti-patterns",
     {
-      path: z.string().describe("Absolute or relative path to the directory to scan"),
-      maxFiles: z.number().int().positive().optional().describe("Maximum number of files to scan (default: 5000)"),
-      include: z.array(z.string()).optional().describe("Only scan files whose path contains one of these strings"),
-      exclude: z.array(z.string()).optional().describe("Skip files/dirs whose path contains one of these strings"),
+      description: "Recursively scan a directory of MCP server source for OAuth/token-handling anti-patterns",
+      inputSchema: {
+        path: z.string().describe("Absolute or relative path to the directory to scan"),
+        maxFiles: z.number().int().positive().optional().describe("Maximum number of files to scan (default: 5000)"),
+        include: z.array(z.string()).optional().describe("Only scan files whose path contains one of these strings"),
+        exclude: z.array(z.string()).optional().describe("Skip files/dirs whose path contains one of these strings"),
+      },
     },
     async ({ path: dirPath, maxFiles, include, exclude }) => {
       const result = scanDirectory(dirPath, { maxFiles, include, exclude });
@@ -80,10 +92,12 @@ export async function startServer() {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "list_patterns",
-    "List every OAuth/token-handling pattern this auditor detects, grouped by category",
-    {},
+    {
+      description: "List every OAuth/token-handling pattern this auditor detects, grouped by category",
+      inputSchema: {},
+    },
     async () => {
       const lines = ["Supported OAuth/token-handling patterns:\n"];
       const byCategory = new Map<string, typeof OAUTH_AUDIT_PATTERNS>();
@@ -102,10 +116,17 @@ export async function startServer() {
       lines.push("");
       lines.push("[pkce] (checked separately — flags an *absence*, not a fixed pattern)");
       lines.push("  • response_type=code authorization request with no code_challenge nearby (missing_pkce_on_auth_request, high)");
+      lines.push("");
+      lines.push("[MCP spec Security Best Practices] (checked separately — flag an *absence*)");
+      lines.push("  • handle from a tool argument used with no check it is the caller's (state_handle_not_bound_to_user, medium)");
+      lines.push("  • authorization code redeemed with no iss check, RFC 9207 (missing_iss_validation, medium)");
+      lines.push("  • URL opened in a browser with no scheme check (auth_url_scheme_not_validated, high)");
+      lines.push("  • HTTP MCP transport with no authentication (local_http_server_unauthenticated, high)");
+      lines.push("  • HTTP MCP transport with no Host/Origin check, DNS rebinding (missing_host_origin_check, medium)");
+      lines.push("  • MCP server bound to 0.0.0.0 (listen_all_interfaces, medium)");
+      lines.push("");
+      lines.push("Live: `guardbee-oauth-auditor probe <url>` (CLI only) checks a running endpoint for unauthenticated access and DNS rebinding.");
       return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }

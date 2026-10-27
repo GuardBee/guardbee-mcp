@@ -4,3 +4,4 @@ export { LEAK_PATTERNS } from "./patterns.js";
 export type { LeakPattern, LeakCategory } from "./patterns.js";
 export { startProxy } from "./proxy.js";
 export type { ProxyOptions, ProxyMode, AuditEvent } from "./proxy.js";
+export { registerTools } from "./server.js";

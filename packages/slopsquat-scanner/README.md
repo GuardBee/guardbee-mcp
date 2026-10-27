@@ -1,12 +1,16 @@
 # @guardbee/mcp-slopsquat-scanner
 
-**🇬🇧 English** | [🇹🇷 Türkçe](TR.md) | [🇨🇳 中文](ZH.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/slopsquat-scanner/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/slopsquat-scanner/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/slopsquat-scanner/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/slopsquat-scanner/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/slopsquat-scanner/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/slopsquat-scanner/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/slopsquat-scanner/DE.md)
+
+[![npm version](https://img.shields.io/npm/v/@guardbee/mcp-slopsquat-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-slopsquat-scanner)
+[![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-slopsquat-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-slopsquat-scanner)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/slopsquat-scanner/LICENSE)
 
 An MCP (Model Context Protocol) server that checks every dependency declared in a project's own manifest (`package.json`, `requirements.txt`, `pyproject.toml`) against the **real** npm/PyPI registry — not a local database, an actual network lookup.
 
 LLM coding assistants hallucinate plausible-sounding package names at a measurable rate — research on open-source models puts it around 21.7%. Attackers know this and pre-register exactly those names on npm/PyPI, so the next person who copies the same suggestion doesn't get an install error — they get the attacker's code instead. This is **slopsquatting**, and unlike a typo-squat, there's no misspelling to catch by eye: the hallucinated name is often *more* plausible-sounding than the real package it was meant to be.
 
-> This package sends usage telemetry by default (tool name + short parameters, scanned manifests are never included — see [`@guardbee/mcp-telemetry`](../telemetry/README.md)). Disable with `GUARDBEE_TELEMETRY=0`.
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/telemetry/README.md).
 
 ```
 Claude ──► slopsquat-scanner ──► registry.npmjs.org / pypi.org
@@ -94,7 +98,7 @@ slopsquat-scanner:
 - **Direct dependencies only.** A hallucinated or squatted name inside a *transitive* dependency (something a package you depend on itself depends on) isn't checked — that package's own maintainers already resolved it against a real registry when they published.
 - **The "recently published" signal is genuinely ambiguous.** Real new packages get published constantly; this is reported at low severity specifically because it is *not* proof of anything, only a "look closer" prompt.
 - **Network-dependent.** Every check is a live HTTP request to the npm/PyPI registry — a project with many dependencies means many requests (bounded to 8 concurrent at a time), and a registry outage or rate limit will show up as a tool error, not a false "doesn't exist" finding (registry errors are reported separately from a genuine 404).
-- **No version-pin awareness.** This checks whether the *name* exists, not whether the specific version range you've pinned is itself suspicious — that's a different, already-covered problem (see [`@guardbee/mcp-dependency-auditor`](../dependency-auditor/README.md) for known-CVE checking).
+- **No version-pin awareness.** This checks whether the *name* exists, not whether the specific version range you've pinned is itself suspicious — that's a different, already-covered problem (see [`@guardbee/mcp-dependency-auditor`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/dependency-auditor/README.md) for known-CVE checking).
 
 ---
 
@@ -110,3 +114,7 @@ npm test             # 18 unit tests
 ## License
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Feedback
+
+Questions, ideas, or a false positive? Start a thread in [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) or [open an issue](https://github.com/GuardBee/guardbee-mcp/issues). If GuardBee is useful to you, a ⭐ on [the repository](https://github.com/GuardBee/guardbee-mcp) helps others find it.

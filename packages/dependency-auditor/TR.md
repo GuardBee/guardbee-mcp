@@ -1,6 +1,6 @@
 # @guardbee/mcp-dependency-auditor
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-dependency-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-dependency-auditor)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-dependency-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-dependency-auditor)
@@ -8,19 +8,24 @@
 
 npm ve pip manifestlerini bilinen CVE'ler için [OSV](https://osv.dev) veritabanına karşı tarayan MCP sunucusu. Tek paket sorgusu ayrıca PyPI, crates.io, Maven, Go ve RubyGems kapsar.
 
-> Bu paket varsayılan olarak kullanım telemetrisi gönderir (tool adı + kısa parametreler — bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md)). Kapatmak için `GUARDBEE_TELEMETRY=0`.
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
 ---
 
 ## Özellikler
 
 - **OSV API Entegrasyonu** — Google'ın açık kaynak güvenlik açığı veri tabanı (ücretsiz, kimlik doğrulaması gerektirmez)
-- **npm Desteği** — `package.json` ve `package-lock.json` (v1/v2/v3) okunur; kilitli sürümler tercih edilir
-- **pip Desteği** — `requirements.txt`, `requirements/base.txt`, `requirements/prod.txt` ve `pyproject.toml`
+- **npm Desteği** — kesin sürümler `package-lock.json` / `npm-shrinkwrap.json` (v1/v2/v3), `pnpm-lock.yaml` (v5/v6/v9), `yarn.lock` (v1 ve Berry) ve `bun.lock` dosyalarından okunur; yoksa `package.json` aralıkları kullanılır. Geçişli paketler dahildir; lock dosyası işaretlemese bile (pnpm v9, yarn, bun) yalnızca geliştirme amaçlı paketler ayırt edilir
+- **Rust, Go, Ruby, PHP** — `Cargo.lock` (dev crate'ler `Cargo.toml`'dan), `go.mod` (`// indirect` ve `replace` desteğiyle), `Gemfile.lock` (platform derlemeleri birleştirilir, dev grupları `Gemfile`'dan) ve `composer.lock` (`packages-dev`); `audit` komutu ve `audit_directory` aracıyla denetlenir
+- **pip Desteği** — kesin sürümler `uv.lock`, `poetry.lock` ve `Pipfile.lock` dosyalarından okunur (dev grupları ayrılır); yoksa `requirements.txt`, `requirements/base.txt`, `requirements/prod.txt` ve `pyproject.toml`
+- **Zararlı Paket Tespiti** — bilinen zararlı sürümler (OpenSSF `MAL-*` kayıtları ve CWE-506 olarak sınıflanan tavsiyeler; örneğin Eylül 2025'te ele geçirilen `chalk@5.6.1` / `debug@4.4.2`) kritik olarak ve raporun en başında gösterilir, kaldırma ve kimlik bilgisi yenileme önerisiyle birlikte; her `--fail-on` eşiğinde build'i kırar
+- **Sömürü Önceliklendirmesi** — bulgular [CISA KEV](https://www.cisa.gov/known-exploited-vulnerabilities-catalog) (sahada aktif sömürü, fidye yazılımı kullanımı) ve [FIRST EPSS](https://www.first.org/epss/) (30 gün içinde sömürülme olasılığı) ile zenginleştirilir ve zararlı → KEV → önem → EPSS sırasıyla listelenir. CI kapısı için `--fail-on-kev` / `--fail-on-epss=<0-1>` (`--fail-on=none` önem kapısını kapatır). Yalnızca CVE kimlikleri gönderilir; `--no-exploit-data` veya `guardbee.yml` içinde `exploit-data: false` ile kapatılır
 - **Severity Skorlaması** — CVSS puanına veya metin buluşsal yöntemine göre Critical / High / Medium / Low
-- **Düzeltme Sürümü** — Mevcut olduğunda `upgrade to X@Y.Z.Z` önerisi
+- **Düzeltme Planı** — paket başına tek yükseltme: *tüm* tavsiyeleri kapatan listelenmiş en küçük sürüm (ör. `log4j-core 2.14.1 → 2.25.4 (fixes 7/7)`); açık kalan tavsiyeler ve ana sürüm atlamaları belirtilir. Bulgu başına düzeltmeler kurulu sürüm hattını izler (`next-auth 5.0.0-beta.31 → 5.0.0-beta.32`, 4.24.15 değil); SemVer, PEP 440 veya Maven tarzı sürüm sıralaması kullanılır
 - **CVE Bağlantıları** — NVD veya osv.dev'e doğrudan link
-- **24 Unit Test** — %100 geçen test paketi
+- **Bağımlılık Yolları** — her bulgu paketin nasıl kurulduğunu gösterir (`express@4.21.2 › proxy-addr@2.0.7`); düzeltme planı yükseltilmesi gereken doğrudan bağımlılığı belirtir (`← via express@4.21.2`). `package-lock.json` v2/v3, pnpm, yarn, bun ve uv lock dosyalarında mevcuttur
+- **Tekilleştirilmiş Bulgular** — birbirinin takma adı olan tavsiyeler (GHSA + PYSEC, GHSA + MAL) tek bulguda birleşir; ignore listeleri bunların herhangi bir kimliğiyle eşleşir
+- **Testler** — gerçek paket yöneticileriyle üretilmiş lock dosyaları ve sahte bir OSV API ile birim testleri
 
 ---
 
@@ -49,8 +54,8 @@ npm install -g @guardbee/mcp-dependency-auditor
 
 | Tool | Açıklama |
 |------|----------|
-| `audit_npm` | `package.json` / `package-lock.json` içindeki npm bağımlılıklarını denetler |
-| `audit_pip` | `requirements.txt` / `pyproject.toml` içindeki Python bağımlılıklarını denetler |
+| `audit_npm` | npm bağımlılıklarını denetler (package-lock, pnpm, yarn, bun lock dosyaları veya `package.json`) |
+| `audit_pip` | Python bağımlılıklarını denetler (uv, Poetry, Pipenv lock dosyaları veya `requirements.txt` / `pyproject.toml`) |
 | `audit_package` | Tek bir paketi ad, sürüm ve ekosisteme göre denetler |
 | `audit_directory` | Desteklenen tüm manifest dosyalarını otomatik tespit ederek denetler |
 
@@ -113,6 +118,9 @@ npx @guardbee/mcp-dependency-auditor audit-pkg lodash 4.17.20 npm
 
 # JSON çıktı
 npx @guardbee/mcp-dependency-auditor audit . --format=json
+
+# Yalnızca saldırganların gerçekten kullandıklarında kır: CISA KEV veya EPSS ≥ %10
+npx @guardbee/mcp-dependency-auditor audit . --fail-on=none --fail-on-kev --fail-on-epss=0.1
 ```
 
 **Exit kodları:** `0` = temiz · `1` = threshold üstü bulgu · `2` = hata
@@ -170,3 +178,7 @@ npm run build     # TypeScript derleme
 ## Lisans
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## Geri bildirim
+
+Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

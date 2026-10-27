@@ -10,6 +10,7 @@
     "build": "turbo run build",
     "test": "turbo run test",
     "dev": "turbo run dev",
+    "bench": "turbo run build --filter=@guardbee/guard-core && pnpm --filter @guardbee/pii-bench bench",
     "changeset": "changeset",
     "version-packages": "node scripts/version.mjs",
     "release": "turbo run build && changeset publish",
@@ -20,15 +21,16 @@
   },
   "devDependencies": {
     "@changesets/changelog-github": "1.0.1",
-    "@changesets/cli": "3.0.2",
+    "@changesets/cli": "3.0.3",
     "@secretlint/secretlint-rule-preset-recommend": "^13.0.6",
-    "@types/node": "26.5.0",
+    "@types/node": "26.6.5",
     "husky": "^9.1.7",
     "lint-staged": "^17.6.0",
     "secretlint": "^13.0.6",
-    "tsx": "4.23.13",
-    "turbo": "2.10.12",
+    "tsx": "4.23.15",
+    "turbo": "2.11.10",
     "typescript": "5.9.3",
-    "vitest": "3.2.7"
+    "vite": "^8.3.4",
+    "vitest": "5.0.5"
   }
 }

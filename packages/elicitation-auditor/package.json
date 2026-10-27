@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-elicitation-auditor",
-  "version": "0.1.1",
+  "version": "0.2.2",
   "mcpName": "io.github.GuardBee/elicitation-auditor",
   "description": "MCP server that scans MCP server code for elicitation anti-patterns in the 2026-07-28 spec: form mode asking for secrets, URL mode pointed straight at a third-party authorize endpoint, and credentials or PII embedded in the elicitation URL",
   "type": "module",
@@ -11,15 +11,18 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "default": "./dist/index.js"
     }
   },
   "files": [
     "dist",
     "README.md",
-    "TR.md",
-    "ZH.md"
+    "LICENSE",
+    "CHANGELOG.md",
+    "!dist/**/*.map",
+    "!dist/**/__tests__"
   ],
   "scripts": {
     "build": "tsc",
@@ -48,5 +51,12 @@
     "type": "git",
     "url": "https://github.com/GuardBee/guardbee-mcp.git",
     "directory": "packages/elicitation-auditor"
+  },
+  "homepage": "https://guardbee.ai/en/what-is-mcp-elicitation-auditor/",
+  "bugs": {
+    "url": "https://github.com/GuardBee/guardbee-mcp/issues"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

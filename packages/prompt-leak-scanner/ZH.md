@@ -1,12 +1,12 @@
 # @guardbee/mcp-prompt-leak-scanner
 
-[🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文**
+[🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文** | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 一个 MCP（Model Context Protocol）服务器——同时也是一个独立的反向代理——在**发往** LLM 的 prompt 离开你的应用之前，发现其中泄露的凭据和 PII。
 
 `secret-scanner` 查找躺在代码库里的密钥。本包查找的是进入了*运行时 prompt* 的密钥和 PII——客服智能体把客户工单（邮箱、银行卡号）直接贴进系统提示词，调试时有人把 API 密钥贴进聊天，内部工具把原始用户输入原封不动地转发给 LLM 而从不检查内容。这发生在流水线的另一个时刻，也是一种与泄露 `.env` 文件不同的失败模式。
 
-> 本包默认发送使用遥测（工具名 + 较短的参数，绝不包含 prompt 内容和审计发现——见 [`@guardbee/mcp-telemetry`](../telemetry/README.md)）。设置 `GUARDBEE_TELEMETRY=0` 即可关闭。
+> 遥测默认**关闭**。设置 `GUARDBEE_TELEMETRY=1` 后会发送服务器、工具、成功与否、耗时以及文件路径等简短参数值；更长的字符串和 `content`、`token`、`password` 等字段会被占位符替换。参见 [`@guardbee/mcp-telemetry`](../telemetry/ZH.md)。
 
 ```
 你的应用 ──► prompt-leak-scanner（代理）──► 真实 LLM API（OpenAI/Anthropic/...）
@@ -144,3 +144,7 @@ npm test             # 29 个单元测试
 ## 许可证
 
 MIT — [GuardBee](https://guardbee.ai)
+
+## 反馈
+
+有问题、想法或误报？请在 [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions) 发帖或[提交 issue](https://github.com/GuardBee/guardbee-mcp/issues)。如果 GuardBee 对你有帮助，给[仓库](https://github.com/GuardBee/guardbee-mcp)点个 ⭐ 能让更多人发现它。

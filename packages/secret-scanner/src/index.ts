@@ -9,3 +9,4 @@ export { applyBaseline, readBaseline, toBaseline, writeBaseline } from "./baseli
 export type { Baseline } from "./baseline.js";
 export { scanAgentHistory, AGENT_HISTORY_LOCATIONS } from "./agent-history.js";
 export type { AgentHistoryFinding, AgentHistoryResult } from "./agent-history.js";
+export { registerTools } from "./server.js";
