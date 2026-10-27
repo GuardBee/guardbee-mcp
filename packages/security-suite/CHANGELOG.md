@@ -1,5 +1,17 @@
 # @guardbee/security-suite
 
+## 0.4.2
+
+### Patch Changes
+
+- Updated dependencies [[`69b9796`](https://github.com/GuardBee/guardbee-mcp/commit/69b9796faea2f324c65d59b49d2a924da064ba93), [`8c801c8`](https://github.com/GuardBee/guardbee-mcp/commit/8c801c8d64b42d4d0608668a4e8f6920f848246a)]:
+  - @guardbee/mcp-config-auditor@0.7.0
+  - @guardbee/mcp-tool-poisoning-scanner@0.4.0
+  - @guardbee/mcp-server-auditor@0.3.0
+  - @guardbee/mcp-oauth-auditor@0.4.0
+  - @guardbee/mcp-owasp-scan@0.4.0
+  - @guardbee/mcp-rug-pull-detector@0.3.4
+
 ## 0.4.1
 
 ### Patch Changes
