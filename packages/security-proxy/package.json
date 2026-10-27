@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-security-proxy",
-  "version": "1.29.0",
+  "version": "1.30.0",
   "mcpName": "io.github.GuardBee/security-proxy",
   "description": "MCP security gateway and LLM firewall: masks PII and secrets, blocks prompt injection and toxic flows (lethal trifecta), approves risky calls and keeps a hash-chained audit log, for MCP servers and LLM APIs",
   "author": "GuardBee <hello@guardbee.ai>",
