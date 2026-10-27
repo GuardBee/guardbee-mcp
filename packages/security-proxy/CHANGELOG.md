@@ -1,5 +1,15 @@
 # @guardbee/mcp-security-proxy
 
+## 1.30.0
+
+### Minor Changes
+
+- [#218](https://github.com/GuardBee/guardbee-mcp/pull/218) [`d754b3e`](https://github.com/GuardBee/guardbee-mcp/commit/d754b3e41660eeadfdc3f817ac30e9e7333e466b) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Sandbox for stdio upstreams: `upstreams.<name>.sandbox` runs a server in docker, podman, bubblewrap (Linux) or sandbox-exec (macOS) with a read-only disk (writes only to `fs.readWrite` and a private home that holds its package cache), credential stores and `.env` files hidden, no host environment unless listed in `env`, optional `network: none`, and CPU / memory / pid limits in containers. A sandbox that cannot work on the host stops the gateway instead of falling back; `guardbee-proxy validate` reports why, and start failures are audit events (`ruleId: sandbox:*`). `guardbee-proxy init --sandbox [runtime]` sandboxes imported servers. Configs without `sandbox` are unchanged.
+
+### Patch Changes
+
+- [#216](https://github.com/GuardBee/guardbee-mcp/pull/216) [`08c7391`](https://github.com/GuardBee/guardbee-mcp/commit/08c73915cd47eec7c5c0168bae88b77332ac6b6a) Thanks [@dependabot](https://github.com/apps/dependabot)! - Align the optional OpenTelemetry peers on the 3.x line (`@opentelemetry/resources` ^3.0.0, alongside `@opentelemetry/exporter-trace-otlp-http` ^0.300.0), and resolve `@modelcontextprotocol/sdk` from the workspace catalog in db-gateway so the monorepo installs a single SDK copy.
+
 ## 1.29.0
 
 ### Minor Changes
