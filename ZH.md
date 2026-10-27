@@ -19,6 +19,7 @@ GuardBee 的 MCP（Model Context Protocol）服务器系列——一个 monorepo
 | [`packages/prompt-injection-scanner`](packages/prompt-injection-scanner) | `@guardbee/mcp-prompt-injection-scanner` | 扫描 RAG 内容/抓取页面中的间接 prompt 注入（指令覆盖、伪造的角色/聊天模板标记、隐藏文本、"Dear AI" 式直接称呼、数据外泄指令），支持英文和土耳其语 |
 | [`packages/llm-redteam`](packages/llm-redteam) | `@guardbee/mcp-llm-redteam` | 以基于 canary 的越狱/提取/混淆探针主动红队测试在线 LLM 端点或聊天机器人（OpenAI/Anthropic/webhook 目标） |
 | [`packages/model-scanner`](packages/model-scanner) | `@guardbee/mcp-model-scanner` | 扫描 ML 模型文件（PyTorch、pickle、safetensors、Keras/H5、ONNX）的供应链风险——危险的 pickle 反序列化全局对象、伪装或畸形的 safetensors 头、Keras Lambda 层 RCE、ONNX 外部数据路径穿越 |
+| [`packages/reverse-shield`](packages/reverse-shield) | `@guardbee/mcp-reverse-shield` | 逆向工程 MCP 的防御面：审计已发布的 Web 构建或线上站点、Electron 应用、Android APK 或原生/.NET 二进制会白白泄露什么——暴露的 source map、缺少压缩/R8/.NET 混淆、调试信息与符号、debuggable 标志、Electron fuse、缺少代码签名、内嵌密钥；A–F 评级 |
 | [`packages/vector-store-scanner`](packages/vector-store-scanner) | `@guardbee/mcp-vector-store-scanner` | 探测向量数据库端点（Weaviate、Qdrant、Chroma、Elasticsearch/OpenSearch、Redis、Postgres/pgvector）是否未经认证就暴露 embedding 和 RAG 数据 |
 | [`packages/prompt-leak-scanner`](packages/prompt-leak-scanner) | `@guardbee/mcp-prompt-leak-scanner` | 在发往 LLM 的 prompt 中发现泄露的凭据和 PII（API 密钥、土耳其身份证号 TC Kimlik No、信用卡、IBAN）——既有 MCP 扫描工具，也可作为真实 LLM API 前的实时反向代理 |
 | [`packages/agent-graph-auditor`](packages/agent-graph-auditor) | `@guardbee/mcp-agent-graph-auditor` | 在多智能体编排配置（LangGraph、CrewAI、AutoGen/ag2）上构建可达性图，发现传递性的过度授权——某个智能体只能通过委托给另一个智能体才能触及危险工具 |

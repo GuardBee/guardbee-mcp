@@ -1,0 +1,56 @@
+{
+  "name": "@guardbee/mcp-reverse-shield",
+  "version": "0.1.0",
+  "mcpName": "io.github.GuardBee/reverse-shield",
+  "description": "MCP server that audits shipped apps for how easily they can be reverse engineered — exposed source maps, missing minification/R8/.NET obfuscation, debug info and unstripped symbols, debuggable flags, Electron fuses, unsigned binaries and embedded secrets across web bundles, Electron, Android APKs and native/.NET binaries",
+  "type": "module",
+  "bin": {
+    "guardbee-reverse-shield": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "TR.md",
+    "ZH.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@guardbee/guard-core": "workspace:^",
+    "@guardbee/mcp-telemetry": "workspace:^",
+    "@modelcontextprotocol/sdk": "catalog:",
+    "zod": "catalog:"
+  },
+  "keywords": [
+    "mcp",
+    "security",
+    "reverse-engineering",
+    "anti-reverse-engineering",
+    "app-hardening",
+    "obfuscation",
+    "source-maps",
+    "electron",
+    "android",
+    "guardbee",
+    "devtools"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git",
+    "directory": "packages/reverse-shield"
+  }
+}

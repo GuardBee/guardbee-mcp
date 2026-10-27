@@ -406,6 +406,21 @@ importers:
         specifier: 'catalog:'
         version: 4.6.7
 
+  packages/reverse-shield:
+    dependencies:
+      '@guardbee/guard-core':
+        specifier: workspace:^
+        version: link:../guard-core
+      '@guardbee/mcp-telemetry':
+        specifier: workspace:^
+        version: link:../telemetry
+      '@modelcontextprotocol/sdk':
+        specifier: 'catalog:'
+        version: 1.32.2(zod@4.6.7)
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
+
   packages/rug-pull-detector:
     dependencies:
       '@guardbee/guard-core':
@@ -550,6 +565,9 @@ importers:
       '@guardbee/mcp-prompt-leak-scanner':
         specifier: workspace:^
         version: link:../prompt-leak-scanner
+      '@guardbee/mcp-reverse-shield':
+        specifier: workspace:^
+        version: link:../reverse-shield
       '@guardbee/mcp-rug-pull-detector':
         specifier: workspace:^
         version: link:../rug-pull-detector

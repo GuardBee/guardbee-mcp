@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.GuardBee/reverse-shield",
+  "description": "Audits shipped apps for how easily they can be reverse engineered",
+  "repository": {
+    "url": "https://github.com/GuardBee/guardbee-mcp",
+    "source": "github",
+    "subfolder": "packages/reverse-shield"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@guardbee/mcp-reverse-shield",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

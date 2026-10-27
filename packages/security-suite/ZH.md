@@ -7,7 +7,7 @@
 
 > 这是简短摘要。完整文档（英文）见 [README.md](README.md)。
 
-一次安装即可获得全部 GuardBee MCP 安全工具：一个 MCP 服务器提供你所选包的工具，CLI 可运行任意包。共 29 个包、124 个 MCP 工具。
+一次安装即可获得全部 GuardBee MCP 安全工具：一个 MCP 服务器提供你所选包的工具，CLI 可运行任意包。共 30 个包、127 个 MCP 工具。
 
 > 遥测默认**关闭**。设置 `GUARDBEE_TELEMETRY=1` 后会发送服务器、工具、成功与否、耗时以及文件路径等简短参数值；更长的字符串和 `content`、`token`、`password` 等字段会被占位符替换。参见 [`@guardbee/mcp-telemetry`](../telemetry/ZH.md)。
 
@@ -19,7 +19,7 @@ npm install -g @guardbee/security-suite
 
 ## MCP 工具
 
-`guardbee serve` 默认提供**推荐**组（31 个工具）：一次性 OWASP MCP Top 10 扫描、密钥、提示注入、有害数据流、MCP 客户端配置和依赖 CVE。用 `--tools=code,network` 选择组或包 ID，或用 `--tools=all`（124 个工具）。工具名带有包前缀，例如 `secrets_scan_text`、`injection_scan_text`。`guardbee list` 列出所有包和组。
+`guardbee serve` 默认提供**推荐**组（31 个工具）：一次性 OWASP MCP Top 10 扫描、密钥、提示注入、有害数据流、MCP 客户端配置和依赖 CVE。用 `--tools=code,network` 选择组或包 ID，或用 `--tools=all`（127 个工具）。工具名带有包前缀，例如 `secrets_scan_text`、`injection_scan_text`。`guardbee list` 列出所有包和组。
 
 ```json
 { "mcpServers": { "guardbee": { "command": "npx", "args": ["-y", "@guardbee/security-suite", "serve", "--tools=recommended"] } } }
