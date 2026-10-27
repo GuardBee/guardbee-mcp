@@ -6,7 +6,7 @@ import { verifyAuditChain } from "./audit/logger.js";
 import { loadGatewayConfig } from "./gateway/config.js";
 import { clientConfigPath, defaultSandboxRuntime, runInit, type ClientName } from "./init.js";
 import { provenanceChecker, startGateway } from "./proxy.js";
-import { checkUpstreamProvenance } from "./gateway/provenance.js";
+import { checkUpstreamProvenance, provenanceSarif } from "./gateway/provenance.js";
 import { sandboxContext, sandboxIssues, type SandboxRuntime } from "./gateway/sandbox.js";
 import { isHttpUpstream } from "./types.js";
 import { PinStore, defaultPinFile } from "./gateway/pin-store.js";
@@ -194,7 +194,8 @@ Usage:
                                                    Move a client's MCP servers behind the gateway (--sandbox: run stdio servers sandboxed)
   guardbee-proxy validate [--config <file>]        Check a config without starting anything
   guardbee-proxy verify-audit <audit.jsonl>        Check an audit log's hash chain
-  guardbee-proxy provenance [--config <file>]      Check the build provenance of the packages stdio upstreams run
+  guardbee-proxy provenance [--config <file>] [--format sarif]
+                                                   Check the build provenance of the packages and images stdio upstreams run
   guardbee-proxy pins list | approve <upstream> [tool] | reset [upstream] [tool] | import <baseline.json> --upstream <name>
                                                    Tool definitions pinned across restarts
   guardbee-proxy report <audit.jsonl> [--days 30 | --from <date> --to <date>] [--format md|html|json]
@@ -208,10 +209,16 @@ Config: --config, else GUARDBEE_PROXY_CONFIG, else ./guardbee-proxy.yaml (.yml);
 Docs and examples: https://github.com/GuardBee/guardbee-mcp/tree/main/packages/security-proxy#readme
 `;
 
-/** What the gateway would decide for each stdio upstream, without starting any. Exit code 1 when one would be refused. */
-async function provenance(): Promise<void> {
+/**
+ * What the gateway would decide for each stdio upstream, without starting any.
+ * Exit code 1 when one would be refused. `--format sarif` writes SARIF 2.1.0
+ * (one result per unverified upstream) for code scanning.
+ */
+async function provenance(args: string[]): Promise<void> {
   const config = loadGatewayConfig();
   const options = provenanceChecker(config);
+  const sarif = flag(args, "--format") === "sarif";
+  const entries: { upstream: string; result: NonNullable<Awaited<ReturnType<typeof checkUpstreamProvenance>>["result"]> }[] = [];
   let refused = 0;
   for (const [name, server] of Object.entries(config.upstreams)) {
     if (isHttpUpstream(server)) continue;
@@ -219,13 +226,19 @@ async function provenance(): Promise<void> {
     // Report even where the check is off, so the answer is known before turning it on
     const checked = await checkUpstreamProvenance(server, mode === "off" ? "warn" : mode, options);
     if (!checked.result) {
-      process.stdout.write(`${name}: no registry package (${server.command})\n`);
+      if (!sarif) process.stdout.write(`${name}: no registry package (${server.command})\n`);
       continue;
     }
+    entries.push({ upstream: name, result: checked.result });
     const verdict = mode === "off" ? "check off" : checked.action === "block" ? "REFUSED" : checked.action === "warn" ? "warn" : "ok";
     if (mode !== "off" && checked.action === "block") refused++;
+    if (sarif) continue;
     process.stdout.write(`${name}: ${checked.result.status} [${verdict}] ${checked.result.artifact}\n  ${checked.result.reason}\n`);
     if (checked.server.args !== server.args && checked.server.args) process.stdout.write(`  runs as: ${checked.server.command} ${checked.server.args.join(" ")}\n`);
+  }
+  if (sarif) {
+    const configUri = flag(args, "--config") ?? process.env["GUARDBEE_PROXY_CONFIG"] ?? "guardbee-proxy.yaml";
+    process.stdout.write(`${JSON.stringify(provenanceSarif(entries, version(), configUri), null, 2)}\n`);
   }
   if (refused > 0) process.exitCode = 1;
 }
@@ -242,7 +255,7 @@ async function main() {
   }
   if (command === "verify-audit") return verifyAudit(rest[0]);
   if (command === "pins") return pins(rest);
-  if (command === "provenance") return provenance();
+  if (command === "provenance") return provenance(rest);
   if (command === "init") return init(rest);
   if (command === "report") return report(rest);
   if (command === "verify-report") return verifyReportCommand(rest);

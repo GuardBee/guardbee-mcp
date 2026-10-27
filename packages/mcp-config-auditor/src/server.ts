@@ -206,6 +206,7 @@ export function registerTools(server: McpServer): void {
       const lines = [
         "Config checks:",
         "  • unpinned_package (MCP04:2025, high)",
+        "  • unpinned_container_image (MCP04:2025, high)",
         "  • typosquat_package (MCP04:2025, critical)",
         "  • secret_in_env (MCP01:2025, critical)",
         "  • secret_in_args (MCP01:2025, critical)",

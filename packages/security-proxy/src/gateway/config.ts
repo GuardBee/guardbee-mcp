@@ -341,6 +341,8 @@ const yamlSchema = z
         offline: z.boolean().default(false),
         cacheFile: z.string().min(1).optional(),
         registry: httpUrl.optional(),
+        pypiIndex: z.string().regex(/^https:\/\//, "pypiIndex must start with https://").optional(),
+        signers: z.record(z.string().min(1), z.string().regex(/^https:\/\//, "a certificate SAN prefix such as https://github.com/owner/")).optional(),
       })
       .strict()
       .optional(),
