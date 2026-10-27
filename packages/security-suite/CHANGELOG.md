@@ -1,5 +1,16 @@
 # @guardbee/security-suite
 
+## 0.5.0
+
+### Minor Changes
+
+- [#229](https://github.com/GuardBee/guardbee-mcp/pull/229) [`06e235e`](https://github.com/GuardBee/guardbee-mcp/commit/06e235eba8cd4bb1736d48b7a10d800106372bab) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Serve `@guardbee/mcp-reverse-shield` as `reverse` in the `code` group: `reverse_scan_artifact`, `reverse_scan_url` and `reverse_list_checks` check how easily a shipped web build, Electron app, APK or native/.NET binary can be reverse engineered.
+
+### Patch Changes
+
+- Updated dependencies [[`b8fa74f`](https://github.com/GuardBee/guardbee-mcp/commit/b8fa74f92932ec0ab503aff6e99184b1a3a9d1ba)]:
+  - @guardbee/mcp-reverse-shield@0.1.1
+
 ## 0.4.2
 
 ### Patch Changes
