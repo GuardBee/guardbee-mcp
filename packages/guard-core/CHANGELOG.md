@@ -1,5 +1,21 @@
 # @guardbee/guard-core
 
+## 1.4.0
+
+### Minor Changes
+
+- [#221](https://github.com/GuardBee/guardbee-mcp/pull/221) [`f223d34`](https://github.com/GuardBee/guardbee-mcp/commit/f223d34a00dc142167b21bfe2d34ec28c3d8ef2a) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - AIBOM and compliance mappings. `guardbee-proxy aibom` writes a CycloneDX 1.6 AI bill of materials of the gateway: MCP servers with package URLs, pinned versions, build-provenance status and sandbox settings; their pinned tools (definition SHA-256, hints); remote servers as services with endpoints; LLM routes as models. It validates against the official schema and holds no environment values, headers or keys. `guardbee-proxy report --framework eu-ai-act|iso42001|soc2|nist-ai-rmf` adds a signed section mapping the period's findings and the gateway's controls to the framework's requirements, each with its citation. guard-core exports the versioned tables (`COMPLIANCE_FRAMEWORKS`, `COMPLIANCE_MAPPING_VERSION`); they are evidence for an assessment, not a certification.
+
+- [#219](https://github.com/GuardBee/guardbee-mcp/pull/219) [`69b9796`](https://github.com/GuardBee/guardbee-mcp/commit/69b9796faea2f324c65d59b49d2a924da064ba93) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Provenance for PyPI packages and container images. `uvx` / `uv tool run` upstreams are checked against PEP 740 attestations (every file of the release, signed by its Trusted Publisher's workflow) and pinned to `pkg==<version>`; `docker run` / `podman run` upstreams resolve the tag to a digest, verify the image's cosign keyless signature (expected signer: the image owner's GitHub account on ghcr.io, or `provenance.signers`) and run pinned to `image@sha256:…`. `guardbee-proxy provenance --format sarif` writes the findings for code scanning. guard-core adds `checkPypiProvenance`, `checkOciProvenance`, `parseImageReference` and `pypiAttestationToBundle`, and `parseLaunch` skips uvx options that take a value. mcp-config-auditor flags `docker run` servers started by tag (`unpinned_container_image`).
+
+- [#222](https://github.com/GuardBee/guardbee-mcp/pull/222) [`8c801c8`](https://github.com/GuardBee/guardbee-mcp/commit/8c801c8d64b42d4d0608668a4e8f6920f848246a) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Static analysis of Python and Go MCP servers.
+  
+  - guard-core: `extractPythonTools` / `extractGoTools` read tool definitions (name, description, parameter descriptions, `readOnlyHint`, input names and handler code) from FastMCP / official Python SDK decorators, the low-level `Tool(...)` + `call_tool` form, the official go-sdk and mark3labs/mcp-go; `languageOf`, `ANALYSIS_DEPTH`; `PYTHON_SINK_RULES`, `GO_SINK_RULES`, `sinkRulesFor`. The sensitive-file description rule also matches `~/.cursor/mcp.json`, `claude_desktop_config.json` and `~/.kube/config`; a long camelCase identifier is no longer taken for an encoded blob.
+  - tool-poisoning-scanner: description injection and confused-deputy checks on Python and Go servers; findings carry `language` (also in SARIF); `scan_text` takes a `language`.
+  - mcp-server-auditor: tool input followed from the tool definition through assignments into shell, file write/delete, HTTP and SQL calls in Python and Go handlers (`python_fs_write_from_tool_input`, `go_shell_from_tool_input`, `go_fs_write_from_tool_input`, `go_ssrf_from_tool_input`, `go_sql_injection_via_tool_input`, and the existing Python ids for FastMCP parameters).
+  - oauth-auditor: authlib and python-jose audience checks, `verify_aud: False`, forwarding all request headers, authlib PKCE; Go rules for golang-jwt / jwx audience, go-oidc `SkipClientIDCheck`, header passthrough, hardcoded `ClientSecret`, `strings.HasPrefix` redirect checks, math/rand state, discovery SSRF, shell-opened auth URLs, x/oauth2 PKCE and go-sdk / mcp-go HTTP transports; `token_passthrough_via_variable` for both. Language-specific rules run only on their own language.
+  - owasp-scan: the report's `coverage` lists every source file with its language, analysis depth (`full` or `patterns`) and tool definitions found, with a per-language summary in text output.
+
 ## 1.3.0
 
 ### Minor Changes

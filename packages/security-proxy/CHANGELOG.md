@@ -1,5 +1,20 @@
 # @guardbee/mcp-security-proxy
 
+## 1.31.0
+
+### Minor Changes
+
+- [#221](https://github.com/GuardBee/guardbee-mcp/pull/221) [`f223d34`](https://github.com/GuardBee/guardbee-mcp/commit/f223d34a00dc142167b21bfe2d34ec28c3d8ef2a) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - AIBOM and compliance mappings. `guardbee-proxy aibom` writes a CycloneDX 1.6 AI bill of materials of the gateway: MCP servers with package URLs, pinned versions, build-provenance status and sandbox settings; their pinned tools (definition SHA-256, hints); remote servers as services with endpoints; LLM routes as models. It validates against the official schema and holds no environment values, headers or keys. `guardbee-proxy report --framework eu-ai-act|iso42001|soc2|nist-ai-rmf` adds a signed section mapping the period's findings and the gateway's controls to the framework's requirements, each with its citation. guard-core exports the versioned tables (`COMPLIANCE_FRAMEWORKS`, `COMPLIANCE_MAPPING_VERSION`); they are evidence for an assessment, not a certification.
+
+- [#219](https://github.com/GuardBee/guardbee-mcp/pull/219) [`69b9796`](https://github.com/GuardBee/guardbee-mcp/commit/69b9796faea2f324c65d59b49d2a924da064ba93) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Provenance for PyPI packages and container images. `uvx` / `uv tool run` upstreams are checked against PEP 740 attestations (every file of the release, signed by its Trusted Publisher's workflow) and pinned to `pkg==<version>`; `docker run` / `podman run` upstreams resolve the tag to a digest, verify the image's cosign keyless signature (expected signer: the image owner's GitHub account on ghcr.io, or `provenance.signers`) and run pinned to `image@sha256:…`. `guardbee-proxy provenance --format sarif` writes the findings for code scanning. guard-core adds `checkPypiProvenance`, `checkOciProvenance`, `parseImageReference` and `pypiAttestationToBundle`, and `parseLaunch` skips uvx options that take a value. mcp-config-auditor flags `docker run` servers started by tag (`unpinned_container_image`).
+
+- [#220](https://github.com/GuardBee/guardbee-mcp/pull/220) [`a75f23b`](https://github.com/GuardBee/guardbee-mcp/commit/a75f23b12a1d205bafc82fd414840d0de0b12c66) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Shared counters for several replicas: `state.backend: redis` keeps quotas and LLM budgets (requests, tokens, cost) in Redis, so every replica behind a load balancer enforces one combined limit. Check and count run as one Lua script per call (no race between replicas), keys expire with their window, and Redis Cluster works (one hash tag). The proxy has its own small RESP client (redis:// and rediss://, AUTH, database), so nothing new is installed. `state.onError` decides what happens while Redis is down: `local` (default, count per process), `fail-open` or `fail-closed`; outages and recoveries are audit events (`state:unavailable`, `state:recovered`). The memory backend stays the default.
+
+### Patch Changes
+
+- Updated dependencies [[`f223d34`](https://github.com/GuardBee/guardbee-mcp/commit/f223d34a00dc142167b21bfe2d34ec28c3d8ef2a), [`69b9796`](https://github.com/GuardBee/guardbee-mcp/commit/69b9796faea2f324c65d59b49d2a924da064ba93), [`8c801c8`](https://github.com/GuardBee/guardbee-mcp/commit/8c801c8d64b42d4d0608668a4e8f6920f848246a)]:
+  - @guardbee/guard-core@1.4.0
+
 ## 1.30.0
 
 ### Minor Changes
