@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analyzeJavaScript, analyzeWebFiles, collapseRepeats, looksUnminified, parseSourceMap } from "../web.js";
+import { analyzeJavaScript, analyzeWebFiles, collapseRepeats, looksUnminified, parseSourceMap, sourceMappingUrl } from "../web.js";
 import type { ArtifactFile } from "../web.js";
 
 const ids = (fs: { patternId: string }[]) => fs.map((f) => f.patternId).sort();
@@ -41,6 +41,25 @@ describe("analyzeJavaScript", () => {
     expect(findings).toHaveLength(1);
     expect(findings[0]).toMatchObject({ patternId: "sourcemap_embeds_source", severity: "critical" });
     expect(findings[0].match).toContain("src/app.ts");
+  });
+
+  it("finds an inline map much longer than the file's tail", () => {
+    const source = "x".repeat(200_000);
+    const map = Buffer.from(JSON.stringify({ version: 3, mappings: "AAAA", sources: ["src/big.ts"], sourcesContent: [source] })).toString("base64");
+    expect(ids(analyzeJavaScript(`${minifiedSource()}//# sourceMappingURL=data:application/json;base64,${map}\n`, "big.js"))).toEqual(["sourcemap_embeds_source"]);
+  });
+
+  it("uses the last mapping comment and ignores the key inside code or strings", () => {
+    expect(sourceMappingUrl('var s="//# sourceMappingURL=fake.map";\n//# sourceMappingURL=real.js.map\n')).toBe("real.js.map");
+    expect(sourceMappingUrl('x.sourceMappingURL=y;')).toBeNull();
+    expect(sourceMappingUrl("//@ sourceMappingURL=old.map  \r\n")).toBe("old.map");
+  });
+
+  it("stays linear on adversarial input", () => {
+    const hostile = "//#sourceMappingURL=".repeat(50_000) + "x y";
+    const t = Date.now();
+    expect(sourceMappingUrl(hostile)).toBeNull();
+    expect(Date.now() - t).toBeLessThan(500);
   });
 
   it("flags an inline map without sources as sourcemap_inline", () => {

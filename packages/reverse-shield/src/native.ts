@@ -156,7 +156,9 @@ const CSMAGIC_CODEDIRECTORY = 0xfade0c02;
 const CSMAGIC_EMBEDDED_ENTITLEMENTS = 0xfade7171;
 
 function entitlementTrue(xml: string, key: string): boolean {
-  return new RegExp(`<key>${key.replace(/\./g, "\\.")}</key>\\s*<true\\s*/>`).test(xml);
+  const tag = `<key>${key}</key>`;
+  const at = xml.indexOf(tag);
+  return at !== -1 && /^\s*<true\s*\/>/.test(xml.slice(at + tag.length, at + tag.length + 64));
 }
 
 function analyzeMachO(buf: Buffer, file: string): { findings: Finding[]; notes: string[] } {
@@ -178,7 +180,7 @@ function analyzeMachO(buf: Buffer, file: string): { findings: Finding[]; notes: 
     if (size < 8) break;
     if (cmd === LC_SYMTAB) symtab = { symoff: buf.readUInt32LE(p + 8), nsyms: buf.readUInt32LE(p + 12), stroff: buf.readUInt32LE(p + 16) };
     else if (cmd === LC_CODE_SIGNATURE) codeSig = { dataoff: buf.readUInt32LE(p + 8), datasize: buf.readUInt32LE(p + 12) };
-    else if ((cmd === LC_SEGMENT_64 || cmd === LC_SEGMENT) && buf.toString("latin1", p + 8, p + 24).replace(/\0.*$/, "") === "__DWARF") hasDwarfSegment = true;
+    else if ((cmd === LC_SEGMENT_64 || cmd === LC_SEGMENT) && buf.toString("latin1", p + 8, p + 24).split("\0")[0] === "__DWARF") hasDwarfSegment = true;
     p += size;
   }
 

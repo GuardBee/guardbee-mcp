@@ -4,7 +4,6 @@ import type { Finding } from "./finding.js";
 
 const MIN_BYTES_FOR_MINIFY_CHECK = 4096;
 
-const SOURCE_MAPPING_URL = /\/\/[#@]\s*sourceMappingURL=([^\s'"]+)\s*$/m;
 const INLINE_MAP_PREFIX = /^data:application\/json;(?:charset=[^;,]+;)?base64,/;
 const EVAL_SOURCE_URL = /sourceURL=webpack(?:-internal)?:\/\//;
 
@@ -69,11 +68,36 @@ function mask(value: string): string {
   return value.length <= 8 ? "****" : `${value.slice(0, 4)}…${value.slice(-2)} (${value.length} chars)`;
 }
 
+const MAPPING_KEY = "sourceMappingURL=";
+const isSpace = (ch: string) => ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\f" || ch === "\v";
+
+/**
+ * The URL of the last `//# sourceMappingURL=` comment that ends its line.
+ * Scanned by hand rather than with a regex: bundles are untrusted input and
+ * inline maps make the comment megabytes long. Only the last occurrence on
+ * each line can end it, so every line is looked at once and the scan stays
+ * linear even for a line made of nothing but the key.
+ */
 export function sourceMappingUrl(text: string): string | null {
-  // Only the tail matters: the comment must be the last thing in the file, and
-  // scanning a multi-megabyte bundle with a multiline regex is wasted work.
-  const m = SOURCE_MAPPING_URL.exec(text.slice(-4096));
-  return m ? m[1] : null;
+  let i = text.lastIndexOf(MAPPING_KEY);
+  while (i !== -1) {
+    const lineStart = text.lastIndexOf("\n", i) + 1;
+    const nl = text.indexOf("\n", i);
+    const lineEnd = nl === -1 ? text.length : nl;
+
+    let j = i - 1;
+    while (j >= lineStart && isSpace(text[j])) j--;
+    if (j - 2 >= lineStart && (text[j] === "#" || text[j] === "@") && text[j - 1] === "/" && text[j - 2] === "/") {
+      const start = i + MAPPING_KEY.length;
+      let end = start;
+      while (end < lineEnd && !isSpace(text[end]) && text[end] !== "'" && text[end] !== '"') end++;
+      let k = end;
+      while (k < lineEnd && isSpace(text[k])) k++;
+      if (end > start && k === lineEnd) return text.slice(start, end);
+    }
+    i = lineStart >= 2 ? text.lastIndexOf(MAPPING_KEY, lineStart - 2) : -1;
+  }
+  return null;
 }
 
 export interface SourceMapInfo {

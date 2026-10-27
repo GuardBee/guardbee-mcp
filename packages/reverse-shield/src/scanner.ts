@@ -171,7 +171,8 @@ export function scanPath(target: string, options: ScanOptions = {}): ScanResult 
 
   if (!existsSync(target)) throw new Error(`Path not found: ${target}`);
   // "Foo.app/" from shell completion must still be recognised as a bundle.
-  const path = target.length > 1 ? target.replace(/[\\/]+$/, "") : target;
+  let path = target;
+  while (path.length > 1 && (path.endsWith("/") || path.endsWith("\\"))) path = path.slice(0, -1);
   if (statSync(path).isDirectory()) scanDir(path, c, options, maxFiles);
   else scanFile(path, c);
 
