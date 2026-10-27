@@ -6,12 +6,14 @@ import { verifyAuditChain } from "./audit/logger.js";
 import { loadGatewayConfig } from "./gateway/config.js";
 import { clientConfigPath, defaultSandboxRuntime, runInit, type ClientName } from "./init.js";
 import { provenanceChecker, startGateway } from "./proxy.js";
-import { checkUpstreamProvenance, provenanceSarif } from "./gateway/provenance.js";
+import { ProvenanceCache, checkUpstreamProvenance, defaultProvenanceCache, provenanceSarif } from "./gateway/provenance.js";
+import { buildAibom } from "./report/aibom.js";
 import { sandboxContext, sandboxIssues, type SandboxRuntime } from "./gateway/sandbox.js";
 import { isHttpUpstream } from "./types.js";
 import { PinStore, defaultPinFile } from "./gateway/pin-store.js";
 import { connectUpstream } from "./gateway/upstream.js";
 import { buildReport, signReport, verifyReport } from "./report/report.js";
+import { COMPLIANCE_FRAMEWORK_IDS, type ComplianceFrameworkId } from "@guardbee/guard-core";
 import { extractSigned, renderHtml, renderMarkdown, type Lang } from "./report/render.js";
 
 const CLIENTS: ClientName[] = ["claude-desktop", "cursor", "claude-code"];
@@ -80,7 +82,7 @@ function parseDate(value: string, name: string): Date {
 function report(args: string[]): void {
   const file = args.find((a, i) => !a.startsWith("--") && !args[i - 1]?.startsWith("--"));
   if (!file) {
-    throw new Error("Usage: guardbee-proxy report <audit.jsonl> [--days 30 | --from 2026-10-01 --to 2026-11-01] [--format md|html|json] [--lang en|tr] [--key ed25519.pem] [--out report.html]");
+    throw new Error("Usage: guardbee-proxy report <audit.jsonl> [--days 30 | --from 2026-10-01 --to 2026-11-01] [--format md|html|json] [--lang en|tr] [--framework eu-ai-act|iso42001|soc2|nist-ai-rmf] [--key ed25519.pem] [--out report.html]");
   }
   const to = flag(args, "--to") ? parseDate(flag(args, "--to")!, "--to") : new Date();
   const from = flag(args, "--from") ? parseDate(flag(args, "--from")!, "--from") : new Date(to.getTime() - Number(flag(args, "--days") ?? 30) * 86_400_000);
@@ -89,7 +91,9 @@ function report(args: string[]): void {
   if (!["md", "html", "json"].includes(format)) throw new Error("--format is md, html or json");
   if (!["en", "tr"].includes(lang)) throw new Error("--lang is en or tr");
   const keyFile = flag(args, "--key");
-  const signed = signReport(buildReport(fs.readFileSync(file, "utf8"), { from, to, file: path.basename(file) }), keyFile ? fs.readFileSync(keyFile, "utf8") : undefined);
+  const framework = flag(args, "--framework") as ComplianceFrameworkId | undefined;
+  if (framework && !COMPLIANCE_FRAMEWORK_IDS.includes(framework)) throw new Error(`--framework is ${COMPLIANCE_FRAMEWORK_IDS.join(", ")}`);
+  const signed = signReport(buildReport(fs.readFileSync(file, "utf8"), { from, to, file: path.basename(file), ...(framework ? { framework } : {}) }), keyFile ? fs.readFileSync(keyFile, "utf8") : undefined);
   const output = format === "json" ? JSON.stringify(signed, null, 2) + "\n" : format === "html" ? renderHtml(signed, lang) : renderMarkdown(signed, lang);
   const out = flag(args, "--out");
   if (out) {
@@ -198,8 +202,10 @@ Usage:
                                                    Check the build provenance of the packages and images stdio upstreams run
   guardbee-proxy pins list | approve <upstream> [tool] | reset [upstream] [tool] | import <baseline.json> --upstream <name>
                                                    Tool definitions pinned across restarts
+  guardbee-proxy aibom [--config <file>] [--out aibom.cdx.json]
+                                                   CycloneDX 1.6 AI bill of materials: servers, pinned tools, LLM routes
   guardbee-proxy report <audit.jsonl> [--days 30 | --from <date> --to <date>] [--format md|html|json]
-                 [--lang en|tr] [--key ed25519.pem] [--out <file>]
+                 [--lang en|tr] [--framework eu-ai-act|iso42001|soc2|nist-ai-rmf] [--key ed25519.pem] [--out <file>]
                                                    Signed OWASP / MITRE ATLAS report from an audit log
   guardbee-proxy verify-report <report> [--pubkey ed25519.pub.pem]
                                                    Check a report's signature
@@ -243,6 +249,24 @@ async function provenance(args: string[]): Promise<void> {
   if (refused > 0) process.exitCode = 1;
 }
 
+/** CycloneDX 1.6 AIBOM of the configured gateway: servers, pinned tools, LLM routes. Reads the pin and provenance files; makes no request. */
+function aibom(args: string[]): void {
+  const config = loadGatewayConfig();
+  const pins = fs.existsSync(config.pins?.file ?? defaultPinFile()) ? new PinStore(config.pins?.file ?? defaultPinFile()).upstreams() : {};
+  const cacheFile = config.provenance.cacheFile ?? defaultProvenanceCache();
+  const cache = fs.existsSync(cacheFile) ? new ProvenanceCache(cacheFile) : undefined;
+  const bom = buildAibom(config, { version: version(), pins, ...(cache ? { provenance: (artifact: string) => cache.get(artifact) } : {}) });
+  const output = `${JSON.stringify(bom, null, 2)}\n`;
+  const out = flag(args, "--out");
+  if (!out) {
+    process.stdout.write(output);
+    return;
+  }
+  fs.writeFileSync(out, output);
+  const count = (key: string) => (bom[key] as unknown[]).length;
+  process.stdout.write(`Wrote ${out}: CycloneDX 1.6, ${count("components")} component(s), ${count("services")} server(s)\n`);
+}
+
 async function main() {
   const [command, ...rest] = process.argv.slice(2);
   if (command === "--help" || command === "-h" || command === "help") {
@@ -255,6 +279,7 @@ async function main() {
   }
   if (command === "verify-audit") return verifyAudit(rest[0]);
   if (command === "pins") return pins(rest);
+  if (command === "aibom") return aibom(rest);
   if (command === "provenance") return provenance(rest);
   if (command === "init") return init(rest);
   if (command === "report") return report(rest);

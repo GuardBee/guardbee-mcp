@@ -249,6 +249,11 @@ guardbee-proxy verify-report ekim.html --pubkey guardbee-report.pub
 - **Integrity**: the report carries the SHA-256 of its canonical JSON and the hash of the last audit event in the period, so it is tied to the hash chain. With `--key` (Ed25519, PEM) it is signed and carries the public key. `verify-report` checks a `.json`, `.html` or `.md` report; pass `--pubkey` to pin the signer — the embedded key alone only proves the report was not changed after signing, not who signed it.
 - A broken hash chain is reported in the report and on stderr.
 - The mapping lives in `@guardbee/guard-core` (`classifyEvent`, `THREAT_CATEGORIES`) and is shown by `@guardbee/mcp-threat-rules`' `framework_map` tool.
+- **Compliance frameworks (`--framework eu-ai-act | iso42001 | soc2 | nist-ai-rmf`):** adds a section that lists the framework's requirements the gateway supports, each with its citation (EU AI Act article, ISO/IEC 42001 Annex A control, SOC 2 Trust Services Criterion, NIST AI RMF subcategory), and the period's evidence for it: the findings in the categories mapped to it, and the gateway capabilities seen at work (the hash-chained log for record-keeping, approvals for human oversight, pins and provenance checks for supplier controls…). The section is part of the signed report. The tables are GuardBee's reading of the texts, versioned (`mappingVersion`) in `@guardbee/guard-core` (`COMPLIANCE_FRAMEWORKS`): evidence for an assessment, not a certification.
+
+### AI bill of materials
+
+`guardbee-proxy aibom --config guardbee-proxy.yaml --out aibom.cdx.json` writes a **CycloneDX 1.6** AIBOM of what the gateway puts in front of an agent: each MCP server as a component with its package URL (`pkg:npm`, `pkg:pypi`, `pkg:oci`), version when pinned, build-provenance status and source repository from the provenance cache, and sandbox settings; each server as a service with its tools nested (name, description, the SHA-256 the definition is pinned to, declared hints), remote servers with their endpoint; and the LLM gateway's routes as `machine-learning-model` components with their provider. It reads the config, the pin file and the provenance cache and makes no request; environment values, headers and keys are never in it. The output validates against the official CycloneDX 1.6 schema (tested).
 
 ## Observability (OpenTelemetry)
 
