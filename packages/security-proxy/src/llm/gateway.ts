@@ -384,7 +384,7 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     const spans = masking ? await names() : undefined;
 
     // 3. Budgets: only a request that is about to go out counts
-    const over = budgets.admit(llm.budgets, { ...caller, model });
+    const over = await budgets.admit(llm.budgets, { ...caller, model });
     if (over) refuse(429, over.reason, over.ruleId, { "retry-after": String(over.retryAfter) });
 
     // 4. PII: counted always, masked (or tokenized) unless turned off
@@ -516,7 +516,7 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
 
     const finish = (usage: LlmUsage | null, extra: Partial<AuditEvent> = {}) => {
       const cost = usage ? costOf(llm.pricing, model, usage) : null;
-      if (usage) budgets.record(llm.budgets, { ...caller, model }, usage, cost);
+      if (usage) void budgets.record(llm.budgets, { ...caller, model }, usage, cost);
       log({
         ...base,
         type: "tool_response",

@@ -32,6 +32,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
+    "@guardbee/guard-core": "workspace:^",
     "@guardbee/mcp-telemetry": "workspace:^",
     "@modelcontextprotocol/sdk": "catalog:",
     "zod": "catalog:"

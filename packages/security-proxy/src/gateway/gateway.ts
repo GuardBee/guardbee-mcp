@@ -741,7 +741,7 @@ export class Gateway {
 
     // 5c. Quotas: only a call that is about to go out counts
     if (this.config.quotas.length > 0) {
-      const over = this.quotas.take(this.config.quotas, {
+      const over = await this.quotas.take(this.config.quotas, {
         tool: name,
         upstream: upstream.name,
         labels,

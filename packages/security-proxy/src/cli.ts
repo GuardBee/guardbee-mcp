@@ -4,10 +4,11 @@ import os from "os";
 import path from "path";
 import { verifyAuditChain } from "./audit/logger.js";
 import { loadGatewayConfig } from "./gateway/config.js";
-import { clientConfigPath, runInit, type ClientName } from "./init.js";
+import { clientConfigPath, defaultSandboxRuntime, runInit, type ClientName } from "./init.js";
 import { provenanceChecker, startGateway } from "./proxy.js";
-import { ProvenanceCache, checkUpstreamProvenance, defaultProvenanceCache } from "./gateway/provenance.js";
+import { ProvenanceCache, checkUpstreamProvenance, defaultProvenanceCache, provenanceSarif } from "./gateway/provenance.js";
 import { buildAibom } from "./report/aibom.js";
+import { sandboxContext, sandboxIssues, type SandboxRuntime } from "./gateway/sandbox.js";
 import { isHttpUpstream } from "./types.js";
 import { PinStore, defaultPinFile } from "./gateway/pin-store.js";
 import { connectUpstream } from "./gateway/upstream.js";
@@ -38,11 +39,19 @@ function init(args: string[]): void {
   const file = flag(args, "--file");
   if ((!client && !file) || (client && !CLIENTS.includes(client))) {
     throw new Error(
-      `Usage: guardbee-proxy init (--client ${CLIENTS.join("|")} | --file <mcp.json>) [--out <guardbee-proxy.yaml>] [--dry-run] [--force]`
+      `Usage: guardbee-proxy init (--client ${CLIENTS.join("|")} | --file <mcp.json>) [--out <guardbee-proxy.yaml>] [--sandbox [runtime]] [--dry-run] [--force]`
     );
   }
   const dryRun = args.includes("--dry-run");
+  let sandbox: SandboxRuntime | undefined;
+  if (args.includes("--sandbox")) {
+    const named = flag(args, "--sandbox");
+    const runtimes: SandboxRuntime[] = ["docker", "podman", "bwrap", "sandbox-exec"];
+    if (named && !named.startsWith("--") && !runtimes.includes(named as SandboxRuntime)) throw new Error(`--sandbox takes ${runtimes.join(" | ")} (or nothing: ${defaultSandboxRuntime()} here)`);
+    sandbox = named && !named.startsWith("--") ? (named as SandboxRuntime) : defaultSandboxRuntime();
+  }
   const result = runInit({
+    ...(sandbox ? { sandbox } : {}),
     clientConfigPath: file ?? clientConfigPath(client!),
     yamlPath: flag(args, "--out") ?? path.join(os.homedir(), ".guardbee", "guardbee-proxy.yaml"),
     dryRun,
@@ -185,11 +194,12 @@ const HELP = `guardbee-proxy: MCP security gateway
 Usage:
   guardbee-proxy [--config <guardbee-proxy.yaml>]   Run the gateway (stdio, or HTTP when listen is set)
   guardbee-proxy -- <command> [args...]            Single-server mode: wrap one stdio MCP server
-  guardbee-proxy init (--client ${CLIENTS.join("|")} | --file <mcp.json>) [--out <file>] [--dry-run] [--force]
-                                                   Move a client's MCP servers behind the gateway
+  guardbee-proxy init (--client ${CLIENTS.join("|")} | --file <mcp.json>) [--out <file>] [--sandbox [runtime]] [--dry-run] [--force]
+                                                   Move a client's MCP servers behind the gateway (--sandbox: run stdio servers sandboxed)
   guardbee-proxy validate [--config <file>]        Check a config without starting anything
   guardbee-proxy verify-audit <audit.jsonl>        Check an audit log's hash chain
-  guardbee-proxy provenance [--config <file>]      Check the build provenance of the packages stdio upstreams run
+  guardbee-proxy provenance [--config <file>] [--format sarif]
+                                                   Check the build provenance of the packages and images stdio upstreams run
   guardbee-proxy pins list | approve <upstream> [tool] | reset [upstream] [tool] | import <baseline.json> --upstream <name>
                                                    Tool definitions pinned across restarts
   guardbee-proxy aibom [--config <file>] [--out aibom.cdx.json]
@@ -205,10 +215,16 @@ Config: --config, else GUARDBEE_PROXY_CONFIG, else ./guardbee-proxy.yaml (.yml);
 Docs and examples: https://github.com/GuardBee/guardbee-mcp/tree/main/packages/security-proxy#readme
 `;
 
-/** What the gateway would decide for each stdio upstream, without starting any. Exit code 1 when one would be refused. */
-async function provenance(): Promise<void> {
+/**
+ * What the gateway would decide for each stdio upstream, without starting any.
+ * Exit code 1 when one would be refused. `--format sarif` writes SARIF 2.1.0
+ * (one result per unverified upstream) for code scanning.
+ */
+async function provenance(args: string[]): Promise<void> {
   const config = loadGatewayConfig();
   const options = provenanceChecker(config);
+  const sarif = flag(args, "--format") === "sarif";
+  const entries: { upstream: string; result: NonNullable<Awaited<ReturnType<typeof checkUpstreamProvenance>>["result"]> }[] = [];
   let refused = 0;
   for (const [name, server] of Object.entries(config.upstreams)) {
     if (isHttpUpstream(server)) continue;
@@ -216,13 +232,19 @@ async function provenance(): Promise<void> {
     // Report even where the check is off, so the answer is known before turning it on
     const checked = await checkUpstreamProvenance(server, mode === "off" ? "warn" : mode, options);
     if (!checked.result) {
-      process.stdout.write(`${name}: no registry package (${server.command})\n`);
+      if (!sarif) process.stdout.write(`${name}: no registry package (${server.command})\n`);
       continue;
     }
+    entries.push({ upstream: name, result: checked.result });
     const verdict = mode === "off" ? "check off" : checked.action === "block" ? "REFUSED" : checked.action === "warn" ? "warn" : "ok";
     if (mode !== "off" && checked.action === "block") refused++;
+    if (sarif) continue;
     process.stdout.write(`${name}: ${checked.result.status} [${verdict}] ${checked.result.artifact}\n  ${checked.result.reason}\n`);
     if (checked.server.args !== server.args && checked.server.args) process.stdout.write(`  runs as: ${checked.server.command} ${checked.server.args.join(" ")}\n`);
+  }
+  if (sarif) {
+    const configUri = flag(args, "--config") ?? process.env["GUARDBEE_PROXY_CONFIG"] ?? "guardbee-proxy.yaml";
+    process.stdout.write(`${JSON.stringify(provenanceSarif(entries, version(), configUri), null, 2)}\n`);
   }
   if (refused > 0) process.exitCode = 1;
 }
@@ -258,12 +280,21 @@ async function main() {
   if (command === "verify-audit") return verifyAudit(rest[0]);
   if (command === "pins") return pins(rest);
   if (command === "aibom") return aibom(rest);
-  if (command === "provenance") return provenance();
+  if (command === "provenance") return provenance(rest);
   if (command === "init") return init(rest);
   if (command === "report") return report(rest);
   if (command === "verify-report") return verifyReportCommand(rest);
   if (command === "validate") {
     const config = loadGatewayConfig();
+    // Sandboxes depend on this host (runtime installed, paths present): report what would stop one from starting
+    const problems = Object.entries(config.upstreams).flatMap(([name, server]) =>
+      isHttpUpstream(server) || !server.sandbox ? [] : sandboxIssues(server, server.sandbox, sandboxContext(name)).map((issue) => `upstreams.${name}.sandbox: ${issue}`),
+    );
+    if (problems.length > 0) {
+      process.stderr.write(`Invalid sandbox config:\n${problems.map((p) => `  - ${p}`).join("\n")}\n`);
+      process.exitCode = 1;
+      return;
+    }
     process.stdout.write(`OK: ${Object.keys(config.upstreams).length} upstream(s), ${config.rules.length} rule(s), taint.mode=${config.taint.mode}\n`);
     return;
   }

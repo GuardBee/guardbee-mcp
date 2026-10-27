@@ -5,7 +5,16 @@ import { bundleFromJSON } from "@sigstore/bundle";
 import { TrustedRoot } from "@sigstore/protobuf-specs";
 import { getTrustedRoot } from "@sigstore/tuf";
 import { Verifier, toSignedEntity, toTrustMaterial } from "@sigstore/verify";
-import { checkNpmProvenance, parseLaunch, type BundleVerifier, type ProvenanceResult } from "@guardbee/guard-core";
+import {
+  checkNpmProvenance,
+  checkOciProvenance,
+  checkPypiProvenance,
+  parseImageReference,
+  parseLaunch,
+  type BundleVerifier,
+  type LaunchTarget,
+  type ProvenanceResult,
+} from "@guardbee/guard-core";
 import type { McpServerConfig } from "../types.js";
 
 /**
@@ -26,6 +35,10 @@ export interface ProvenanceConfig {
   cacheFile?: string;
   /** npm registry; default npm_config_registry or https://registry.npmjs.org. */
   registry?: string;
+  /** PyPI-compatible index (with the PEP 740 integrity API); default https://pypi.org. */
+  pypiIndex?: string;
+  /** Who must have signed an image: image glob → certificate SAN prefix. ghcr.io/<owner>/… needs no entry. */
+  signers?: Record<string, string>;
 }
 
 export function defaultProvenanceCache(): string {
@@ -94,9 +107,9 @@ export function sigstoreVerifier(options: { offline?: boolean; cachePath?: strin
       : await getTrustedRoot({ cachePath: options.cachePath ?? path.join(os.homedir(), ".guardbee", "sigstore"), forceCache: options.offline ?? false });
     return new Verifier(toTrustMaterial(root), { tlogThreshold: 1, ctlogThreshold: 1 });
   };
-  return async (json) => {
+  return async (json, artifact) => {
     verifier ??= load();
-    const signer = (await verifier).verify(toSignedEntity(bundleFromJSON(json)));
+    const signer = (await verifier).verify(toSignedEntity(bundleFromJSON(json), artifact ? Buffer.from(artifact) : undefined));
     return {
       ...(signer.identity?.subjectAlternativeName ? { subjectAlternativeName: signer.identity.subjectAlternativeName } : {}),
       ...(signer.identity?.extensions?.issuer ? { issuer: signer.identity.extensions.issuer } : {}),
@@ -117,7 +130,12 @@ export interface CheckOptions {
   verifyBundle: BundleVerifier;
   cache: ProvenanceCache;
   offline: boolean;
+  /** npm registry. */
   registry?: string;
+  /** PyPI-compatible index with the integrity API; default https://pypi.org. */
+  pypiIndex?: string;
+  /** Expected image signers, by image glob → certificate SAN prefix. */
+  signers?: Record<string, string>;
   fetch?: (url: string, init?: RequestInit) => Promise<Response>;
 }
 
@@ -125,20 +143,45 @@ function npmRegistry(configured?: string): string {
   return configured ?? process.env["npm_config_registry"] ?? "https://registry.npmjs.org";
 }
 
-async function npmResult(name: string, spec: string, options: CheckOptions): Promise<ProvenanceResult> {
+/** The cache key an exact artifact would have, so it can be answered offline; undefined when the spec floats. */
+function exactArtifact(target: LaunchTarget): string | undefined {
+  if (target.ecosystem === "npm") return /^\d+\.\d+\.\d+(-[\w.]+)?$/.test(target.spec) ? `npm:${target.name}@${target.spec}` : undefined;
+  if (target.ecosystem === "pypi") return target.spec ? `pypi:${target.name}==${target.spec}` : undefined;
+  const image = parseImageReference(target.reference);
+  return image?.digest ? `oci:${image.registry}/${image.repository}@${image.digest}` : undefined;
+}
+
+async function freshResult(target: LaunchTarget, options: CheckOptions): Promise<ProvenanceResult> {
+  const fetchOption = options.fetch ? { fetch: options.fetch } : {};
+  if (target.ecosystem === "npm") return checkNpmProvenance(target.name, target.spec, { verifyBundle: options.verifyBundle, registry: npmRegistry(options.registry), ...fetchOption });
+  if (target.ecosystem === "pypi") return checkPypiProvenance(target.name, target.spec, { verifyBundle: options.verifyBundle, ...(options.pypiIndex ? { index: options.pypiIndex } : {}), ...fetchOption });
+  return checkOciProvenance(target.reference, { verifyBundle: options.verifyBundle, ...(options.signers ? { signers: options.signers } : {}), ...fetchOption });
+}
+
+async function targetResult(target: LaunchTarget, options: CheckOptions): Promise<ProvenanceResult> {
   if (options.offline) {
-    // Offline only an exact version can be answered, from the cache
-    const cached = options.cache.get(`npm:${name}@${spec}`);
-    if (!cached) return { status: "error", artifact: `npm:${name}@${spec || "latest"}`, name, reason: `offline and ${name}@${spec || "latest"} is not in the provenance cache (pin an exact version and check it once online)` };
-    return { ...cached, artifact: `npm:${name}@${spec}`, name, version: spec, reason: `${cached.reason} (cached ${cached.checkedAt})` };
+    // Offline only an exact version or digest can be answered, from the cache
+    const key = exactArtifact(target);
+    const cached = key ? options.cache.get(key) : undefined;
+    const what = target.ecosystem === "oci" ? target.reference : `${target.name} ${target.spec || "(latest)"}`;
+    if (!key || !cached) return { status: "error", artifact: key ?? `${target.ecosystem}:${what}`, reason: `offline and ${what} is not in the provenance cache (pin an exact version or digest and check it once online)` };
+    const [, version] = /(?:@|==)([^@=]+)$/.exec(key) ?? [];
+    return { ...cached, artifact: key, ...(version ? { version } : {}), reason: `${cached.reason} (cached ${cached.checkedAt})` };
   }
-  const result = await checkNpmProvenance(name, spec, { verifyBundle: options.verifyBundle, registry: npmRegistry(options.registry), ...(options.fetch ? { fetch: options.fetch } : {}) });
+  const result = await freshResult(target, options);
   const known = options.cache.get(result.artifact);
   if (known?.integrity && result.integrity && known.integrity !== result.integrity) {
-    return { ...result, status: "invalid", reason: `the registry now serves another tarball for ${result.artifact} (integrity changed since ${known.checkedAt})` };
+    return { ...result, status: "invalid", reason: `the registry now serves other files for ${result.artifact} (changed since ${known.checkedAt})` };
   }
   options.cache.record(result);
   return result;
+}
+
+/** The launch argument pinned to what was checked: npm `name@version`, PyPI `name==version`, an image `@digest`. */
+function pinnedArgument(target: LaunchTarget, current: string, version: string): string {
+  if (target.ecosystem === "npm") return current.startsWith("--package=") ? `--package=${target.name}@${version}` : `${target.name}@${version}`;
+  if (target.ecosystem === "pypi") return `${target.name}==${version}`;
+  return `${target.reference.replace(/@sha256:[a-f0-9]{64}$/, "")}@${version}`;
 }
 
 export async function checkUpstreamProvenance(server: McpServerConfig, mode: ProvenanceMode, options: CheckOptions): Promise<UpstreamProvenance> {
@@ -147,26 +190,60 @@ export async function checkUpstreamProvenance(server: McpServerConfig, mode: Pro
   const target = parseLaunch(server.command, args);
   if (!target) return { action: "allow", server };
 
-  let result: ProvenanceResult;
-  if (target.ecosystem === "npm") {
-    result = await npmResult(target.name, target.spec, options);
-  } else if (target.ecosystem === "pypi") {
-    result = { status: "unsupported", artifact: `pypi:${target.name}${target.spec ? `==${target.spec}` : ""}`, name: target.name, reason: "PyPI attestations (PEP 740) are not checked yet" };
-  } else {
-    result = {
-      status: "unsupported",
-      artifact: `oci:${target.reference}`,
-      reason: target.digest ? "container image signatures (cosign) are not checked yet" : "the image is not pinned by digest (@sha256:…), so a tag can be moved to another image",
-    };
-  }
+  const result = await targetResult(target, options);
   const action = result.status === "verified" ? "allow" : mode === "require" ? "block" : "warn";
-  // Run exactly what was checked: pin npx to the resolved version
+  // Run exactly what was checked
   let pinned = server;
-  if (target.ecosystem === "npm" && result.version && target.spec !== result.version && action !== "block") {
+  if (result.version && action !== "block") {
     const pinnedArgs = [...args];
-    const current = pinnedArgs[target.argIndex]!;
-    pinnedArgs[target.argIndex] = current.startsWith("--package=") ? `--package=${target.name}@${result.version}` : `${target.name}@${result.version}`;
-    pinned = { ...server, args: pinnedArgs };
+    const argument = pinnedArgument(target, pinnedArgs[target.argIndex]!, result.version);
+    if (argument !== pinnedArgs[target.argIndex]) {
+      pinnedArgs[target.argIndex] = argument;
+      pinned = { ...server, args: pinnedArgs };
+    }
   }
   return { result, action, server: pinned };
+}
+
+const SARIF_RULES: Record<Exclude<ProvenanceResult["status"], "verified">, { name: string; level: "error" | "warning"; text: string }> = {
+  invalid: { name: "Provenance does not hold", level: "error", text: "The artifact has a build attestation or signature that does not verify, is for another artifact, or was signed by an unexpected identity." },
+  unsigned: { name: "No build provenance", level: "warning", text: "The artifact was published without a build attestation (npm provenance, PEP 740) or cosign signature, so nothing ties it to a source repository." },
+  unsupported: { name: "Signer not known", level: "warning", text: "The artifact is signed, but no expected signer is configured for it (provenance.signers)." },
+  error: { name: "Provenance check failed", level: "warning", text: "The registry could not be reached or the version was not found." },
+};
+
+/** SARIF 2.1.0 for `guardbee-proxy provenance --format sarif`: one result per upstream that is not verified. */
+export function provenanceSarif(entries: { upstream: string; result: ProvenanceResult }[], version: string, configUri: string): unknown {
+  const findings = entries.filter((e): e is { upstream: string; result: ProvenanceResult & { status: keyof typeof SARIF_RULES } } => e.result.status !== "verified");
+  const ruleIds = [...new Set(findings.map((f) => f.result.status))];
+  return {
+    $schema: "https://json.schemastore.org/sarif-2.1.0.json",
+    version: "2.1.0",
+    runs: [
+      {
+        tool: {
+          driver: {
+            name: "guardbee-proxy provenance",
+            version,
+            informationUri: "https://github.com/GuardBee/guardbee-mcp/tree/main/packages/security-proxy#readme",
+            rules: ruleIds.map((status) => ({
+              id: `provenance/${status}`,
+              name: SARIF_RULES[status].name,
+              shortDescription: { text: SARIF_RULES[status].name },
+              fullDescription: { text: SARIF_RULES[status].text },
+              defaultConfiguration: { level: SARIF_RULES[status].level },
+              properties: { tags: ["security", "supply-chain", "MCP04:2025"] },
+            })),
+          },
+        },
+        results: findings.map(({ upstream, result }) => ({
+          ruleId: `provenance/${result.status}`,
+          level: SARIF_RULES[result.status].level,
+          message: { text: `upstreams.${upstream}: ${result.artifact}: ${result.reason}` },
+          locations: [{ physicalLocation: { artifactLocation: { uri: configUri } } }],
+          partialFingerprints: { artifact: result.artifact },
+        })),
+      },
+    ],
+  };
 }

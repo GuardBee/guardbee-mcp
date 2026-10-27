@@ -1,0 +1,19 @@
+{
+ "info": {
+  "version": "2026.10.24"
+ },
+ "urls": [
+  {
+   "filename": "mcp_server_fetch-2026.10.24-py3-none-any.whl",
+   "digests": {
+    "sha256": "3dbcb37801a037b29d486f791328a38354f6b2a8ab54ada8064ecf7268a826bf"
+   }
+  },
+  {
+   "filename": "mcp_server_fetch-2026.10.24.tar.gz",
+   "digests": {
+    "sha256": "7236b78ed80761eed4bfa834c8a541bdd4a5bc86a1b6cc3e9050e21d3870a395"
+   }
+  }
+ ]
+}

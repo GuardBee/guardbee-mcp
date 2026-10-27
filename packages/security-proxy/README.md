@@ -163,7 +163,7 @@ audit:
 - **Tokenize:** with `interceptors.piiMasking.mode: tokenize` the model sees `<pii:tc_kimlik:7f3a9b21>` instead of the value and can still pass it to another tool: the proxy puts the real value back on the way to that server. Tokens live in memory for the session only, and are not turned back into values for an `egress` tool unless `piiMasking.detokenizeForEgress: true`.
 - **Prompts** (`prompts/get`) get the same injection scan and PII masking as tool results.
 - `interceptors.definitionDrift.recheck: on-change` skips the per-call `tools/list` and re-checks only after a server sends `tools/list_changed`, which the proxy also passes on to the agent.
-- **Build provenance (`provenance`, `warn` by default):** before a stdio upstream starts, the proxy resolves the package `npx` / `pnpm dlx` / `bunx` would run and checks its npm provenance: a Sigstore-signed SLSA attestation (signature, certificate chain and transparency-log entry against the Sigstore trust root, fetched through TUF) whose statement names that exact tarball (sha512 = the registry's `integrity`), signed by a workflow of the repository it names, which must match the package's `repository` field. The command then runs pinned to the version that was checked (`npx -y pkg` → `npx -y pkg@1.2.3`), so a release published in between is not what starts. `warn` starts unverified packages and logs `ruleId: provenance:unsigned | invalid | error | unsupported`; `require` refuses them (per upstream: `upstreams.<name>.provenance: off | warn | require`). Results are cached per version in `~/.guardbee/provenance.json` (`provenance.cacheFile`); another tarball under a version verified before counts as tampering. `provenance.offline: true` uses only the cache and the trust root on disk (pin exact versions for that). Check without starting anything: `guardbee-proxy provenance --config <file>` (exit code 1 when an upstream would be refused). Limits: many packages publish without provenance (they show as `unsigned`); a private registry is used through `provenance.registry` or `npm_config_registry`, and its packages usually carry no attestations; PyPI (`uvx`) attestations and container signatures are not checked yet, and an image not pinned by `@sha256:` digest is reported; the single-server `--` form does not check.
+- **Build provenance (`provenance`, `warn` by default):** before a stdio upstream starts, the proxy resolves the package `npx` / `pnpm dlx` / `bunx` would run and checks its npm provenance: a Sigstore-signed SLSA attestation (signature, certificate chain and transparency-log entry against the Sigstore trust root, fetched through TUF) whose statement names that exact tarball (sha512 = the registry's `integrity`), signed by a workflow of the repository it names, which must match the package's `repository` field. The command then runs pinned to the version that was checked (`npx -y pkg` → `npx -y pkg@1.2.3`), so a release published in between is not what starts. `warn` starts unverified packages and logs `ruleId: provenance:unsigned | invalid | error | unsupported`; `require` refuses them (per upstream: `upstreams.<name>.provenance: off | warn | require`). Results are cached per version in `~/.guardbee/provenance.json` (`provenance.cacheFile`); another tarball under a version verified before counts as tampering. `provenance.offline: true` uses only the cache and the trust root on disk (pin exact versions for that). Check without starting anything: `guardbee-proxy provenance --config <file>` (exit code 1 when an upstream would be refused). **PyPI** (`uvx`, `uv tool run`): every file of the release must carry a PEP 740 attestation from its Trusted Publisher (signed by that repository's workflow, naming the file and its sha256), and `uvx pkg` runs as `uvx pkg==<version>`. **Container images** (`docker run`, `podman run`): the tag is resolved to a digest and the image's cosign keyless signature (`sha256-<digest>.sig`) is verified; the signer must be a workflow of the image owner's GitHub account for `ghcr.io/<owner>/…`, or match `provenance.signers` (`"docker.io/acme/*": "https://github.com/acme/"`) elsewhere, and the command runs pinned to `image@sha256:…`. `--format sarif` writes the findings as SARIF 2.1.0 for code scanning. Limits: many packages publish without provenance (they show as `unsigned`, as do images signed another way than cosign, such as Docker Hub's `mcp/` images); a private npm registry is used through `provenance.registry` or `npm_config_registry`, a PyPI mirror through `provenance.pypiIndex` (it needs the integrity API), and private images are not supported (anonymous registry tokens only); the single-server `--` form does not check.
 
   ```yaml
   provenance:
@@ -182,6 +182,45 @@ audit:
 The single-server `--` form above keeps its 0.x behavior: tool names are not prefixed, payloads are logged, and a toxic flow is only logged as a warning.
 
 ---
+
+## Sandboxed Upstreams
+
+Policy, taint and masking see MCP messages. A stdio server is also a process with your privileges: a compromised package can read `~/.ssh` or a `.env` file and send it out without ever answering a tool call. `upstreams.<name>.sandbox` runs it in an OS sandbox instead:
+
+```yaml
+upstreams:
+  files:
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "/Users/me/projects/demo"]
+    sandbox:
+      runtime: sandbox-exec          # docker | podman | bwrap | sandbox-exec | none (default: no sandbox)
+      fs:
+        readWrite: ["/Users/me/projects/demo"]
+        readOnly: []                 # containers see only these two lists
+        deny: ["~/clients"]          # hidden on top of the built-in credential list
+      env: ["GITHUB_TOKEN"]          # host variables passed in; the upstream's own `env` always is
+      network: open                  # open (default) | none
+      limits: { cpus: 1, memory: 512m, pids: 128 }   # docker / podman only
+```
+
+What every runtime enforces:
+
+- **Read-only disk.** Writes go only to `fs.readWrite` and a private home, `~/.guardbee/sandbox/<name>` (HOME and TMPDIR point there, so the npm or uv cache of a sandboxed server is its own and cannot poison yours).
+- **Credentials hidden.** `~/.ssh`, `~/.aws`, `~/.azure`, `~/.config/gcloud`, `~/.kube`, `~/.docker`, `~/.gnupg`, `~/.netrc`, `~/.npmrc`, `~/.pypirc`, `~/.git-credentials`, `~/.config/gh`, password stores, browser profiles and keychains, `.env` files, the proxy's own pin and provenance files, and `fs.deny`.
+- **No host environment.** Only `PATH`, `LANG`, `LC_ALL`, `TERM`, `TZ`, the names in `env` and the upstream's `env`.
+- **`network: none`** cuts the network (the package must then already be installed: an image that has it, or a run with `open` first).
+
+| Runtime | OS | File system | Credentials hidden | Network none | Limits |
+| --- | --- | --- | --- | --- | --- |
+| `docker` / `podman` | Linux, macOS, Windows | only mounted paths; read-only root, `--cap-drop ALL`, `no-new-privileges` | inside mounts (tmpfs / `/dev/null`) | `--network none` | `cpus`, `memory`, `pids` |
+| `bwrap` (bubblewrap) | Linux | whole disk read-only, `--unshare-all` | tmpfs / `/dev/null` over them | no network namespace share | — |
+| `sandbox-exec` (Seatbelt) | macOS | whole disk readable, writes denied | `deny file-read*` (any depth for `.env`) | `deny network*` | — |
+
+Containers use `image`, or `node:22-alpine` for node/npx/npm/pnpm, `ghcr.io/astral-sh/uv:python3.12-alpine` for uvx/uv/python, `oven/bun:1-alpine` for bun/bunx. Environment values go to the container through the client's environment (`-e NAME`), never on the command line. On Linux the container runs as your user, so files it writes stay yours.
+
+- **No silent fallback.** A sandbox that cannot work on this host (runtime not on `PATH`, `sandbox-exec` on Linux, `limits` without a container, a `readWrite` of `~` or `/`, a path inside a credential store) stops the gateway with the reason, and `guardbee-proxy validate` lists the same problems. Start failures are audit events `ruleId: sandbox:invalid | sandbox:failed`.
+- **`guardbee-proxy init --sandbox [runtime]`** puts every imported stdio server in a sandbox (default: `sandbox-exec` on macOS, `bwrap` on Linux when installed, otherwise `docker`), with the directories it was given as arguments writable.
+- **Limits of the model.** `sandbox-exec` is deprecated by Apple but still the macOS mechanism; it does not limit CPU or memory. `bwrap` needs unprivileged user namespaces (some distributions restrict them with AppArmor). Neither hides files you did not list from reading on the non-container runtimes: only the credential list, `.env` files and `fs.deny` are hidden, everything else stays readable (use a container for an allowlist). `network: open` is all or nothing for stdio servers; host allowlists apply to HTTP upstreams (`upstreams.<name>.network`). Windows has no built-in runtime: use `docker` or `podman`.
 
 ## Security Reports
 
@@ -295,6 +334,16 @@ audit:
   ```
 
   Splunk gets HEC events (`sourcetype: guardbee:audit`). Elasticsearch gets `_bulk` `create` operations with the event hash as `_id`, so a retried batch never duplicates (a `409` counts as sent), and `@timestamp`. Syslog is RFC 5424 over UDP, TCP or TLS (certificates always verified; `caFile` for a private CA), with octet-counting (default) or newline framing, facility 13 (log audit) by default and the message as CEF (default) or JSON. CEF puts `act`, `suser`, `rt`, `msg` and `tool` / `upstream` / `ruleId` / `sessionId` / `piiHits` / `labels` in `cs1`–`cs6`; severity 8 for `blocked` and `toxic_flow`, 5 for `warn` and `approval`, 3 otherwise. Each destination keeps its own queue (up to 10,000 events): a SIEM that is down gets the events later; one that refuses them (`401`, a mapping error) is reported once on stderr.
+- **Several replicas (`state`):** quotas and LLM budgets are counted in the process by default, so each replica behind a load balancer would allow the full limit. With `state.backend: redis` every replica counts against the same numbers: the check and the count run as one Lua script, so replicas never both take the last call, and keys expire with their window (Redis 6 or later; the keys share one hash tag, so Redis Cluster works too). The proxy speaks RESP itself: nothing to install. If Redis cannot be reached, `onError` decides: `local` (default) counts in the process until it is back, `fail-open` lets calls through uncounted, `fail-closed` refuses calls that have a quota or budget; the outage and the recovery are audit events (`ruleId: state:unavailable | state:recovered`). Anomaly windows stay per session, which is per replica anyway: an MCP session lives on one replica.
+
+  ```yaml
+  state:
+    backend: redis                                  # memory (default) | redis
+    url: rediss://:${REDIS_PASSWORD}@redis.internal:6380/0   # rediss:// = TLS, certificates verified; /0 = database
+    keyPrefix: guardbee                             # keys: {guardbee}:quota:… and {guardbee}:budget:…
+    onError: local                                  # local | fail-open | fail-closed
+    timeoutMs: 250
+  ```
 - `GET /healthz` returns `{"ok": true, "sessions": N}`. Sessions above `maxSessions` get `503`.
 - **Dashboard:** `audit.dashboard` sends every audit event, batched, to the GuardBee dashboard with a workspace API key taken from `apiKeyEnv`. The key never sits in the file. If the dashboard is unreachable, events wait in memory (up to 10,000) and go out later. A rejected key is reported once on stderr. Tool calls never wait for the dashboard.
 - `init` now also moves Streamable HTTP servers (`url` + `headers`) behind the proxy. Legacy SSE servers stay in the client config and are reported.
