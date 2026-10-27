@@ -36,6 +36,7 @@ The second check, confused-deputy, is a different failure mode: a tool named and
 - **Annotation lie**: `readOnlyHint: true` next to a description that deletes, drops, or executes
 - **Live catalog**: `scanToolCatalog` runs the description checks against a `tools/list` payload, which `rug-pull-detector` calls on every check
 - **4 confused-deputy sink categories**: process-execution, code-execution, filesystem-write, credentials-exposure — checked only against tools whose name/description implies read-only behavior
+- **Python and Go servers**: FastMCP / official Python SDK `@mcp.tool()` (docstrings, `description=`, `Field(description=...)`, `readOnlyHint`), low-level `types.Tool(...)` followed into the `call_tool` branch that runs it, the official Go SDK (`mcp.AddTool(s, &mcp.Tool{...}, h)` with `jsonschema` struct tags) and mark3labs/mcp-go (`mcp.NewTool(...)`, `mcp.WithDescription`, `mcp.Description`), each with that language's sinks (`subprocess`/`os.system`, `eval`/`exec`, `open(..., "w")`, `os.environ`; `exec.Command`, `os.WriteFile`/`os.Remove`, `os.Environ()`)
 - Bounded, next-tool-aware extraction — a sink in tool B's handler is never misattributed to tool A
 - SARIF 2.1.0 output — CI/CD integration (GitHub Code Scanning, etc.)
 - Config file support via `guardbee.yml`
@@ -111,7 +112,8 @@ tool-poisoning-scanner:
 
 ## Limitations (by design)
 
-- **Scope**: the MCP TypeScript SDK's `server.tool(name, description, schema, handler)` convenience form — the shape every GuardBee server in this monorepo uses. The lower-level `setRequestHandler(ListToolsRequestSchema, ...)` style (returning a raw array of `{name, description, inputSchema}` objects) isn't covered yet, nor are Python MCP servers.
+- **Scope**: TypeScript/JavaScript (`server.tool(...)` and `server.registerTool(...)`), Python (`@mcp.tool()` decorators and the low-level `Tool(...)` + `@server.call_tool()` form) and Go (official go-sdk, mark3labs/mcp-go). The language comes from the file extension (`scan_text` takes a `language`). The TypeScript `setRequestHandler(ListToolsRequestSchema, ...)` style (a raw array of `{name, description, inputSchema}` objects) isn't covered yet, nor are Rust, Java, Kotlin, C# or other languages.
+- **Lexical, not a parser**: Python and Go are read with bounded bracket/string/indentation rules, not a full AST. A handler registered through several layers of indirection (a tool table built at runtime, a handler passed through a wrapper) is matched on its registration only: its description is checked, its sinks are not.
 - **Confused-deputy is name/description-keyword-based**, not a semantic analysis — a tool that avoids read-only-sounding words entirely won't be checked against the sink catalog, and a genuinely mislabeled tool using unusual phrasing could be missed.
 - These are **heuristic** findings tuned for a low false-positive rate (verified against 349 real files in this monorepo with zero false positives in production code) — every finding should still be reviewed.
 
@@ -121,7 +123,7 @@ tool-poisoning-scanner:
 
 ```bash
 npm run build
-npm test             # 20 unit tests
+npm test
 ```
 
 ---

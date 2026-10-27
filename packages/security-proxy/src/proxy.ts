@@ -8,7 +8,8 @@ import {
   GetPromptRequestSchema,
   ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { isHttpUpstream, type McpServerConfig, type ProxyConfig } from "./types.js";
+import { isHttpUpstream, type McpServerConfig, type ProxyConfig, type UpstreamConfig } from "./types.js";
+import { sandboxContext, sandboxIssues } from "./gateway/sandbox.js";
 import { AuditLogger } from "./audit/logger.js";
 import { chainApprovers, dashboardApprover, elicitationApprover, type Approver } from "./gateway/approval.js";
 import { fromLegacyConfig, type GatewayConfig } from "./gateway/config.js";
@@ -99,8 +100,15 @@ function persistentPins(config: GatewayConfig): PinStore | undefined {
 }
 
 export function provenanceChecker(config: GatewayConfig): CheckOptions {
-  const { offline, cacheFile, registry } = config.provenance;
-  return { verifyBundle: sigstoreVerifier({ offline }), cache: new ProvenanceCache(cacheFile ?? defaultProvenanceCache()), offline, ...(registry ? { registry } : {}) };
+  const { offline, cacheFile, registry, pypiIndex, signers } = config.provenance;
+  return {
+    verifyBundle: sigstoreVerifier({ offline }),
+    cache: new ProvenanceCache(cacheFile ?? defaultProvenanceCache()),
+    offline,
+    ...(registry ? { registry } : {}),
+    ...(pypiIndex ? { pypiIndex } : {}),
+    ...(signers ? { signers } : {}),
+  };
 }
 
 /**
@@ -152,6 +160,31 @@ function sharedCounters(config: GatewayConfig, audit: AuditLogger): CounterBacke
   });
 }
 
+/** Refuse to start a sandbox that cannot work here (runtime missing, credential path exposed…): never fall back to no sandbox. */
+function checkSandbox(name: string, server: McpServerConfig, audit: AuditLogger): void {
+  if (!server.sandbox || server.sandbox.runtime === "none") return;
+  const issues = sandboxIssues(server, server.sandbox, sandboxContext(name));
+  if (issues.length === 0) return;
+  const reason = `sandbox ${server.sandbox.runtime}: ${issues.join("; ")}`;
+  audit.log({ ts: new Date().toISOString(), type: "blocked", upstream: name, ruleId: "sandbox:invalid", reason });
+  throw new Error(`[guardbee-proxy] upstream ${name}: ${reason}`);
+}
+
+async function connectSandboxed(name: string, server: UpstreamConfig, audit: AuditLogger, connect: () => Promise<Upstream>): Promise<Upstream> {
+  const sandbox = isHttpUpstream(server) ? undefined : server.sandbox;
+  if (!sandbox || sandbox.runtime === "none") return connect();
+  try {
+    const upstream = await connect();
+    const fsNote = sandbox.fs.readWrite.length ? `writable: ${sandbox.fs.readWrite.join(", ")}` : "read-only";
+    process.stderr.write(`[guardbee-proxy] upstream ${name}: sandboxed (${sandbox.runtime}, network ${sandbox.network}, ${fsNote})\n`);
+    return upstream;
+  } catch (err) {
+    const reason = `sandbox ${sandbox.runtime} failed to start: ${err instanceof Error ? err.message : String(err)}`;
+    audit.log({ ts: new Date().toISOString(), type: "blocked", upstream: name, ruleId: "sandbox:failed", reason });
+    throw err;
+  }
+}
+
 export async function startGateway(config: GatewayConfig): Promise<void> {
   const { version } = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf8")) as { version: string };
   // OTLP export when OTEL_EXPORTER_OTLP_ENDPOINT is set and the SDK is installed
@@ -167,8 +200,9 @@ export async function startGateway(config: GatewayConfig): Promise<void> {
   const provenance = provenanceChecker(config);
   for (const [name, original] of Object.entries(config.upstreams)) {
     const server = isHttpUpstream(original) ? original : await checkedServer(name, original, config, audit, provenance);
+    if (!isHttpUpstream(server)) checkSandbox(name, server, audit);
     upstreams.push(
-      await connectUpstream(name, server, {
+      await connectSandboxed(name, server, audit, () => connectUpstream(name, server, {
         sampling: config.interceptors.sampling?.enabled === true,
         onEgressBlocked: (error) =>
           audit.log({
@@ -179,7 +213,7 @@ export async function startGateway(config: GatewayConfig): Promise<void> {
             reason: error.message,
             destination: { host: error.host, ...(error.address ? { address: error.address } : {}) },
           }),
-      }),
+      })),
     );
   }
 

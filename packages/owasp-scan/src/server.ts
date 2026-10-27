@@ -10,6 +10,9 @@ function formatReport(report: OwaspReport): string {
   const lines: string[] = [
     `Grade ${report.grade} (${report.score}/100) — ${report.totalFindings} finding(s), ${report.durationMs}ms`,
     `mode=${report.mode} label=${report.label}`,
+    ...(report.coverage?.languages.length
+      ? [`languages: ${report.coverage.languages.map((l) => `${l.language} ${l.files} file(s)${l.analysis === "full" ? `, ${l.tools} tool(s)` : ", patterns only"}`).join("; ")}`]
+      : []),
     "",
   ];
   for (const bucket of report.byOwasp) {

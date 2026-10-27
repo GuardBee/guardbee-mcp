@@ -97,6 +97,31 @@ const upstreamSchema = z
     args: z.array(z.string()).optional(),
     env: z.record(z.string(), z.string()).optional(),
     provenance: z.enum(["off", "warn", "require"]).optional(),
+    sandbox: z
+      .object({
+        runtime: z.enum(["none", "docker", "podman", "bwrap", "sandbox-exec"]),
+        image: z.string().min(1).optional(),
+        fs: z
+          .object({
+            readOnly: z.array(z.string().min(1)).default([]),
+            readWrite: z.array(z.string().min(1)).default([]),
+            deny: z.array(z.string().min(1)).default([]),
+          })
+          .strict()
+          .default({ readOnly: [], readWrite: [], deny: [] }),
+        env: z.array(z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable")).default([]),
+        network: z.enum(["none", "open"]).default("open"),
+        limits: z
+          .object({
+            cpus: z.number().positive().optional(),
+            memory: z.string().regex(/^\d+[bkmg]?$/i, "a size such as 512m or 2g").optional(),
+            pids: z.number().int().positive().optional(),
+          })
+          .strict()
+          .optional(),
+      })
+      .strict()
+      .optional(),
     url: z.string().optional(),
     headers: z.record(z.string(), z.string()).optional(),
     network: z
@@ -115,11 +140,14 @@ const upstreamSchema = z
   .superRefine((value, ctx) => {
     const stdio = value.command !== undefined || value.args !== undefined || value.env !== undefined;
     const http = value.url !== undefined || value.headers !== undefined;
+    if (value.url !== undefined && value.sandbox !== undefined) {
+      ctx.addIssue({ code: "custom", path: ["sandbox"], message: "sandbox applies to stdio upstreams (command): an HTTP server runs elsewhere" });
+    }
     if (value.url !== undefined && value.provenance !== undefined) {
       ctx.addIssue({ code: "custom", path: ["provenance"], message: "provenance applies to stdio upstreams (command): an HTTP server runs elsewhere, there is no package to check" });
     }
     if (stdio && value.network !== undefined) {
-      ctx.addIssue({ code: "custom", path: ["network"], message: "network rules apply to HTTP upstreams (url); a stdio server opens its own connections, which the proxy cannot see without a sandbox" });
+      ctx.addIssue({ code: "custom", path: ["network"], message: "network rules apply to HTTP upstreams (url); for a stdio server use sandbox.network" });
     }
     if (stdio && http) ctx.addIssue({ code: "custom", message: "an upstream is either command/args/env (stdio) or url/headers (HTTP), not both" });
     else if (http && value.url === undefined) ctx.addIssue({ code: "custom", message: "an HTTP upstream needs a url" });
@@ -337,6 +365,8 @@ const yamlSchema = z
         offline: z.boolean().default(false),
         cacheFile: z.string().min(1).optional(),
         registry: httpUrl.optional(),
+        pypiIndex: z.string().regex(/^https:\/\//, "pypiIndex must start with https://").optional(),
+        signers: z.record(z.string().min(1), z.string().regex(/^https:\/\//, "a certificate SAN prefix such as https://github.com/owner/")).optional(),
       })
       .strict()
       .optional(),
@@ -395,7 +425,7 @@ function interpolateRecord(record: Record<string, string> | undefined, where: st
 
 function interpolateUpstream(
   name: string,
-  upstream: { command?: string; args?: string[]; env?: Record<string, string>; provenance?: McpServerConfig["provenance"]; url?: string; headers?: Record<string, string>; network?: UpstreamNetworkConfig },
+  upstream: { command?: string; args?: string[]; env?: Record<string, string>; provenance?: McpServerConfig["provenance"]; sandbox?: McpServerConfig["sandbox"]; url?: string; headers?: Record<string, string>; network?: UpstreamNetworkConfig },
 ): UpstreamConfig {
   const where = `upstreams.${name}`;
   if (upstream.url !== undefined) {
@@ -405,6 +435,7 @@ function interpolateUpstream(
   return {
     command: interpolate(upstream.command!, where),
     ...(upstream.provenance ? { provenance: upstream.provenance } : {}),
+    ...(upstream.sandbox ? { sandbox: upstream.sandbox } : {}),
     args: upstream.args?.map((arg) => interpolate(arg, where)),
     env: interpolateRecord(upstream.env, where),
   };

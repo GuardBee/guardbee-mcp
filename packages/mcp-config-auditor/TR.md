@@ -13,6 +13,7 @@ Bir ajanın hangi MCP sunucularını çalıştıracağına karar veren istemci c
 | Kalıp | Şiddet | OWASP | Anlamı |
 |---|---|---|---|
 | `unpinned_package` | high | MCP04:2025 | `npx`, `uvx`, `pnpm`, `yarn`, `bunx` veya `pipx` sürüm sabitlemesi olmayan bir paket çalıştırıyor |
+| `unpinned_container_image` | high | MCP04:2025 | `docker run` / `podman run` imajı `@sha256:` digest'i yerine tag ile başlatıyor |
 | `typosquat_package` | critical | MCP04:2025 | Paket adı bilinen bir MCP sunucu paketine bir karakter uzak |
 | `secret_in_env` | critical | MCP01:2025 | Ortam bloğunda credential |
 | `secret_in_args` | critical | MCP01:2025 | Komut satırında token |

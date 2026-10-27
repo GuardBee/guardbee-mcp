@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { checkNpmProvenance, normalizeRepositoryUrl, parseLaunch, resolveNpmVersion, type BundleVerifier } from "../provenance.js";
+import { checkNpmProvenance, checkPypiProvenance, normalizeRepositoryUrl, parseImageReference, parseLaunch, pypiAttestationToBundle, resolveNpmVersion, type BundleVerifier } from "../provenance.js";
 
 const fixture = (name: string) => JSON.parse(readFileSync(new URL(`./fixtures/provenance/${name}`, import.meta.url), "utf8")) as Record<string, unknown>;
 const manifest = fixture("guard-core-1.1.0.json") as { dist: Record<string, unknown>; repository: unknown };
@@ -32,6 +32,8 @@ describe("parseLaunch", () => {
     ["pnpm", ["dlx", "server-x"], { ecosystem: "npm", name: "server-x", spec: "", argIndex: 1 }],
     ["uvx", ["mcp-server-fetch==2025.1.0"], { ecosystem: "pypi", name: "mcp-server-fetch", spec: "2025.1.0", argIndex: 0 }],
     ["uvx", ["--from", "git-mcp", "git-mcp-server"], { ecosystem: "pypi", name: "git-mcp", spec: "", argIndex: 1 }],
+    ["uvx", ["--python", "3.12", "--with", "httpx", "tool@1.4.0"], { ecosystem: "pypi", name: "tool", spec: "1.4.0", argIndex: 4 }],
+    ["uv", ["tool", "run", "mcp-server-time"], { ecosystem: "pypi", name: "mcp-server-time", spec: "", argIndex: 2 }],
     ["docker", ["run", "-i", "--rm", "-e", "TOKEN", "mcp/github"], { ecosystem: "oci", reference: "mcp/github", argIndex: 5 }],
   ])("%s %j", (command, args, expected) => {
     expect(parseLaunch(command, args)).toEqual(expected);
@@ -122,5 +124,43 @@ describe("checkNpmProvenance", () => {
   it("reports an unreachable registry as an error, not as unsigned", async () => {
     const result = await check({ fetch: async () => new Response("down", { status: 503 }) });
     expect(result.status).toBe("error");
+  });
+});
+
+describe("parseImageReference", () => {
+  const digest = `sha256:${"b".repeat(64)}`;
+  it.each([
+    ["mcp/fetch", { registry: "docker.io", repository: "mcp/fetch" }],
+    ["alpine:3.20", { registry: "docker.io", repository: "library/alpine", tag: "3.20" }],
+    [`ghcr.io/github/github-mcp-server:v2@${digest}`, { registry: "ghcr.io", repository: "github/github-mcp-server", tag: "v2", digest }],
+    ["localhost:5000/team/server", { registry: "localhost:5000", repository: "team/server" }],
+  ])("%s", (reference, expected) => {
+    expect(parseImageReference(reference)).toEqual(expected);
+  });
+  it("refuses what is not a reference", () => {
+    expect(parseImageReference("ghcr.io/x/y@sha256:short")).toBeUndefined();
+    expect(parseImageReference("ghcr.io/X Y/z")).toBeUndefined();
+  });
+});
+
+describe("PyPI", () => {
+  it("turns a PEP 740 attestation into a Sigstore DSSE bundle", () => {
+    const bundle = pypiAttestationToBundle({ envelope: { statement: "c3Q=", signature: "c2ln" }, verification_material: { certificate: "Y2VydA==", transparency_entries: [{ logIndex: "1" }] } });
+    expect(bundle).toEqual({
+      mediaType: "application/vnd.dev.sigstore.bundle.v0.3+json",
+      verificationMaterial: { certificate: { rawBytes: "Y2VydA==" }, tlogEntries: [{ logIndex: "1" }] },
+      dsseEnvelope: { payload: "c3Q=", payloadType: "application/vnd.in-toto+json", signatures: [{ sig: "c2ln", keyid: "" }] },
+    });
+  });
+
+  it("refuses a project name that is not one, before any request", async () => {
+    const result = await checkPypiProvenance("../evil", "", { verifyBundle: signedBy(RELEASE_SAN), fetch: async () => Promise.reject(new Error("must not be called")) });
+    expect(result.status).toBe("error");
+  });
+
+  it("calls a release without attestations unsigned", async () => {
+    const fetch = async (url: string) =>
+      url.endsWith("/json") ? new Response(JSON.stringify({ info: { version: "1.0.0" }, urls: [{ filename: "x-1.0.0.tar.gz", digests: { sha256: "a".repeat(64) } }] })) : new Response("", { status: 404 });
+    expect((await checkPypiProvenance("x", "", { verifyBundle: signedBy(RELEASE_SAN), fetch })).status).toBe("unsigned");
   });
 });

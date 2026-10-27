@@ -105,3 +105,25 @@ export function isPinnedVersion(version: string | null): boolean {
   if (!version) return false;
   return /^\d+\.\d+\.\d+/.test(version);
 }
+
+/** `docker run` / `podman run` options that take a separate value, so the image is not mistaken for one. */
+const CONTAINER_VALUE_FLAGS = new Set([
+  "-e", "--env", "--env-file", "-v", "--volume", "--mount", "--name", "-p", "--publish", "--network", "--net", "-w", "--workdir",
+  "-u", "--user", "--entrypoint", "-l", "--label", "--platform", "--pull", "-m", "--memory", "--cpus", "--add-host", "--cap-add",
+  "--cap-drop", "--security-opt", "--tmpfs", "--device", "-h", "--hostname", "--ulimit", "--restart", "--runtime", "--gpus",
+]);
+
+/** The image a `docker run` / `podman run` server starts, or null. */
+export function containerImage(command: string | undefined, args: string[]): string | null {
+  const base = (command ?? "").split(/[/\\]/).pop()?.replace(/\.exe$/i, "") ?? "";
+  if ((base !== "docker" && base !== "podman") || args[0] !== "run") return null;
+  for (let i = 1; i < args.length; i++) {
+    const arg = args[i] ?? "";
+    if (CONTAINER_VALUE_FLAGS.has(arg)) {
+      i++;
+      continue;
+    }
+    if (!arg.startsWith("-")) return arg;
+  }
+  return null;
+}

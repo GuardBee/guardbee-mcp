@@ -31,7 +31,9 @@ export { POLICY_LABELS, POLICY_ACTIONS, policyRuleSchema, quotaRuleSchema, topic
 export { detectTopics, foldText, stringsIn } from "./topics.js";
 export type { TopicDefinition, TopicHit } from "./topics.js";
 export type { GatewayPolicy, PolicyValidation } from "./policy.js";
-export { DESCRIPTION_INJECTION_PATTERNS, MISMATCH_SINK_RULES, READ_ONLY_HINT } from "./tool-poisoning.js";
+export { DESCRIPTION_INJECTION_PATTERNS, GO_SINK_RULES, MISMATCH_SINK_RULES, PYTHON_SINK_RULES, READ_ONLY_HINT, sinkRulesFor } from "./tool-poisoning.js";
+export { ANALYSIS_DEPTH, callSpan, closingBracket, extractGoTools, extractPythonTools, extractSourceTools, languageOf, mentionsInput } from "./source-tools.js";
+export type { AnalysisDepth, SourceLanguage, SourceTool, TextSpan } from "./source-tools.js";
 export type { DescriptionInjectionPattern, MismatchSinkRule, ToolPoisoningCategory } from "./tool-poisoning.js";
 export { annotationContradicts, matchSurface, scanToolCatalog } from "./tool-catalog.js";
 export type { CatalogFinding, CatalogTool, SurfaceHit } from "./tool-catalog.js";
@@ -41,5 +43,5 @@ export { hashToolDefinition, canonicalJson, toolSnapshot } from "./tool-hash.js"
 export type { ToolDefinition } from "./tool-hash.js";
 export { EgressBlockedError, checkAddress, checkHost, classifyAddress, guardedFetch, guardedLookup, hostAllowed, normalizeHost } from "./network.js";
 export type { AddressClass, EgressPolicy, EgressRule, GuardOptions, Resolver } from "./network.js";
-export { checkNpmProvenance, normalizeRepositoryUrl, parseLaunch, resolveNpmVersion, splitNpmSpec } from "./provenance.js";
-export type { BundleSigner, BundleVerifier, LaunchTarget, NpmProvenanceOptions, ProvenanceResult, ProvenanceStatus } from "./provenance.js";
+export { checkNpmProvenance, checkOciProvenance, checkPypiProvenance, parseImageReference, normalizeRepositoryUrl, parseLaunch, pypiAttestationToBundle, resolveNpmVersion, splitNpmSpec } from "./provenance.js";
+export type { BundleSigner, BundleVerifier, LaunchTarget, NpmProvenanceOptions, ProvenanceResult, ProvenanceStatus, PypiProvenanceOptions, OciProvenanceOptions } from "./provenance.js";

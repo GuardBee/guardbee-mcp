@@ -27,10 +27,11 @@ Claude ──► mcp-server-auditor ──► An MCP server's source code
 ## Features
 
 - **10 patterns, 5 categories** — excessive-agency, unsafe-input, loose-schema, secrets-exposure, network-exposure
+- **Python and Go servers**: tool input followed from the tool definition (FastMCP parameters, low-level `arguments`, go-sdk typed args, mcp-go `request.RequireString(...)`) through plain assignments into shell, file write/delete, HTTP and SQL calls
 - Every finding includes **why it's risky and what to do about it** (`recommendation`) — not just "found it"
 - SARIF 2.1.0 output — CI/CD integration (GitHub Code Scanning, etc.)
 - Config file support via `guardbee.yml`
-- 32 unit tests — a positive and a negative (false-positive) scenario for every pattern
+- A positive and a negative (false-positive) test for every pattern, with vulnerable and clean Python and Go fixtures
 
 ---
 
@@ -83,6 +84,24 @@ npx @guardbee/mcp-server-auditor scan ./src --fail-on=high --format=sarif > resu
 | secrets-exposure | `full_env_exposed_to_tool_caller` | critical | The entire `process.env` is spread/stringified/returned (not one named variable) |
 | network-exposure | `permissive_cors_on_server` | medium | Wildcard CORS (`Access-Control-Allow-Origin: *`) or `cors()` with no options |
 
+### Python and Go
+
+Python (`.py`) and Go (`.go`) files also get a tool-input flow check. The tool's input names come from its definition, are followed through plain assignments in the handler (`command = f"du {directory}"`), and a finding is reported when one reaches a sink call:
+
+| Pattern | Severity | Sinks |
+|---|---|---|
+| `python_shell_from_tool_input` | critical | `subprocess.*`, `os.system`, `os.popen`, `asyncio.create_subprocess_*` |
+| `python_eval_of_tool_input` | critical | `eval`, `exec` |
+| `python_fs_write_from_tool_input` | high | `open(..., "w"/"a"/"x")`, `os.remove`/`rename`/…, `shutil.rmtree`/`move`, `Path(...).write_text`/`unlink` |
+| `python_ssrf_from_tool_input` | high | `requests.*`, `httpx.*`, `client.get(...)`, `urlopen` (URL argument) |
+| `python_sql_injection_via_tool_input` | critical | `cursor.execute(f"...{x}...")`, `%` / `.format` / `+` |
+| `go_shell_from_tool_input` | critical (`sh -c`), high (argument list) | `exec.Command`, `exec.CommandContext` |
+| `go_fs_write_from_tool_input` | high | `os.WriteFile`, `os.Remove`, `os.RemoveAll`, `os.Rename`, `os.Create`, `os.OpenFile` for writing |
+| `go_ssrf_from_tool_input` | high | `http.Get`/`Post`/`NewRequest…`, `client.Get` |
+| `go_sql_injection_via_tool_input` | critical | `db.Query…`/`Exec…` with `fmt.Sprintf` or `+` |
+
+File findings are skipped when the handler checks the path against a base directory (`is_relative_to`, `commonpath`, `.parents`, `filepath.IsLocal`, `filepath.Rel`, `strings.HasPrefix`), and HTTP findings when it checks a host allowlist. Tools named `run_shell`, `execute_sql` etc. are reported for both languages. Rust, Java, Kotlin, C# and other languages get the language-neutral patterns only.
+
 These are **heuristic** findings — a static text-pattern scan, not a full AST/type analysis. Designed for a low false-positive rate, but every finding should still be reviewed manually.
 
 ---
@@ -104,7 +123,7 @@ mcp-server-auditor:
 
 ```bash
 npm run build
-npm test             # 32 unit tests
+npm test
 ```
 
 ---

@@ -1,0 +1,39 @@
+# stdio MCP servers in an OS sandbox: read-only disk, credentials (~/.ssh, cloud CLIs,
+# browser profiles, .env files) hidden, no host environment unless listed.
+# Run:   npx -y @guardbee/mcp-security-proxy@^1 --config examples/proxy/sandboxed.yaml
+# Check: npx -y @guardbee/mcp-security-proxy@^1 validate --config examples/proxy/sandboxed.yaml
+#        (also reports a runtime that is not installed here, or a path that does not exist)
+version: 1
+
+upstreams:
+  # macOS: Seatbelt. On Linux use bwrap; anywhere, docker or podman.
+  files:
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "./workspace"]
+    sandbox:
+      runtime: sandbox-exec
+      fs:
+        readWrite: ["./workspace"]       # the only place it can write (plus its private home)
+
+  # A container sees only what is mounted, with CPU, memory and process limits.
+  github:
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-github"]
+    env: { GITHUB_PERSONAL_ACCESS_TOKEN: "${GITHUB_TOKEN}" }   # passed in: it is the upstream's own env
+    sandbox:
+      runtime: docker                     # image: node:22-alpine (from the command)
+      network: open                       # it calls api.github.com
+      limits: { cpus: 1, memory: 512m, pids: 128 }
+
+  # No network at all: the package must already be in the image.
+  time:
+    command: uvx
+    args: ["mcp-server-time"]
+    sandbox:
+      runtime: docker
+      network: none
+      image: my-registry.example.com/mcp-server-time:2025.1   # uv image with the server installed
+
+audit:
+  sink: file
+  filePath: ./guardbee-audit.jsonl

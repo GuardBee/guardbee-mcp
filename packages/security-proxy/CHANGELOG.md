@@ -1,5 +1,26 @@
 # @guardbee/mcp-security-proxy
 
+## 1.30.0
+
+### Minor Changes
+
+- [#218](https://github.com/GuardBee/guardbee-mcp/pull/218) [`d754b3e`](https://github.com/GuardBee/guardbee-mcp/commit/d754b3e41660eeadfdc3f817ac30e9e7333e466b) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Sandbox for stdio upstreams: `upstreams.<name>.sandbox` runs a server in docker, podman, bubblewrap (Linux) or sandbox-exec (macOS) with a read-only disk (writes only to `fs.readWrite` and a private home that holds its package cache), credential stores and `.env` files hidden, no host environment unless listed in `env`, optional `network: none`, and CPU / memory / pid limits in containers. A sandbox that cannot work on the host stops the gateway instead of falling back; `guardbee-proxy validate` reports why, and start failures are audit events (`ruleId: sandbox:*`). `guardbee-proxy init --sandbox [runtime]` sandboxes imported servers. Configs without `sandbox` are unchanged.
+
+### Patch Changes
+
+- [#216](https://github.com/GuardBee/guardbee-mcp/pull/216) [`08c7391`](https://github.com/GuardBee/guardbee-mcp/commit/08c73915cd47eec7c5c0168bae88b77332ac6b6a) Thanks [@dependabot](https://github.com/apps/dependabot)! - Align the optional OpenTelemetry peers on the 3.x line (`@opentelemetry/resources` ^3.0.0, alongside `@opentelemetry/exporter-trace-otlp-http` ^0.300.0), and resolve `@modelcontextprotocol/sdk` from the workspace catalog in db-gateway so the monorepo installs a single SDK copy.
+
+## 1.29.0
+
+### Minor Changes
+
+- [#213](https://github.com/GuardBee/guardbee-mcp/pull/213) [`03ae1d2`](https://github.com/GuardBee/guardbee-mcp/commit/03ae1d212f0b8413c28fa5b994076aeaf0abd5b8) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Build provenance check before a stdio upstream starts. The proxy resolves the npm package `npx` / `pnpm dlx` / `bunx` would run, verifies its Sigstore-signed SLSA provenance (signature against the Sigstore trust root, exact tarball hash, signing workflow of the named repository, matching `repository` field) and runs the command pinned to the checked version. `provenance.mode: warn` (default) logs unverified packages (`ruleId: provenance:*`), `require` refuses them, also per upstream. Results are cached per version (`~/.guardbee/provenance.json`; a changed tarball under a known version counts as tampering), `provenance.offline` works from the cache, and `guardbee-proxy provenance` checks a config without starting anything. PyPI and container images are reported (unpinned images by digest) but not yet verified. The proxy now needs Node.js 22.9 or later (Sigstore libraries). guard-core exports the dependency-free part: `parseLaunch`, `resolveNpmVersion`, `checkNpmProvenance` (signature check passed in), `normalizeRepositoryUrl`.
+
+### Patch Changes
+
+- Updated dependencies [[`03ae1d2`](https://github.com/GuardBee/guardbee-mcp/commit/03ae1d212f0b8413c28fa5b994076aeaf0abd5b8)]:
+  - @guardbee/guard-core@1.3.0
+
 ## 1.28.0
 
 ### Minor Changes
