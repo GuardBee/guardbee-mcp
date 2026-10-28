@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import { applyIgnores, compareToBaseline, readBaseline, writeBaseline } from "./baseline.js";
 import type { BaselineDiff } from "./baseline.js";
 import { configFilePath, loadConfig } from "./config.js";
+import { formatFixReport, patchOf, suggestFixes } from "./fixes.js";
 import type { Finding } from "./finding.js";
 import { scanUrl } from "./live.js";
 import { buildSarif } from "./sarif.js";
@@ -151,6 +152,8 @@ Usage (MCP server):
 Usage (CLI):
   guardbee-reverse-shield scan <path>   Scan an artifact or a build output directory
   guardbee-reverse-shield scan <url>    Scan a live site's same-site bundles and source maps
+  guardbee-reverse-shield suggest <dir> Propose build-config changes for a project (never writes);
+                                        --format=patch prints a diff for git apply
 
 Recognised artifacts:
   Web        .js .mjs .cjs bundles, .map source maps, build output folders, live URLs
@@ -186,6 +189,22 @@ if (!firstArg || firstArg === "serve") {
 } else if (firstArg === "--help" || firstArg === "-h") {
   printHelp();
   process.exit(0);
+} else if (firstArg === "suggest") {
+  const dir = rest.find((a) => !a.startsWith("--"));
+  const format = rest.find((a) => a.startsWith("--format="))?.split("=")[1] ?? "text";
+  if (!dir) {
+    console.error("Usage: guardbee-reverse-shield suggest <project-dir> [--format=text|patch|json]");
+    process.exit(2);
+  }
+  try {
+    const report = suggestFixes(dir);
+    if (format === "patch") process.stdout.write(patchOf(report));
+    else if (format === "json") console.log(JSON.stringify(report, null, 2));
+    else console.log(formatFixReport(report));
+  } catch (err) {
+    console.error((err as Error).message);
+    process.exit(2);
+  }
 } else if (firstArg === "scan") {
   runCli(rest).catch((err) => {
     console.error("Error:", (err as Error).message);

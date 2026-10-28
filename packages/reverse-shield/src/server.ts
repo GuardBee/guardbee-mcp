@@ -4,6 +4,7 @@ import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
 import { applyIgnores, compareToBaseline, readBaseline } from "./baseline.js";
 import type { BaselineDiff } from "./baseline.js";
+import { formatFixReport, suggestFixes } from "./fixes.js";
 import { scanUrl } from "./live.js";
 import { RULES } from "./rules.js";
 import { scanPath } from "./scanner.js";
@@ -87,6 +88,21 @@ export function registerTools(server: McpServer): void {
     async ({ url, maxScripts }) => {
       try {
         return { content: [{ type: "text", text: formatResult(await scanUrl(url, { maxScripts })) }] };
+      } catch (err) {
+        return { isError: true, content: [{ type: "text", text: (err as Error).message }] };
+      }
+    },
+  );
+
+  server.tool(
+    "suggest_fixes",
+    "Read a project's build configuration (Vite, webpack, Next.js, Angular, Create React App, Android Gradle and manifest, React Native, electron-builder / Forge, .NET project files, Flutter) and propose the changes that close what scan_artifact reports: hidden source maps, minification, R8, debuggable and backup flags, Hermes, Electron fuses and ASAR, no embedded PDB. Returns unified diffs to review and apply (git apply); it never modifies files.",
+    {
+      projectPath: z.string().describe("Project source directory (not the build output)"),
+    },
+    async ({ projectPath }) => {
+      try {
+        return { content: [{ type: "text", text: formatFixReport(suggestFixes(projectPath)) }] };
       } catch (err) {
         return { isError: true, content: [{ type: "text", text: (err as Error).message }] };
       }
