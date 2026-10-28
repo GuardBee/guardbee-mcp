@@ -1,0 +1,84 @@
+name: GuardBee Reverse Shield
+description: Check how easily a built artifact (web build, Electron app, APK/AAB, IPA, native or .NET binary) can be reverse engineered; compare with a baseline, upload SARIF and write a job summary
+inputs:
+  target:
+    description: Artifact or build output to scan (dist/, app-release.apk, MyApp.app, a URL, ...)
+    required: true
+  fail-on:
+    description: Fail at this severity (any|critical|high|medium|low|none). With a baseline only new findings count.
+    required: false
+    default: high
+  baseline:
+    description: Baseline file from `scan --update-baseline`; empty to judge every finding
+    required: false
+    default: ""
+  upload-sarif:
+    description: Upload SARIF via codeql-action/upload-sarif
+    required: false
+    default: "true"
+  version:
+    description: "@guardbee/mcp-reverse-shield version to run (ignored inside the guardbee-mcp repo, which uses its own build)"
+    required: false
+    default: latest
+outputs:
+  grade:
+    description: A–F reverse-engineering resistance grade
+    value: ${{ steps.scan.outputs.grade }}
+  new-findings:
+    description: Findings not in the baseline (all findings when no baseline is given)
+    value: ${{ steps.scan.outputs.new }}
+runs:
+  using: composite
+  steps:
+    - name: Scan
+      id: scan
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        GUARDBEE_TELEMETRY: "0"
+        TARGET: ${{ inputs.target }}
+        FAIL_ON: ${{ inputs.fail-on }}
+        BASELINE: ${{ inputs.baseline }}
+        VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        mkdir -p reverse-shield-out
+        if [[ -f packages/reverse-shield/dist/cli.js ]]; then
+          RS=(node packages/reverse-shield/dist/cli.js)
+        else
+          RS=(npx -y "@guardbee/mcp-reverse-shield@${VERSION}")
+        fi
+        ARGS=(scan "${TARGET}")
+        if [[ -n "${BASELINE}" ]]; then ARGS+=("--baseline=${BASELINE}"); fi
+
+        "${RS[@]}" "${ARGS[@]}" --format=sarif --fail-on=none > reverse-shield-out/reverse-shield.sarif
+        "${RS[@]}" "${ARGS[@]}" --format=json --fail-on=none > reverse-shield-out/result.json
+        set +e
+        "${RS[@]}" "${ARGS[@]}" --format=text --fail-on="${FAIL_ON}"
+        echo $? > reverse-shield-out/exit_code.txt
+        set -e
+
+        node - reverse-shield-out/result.json >> "${GITHUB_STEP_SUMMARY}" <<'JS'
+        const r = JSON.parse(require("fs").readFileSync(process.argv[2], "utf8"));
+        const count = (s) => r.findings.filter((f) => f.severity === s).length;
+        const rows = r.findings.slice(0, 50).map((f) => `| ${f.severity} | \`${f.patternId}\` | ${String(f.file ?? "").split("/").slice(-3).join("/")} | ${f.match.replace(/\|/g, "\\|").slice(0, 120)} |`);
+        const lines = [`## Reverse Shield — grade ${r.grade}`, "", `${r.findings.length} finding(s): ${count("critical")} critical, ${count("high")} high, ${count("medium")} medium, ${count("low")} low`];
+        if (r.baseline) lines.push("", `Baseline (grade ${r.baseline.previousGrade}): **${r.baseline.added} new**, ${r.baseline.fixed.length} fixed, ${r.baseline.unchanged} unchanged`);
+        if (rows.length) lines.push("", "| Severity | Check | Where | Evidence |", "|---|---|---|---|", ...rows);
+        console.log(lines.join("\n"));
+        JS
+        node -e 'const r=require("./reverse-shield-out/result.json");console.log("grade="+r.grade);console.log("new="+(r.baseline?r.baseline.added:r.findings.length))' >> "${GITHUB_OUTPUT}"
+
+    - name: Upload SARIF
+      if: ${{ always() && inputs.upload-sarif == 'true' && hashFiles('reverse-shield-out/reverse-shield.sarif') != '' }}
+      uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+      with:
+        sarif_file: reverse-shield-out/reverse-shield.sarif
+        category: reverse-shield
+
+    - name: Enforce fail-on
+      if: always()
+      shell: bash
+      run: |
+        code=$(cat reverse-shield-out/exit_code.txt 2>/dev/null || echo 1)
+        exit "$code"

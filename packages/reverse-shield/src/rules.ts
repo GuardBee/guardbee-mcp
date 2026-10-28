@@ -8,7 +8,7 @@ export type RuleCategory =
   | "binary-hardening"
   | "secrets-in-artifact";
 
-export type TargetKind = "web" | "electron" | "android" | "native" | "dotnet";
+export type TargetKind = "web" | "electron" | "android" | "ios" | "native" | "dotnet" | "framework";
 
 export interface Rule {
   id: string;
@@ -241,6 +241,35 @@ export const RULES: Rule[] = [
     recommendation: "Distribute release builds only; testOnly is set by the IDE for run configurations.",
   },
 
+  // ── iOS ───────────────────────────────────────────────────────────────────
+  {
+    id: "ios_debug_build",
+    name: "iOS app built with the Debug configuration",
+    target: "ios",
+    category: "debug-surface",
+    severity: "high",
+    exposes: "Unoptimised code in <App>.debug.dylib with full symbols and SwiftUI preview stubs: the closest thing to source a binary can be.",
+    recommendation: "Archive with the Release configuration (Product > Archive, or xcodebuild -configuration Release) before distributing.",
+  },
+  {
+    id: "ios_js_bundle_plaintext",
+    name: "React Native bundle shipped as plain JavaScript (iOS)",
+    target: "ios",
+    category: "source-exposure",
+    severity: "high",
+    exposes: "main.jsbundle is readable JavaScript containing the app's business logic.",
+    recommendation: "Enable Hermes for iOS (the default in recent React Native) so the bundle ships as bytecode.",
+  },
+  {
+    id: "ios_development_profile",
+    name: "IPA signed with a development provisioning profile",
+    target: "ios",
+    category: "debug-surface",
+    severity: "medium",
+    exposes: "get-task-allow in the embedded profile: on registered devices the app can be attached to with a debugger.",
+    recommendation: "Export with an App Store, Ad Hoc or Enterprise distribution profile; development profiles are for local testing.",
+  },
+
   // ── Native binaries (ELF, Mach-O, PE) ──────────────────────────────────────
   {
     id: "native_debug_info",
@@ -349,6 +378,44 @@ export const RULES: Rule[] = [
     severity: "low",
     exposes: "Stack buffer overflows overwrite return addresses without detection.",
     recommendation: "Compile with -fstack-protector-strong.",
+  },
+
+  // ── Frameworks ────────────────────────────────────────────────────────────
+  {
+    id: "unity_il2cpp_metadata",
+    name: "Unity IL2CPP metadata shipped in the clear",
+    target: "framework",
+    category: "source-exposure",
+    severity: "high",
+    exposes: "Il2CppDumper turns global-metadata.dat plus the native binary into every class, method, field and string literal of the game, with addresses.",
+    recommendation: "Protect the metadata (encrypt global-metadata.dat with a Unity protection tool or a custom loader) and strip the IL2CPP binary; treat client logic as visible regardless.",
+  },
+  {
+    id: "unity_mono_assemblies",
+    name: "Unity game logic shipped as plain .NET assemblies",
+    target: "framework",
+    category: "obfuscation",
+    severity: "high",
+    exposes: "Assembly-CSharp.dll decompiles to the game's C# scripts with dnSpy/ILSpy, names included, and can be patched and repacked.",
+    recommendation: "Switch the scripting backend to IL2CPP for release builds, or run an obfuscator over Assembly-CSharp.dll.",
+  },
+  {
+    id: "python_pyinstaller_bundle",
+    name: "Python app packaged with PyInstaller",
+    target: "framework",
+    category: "source-exposure",
+    severity: "high",
+    exposes: "The bundled .pyc files extract with pyinstxtractor and decompile back to Python source.",
+    recommendation: "Compile the code instead (Nuitka, Cython for sensitive modules) or protect it (PyArmor) before packaging; keep secrets server-side.",
+  },
+  {
+    id: "java_not_obfuscated",
+    name: "Java application classes are not obfuscated",
+    target: "framework",
+    category: "obfuscation",
+    severity: "high",
+    exposes: "Any Java decompiler (CFR, Fernflower) gives back the classes with their original names.",
+    recommendation: "Run ProGuard (or another obfuscator) in the release build and keep -keep rules to what reflection and frameworks need.",
   },
 
   // ── .NET ──────────────────────────────────────────────────────────────────

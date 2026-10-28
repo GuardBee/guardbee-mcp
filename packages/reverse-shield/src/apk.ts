@@ -1,7 +1,10 @@
 import { closeSync, openSync, statSync } from "fs";
 import { attribute, parseAxml } from "./axml.js";
+import type { AxmlElement } from "./axml.js";
+import { parseProtoXml } from "./protoxml.js";
 import { assessDexObfuscation, readTypeDescriptors } from "./dex.js";
 import { finding } from "./finding.js";
+import { frameworkChecks } from "./frameworks.js";
 import type { Finding } from "./finding.js";
 import { readAt } from "./fsutil.js";
 import { analyzeNative } from "./native.js";
@@ -24,12 +27,55 @@ export function isApk(filePath: string): boolean {
   return /\.apk$/i.test(filePath);
 }
 
+export function isAab(filePath: string): boolean {
+  return /\.aab$/i.test(filePath);
+}
+
+/**
+ * APK: binary AXML manifest at the root, classes*.dex, lib/, assets/.
+ * AAB: one directory per module (base/, feature modules) with a protobuf
+ * manifest in manifest/, dex in dex/; Play re-signs, so signing is not judged.
+ */
+interface Layout {
+  manifest: RegExp;
+  parse: (buf: Buffer) => AxmlElement[] | null;
+  dex: RegExp;
+  lib: RegExp;
+  jsBundle: RegExp;
+  assets: RegExp;
+  signed: boolean;
+}
+
+const APK: Layout = {
+  manifest: /^AndroidManifest\.xml$/,
+  parse: parseAxml,
+  dex: /^classes\d*\.dex$/,
+  lib: /^lib\/[^/]+\/[^/]+\.so$/,
+  jsBundle: /^assets\/index\.android\.bundle$/,
+  assets: /^assets\/.*\.(?:m?js|map)$/i,
+  signed: true,
+};
+
+const AAB: Layout = {
+  manifest: /^base\/manifest\/AndroidManifest\.xml$/,
+  parse: parseProtoXml,
+  dex: /^[^/]+\/dex\/classes\d*\.dex$/,
+  lib: /^[^/]+\/lib\/[^/]+\/[^/]+\.so$/,
+  jsBundle: /^base\/assets\/index\.android\.bundle$/,
+  assets: /^[^/]+\/assets\/.*\.(?:m?js|map)$/i,
+  signed: false,
+};
+
 export function analyzeApk(filePath: string): ApkResult | null {
+  return analyzeAndroidPackage(filePath, isAab(filePath) ? AAB : APK);
+}
+
+function analyzeAndroidPackage(filePath: string, layout: Layout): ApkResult | null {
   const size = statSync(filePath).size;
   const fd = openSync(filePath, "r");
   try {
     const entries = readZipEntries(fd, size);
-    const manifestEntry = entries.find((e) => e.name === "AndroidManifest.xml");
+    const manifestEntry = entries.find((e) => layout.manifest.test(e.name));
     if (!manifestEntry) return null;
 
     const read = (e: ZipEntry): Buffer | null => (e.uncompressedSize > MAX_ENTRY_BYTES ? null : extractZipEntry(fd, e));
@@ -40,28 +86,28 @@ export function analyzeApk(filePath: string): ApkResult | null {
 
     // ── Manifest ──
     const manifestBuf = read(manifestEntry);
-    const elements = manifestBuf ? parseAxml(manifestBuf) : null;
+    const elements = manifestBuf ? layout.parse(manifestBuf) : null;
     const manifest = elements?.find((e) => e.name === "manifest");
     const application = elements?.find((e) => e.name === "application");
     const packageName = String(manifest?.attributes.find((a) => a.name === "package")?.value ?? "");
-    if (!elements) notes.push("AndroidManifest.xml is not binary XML (unpacked or re-encoded APK?)");
+    if (!elements) notes.push(`${manifestEntry.name} could not be parsed (unpacked or re-encoded package?)`);
     if (packageName) notes.push(`package ${packageName}`);
 
     if (attribute(application, "debuggable")?.value === true) {
-      findings.push(finding("apk_debuggable", at("AndroidManifest.xml"), { match: 'android:debuggable="true"' }));
+      findings.push(finding("apk_debuggable", at(manifestEntry.name), { match: 'android:debuggable="true"' }));
     }
     if (attribute(application, "testOnly")?.value === true) {
-      findings.push(finding("apk_test_only", at("AndroidManifest.xml"), { match: 'android:testOnly="true"' }));
+      findings.push(finding("apk_test_only", at(manifestEntry.name), { match: 'android:testOnly="true"' }));
     }
     const allowBackup = attribute(application, "allowBackup");
     if (application && allowBackup?.value !== false) {
-      findings.push(finding("apk_allow_backup", at("AndroidManifest.xml"), {
+      findings.push(finding("apk_allow_backup", at(manifestEntry.name), {
         match: allowBackup ? 'android:allowBackup="true"' : "android:allowBackup not set (defaults to true)",
       }));
     }
 
     // ── Code: R8/ProGuard ──
-    const dexEntries = entries.filter((e) => /^classes\d*\.dex$/.test(e.name));
+    const dexEntries = entries.filter((e) => layout.dex.test(e.name));
     const descriptors: string[] = [];
     for (const e of dexEntries) {
       const buf = read(e);
@@ -90,7 +136,7 @@ export function analyzeApk(filePath: string): ApkResult | null {
     }
 
     // ── React Native / web assets ──
-    const jsBundle = entries.find((e) => e.name === "assets/index.android.bundle");
+    const jsBundle = entries.find((e) => layout.jsBundle.test(e.name));
     if (jsBundle) {
       const buf = read(jsBundle);
       if (buf && buf.subarray(0, 8).equals(HERMES_MAGIC)) {
@@ -101,14 +147,14 @@ export function analyzeApk(filePath: string): ApkResult | null {
         scannedFiles++;
       }
     }
-    const webAssets = entries.filter((e) => /^assets\/.*\.(?:m?js|map)$/i.test(e.name) && !e.name.includes("node_modules"));
+    const webAssets = entries.filter((e) => layout.assets.test(e.name) && !e.name.includes("node_modules"));
     if (webAssets.length > 0) {
       scannedFiles += webAssets.length;
       findings.push(...analyzeWebFiles(webAssets.map((e) => ({ key: e.name, display: at(e.name), size: e.uncompressedSize, read: () => read(e) }))));
     }
 
     // ── Native libraries ──
-    const libs = entries.filter((e) => /^lib\/[^/]+\/[^/]+\.so$/.test(e.name)).slice(0, MAX_NATIVE_LIBS);
+    const libs = entries.filter((e) => layout.lib.test(e.name)).slice(0, MAX_NATIVE_LIBS);
     const seen = new Set<string>();
     for (const e of libs) {
       const buf = read(e);
@@ -125,7 +171,16 @@ export function analyzeApk(filePath: string): ApkResult | null {
       }
     }
 
+    // ── Engines (Unity, Flutter) ──
+    const engine = frameworkChecks(entries.filter((e) => !e.name.endsWith("/")).map((e) => ({ key: e.name, display: at(e.name), size: e.uncompressedSize, read: () => read(e) })));
+    findings.push(...engine.findings);
+    notes.push(...engine.notes);
+
     // ── Signing ──
+    if (!layout.signed) {
+      notes.push("App Bundle: Google Play re-signs the APKs it generates, so signing is not judged here");
+      return { findings, notes, scannedFiles };
+    }
     const located = locateCentralDirectory(fd, size);
     const hasSigBlock = located !== null && located.cdOffset >= 16 && readAt(fd, located.cdOffset - 16, 16).toString("latin1") === APK_SIG_BLOCK_MAGIC;
     const hasV1 = entries.some((e) => /^META-INF\/[^/]+\.(?:RSA|DSA|EC)$/i.test(e.name));

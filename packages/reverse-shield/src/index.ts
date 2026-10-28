@@ -13,3 +13,7 @@ export { readAsar } from "./asar.js";
 export { analyzeElectron, detectElectron, parseFuseWire, readFuseWire, FUSE_SENTINEL } from "./electron.js";
 export { analyzeNative, detectNativeFormat } from "./native.js";
 export { registerTools } from "./server.js";
+export { applyIgnores, compareToBaseline, createBaseline, fingerprint, normalizeLocation, readBaseline, writeBaseline } from "./baseline.js";
+export type { Baseline, BaselineDiff } from "./baseline.js";
+export { formatFixReport, patchOf, suggestFixes, unifiedDiff } from "./fixes.js";
+export type { FixReport, FixSuggestion } from "./fixes.js";

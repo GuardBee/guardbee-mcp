@@ -275,6 +275,8 @@ function analyzeFat(buf: Buffer, file: string): NativeResult {
     // Every slice is usually built the same way; report each issue once.
     for (const f of result.findings) if (!seen.has(f.patternId)) seen.set(f.patternId, f);
   }
+  // A slice without any signature outweighs another slice's ad-hoc one.
+  if (seen.has("native_unsigned")) seen.delete("native_adhoc_signed");
   return { format: "fat-macho", findings: [...seen.values()], notes };
 }
 

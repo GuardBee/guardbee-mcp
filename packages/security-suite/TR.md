@@ -6,7 +6,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/security-suite.svg)](https://www.npmjs.com/package/@guardbee/security-suite)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Tüm GuardBee MCP güvenlik araçları tek kurulumla. `guardbee serve`, seçtiğiniz paketlerin tool'larını sunan tek bir MCP sunucusudur; `guardbee <paket> …` herhangi bir paketin CLI'ını çalıştırır. 30 paket, 127 MCP tool'u.
+Tüm GuardBee MCP güvenlik araçları tek kurulumla. `guardbee serve`, seçtiğiniz paketlerin tool'larını sunan tek bir MCP sunucusudur; `guardbee <paket> …` herhangi bir paketin CLI'ını çalıştırır. 30 paket, 128 MCP tool'u.
 
 > Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
@@ -29,7 +29,7 @@ Bu, **önerilen** seti (31 tool) sunar: tek geçişte OWASP MCP Top 10 taraması
 "args": ["-y", "@guardbee/security-suite", "serve", "--tools=recommended,network"]
 ```
 
-`--tools` virgülle ayrılmış grup adları ve paket kimlikleri ya da `all` alır (127 tool; Cursor dahil bazı istemciler tool sayısını sınırlar). `GUARDBEE_SUITE_TOOLS` ortam değişkeni de aynı işi yapar. Her tool'un adı paketinin önekiyle başlar, böylece iki paketin `scan_text` tool'u çakışmaz: `secrets_scan_text`, `injection_scan_text`. Bunu zaten söyleyen adlar olduğu gibi kalır (`owasp_scan_path`, `inspect_ssl`).
+`--tools` virgülle ayrılmış grup adları ve paket kimlikleri ya da `all` alır (128 tool; Cursor dahil bazı istemciler tool sayısını sınırlar). `GUARDBEE_SUITE_TOOLS` ortam değişkeni de aynı işi yapar. Her tool'un adı paketinin önekiyle başlar, böylece iki paketin `scan_text` tool'u çakışmaz: `secrets_scan_text`, `injection_scan_text`. Bunu zaten söyleyen adlar olduğu gibi kalır (`owasp_scan_path`, `inspect_ssl`).
 
 ## Gruplar
 
@@ -66,7 +66,7 @@ Bu, **önerilen** seti (31 tool) sunar: tek geçişte OWASP MCP Top 10 taraması
 | `unbounded-consumption-auditor` | `consumption_` | Denial of wallet: missing token limits, timeouts and loop bounds | code |
 | `threat-rules` | `threat_rules_` | Agent Threat Rules (ATR) on text, files and agent events | code |
 | `document-scanner` | `document_` | PII and credentials in PDFs and images (OCR) before they reach an LLM | code |
-| `reverse-shield` | `reverse_` | How easily a shipped app can be reverse engineered: source maps, obfuscation, debug info, Electron fuses, APK flags | code |
+| `reverse-shield` | `reverse_` | How easily a shipped app can be reverse engineered (web, Electron, APK/AAB, IPA, Unity, native); fix diffs, CI baselines | code |
 | `slopsquat-scanner` | `slopsquat_` | Hallucinated or brand-new package names (slopsquatting) | supply-chain |
 | `model-scanner` | `model_` | Malicious pickle, safetensors, Keras and ONNX model files | supply-chain |
 | `rug-pull-detector` | `rug_pull_` | MCP tool definitions that change after you approved them | supply-chain |

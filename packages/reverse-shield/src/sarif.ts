@@ -11,6 +11,7 @@ interface SarifRule {
 
 interface SarifResult {
   ruleId: string;
+  baselineState?: "new" | "unchanged";
   level: "error" | "warning" | "note";
   message: { text: string };
   locations?: Array<{
@@ -27,7 +28,8 @@ function severityToLevel(sev: string): "error" | "warning" | "note" {
   return "note";
 }
 
-export function buildSarif(toolVersion: string, findings: Finding[]): object {
+/** With `unchanged` (findings already in the baseline), each result carries SARIF's baselineState. */
+export function buildSarif(toolVersion: string, findings: Finding[], unchanged?: Set<Finding>): object {
   const rulesMap = new Map<string, SarifRule>();
   const results: SarifResult[] = [];
 
@@ -51,6 +53,7 @@ export function buildSarif(toolVersion: string, findings: Finding[]): object {
       level: severityToLevel(f.severity),
       message: { text: f.match ? `${f.patternName} — ${f.match} — ${f.recommendation}` : `${f.patternName} — ${f.recommendation}` },
     };
+    if (unchanged) result.baselineState = unchanged.has(f) ? "unchanged" : "new";
 
     if (f.file) {
       result.locations = [

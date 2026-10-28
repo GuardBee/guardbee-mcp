@@ -1,8 +1,10 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "fs";
 import { basename, join, relative, sep } from "path";
-import { analyzeApk, isApk } from "./apk.js";
+import { analyzeApk, isAab, isApk } from "./apk.js";
 import { readAsar } from "./asar.js";
 import { analyzeElectron, detectElectron } from "./electron.js";
+import { analyzeJar, frameworkChecks, isJar, pyinstallerCheck } from "./frameworks.js";
+import { analyzeIosAppDir, analyzeIpa, isIosAppDir, isIpa } from "./ios.js";
 import { bySeverity, grade } from "./finding.js";
 import type { Finding } from "./finding.js";
 import { readPrefix, walkFiles } from "./fsutil.js";
@@ -61,11 +63,17 @@ function analyzeNativeFile(path: string, c: Collector): boolean {
     c.notes.push(`${path}: ${format} binary larger than ${MAX_NATIVE_BYTES / 1024 / 1024} MiB, not parsed`);
     return true;
   }
-  const result = analyzeNative(readFileSync(path), path);
+  const buf = readFileSync(path);
+  const result = analyzeNative(buf, path);
   if (!result) return false;
   c.scannedFiles++;
   c.notes.push(...result.notes);
   c.add(result.findings, result.flavor === "dotnet" ? "dotnet" : "native");
+  if (result.flavor !== "dotnet") {
+    const py = pyinstallerCheck(buf, path);
+    c.notes.push(...py.notes);
+    c.add(py.findings);
+  }
   return true;
 }
 
@@ -79,6 +87,13 @@ function macMainExecutables(appDir: string): string[] {
 }
 
 function scanAppBundle(dir: string, c: Collector, maxFiles: number): void {
+  if (isIosAppDir(dir)) {
+    const result = analyzeIosAppDir(dir, maxFiles);
+    c.scannedFiles += result.scannedFiles;
+    c.notes.push(...result.notes);
+    c.add(result.findings, "ios");
+    return;
+  }
   const electron = detectElectron(dir);
   if (electron) {
     const result = analyzeElectron(electron, maxFiles);
@@ -91,10 +106,28 @@ function scanAppBundle(dir: string, c: Collector, maxFiles: number): void {
 }
 
 function scanFile(path: string, c: Collector): void {
-  if (isApk(path)) {
+  if (isJar(path)) {
+    const result = analyzeJar(path);
+    c.scannedFiles += result.scannedFiles;
+    c.notes.push(...result.notes);
+    c.add(result.findings);
+    return;
+  }
+  if (isIpa(path)) {
+    const result = analyzeIpa(path);
+    if (!result) {
+      c.notes.push(`${path}: no Payload/*.app inside, not an IPA`);
+      return;
+    }
+    c.scannedFiles += result.scannedFiles;
+    c.notes.push(...result.notes);
+    c.add(result.findings, "ios");
+    return;
+  }
+  if (isApk(path) || isAab(path)) {
     const result = analyzeApk(path);
     if (!result) {
-      c.notes.push(`${path}: no AndroidManifest.xml, not an APK`);
+      c.notes.push(`${path}: no AndroidManifest.xml, not an APK or App Bundle`);
       return;
     }
     c.scannedFiles += result.scannedFiles;
@@ -118,7 +151,7 @@ function scanFile(path: string, c: Collector): void {
     c.add(analyzeWebFiles([{ key: basename(path), display: path, size: statSync(path).size, read: () => readFileSync(path) }]), "web");
     return;
   }
-  if (!analyzeNativeFile(path, c)) c.notes.push(`${path}: not a recognised artifact (APK, ASAR, JavaScript, source map, ELF, Mach-O or PE)`);
+  if (!analyzeNativeFile(path, c)) c.notes.push(`${path}: not a recognised artifact (APK, AAB, IPA, JAR, ASAR, JavaScript, source map, ELF, Mach-O or PE)`);
 }
 
 function scanDir(root: string, c: Collector, options: ScanOptions, maxFiles: number): void {
@@ -128,6 +161,7 @@ function scanDir(root: string, c: Collector, options: ScanOptions, maxFiles: num
   }
 
   const web: ArtifactFile[] = [];
+  const all: ArtifactFile[] = [];
   const { truncated } = walkFiles(
     root,
     {
@@ -143,9 +177,10 @@ function scanDir(root: string, c: Collector, options: ScanOptions, maxFiles: num
     },
     (full) => {
       const key = relative(root, full).split(sep).join("/");
+      all.push({ key, display: full, size: statSync(full).size, read: () => readFileSync(full) });
       if (isWebAsset(key)) {
         web.push({ key, display: full, size: statSync(full).size, read: () => readFileSync(full) });
-      } else if (isApk(full) || /\.asar$/i.test(full)) {
+      } else if (isApk(full) || isAab(full) || isIpa(full) || isJar(full) || /\.asar$/i.test(full)) {
         scanFile(full, c);
       } else {
         analyzeNativeFile(full, c);
@@ -157,6 +192,9 @@ function scanDir(root: string, c: Collector, options: ScanOptions, maxFiles: num
     c.scannedFiles += web.length;
     c.add(analyzeWebFiles(web), "web");
   }
+  const engine = frameworkChecks(all);
+  c.notes.push(...engine.notes);
+  c.add(engine.findings);
 }
 
 /**
@@ -177,7 +215,9 @@ export function scanPath(target: string, options: ScanOptions = {}): ScanResult 
   else scanFile(path, c);
 
   if (c.truncated) c.notes.push(`Stopped after ${maxFiles} files; raise maxFiles to scan the rest.`);
-  const findings = c.findings.sort(bySeverity);
+  // Unity's Assembly-CSharp.dll gets the engine-specific finding; drop the generic .NET one for the same file.
+  const unityDlls = new Set(c.findings.filter((f) => f.patternId === "unity_mono_assemblies").map((f) => f.file));
+  const findings = c.findings.filter((f) => !(f.patternId === "dotnet_not_obfuscated" && unityDlls.has(f.file))).sort(bySeverity);
   return {
     target,
     kinds: [...c.kinds],

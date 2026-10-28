@@ -6,19 +6,26 @@ import { resolve, join } from "path";
 // reverse-shield:
 //   fail-on: high          # any | critical | high | medium | low | none
 //   max-files: 5000
+//   baseline: .reverse-shield-baseline.json
 //   exclude:
 //     - "vendor/"
+//   ignore:                # rule id, or rule:path-substring
+//     - bundle_secret:firebase-config.js
 
 export interface ReverseShieldConfig {
   failOn: string;
   maxFiles: number;
   exclude: string[];
+  ignore: string[];
+  baseline: string | null;
 }
 
 const DEFAULTS: ReverseShieldConfig = {
   failOn: "any",
   maxFiles: 5000,
   exclude: [],
+  ignore: [],
+  baseline: null,
 };
 
 function findConfigFile(startDir: string): string | null {
@@ -108,6 +115,8 @@ export function loadConfig(searchDir: string, cliOverrides: Partial<ReverseShiel
       if (typeof section["fail-on"] === "string") fileConfig.failOn = section["fail-on"];
       if (typeof section["max-files"] === "string") fileConfig.maxFiles = parseInt(section["max-files"], 10);
       if (Array.isArray(section["exclude"])) fileConfig.exclude = section["exclude"] as string[];
+      if (Array.isArray(section["ignore"])) fileConfig.ignore = section["ignore"] as string[];
+      if (typeof section["baseline"] === "string") fileConfig.baseline = section["baseline"];
     }
   } catch {
     // ignore parse errors, use defaults
