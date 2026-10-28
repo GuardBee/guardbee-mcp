@@ -2,13 +2,20 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
+import { applyIgnores, compareToBaseline, readBaseline } from "./baseline.js";
+import type { BaselineDiff } from "./baseline.js";
 import { scanUrl } from "./live.js";
 import { RULES } from "./rules.js";
 import { scanPath } from "./scanner.js";
 import type { ScanResult } from "./scanner.js";
 
-export function formatResult(result: ScanResult): string {
+export function formatResult(result: ScanResult, diff?: BaselineDiff): string {
   const lines: string[] = [];
+  if (diff) {
+    lines.push(`Compared to baseline (grade ${diff.previousGrade} → ${result.grade}): ${diff.added.length} new, ${diff.fixed.length} fixed, ${diff.unchanged.length} unchanged`);
+    for (const fp of diff.fixed) lines.push(`  fixed: ${fp.split("|").slice(0, 2).join(" ")}`);
+    lines.push("");
+  }
   const kinds = result.kinds.length > 0 ? result.kinds.join(", ") : "nothing recognised";
   if (result.findings.length === 0) {
     lines.push(`✅ Grade ${result.grade} — nothing handed to a reverse engineer for free. ${result.scannedFiles} file(s) checked (${kinds}) in ${result.durationMs}ms.`);
@@ -55,10 +62,15 @@ export function registerTools(server: McpServer): void {
       maxFiles: z.number().int().positive().optional().describe("Maximum number of files to check in a directory (default: 5000)"),
       include: z.array(z.string()).optional().describe("Only check files whose path contains one of these strings"),
       exclude: z.array(z.string()).optional().describe("Skip files/dirs whose path contains one of these strings"),
+      ignore: z.array(z.string()).optional().describe("Accepted findings to leave out: a rule id, or rule:path-substring (e.g. bundle_secret:firebase-config.js)"),
+      baseline: z.string().optional().describe("Path to a baseline written by `guardbee-reverse-shield scan --update-baseline`; the report then lists new and fixed findings"),
     },
-    async ({ path, maxFiles, include, exclude }) => {
+    async ({ path, maxFiles, include, exclude, ignore, baseline }) => {
       try {
-        return { content: [{ type: "text", text: formatResult(scanPath(path, { maxFiles, include, exclude })) }] };
+        const result = scanPath(path, { maxFiles, include, exclude });
+        applyIgnores(result, ignore ?? []);
+        const diff = baseline ? compareToBaseline(result, readBaseline(baseline)) : undefined;
+        return { content: [{ type: "text", text: formatResult(result, diff) }] };
       } catch (err) {
         return { isError: true, content: [{ type: "text", text: (err as Error).message }] };
       }
