@@ -128,7 +128,7 @@ describe("CLI baseline flow", () => {
     const sarif = JSON.parse(execFileSync(process.execPath, [cli, "scan", "dist", "--baseline=.reverse-shield-baseline.json", "--format=sarif", "--fail-on=none"], { cwd: project, encoding: "utf8" }));
     const states = sarif.runs[0].results.map((r: { ruleId: string; baselineState: string }) => `${r.ruleId}:${r.baselineState}`).sort();
     expect(states).toEqual(["bundle_secret:new", "internal_endpoint:unchanged"]);
-  });
+  }, 30_000); // five CLI processes: ~1 s each on a cold CI runner
 
   it("reads ignore and baseline from guardbee.yml", () => {
     const project = tmp();
@@ -139,5 +139,5 @@ describe("CLI baseline flow", () => {
     const r = run(["scan", "dist"], project);
     expect(r.status).toBe(0);
     expect(r.stdout).toContain("1 finding(s) suppressed by ignore rules");
-  });
+  }, 30_000);
 });
