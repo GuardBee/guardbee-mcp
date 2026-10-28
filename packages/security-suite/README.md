@@ -6,7 +6,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/security-suite.svg)](https://www.npmjs.com/package/@guardbee/security-suite)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/security-suite/LICENSE)
 
-Every GuardBee MCP security tool from one install. `guardbee serve` is one MCP server with the tools of the packages you pick; `guardbee <package> …` runs any package's CLI. 30 packages, 127 MCP tools.
+Every GuardBee MCP security tool from one install. `guardbee serve` is one MCP server with the tools of the packages you pick; `guardbee <package> …` runs any package's CLI. 30 packages, 128 MCP tools.
 
 > Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/telemetry/README.md).
 
@@ -29,7 +29,7 @@ That serves the **recommended** set (31 tools): a one-pass OWASP MCP Top 10 scan
 "args": ["-y", "@guardbee/security-suite", "serve", "--tools=recommended,network"]
 ```
 
-`--tools` takes group names and package ids, comma-separated, or `all` (127 tools; some clients cap the number of tools, Cursor among them). `GUARDBEE_SUITE_TOOLS` does the same as an environment variable. Each tool's name starts with its package's prefix, so two packages' `scan_text` tools do not collide: `secrets_scan_text`, `injection_scan_text`. Names that already say it stay as they are (`owasp_scan_path`, `inspect_ssl`).
+`--tools` takes group names and package ids, comma-separated, or `all` (128 tools; some clients cap the number of tools, Cursor among them). `GUARDBEE_SUITE_TOOLS` does the same as an environment variable. Each tool's name starts with its package's prefix, so two packages' `scan_text` tools do not collide: `secrets_scan_text`, `injection_scan_text`. Names that already say it stay as they are (`owasp_scan_path`, `inspect_ssl`).
 
 ## Groups
 
@@ -66,7 +66,7 @@ That serves the **recommended** set (31 tools): a one-pass OWASP MCP Top 10 scan
 | `unbounded-consumption-auditor` | `consumption_` | Denial of wallet: missing token limits, timeouts and loop bounds | code |
 | `threat-rules` | `threat_rules_` | Agent Threat Rules (ATR) on text, files and agent events | code |
 | `document-scanner` | `document_` | PII and credentials in PDFs and images (OCR) before they reach an LLM | code |
-| `reverse-shield` | `reverse_` | How easily a shipped app can be reverse engineered: source maps, obfuscation, debug info, Electron fuses, APK flags | code |
+| `reverse-shield` | `reverse_` | How easily a shipped app can be reverse engineered (web, Electron, APK/AAB, IPA, Unity, native); fix diffs, CI baselines | code |
 | `slopsquat-scanner` | `slopsquat_` | Hallucinated or brand-new package names (slopsquatting) | supply-chain |
 | `model-scanner` | `model_` | Malicious pickle, safetensors, Keras and ONNX model files | supply-chain |
 | `rug-pull-detector` | `rug_pull_` | MCP tool definitions that change after you approved them | supply-chain |

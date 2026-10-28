@@ -13,7 +13,9 @@ Claude ──► reverse-shield ──► 你的构建产物 / 线上站点
               │
               ├─ web       source map（随包发布、内联、可公开下载）、未压缩 / 开发版打包、密钥、内部主机
               ├─ electron  fuse（RunAsNode、--inspect、NODE_OPTIONS、ASAR 完整性）、未打包的应用代码、app.asar 内的代码
-              ├─ android   debuggable、未启用 R8/ProGuard、签名方案、备份、明文 React Native 包、未剥离符号的 .so
+              ├─ android   APK 与 AAB：debuggable、未启用 R8/ProGuard、签名方案、备份、明文 React Native 包、未剥离符号的 .so
+              ├─ ios       IPA 与 .app：以 Debug 配置构建、开发描述文件、明文 React Native 包、可执行文件
+              ├─ 引擎      Unity（IL2CPP 元数据、Mono 程序集）、PyInstaller、Java/Spring Boot JAR、Flutter
               ├─ native    调试信息、符号、get-task-allow、hardened runtime、签名、PIE/NX/RELRO/canary（ELF、Mach-O、PE）
               └─ .NET      未混淆、内嵌 PDB、泄露的构建路径
 ```
@@ -24,7 +26,8 @@ Claude ──► reverse-shield ──► 你的构建产物 / 线上站点
 
 | 工具 | 用途 |
 |---|---|
-| `scan_artifact` | 扫描文件或目录：APK、`.app`、Electron 目录、`app.asar`、ELF/Mach-O/PE/.NET 二进制、JS 打包文件、source map 或构建输出目录 |
+| `scan_artifact` | 扫描文件或目录：APK、AAB、IPA、iOS 或 macOS `.app`、Electron 目录、`app.asar`、JAR、ELF/Mach-O/PE/.NET 二进制、JS 打包文件、source map 或构建输出目录（含 Unity 与 Python 构建）。可选 `ignore` 与 `baseline` |
+| `suggest_fixes` | 读取项目构建配置（Vite、webpack、Next.js、Angular、CRA、Android Gradle 与清单、React Native、electron-builder / Forge、.NET 项目文件、Flutter），以 unified diff 形式返回修改建议，不写入任何文件 |
 | `scan_url` | 抓取线上页面，检查同站点的打包脚本，跟随 `sourceMappingURL` 并尝试 `<bundle>.map`（不抓取第三方脚本） |
 | `list_checks` | 检查项目录，包括每项泄露了什么以及如何修复 |
 
@@ -47,6 +50,8 @@ Claude ──► reverse-shield ──► 你的构建产物 / 线上站点
 npx @guardbee/mcp-reverse-shield scan ./dist --fail-on=high
 npx @guardbee/mcp-reverse-shield scan ./app/build/outputs/apk/release/app-release.apk
 npx @guardbee/mcp-reverse-shield scan https://app.example.com --format=sarif > reverse-shield.sarif
+npx @guardbee/mcp-reverse-shield scan ./dist --update-baseline        # 记录基线，之后用 --baseline=… 只对新增问题报错
+npx @guardbee/mcp-reverse-shield suggest . --format=patch | git apply  # 应用前请先审阅
 ```
 
 ## 限制
@@ -54,7 +59,7 @@ npx @guardbee/mcp-reverse-shield scan https://app.example.com --format=sarif > r
 - 混淆仅根据名称判断，不分析控制流：只做重命名的构建会通过，字符串加密或控制流平坦化不在衡量范围内。
 - Web 检查只看发布出去的内容，无法判断某个密钥是否本就应当公开（例如 Firebase Web 密钥在服务端受限）。
 - 原生加固检查（PIE/NX/RELRO/canary）更多是漏洞利用缓解信号，因此以 low/medium 报告。
-- 暂不解包 iOS `.ipa` 和 Android App Bundle（`.aab`）。
+- `suggest_fixes` 只处理各配置的常见写法；非常规结构不会生成 diff，Forge 与 Flutter 给出说明而非补丁。应用前务必审阅。
 
 ## 许可证
 

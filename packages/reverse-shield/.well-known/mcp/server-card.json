@@ -1,8 +1,8 @@
 {
   "serverInfo": {
     "name": "@guardbee/mcp-reverse-shield",
-    "version": "0.1.0",
-    "description": "MCP server that audits shipped apps for how easily they can be reverse engineered — exposed source maps, missing minification/R8/.NET obfuscation, debug info and unstripped symbols, debuggable flags, Electron fuses, unsigned binaries and embedded secrets across web bundles, Electron, Android APKs and native/.NET binaries"
+    "version": "0.1.1",
+    "description": "MCP server that audits shipped apps for how easily they can be reverse engineered — exposed source maps, missing minification/R8/.NET obfuscation, debug info and unstripped symbols, debuggable flags, Electron fuses, unsigned binaries and embedded secrets across web bundles, Electron, Android APK/AAB, iOS IPA, Unity, PyInstaller, Java and native/.NET binaries — with baselines for CI and build-config fix suggestions"
   },
   "tools": [
     {
@@ -34,6 +34,17 @@
             "items": {
               "type": "string"
             }
+          },
+          "ignore": {
+            "description": "Accepted findings to leave out: a rule id, or rule:path-substring (e.g. bundle_secret:firebase-config.js)",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "baseline": {
+            "description": "Path to a baseline written by `guardbee-reverse-shield scan --update-baseline`; the report then lists new and fixed findings",
+            "type": "string"
           }
         },
         "required": [
@@ -65,8 +76,24 @@
       }
     },
     {
+      "name": "suggest_fixes",
+      "description": "Read a project's build configuration (Vite, webpack, Next.js, Angular, Create React App, Android Gradle and manifest, React Native, electron-builder / Forge, .NET project files, Flutter) and propose the changes that close what scan_artifact reports: hidden source maps, minification, R8, debuggable and backup flags, Hermes, Electron fuses and ASAR, no embedded PDB. Returns unified diffs to review and apply (git apply); it never modifies files.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectPath": {
+            "type": "string",
+            "description": "Project source directory (not the build output)"
+          }
+        },
+        "required": [
+          "projectPath"
+        ]
+      }
+    },
+    {
       "name": "list_checks",
-      "description": "List every reverse-engineering resistance check, grouped by target (web, electron, android, native, dotnet), with what each finding gives away and how to fix it",
+      "description": "List every reverse-engineering resistance check, grouped by target (web, electron, android, ios, native, dotnet, framework), with what each finding gives away and how to fix it",
       "inputSchema": {
         "type": "object",
         "properties": {}
