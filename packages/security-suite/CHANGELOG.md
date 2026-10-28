@@ -1,5 +1,13 @@
 # @guardbee/security-suite
 
+## 0.5.1
+
+### Patch Changes
+
+- [#241](https://github.com/GuardBee/guardbee-mcp/pull/241) [`571d311`](https://github.com/GuardBee/guardbee-mcp/commit/571d311527260535d9b938ba2d952e6ddd587ae5) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Serve reverse-shield's new `reverse_suggest_fixes` tool (128 tools with `--tools=all`).
+- Updated dependencies [[`571d311`](https://github.com/GuardBee/guardbee-mcp/commit/571d311527260535d9b938ba2d952e6ddd587ae5)]:
+  - @guardbee/mcp-reverse-shield@0.2.0
+
 ## 0.5.0
 
 ### Minor Changes
