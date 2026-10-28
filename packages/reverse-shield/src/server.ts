@@ -111,11 +111,11 @@ export function registerTools(server: McpServer): void {
 
   server.tool(
     "list_checks",
-    "List every reverse-engineering resistance check, grouped by target (web, electron, android, native, dotnet), with what each finding gives away and how to fix it",
+    "List every reverse-engineering resistance check, grouped by target (web, electron, android, ios, native, dotnet, framework), with what each finding gives away and how to fix it",
     {},
     async () => {
       const lines = ["Reverse-engineering resistance checks:\n"];
-      for (const target of ["web", "electron", "android", "native", "dotnet"] as const) {
+      for (const target of ["web", "electron", "android", "ios", "native", "dotnet", "framework"] as const) {
         lines.push(`[${target}]`);
         for (const r of RULES.filter((rule) => rule.target === target)) {
           lines.push(`  • ${r.id} (${r.severity}, ${r.category}) — ${r.name}`);

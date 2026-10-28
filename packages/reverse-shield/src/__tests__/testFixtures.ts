@@ -478,3 +478,87 @@ export const READABLE_DOTNET_NAMES = [
   "TargetFrameworkAttribute", "AssemblyCompanyAttribute", "AssemblyProductAttribute", "AssemblyTitleAttribute", "LicenseApp",
   "System.Runtime", "System.Console", "<Module>", "<CurrentPlan>k__BackingField",
 ];
+
+// ── Protobuf manifest (App Bundle) ──────────────────────────────────────────
+
+function varint(n: number): Buffer {
+  const out: number[] = [];
+  do {
+    let b = n % 128;
+    n = Math.floor(n / 128);
+    if (n > 0) b |= 0x80;
+    out.push(b);
+  } while (n > 0);
+  return Buffer.from(out);
+}
+const pbBytes = (no: number, data: Buffer) => Buffer.concat([varint(no * 8 + 2), varint(data.length), data]);
+const pbString = (no: number, s: string) => pbBytes(no, Buffer.from(s, "utf8"));
+const pbVarint = (no: number, n: number) => Buffer.concat([varint(no * 8), varint(n)]);
+
+/** aapt2 XmlNode tree: elements nest by `children`, attributes carry their source text. */
+export interface ProtoElement {
+  name: string;
+  attrs?: Array<{ name: string; value: string; resourceId?: number }>;
+  children?: ProtoElement[];
+}
+
+export function buildProtoManifest(root: ProtoElement): Buffer {
+  const element = (e: ProtoElement): Buffer => {
+    const parts = [pbString(3, e.name)];
+    for (const a of e.attrs ?? []) {
+      parts.push(pbBytes(4, Buffer.concat([pbString(1, "http://schemas.android.com/apk/res/android"), pbString(2, a.name), pbString(3, a.value), ...(a.resourceId ? [pbVarint(5, a.resourceId)] : [])])));
+    }
+    for (const c of e.children ?? []) parts.push(pbBytes(5, pbBytes(1, element(c))));
+    return Buffer.concat(parts);
+  };
+  return pbBytes(1, element(root));
+}
+
+// ── Binary plist ────────────────────────────────────────────────────────────
+
+/** bplist00 for a flat dictionary of strings and booleans (Info.plist-like). */
+export function buildBinaryPlist(dict: Record<string, string | boolean>): Buffer {
+  const objects: Buffer[] = [];
+  const add = (b: Buffer) => objects.push(b) - 1;
+  const str = (s: string) => {
+    const body = Buffer.from(s, "latin1");
+    return add(Buffer.concat([body.length < 15 ? Buffer.from([0x50 | body.length]) : Buffer.from([0x5f, 0x10, body.length]), body]));
+  };
+  const entries = Object.entries(dict);
+  const dictIndex = add(Buffer.alloc(0)); // placeholder, filled below
+  const keyRefs = entries.map(([k]) => str(k));
+  const valRefs = entries.map(([, v]) => (typeof v === "boolean" ? add(Buffer.from([v ? 0x09 : 0x08])) : str(v)));
+  objects[dictIndex] = Buffer.concat([Buffer.from([0xd0 | entries.length]), Buffer.from(keyRefs), Buffer.from(valRefs)]);
+  let offset = 8;
+  const offsets: number[] = [];
+  for (const o of objects) {
+    offsets.push(offset);
+    offset += o.length;
+  }
+  const trailer = Buffer.alloc(32);
+  trailer[6] = 2;
+  trailer[7] = 1;
+  trailer.writeBigUInt64BE(BigInt(objects.length), 8);
+  trailer.writeBigUInt64BE(BigInt(dictIndex), 16);
+  trailer.writeBigUInt64BE(BigInt(offset), 24);
+  const table = Buffer.alloc(offsets.length * 2);
+  offsets.forEach((o, i) => table.writeUInt16BE(o, i * 2));
+  return Buffer.concat([Buffer.from("bplist00", "latin1"), ...objects, table, trailer]);
+}
+
+// ── Engines ─────────────────────────────────────────────────────────────────
+
+export function il2cppMetadata(version = 29, size = 256): Buffer {
+  const b = Buffer.alloc(size);
+  b.writeUInt32LE(0xfab11baf, 0);
+  b.writeUInt32LE(version, 4);
+  return b;
+}
+
+/** A stand-in PyInstaller executable: an ELF head, payload, then the CArchive cookie with the Python library name. */
+export function pyinstallerExe(payload = "", python = "libpython3.12.so.1.0"): Buffer {
+  const cookie = Buffer.alloc(88);
+  Buffer.from([0x4d, 0x45, 0x49, 0x0c, 0x0b, 0x0a, 0x0b, 0x0e]).copy(cookie, 0);
+  cookie.write(python, 24, "latin1");
+  return Buffer.concat([buildElf64({ type: "pie", sections: [], extra: "__stack_chk_fail" }), Buffer.from(payload, "latin1"), cookie]);
+}
