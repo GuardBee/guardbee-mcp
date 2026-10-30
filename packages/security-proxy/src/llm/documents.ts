@@ -1,15 +1,25 @@
 import type { LlmShape } from "./shapes.js";
 
 /**
- * PDFs sent inline in a request: OpenAI `file` parts and Responses
- * `input_file` parts with a `data:application/pdf;base64,` URL, Anthropic
- * `document` blocks with a base64 PDF source. A file id or URL is not
- * inline: the proxy cannot read it and it stays unmaskable.
+ * PDFs and images sent inline in a request.
+ *
+ * - PDFs: OpenAI `file` parts and Responses `input_file` parts with a
+ *   `data:application/pdf;base64,` URL, Anthropic `document` blocks with a
+ *   base64 PDF source. A file id or URL is not inline: the proxy cannot read
+ *   it and it stays unmaskable.
+ * - Images: OpenAI `image_url` parts and Responses `input_image` parts with a
+ *   `data:image/...;base64,` URL, Anthropic `image` blocks with a base64
+ *   source. An image given by URL or file id is not fetched.
  */
 
 type Json = Record<string, unknown>;
 
+export type DocumentModality = "pdf" | "image";
+
+const PDF_ONLY: ReadonlySet<DocumentModality> = new Set(["pdf"]);
+
 export interface InlineDocument {
+  modality: DocumentModality;
   /** File name or title when the client gave one, else its position. */
   label: string;
   /** Base64 bytes. */
@@ -21,30 +31,40 @@ export type DocumentMapper = (doc: InlineDocument, index: number, part: Json) =>
 
 const isObject = (value: unknown): value is Json => typeof value === "object" && value !== null && !Array.isArray(value);
 const PDF_DATA_URL = /^data:application\/pdf(?:;[^,;]*)*;base64,/i;
+const IMAGE_DATA_URL = /^data:image\/[\w.+-]+(?:;[^,;]*)*;base64,/i;
 
-function fromDataUrl(url: unknown): string | null {
+function fromDataUrl(url: unknown, pattern = PDF_DATA_URL): string | null {
   if (typeof url !== "string") return null;
-  const m = PDF_DATA_URL.exec(url);
+  const m = pattern.exec(url);
   return m ? url.slice(m[0].length) : null;
 }
 
 /**
- * Visit every inline PDF in a request body, in a fixed order, and replace
- * the ones `fn` returns a part for. The body is not changed in place.
+ * Visit every inline PDF (and image, when `modalities` has "image") in a
+ * request body, in a fixed order, and replace the ones `fn` returns a part
+ * for. The body is not changed in place.
  */
-export function mapDocuments(shape: LlmShape, body: Json, fn: DocumentMapper): Json {
+export function mapDocuments(shape: LlmShape, body: Json, fn: DocumentMapper, modalities: ReadonlySet<DocumentModality> = PDF_ONLY): Json {
   let index = 0;
-  const visit = (doc: InlineDocument, part: Json): Json | undefined => fn(doc, index++, part);
+  const visit = (doc: Omit<InlineDocument, "label"> & { label?: unknown }, part: Json): Json | undefined => {
+    if (!modalities.has(doc.modality)) return undefined;
+    const label = typeof doc.label === "string" && doc.label ? doc.label : `${doc.modality === "pdf" ? "file" : "image"} ${index + 1}`;
+    return fn({ modality: doc.modality, label, data: doc.data }, index++, part);
+  };
 
   if (shape === "openai") {
     const parts = (content: unknown): unknown =>
       Array.isArray(content)
         ? content.map((part) => {
-            if (!isObject(part) || part["type"] !== "file" || !isObject(part["file"])) return part;
+            if (!isObject(part)) return part;
+            if (part["type"] === "image_url" && isObject(part["image_url"])) {
+              const data = fromDataUrl(part["image_url"]["url"], IMAGE_DATA_URL);
+              return data === null ? part : (visit({ modality: "image", data }, part) ?? part);
+            }
+            if (part["type"] !== "file" || !isObject(part["file"])) return part;
             const data = fromDataUrl(part["file"]["file_data"]);
             if (data === null) return part;
-            const name = part["file"]["filename"];
-            return visit({ label: typeof name === "string" && name ? name : `file ${index + 1}`, data }, part) ?? part;
+            return visit({ modality: "pdf", label: part["file"]["filename"], data }, part) ?? part;
           })
         : content;
     if (!Array.isArray(body["messages"])) return body;
@@ -57,12 +77,17 @@ export function mapDocuments(shape: LlmShape, body: Json, fn: DocumentMapper): J
         ? content.map((block) => {
             if (!isObject(block)) return block;
             if (block["type"] === "tool_result") return { ...block, content: blocks(block["content"]) };
+            if (block["type"] === "image" && isObject(block["source"])) {
+              const source = block["source"];
+              if (source["type"] !== "base64" || typeof source["data"] !== "string") return block;
+              return visit({ modality: "image", data: source["data"] }, block) ?? block;
+            }
             if (block["type"] !== "document" || !isObject(block["source"])) return block;
             const source = block["source"];
             if (source["type"] === "content") return { ...block, source: { ...source, content: blocks(source["content"]) } };
             if (source["type"] !== "base64" || source["media_type"] !== "application/pdf" || typeof source["data"] !== "string") return block;
             const title = block["title"];
-            return visit({ label: typeof title === "string" && title ? title : `document ${index + 1}`, data: source["data"] }, block) ?? block;
+            return visit({ modality: "pdf", label: typeof title === "string" && title ? title : `document ${index + 1}`, data: source["data"] }, block) ?? block;
           })
         : content;
     const out: Json = { ...body };
@@ -75,11 +100,15 @@ export function mapDocuments(shape: LlmShape, body: Json, fn: DocumentMapper): J
     const parts = (content: unknown): unknown =>
       Array.isArray(content)
         ? content.map((part) => {
-            if (!isObject(part) || part["type"] !== "input_file") return part;
+            if (!isObject(part)) return part;
+            if (part["type"] === "input_image") {
+              const data = fromDataUrl(part["image_url"], IMAGE_DATA_URL);
+              return data === null ? part : (visit({ modality: "image", data }, part) ?? part);
+            }
+            if (part["type"] !== "input_file") return part;
             const data = fromDataUrl(part["file_data"]);
             if (data === null) return part;
-            const name = part["filename"];
-            return visit({ label: typeof name === "string" && name ? name : `file ${index + 1}`, data }, part) ?? part;
+            return visit({ modality: "pdf", label: part["filename"], data }, part) ?? part;
           })
         : content;
     if (!Array.isArray(body["input"])) return body;
@@ -99,12 +128,14 @@ export function mapDocuments(shape: LlmShape, body: Json, fn: DocumentMapper): J
 }
 
 /**
- * The text part each API takes in place of a document, so every check reads
- * the document's text. An Anthropic document keeps its title and context
+ * The text part each API takes in place of a document or image, so every
+ * check reads its text. An Anthropic document keeps its title and context
  * (both are checked as well) with a text source.
  */
 export function textPart(shape: LlmShape, text: string, original: Json): Json {
-  if (shape === "anthropic") return { ...original, source: { type: "text", media_type: "text/plain", data: text } };
+  if (shape === "anthropic") {
+    return original["type"] === "document" ? { ...original, source: { type: "text", media_type: "text/plain", data: text } } : { type: "text", text };
+  }
   if (shape === "responses") return { type: "input_text", text };
   return { type: "text", text };
 }

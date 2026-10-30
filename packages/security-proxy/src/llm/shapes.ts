@@ -83,7 +83,8 @@ const ANTHROPIC_MODEL_BLOCKS = /^(thinking|redacted_thinking|server_tool_use|mcp
 /**
  * What in a request the proxy cannot read, and so cannot mask: audio, files,
  * PDF documents, content shapes it does not know. Images are not on the
- * list: they are forwarded unchanged and the README says so. Empty: every
+ * list: they are forwarded unchanged, or read with OCR under
+ * llm.documents.images (llm/documents.ts). Empty: every
  * piece of text in the request goes through mapPrompt.
  */
 export function unmaskableParts(api: LlmShape, body: Json): string[] {

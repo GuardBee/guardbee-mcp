@@ -99,20 +99,28 @@ export interface LlmConfig {
   timeoutSeconds: number;
   /** Longest single text (message, part, tool result) the proxy masks; a longer one is refused with 413. */
   maxTextChars?: number;
-  /** Read inline PDFs instead of refusing them as unmaskable (llm/documents.ts). */
+  /** Read inline PDFs (and, with OCR, images) instead of refusing or passing them unchecked (llm/documents.ts). */
   documents?: LlmDocuments;
 }
 
 /**
- * PDFs in requests. With `pdf: true` an inline PDF's text is read and goes
- * through every prompt check; a PDF that is clean is forwarded unchanged, one
- * that holds PII the proxy would mask is refused (masking inside a PDF is not
- * possible), and one that cannot be read in full stays unmaskable (415).
+ * PDFs and images in requests. With `pdf: true` an inline PDF's text is
+ * read, with `images: true` an inline image's text is read with OCR, and that
+ * text goes through every prompt check. One that is clean is forwarded
+ * unchanged, one that holds PII the proxy would mask is refused (masking
+ * inside a PDF or an image is not possible), and one that cannot be read in
+ * full is unmaskable (415).
  */
 export interface LlmDocuments {
   pdf: boolean;
-  /** OCR pages without a text layer (needs tesseract.js and @napi-rs/canvas). Off: such pages make the PDF unreadable. */
+  /** OCR inline images (needs tesseract.js). Off: images are forwarded unchecked, as without llm.documents. */
+  images: boolean;
+  /** OCR PDF pages without a text layer (needs tesseract.js and @napi-rs/canvas). Off: such pages make the PDF unreadable. */
   ocr: boolean;
+  /** Tesseract languages for OCR. */
+  languages: string[];
+  /** A local folder with `<lang>.traineddata`, so OCR never downloads language data. */
+  langPath?: string;
   maxBytes: number;
   maxPages: number;
   timeoutSeconds: number;
@@ -185,7 +193,10 @@ export const llmSchema = z
     documents: z
       .object({
         pdf: z.boolean().default(false),
+        images: z.boolean().default(false),
         ocr: z.boolean().default(false),
+        languages: z.array(z.string().regex(/^[a-z_]{3,16}$/, "a Tesseract language code such as eng")).min(1).default(["tur", "eng"]),
+        langPath: z.string().min(1).optional(),
         maxBytes: z.number().int().positive().max(MAX_BODY_BYTES).default(20 * 1024 * 1024),
         maxPages: z.number().int().positive().default(50),
         timeoutSeconds: z.number().int().positive().default(30),
