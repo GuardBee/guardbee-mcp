@@ -26,13 +26,13 @@ import { orgPatternsFor, piiScopesFor } from "../gateway/pii-scope.js";
 import { PiiVault } from "../gateway/tokens.js";
 import type { AuditEvent } from "../types.js";
 import { BudgetStore, costOf, type LlmCaller, type LlmUsage } from "./budget.js";
-import { DEFAULT_MAX_TEXT_CHARS, type LlmApi, type LlmConfig, type LlmProvider } from "./config.js";
+import { DEFAULT_MAX_TEXT_CHARS, MAX_BODY_BYTES, type LlmApi, type LlmConfig, type LlmDocuments, type LlmProvider } from "./config.js";
 import { SseRelay, apiOf, errorBody, mapCompletion, mapPrompt, promptTexts, unmaskableParts, usageOf, type LlmShape } from "./shapes.js";
 import { SseRewriter, type RewritePrepare, type TextRewrite } from "./stream.js";
+import { base64Bytes, mapDocuments, textPart, type InlineDocument } from "./documents.js";
 
 type Json = Record<string, unknown>;
 
-const MAX_BODY_BYTES = 32 * 1024 * 1024;
 /** `guardbee` in a request body: the request's own block patterns (allow patterns are refused later, by name). */
 const requestPatternsSchema = z.object(orgPatternShape).strict();
 const PERSONAL_DATA = new Set<string>([...PERSONAL_DATA_CATEGORIES, ...MODEL_PII, ...SPECIAL_CATEGORIES]);
@@ -124,6 +124,64 @@ function sendJson(res: http.ServerResponse, status: number, body: unknown, heade
   res.end(JSON.stringify(body));
 }
 
+interface ReadDocument {
+  label: string;
+  bytes: number;
+  sha256: string;
+  pages: number;
+  /** The whole text, when every page was read. */
+  text?: string;
+  /** Why it was not read in full. */
+  unread?: string;
+}
+
+/**
+ * The inline PDFs of a request, in mapDocuments order, read with the
+ * document scanner. Anything short of every page's text — too large, not a
+ * PDF, encrypted, over maxPages, a page without a text layer and no OCR, an
+ * error, the time limit — leaves `text` unset: the document was not checked.
+ */
+async function readDocuments(shape: LlmShape, body: Json, config: LlmDocuments): Promise<ReadDocument[]> {
+  const found: InlineDocument[] = [];
+  mapDocuments(shape, body, (doc) => (found.push(doc), undefined));
+  if (found.length === 0) return [];
+  const { detectKind, extractText } = await import("@guardbee/mcp-document-scanner");
+  const out: ReadDocument[] = [];
+  for (const doc of found) {
+    const bytes = base64Bytes(doc.data);
+    if (bytes > config.maxBytes) {
+      out.push({ label: doc.label, bytes, sha256: "", pages: 0, unread: `${bytes} bytes, over llm.documents.maxBytes (${config.maxBytes})` });
+      continue;
+    }
+    const data = Buffer.from(doc.data, "base64");
+    const read: ReadDocument = { label: doc.label, bytes: data.length, sha256: createHash("sha256").update(data).digest("hex"), pages: 0 };
+    out.push(read);
+    if (detectKind(data.subarray(0, 16)) !== "pdf") {
+      read.unread = "the data is not a PDF";
+      continue;
+    }
+    let timer: NodeJS.Timeout | undefined;
+    try {
+      const extraction = await Promise.race([
+        extractText(new Uint8Array(data), { ocr: config.ocr, maxBytes: config.maxBytes, maxPages: config.maxPages }),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error(`reading took over ${config.timeoutSeconds} s (llm.documents.timeoutSeconds)`)), config.timeoutSeconds * 1000);
+          timer.unref();
+        }),
+      ]);
+      read.pages = extraction.pages.length;
+      if (extraction.notes.length > 0) read.unread = extraction.notes.join("; ");
+      else read.text = extraction.pages.map((page) => page.text).join("\n\n");
+    } catch (err) {
+      // pdf.js errors name the problem (PasswordException, InvalidPDFException) without quoting content
+      read.unread = err instanceof Error && err.message.includes("llm.documents") ? err.message : `could not be read (${err instanceof Error ? err.name : typeof err})`;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  return out;
+}
+
 /** The client's key: `Authorization: Bearer` (OpenAI SDKs) or `x-api-key` (Anthropic SDKs). */
 function presentedKey(req: http.IncomingMessage): string | null {
   const bearer = /^Bearer\s+(.+)$/i.exec(req.headers.authorization ?? "")?.[1]?.trim();
@@ -195,6 +253,8 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     const api = apiOf(shape);
     const caller = await identify(req);
     let body = await readBody(req);
+    /** What the checks read: the body, with each readable PDF's text in its place (step 0b). */
+    let checked: Json = body;
     const requested = body["model"];
     if (typeof requested !== "string" || requested === "") throw new HttpError(400, "model is required");
     let model = requested;
@@ -269,7 +329,7 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
       if (!ner) return undefined;
       if (!nameScan) {
         const texts: string[] = [];
-        mapPrompt(shape, body, (text) => (texts.push(text), text));
+        mapPrompt(shape, checked, (text) => (texts.push(text), text));
         nameScan = scanNames(nerDetectorFor(ner), texts);
       }
       try {
@@ -285,10 +345,26 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
       refuse(403, `model "${model}" is not allowed for ${caller.user ? `user "${caller.user}"` : "this key"} (llm.access)`, "llm:access");
     }
 
+    // 0b. Inline PDFs (llm.documents.pdf): their text takes their place in `checked`,
+    //     which every check below reads; the provider still gets the PDF itself.
+    //     One that cannot be read in full stays in place, and so stays unmaskable.
+    const documents = llm.documents?.pdf && shape !== "embeddings" ? await readDocuments(shape, body, llm.documents) : [];
+    const documentChecks = [
+      ...(shape !== "embeddings" && interceptors.promptInjection?.enabled !== false ? ["injection"] : []),
+      ...(interceptors.egressSecrets?.enabled !== false ? ["credentials"] : []),
+      ...((options.config.topics ?? []).length > 0 && options.config.rules.some((rule) => rule.match.topic !== undefined) ? ["topics"] : []),
+      ...(llm.sensitive ? ["sensitive-routing"] : []),
+      "pii",
+    ];
+    for (const doc of documents) {
+      if (doc.unread) log({ ...base, type: "warn", ruleId: "documents:unread", reason: `PDF "${doc.label}" not read: ${doc.unread}` });
+    }
+    checked = documents.length > 0 ? mapDocuments(shape, body, (_doc, i, part) => (documents[i]?.text !== undefined ? textPart(shape, documents[i]!.text!, part) : undefined)) : body;
+
     // 1. Prompt injection in what people and tools wrote. Text sent for embedding is
     //    not run by a model, and a document about injection must still be indexable.
     if (shape !== "embeddings" && interceptors.promptInjection?.enabled !== false) {
-      const scan = inspect(() => scanForPromptInjection(promptTexts(shape, body, UNTRUSTED_ROLES), interceptors.promptInjection?.action ?? "block"));
+      const scan = inspect(() => scanForPromptInjection(promptTexts(shape, checked, UNTRUSTED_ROLES), interceptors.promptInjection?.action ?? "block"));
       if (scan.action === "block") refuse(403, scan.reason, "llm:injection");
       if (scan.action === "warn") log({ ...base, type: "warn", ruleId: "llm:injection", reason: scan.reason });
     }
@@ -297,7 +373,7 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     const egress = interceptors.egressSecrets;
     if (egress?.enabled !== false) {
       const kinds = new Set<string>();
-      inspect(() => mapPrompt(shape, body, (text) => (maskPiiInText(text, (name, match) => (PERSONAL_DATA.has(name) ? match : (kinds.add(name), match))), text)));
+      inspect(() => mapPrompt(shape, checked, (text) => (maskPiiInText(text, (name, match) => (PERSONAL_DATA.has(name) ? match : (kinds.add(name), match))), text)));
       if (kinds.size > 0) {
         const reason = `credential in the prompt for ${model} (${[...kinds].join(", ")})`;
         if ((egress?.action ?? interceptors.promptInjection?.action ?? "block") === "block") refuse(403, reason, "llm:credential");
@@ -309,7 +385,7 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     let forceMask = false;
     const topics = options.config.topics ?? [];
     if (topics.length > 0 && options.config.rules.some((rule) => rule.match.topic !== undefined)) {
-      const found = inspect(() => detectTopics(promptTexts(shape, body, ALL_ROLES), topics).map((hit) => hit.id));
+      const found = inspect(() => detectTopics(promptTexts(shape, checked, ALL_ROLES), topics).map((hit) => hit.id));
       const decision = evaluateTopicRules(options.config.rules, {
         tool: base.tool,
         upstream: provider.name,
@@ -339,12 +415,12 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
       if (sensitive.on.pii) {
         const found = new Set<string>();
         const spans = await names();
-        inspect(() => mapPrompt(shape, body, (text) => (maskPiiInText(text, (name, match) => (PERSONAL_DATA.has(name) && found.add(name), match), detect, undefined, spans), text)));
+        inspect(() => mapPrompt(shape, checked, (text) => (maskPiiInText(text, (name, match) => (PERSONAL_DATA.has(name) && found.add(name), match), detect, undefined, spans), text)));
         why.push(...[...found].filter((category) => !sensitive.on.categories || sensitive.on.categories.includes(category)));
       }
       if (sensitive.on.topics) {
         const wanted = topics.filter((topic) => sensitive.on.topics!.includes(topic.id));
-        why.push(...inspect(() => detectTopics(promptTexts(shape, body, ALL_ROLES), wanted)).map((hit) => `topic ${hit.id}`));
+        why.push(...inspect(() => detectTopics(promptTexts(shape, checked, ALL_ROLES), wanted)).map((hit) => `topic ${hit.id}`));
       }
       if (why.length > 0) {
         const target = routeOf(api, sensitive.model);
@@ -370,18 +446,43 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     }
     if (masking) {
       // What the proxy cannot read, it cannot mask: refused, not forwarded
-      const unreadable = unmaskableParts(shape, body);
+      const unreadable = [...documents.filter((doc) => doc.unread).map((doc) => `PDF "${doc.label}" (${doc.unread})`), ...unmaskableParts(shape, checked)];
       if (unreadable.length > 0) {
         failClosed(415, FAIL_CLOSED.unmaskable, `the request holds content the proxy cannot mask: ${unreadable.join(", ")}`, "pii:unmaskable");
       }
       const limit = llm.maxTextChars ?? DEFAULT_MAX_TEXT_CHARS;
       let longest = 0;
-      mapPrompt(shape, body, (text) => ((longest = Math.max(longest, text.length)), text));
+      mapPrompt(shape, checked, (text) => ((longest = Math.max(longest, text.length)), text));
       if (longest > limit) {
         failClosed(413, FAIL_CLOSED.textTooLarge, `one text is ${longest} characters, over llm.maxTextChars (${limit}); split it into smaller messages or parts`, "pii:text-too-large");
       }
     }
     const spans = masking ? await names() : undefined;
+
+    // 2e. PII in a PDF is counted like any other; with masking on it refuses the
+    //     request, since the proxy cannot rewrite a PDF and will not send it unmasked.
+    const docHits: Record<string, number> = {};
+    const readDocs = documents.filter((doc) => doc.text !== undefined);
+    if (readDocs.length > 0) {
+      const { detect, mask } = piiScopesFor(interceptors.piiMasking, provider.name);
+      const maskable = new Set<string>();
+      for (const doc of readDocs) {
+        inspect(() =>
+          org.withEvents(orgEvent, () =>
+            maskPiiInText(doc.text!, (name, match) => {
+              const custom = org.categories.has(name);
+              const category = custom ? name : PERSONAL_DATA.has(name) ? name : "secret";
+              docHits[category] = (docHits[category] ?? 0) + 1;
+              if (custom || mask.has(name)) maskable.add(category);
+              return match;
+            }, detect, org, spans),
+          ),
+        );
+      }
+      if (masking && maskable.size > 0) {
+        refuse(403, `${readDocs.map((doc) => `PDF "${doc.label}"`).join(", ")} holds ${[...maskable].join(", ")}; the proxy cannot mask inside a PDF, so the request was not sent`, "pii:document");
+      }
+    }
 
     // 3. Budgets: only a request that is about to go out counts
     const over = await budgets.admit(llm.budgets, { ...caller, model });
@@ -411,8 +512,12 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
         return tokenize ? vault.tokenize(text, scopes.mask, org, spans) : redacted;
       }),
     );
+    for (const [category, n] of Object.entries(docHits)) hits[category] = (hits[category] ?? 0) + n;
     const piiHits = Object.keys(hits).length > 0 ? { piiHits: hits } : {};
-    log({ ...base, type: "tool_call", input: forward, ...piiHits, ...(routedFrom ? { llm: { model, routedFrom } } : {}) });
+    // The log keeps a placeholder with each PDF's hash, never its bytes
+    const logged = documents.length > 0 ? mapDocuments(shape, forward, (_doc, i, part) => textPart(shape, `[pdf "${documents[i]!.label}": ${documents[i]!.bytes} bytes, sha256 ${documents[i]!.sha256}]`, part)) : forward;
+    const documentsRead = readDocs.length > 0 ? { documents: readDocs.map((doc) => ({ name: doc.label, modality: "pdf" as const, bytes: doc.bytes, sha256: doc.sha256, pages: doc.pages, chars: doc.text!.length, checks: documentChecks })) } : {};
+    log({ ...base, type: "tool_call", input: logged, ...piiHits, ...documentsRead, ...(routedFrom ? { llm: { model, routedFrom } } : {}) });
 
     // 5. To the provider. The answer is rewritten when tokens must go back or
     //    responses are masked — a stream too, as it passes (llm/stream.ts).

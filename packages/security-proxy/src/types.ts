@@ -210,6 +210,12 @@ export type AuditEvent = {
    * only — never the values. Feeds the dashboard's KVKK report.
    */
   piiHits?: Record<string, number>;
+  /**
+   * Documents read in an LLM gateway request (llm.documents): what each was,
+   * how much text came out, and which checks ran over that text. Never the
+   * document itself; the logged input holds a placeholder with its hash.
+   */
+  documents?: { name: string; modality: "pdf"; bytes: number; sha256: string; pages: number; chars: number; checks: string[] }[];
   /** Token usage of an LLM gateway call, with its price when llm.pricing covers the model. */
   llm?: { model: string; routedFrom?: string; inputTokens?: number; outputTokens?: number; costUsd?: number };
   /** Hash chain: each event carries the previous event's hash. Set by AuditLogger. */

@@ -281,6 +281,23 @@ HTTP modunda proxy, uygulamalarınızla model sağlayıcıları (OpenAI, Anthrop
 
 Tam yapılandırma örneği için [README](README.md#llm-api-gateway) dosyasına bakın.
 
+### İsteklerdeki PDF'ler
+
+`llm.documents.pdf: true` ile istek içindeki bir PDF reddedilmek yerine okunur: `data:application/pdf;base64,` URL'li OpenAI `file` ve Responses `input_file` parçaları, base64 PDF kaynaklı Anthropic `document` blokları (mesajlarda, system prompt'ta ve tool sonuçlarında). Proxy PDF'in metin katmanını [`@guardbee/mcp-document-scanner`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/document-scanner) ile çıkarır ve bu metni, PDF'in yerine, yukarıdaki her adımdan geçirir: prompt injection, credential, konu kuralları, hassas yönlendirme ve PII.
+
+- **Temiz:** PDF sağlayıcıya değiştirilmeden gider.
+- **Proxy'nin maskeleyeceği kişisel veri:** `403` ile reddedilir (`ruleId: pii:document`), çünkü proxy bir PDF'i yeniden yazamaz ve maskesiz de göndermez. Mesaj kategorileri söyler, değerleri asla. `masking: off` olan bir route'ta veya `llm.sensitive` isteği kendi modelinize yönlendirdiğinde PDF iletilir ve PII'ı `piiHits`'te sayılır; `llm.sensitive` ile kişisel veri içeren bir PDF tam da içeride kalması gereken şeydir.
+- **Injection, credential, konu kuralları:** metindekiyle aynı retler (`llm:injection`, `llm:credential`, kuralın id'si).
+- **Tamamı okunamayan:** `maxBytes` veya `maxPages` üstü, aslında PDF olmayan, şifreli ya da bozuk, `timeoutSeconds`'tan uzun süren, ya da `ocr` kapalıyken metin katmanı olmayan bir sayfa içeren PDF. Sebebi anan `documents:unread` `warn` event'i yazılır ve PDF maskelenemez kalır: maskeleme uygulanıyorsa `415 guardbee_unmaskable_content`. Kısmen okunmuş bir PDF asla kontrol edilmiş sayılmaz.
+- **Audit:** `tool_call` event'inin `input`'unda PDF yerine `[pdf "<ad>": <bayt> bytes, sha256 <hash>]` durur. `documents` alanı okunan her PDF'i listeler: `{ name, modality: "pdf", bytes, sha256, pages, chars, checks }`; `checks` metni üzerinde çalışan kontrolleri adlandırır (`injection`, `credentials`, `topics`, `sensitive-routing`, `pii`).
+
+Henüz kapsanmayanlar: file id veya URL ile verilen PDF'ler (yine `415`), `ner:` modelinin PDF içindeki kişi adları, görseller ve ses. PDF okumak, PDF taşıyan her istekte süre ekler; `timeoutSeconds` ve `maxPages` bunu sınırlar.
+
+```yaml
+llm:
+  documents: { pdf: true, ocr: false, maxBytes: 20971520, maxPages: 50, timeoutSeconds: 30 }
+```
+
 ### Embeddings
 
 `POST /v1/embeddings` her girdi metnini embedding'den önce maskeler; vektörler olduğu gibi döner. Maskelenmiş metni indekslemeden önce bilinmesi gerekenler:
@@ -298,7 +315,7 @@ Gateway kapalı başarısız olur (fail closed): bir isteği kontrol edemediğin
 | Durum | Kod | Ne zaman | Audit `ruleId` |
 | --- | --- | --- | --- |
 | `502` | `guardbee_masking_failed` | Bir dedektör veya tarama hata fırlattı, bir block kalıbı zaman bütçesini aştı ya da isim modeli (`ner:`) yanıt vermedi. Çağrıdan önceki her kontrolü kapsar: injection, credential, konu, hassas yönlendirme, maskeleme. | `pii:masking-failed`, `pii:pattern-timeout`, `pii:ner-failed` |
-| `415` | `guardbee_unmaskable_content` | İstekte proxy'nin okuyamadığı içerik var: OpenAI `input_audio` veya `file` parçaları, kaynağı PDF (base64, url, file) olan Anthropic `document`, bilinmeyen parça/blok türü, metin ya da liste olmayan içerik. Mesaj bulunanı adıyla söyler. | `pii:unmaskable` |
+| `415` | `guardbee_unmaskable_content` | İstekte proxy'nin okuyamadığı içerik var: OpenAI `input_audio` veya `file` parçaları, kaynağı PDF (base64, url, file) olan Anthropic `document`, bilinmeyen parça/blok türü, metin ya da liste olmayan içerik. `llm.documents.pdf` ile istek içindeki PDF'ler okunur, yalnızca tamamı okunamayan reddedilir. Mesaj bulunanı adıyla söyler. | `pii:unmaskable` |
 | `413` | `guardbee_text_too_large` | Tek bir metin (mesaj, parça, tool sonucu) `llm.maxTextChars`'tan (varsayılan 2.000.000 karakter) uzun. Sınır istek başına değil metin başınadır: metni birkaç mesaja veya parçaya bölün. | `pii:text-too-large` |
 
 Reddedilmeyenler: görseller (`image_url`, Anthropic `image`) incelenmeden olduğu gibi iletilir; assistant turunda sağlayıcının kendi ürettiği bloklar (`thinking`, `redacted_thinking`, `server_tool_use`, `*_tool_result`) aynen geri gönderilir. `415` ve `413` yalnızca istek maskelendiğinde uygulanır: `piiMasking.enabled: false`, `masking: off` olan bir route veya `llm.sensitive` ile `mask: true` olmadan içeri yönlendirilen istek maskelenmez, maskelenemez diye de reddedilmez.
