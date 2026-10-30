@@ -55,7 +55,7 @@
     "@guardbee/mcp-unbounded-consumption-auditor": "workspace:^",
     "@guardbee/mcp-vector-store-scanner": "workspace:^",
     "@guardbee/mcp-vulnerability-scanner": "workspace:^",
-    "@modelcontextprotocol/sdk": "catalog:",
+    "@modelcontextprotocol/server": "catalog:",
     "zod": "catalog:"
   },
   "keywords": [
@@ -81,5 +81,8 @@
   },
   "engines": {
     "node": ">=22"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "catalog:"
   }
 }

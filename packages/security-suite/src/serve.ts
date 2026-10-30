@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { suiteToolName, type SuitePackage } from "./catalog.js";
 
@@ -15,7 +15,6 @@ function prefixed(server: McpServer, entry: SuitePackage): McpServer {
   };
   return new Proxy(server, {
     get(target, prop, receiver) {
-      if (prop === "tool") return (...args: unknown[]) => (target.tool as (...a: unknown[]) => unknown)(...rename(args));
       if (prop === "registerTool") return (...args: unknown[]) => (target.registerTool as (...a: unknown[]) => unknown)(...rename(args));
       const value = Reflect.get(target, prop, receiver);
       return typeof value === "function" ? value.bind(target) : value;

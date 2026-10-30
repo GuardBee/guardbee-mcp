@@ -1,5 +1,5 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
 import { parseNpmManifest } from "./parsers/npm.js";
@@ -36,14 +36,15 @@ async function audit(
 }
 
 export async function startServer() {
-  const server = new McpServer({
-    name: "guardbee-dependency-auditor",
-    version: "0.1.0",
+  serveStdio(() => {
+    const server = new McpServer({
+      name: "guardbee-dependency-auditor",
+      version: "0.1.0",
+    });
+    instrumentServer(server, "dependency-auditor");
+    registerTools(server);
+    return server;
   });
-  instrumentServer(server, "dependency-auditor");
-  registerTools(server);
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }
 
 /** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */

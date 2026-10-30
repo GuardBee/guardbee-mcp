@@ -34,7 +34,7 @@
   "dependencies": {
     "@guardbee/guard-core": "workspace:^",
     "@guardbee/mcp-telemetry": "workspace:^",
-    "@modelcontextprotocol/sdk": "catalog:",
+    "@modelcontextprotocol/server": "catalog:",
     "zod": "catalog:"
   },
   "keywords": [

@@ -1,5 +1,5 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
 import { auditCatalog, parseToolsJson, type AuditResult, type Finding } from "./analyzer.js";
@@ -34,14 +34,15 @@ function formatAudit(result: AuditResult, extra = ""): string {
 }
 
 export async function startServer() {
-  const server = new McpServer({
-    name: "guardbee-toxic-flow-auditor",
-    version: "0.1.0",
+  serveStdio(() => {
+    const server = new McpServer({
+      name: "guardbee-toxic-flow-auditor",
+      version: "0.1.0",
+    });
+    instrumentServer(server, "toxic-flow-auditor");
+    registerTools(server);
+    return server;
   });
-  instrumentServer(server, "toxic-flow-auditor");
-  registerTools(server);
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }
 
 /** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
@@ -119,7 +120,6 @@ export function registerTools(server: McpServer): void {
     "explain_trifecta",
     {
       description: "Explain the lethal trifecta / toxic-flow model this auditor uses",
-      inputSchema: {},
     },
     async () => ({
       content: [

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import type { GatewayConfig } from "../config";
 import type { DbAdapter } from "../types";
 import { GatewayPipeline } from "../gateway/pipeline";
@@ -88,7 +88,6 @@ export function registerDbTools(
     "list_tables",
     {
       description: "List all available database tables. Tables marked as 'deny' in gateway policy are omitted.",
-      inputSchema: {},
     },
     async () => {
       const allTables = await db.tables();
@@ -219,7 +218,6 @@ export function registerDbTools(
     "gateway_status",
     {
       description: "Show the active gateway configuration: field masking rules, table policies, and audit settings.",
-      inputSchema: {},
     },
     async () => {
       return {

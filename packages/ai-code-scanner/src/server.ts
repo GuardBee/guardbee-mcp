@@ -1,5 +1,5 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
 import { scanText, scanFile, scanDirectory } from "./scanner.js";
@@ -54,14 +54,15 @@ function loadServerPatterns(): { patterns: AiCodePattern[]; customCount: number;
 }
 
 export async function startServer() {
-  const server = new McpServer({
-    name: "guardbee-ai-code-scanner",
-    version: "0.1.0",
+  serveStdio(() => {
+    const server = new McpServer({
+      name: "guardbee-ai-code-scanner",
+      version: "0.1.0",
+    });
+    instrumentServer(server, "ai-code-scanner");
+    registerTools(server);
+    return server;
   });
-  instrumentServer(server, "ai-code-scanner");
-  registerTools(server);
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }
 
 /** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
@@ -134,7 +135,6 @@ export function registerTools(server: McpServer): void {
     "list_patterns",
     {
       description: "List all AI/LLM security patterns that the scanner can detect, grouped by category (including any custom rules loaded from .guardbee/rules)",
-      inputSchema: {},
     },
     async () => {
       const builtinIds = new Set(AI_CODE_PATTERNS.map((p) => p.id));

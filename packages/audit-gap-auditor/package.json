@@ -2,7 +2,7 @@
   "name": "@guardbee/mcp-audit-gap-auditor",
   "version": "0.3.2",
   "mcpName": "io.github.GuardBee/audit-gap-auditor",
-  "description": "MCP server that audits MCP server source for OWASP MCP08:2025 (Lack of Audit and Telemetry) — missing tool-call logging, raw args/results in logs, disabled audit sinks, and tool errors swallowed without a record",
+  "description": "MCP server that audits MCP server source for OWASP MCP08:2025 (Lack of Audit and Telemetry) \u2014 missing tool-call logging, raw args/results in logs, disabled audit sinks, and tool errors swallowed without a record",
   "type": "module",
   "bin": {
     "guardbee-audit-gap-auditor": "./dist/cli.js"
@@ -33,7 +33,7 @@
   },
   "dependencies": {
     "@guardbee/mcp-telemetry": "workspace:^",
-    "@modelcontextprotocol/sdk": "catalog:",
+    "@modelcontextprotocol/server": "catalog:",
     "zod": "catalog:"
   },
   "keywords": [

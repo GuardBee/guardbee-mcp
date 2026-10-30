@@ -1,7 +1,7 @@
 // An "agent" that calls the demo CRM through GuardBee, the way Claude or Cursor would.
 //   cd examples/demo && npm install && npm start
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { Client } from "@modelcontextprotocol/client";
+import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 
 const dim = (s) => `\x1b[2m${s}\x1b[0m`;
 const bold = (s) => `\x1b[1m${s}\x1b[0m`;
@@ -9,7 +9,8 @@ const green = (s) => `\x1b[32m${s}\x1b[0m`;
 const red = (s) => `\x1b[31m${s}\x1b[0m`;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const client = new Client({ name: "demo-agent", version: "1.0.0" });
+// Asks for MCP 2026-07-28 and falls back to the 2025 handshake
+const client = new Client({ name: "demo-agent", version: "1.0.0" }, { versionNegotiation: { mode: "auto" } });
 await client.connect(
   new StdioClientTransport({
     command: "npx",

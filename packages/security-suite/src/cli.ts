@@ -52,10 +52,9 @@ async function runServe(args: string[]): Promise<void> {
   const spec = args.find((a) => a.startsWith("--tools="))?.slice("--tools=".length) ?? process.env["GUARDBEE_SUITE_TOOLS"] ?? "recommended";
   const packages = selectPackages(spec);
   const { buildSuiteServer } = await import("./serve.js");
-  const { StdioServerTransport } = await import("@modelcontextprotocol/sdk/server/stdio.js");
-  const server = await buildSuiteServer(packages, getVersion());
+  const { serveStdio } = await import("@modelcontextprotocol/server/stdio");
   process.stderr.write(`[guardbee] serving ${packages.map((p) => p.id).join(", ")}\n`);
-  await server.connect(new StdioServerTransport());
+  serveStdio(() => buildSuiteServer(packages, getVersion()));
 }
 
 function printList(): void {

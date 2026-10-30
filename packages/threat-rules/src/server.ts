@@ -1,5 +1,5 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
 import { THREAT_CATEGORIES } from "@guardbee/guard-core";
@@ -72,14 +72,15 @@ async function runEval(
 }
 
 export async function startServer() {
-  const server = new McpServer({
-    name: "guardbee-threat-rules",
-    version: "0.1.0",
+  serveStdio(() => {
+    const server = new McpServer({
+      name: "guardbee-threat-rules",
+      version: "0.1.0",
+    });
+    instrumentServer(server, "threat-rules");
+    registerTools(server);
+    return server;
   });
-  instrumentServer(server, "threat-rules");
-  registerTools(server);
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }
 
 /** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
@@ -242,7 +243,6 @@ export function registerTools(server: McpServer): void {
     "explain_bridge",
     {
       description: "Explain how Agent Threat Rules (ATR) complements GuardBee static MCP auditors",
-      inputSchema: {},
     },
     async () => {
       const lines = [
@@ -266,7 +266,6 @@ export function registerTools(server: McpServer): void {
     "framework_map",
     {
       description: "Show how GuardBee's runtime findings map to OWASP Top 10 for LLM Applications (2025) and MITRE ATLAS — the mapping guardbee-proxy report uses",
-      inputSchema: {},
     },
     async () => {
       const lines = Object.values(THREAT_CATEGORIES).map(

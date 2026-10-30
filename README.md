@@ -10,6 +10,8 @@
 
 **Security for AI agents and MCP.** GuardBee puts a gateway between your agents and their tools and models that masks personal data and secrets, blocks prompt injection and toxic data flows, asks before risky calls and keeps a tamper-evident audit log, plus scanners that check your code and configs against the OWASP MCP Top 10. Open source (MIT), runs on your machine, no account needed.
 
+The gateway and every server speak MCP **2026-07-28** and **2025-11-25** (MCP TypeScript SDK v2), so they work with clients and servers on either revision.
+
 ```bash
 # Put your existing MCP servers behind the gateway (backs up your client config first)
 npx -y @guardbee/mcp-security-proxy@^1 init --client claude-desktop   # or cursor, claude-code

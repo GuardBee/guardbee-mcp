@@ -1,5 +1,5 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
 import { clientFromEnv, GuardBeeApiError } from "./client.js";
@@ -20,14 +20,15 @@ import {
 const FRAMEWORK_ENUM = ["KVKK", "GDPR", "CCPA"] as const;
 
 export async function startServer() {
-  const server = new McpServer({
-    name: "guardbee-compliance-checker",
-    version: "0.1.0",
+  serveStdio(() => {
+    const server = new McpServer({
+      name: "guardbee-compliance-checker",
+      version: "0.1.0",
+    });
+    instrumentServer(server, "compliance-checker");
+    registerTools(server);
+    return server;
   });
-  instrumentServer(server, "compliance-checker");
-  registerTools(server);
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }
 
 /** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
@@ -247,7 +248,6 @@ export function registerTools(server: McpServer): void {
     "compare_frameworks",
     {
       description: "Compare KVKK, GDPR, and CCPA requirements side by side to understand overlaps and gaps",
-      inputSchema: {},
     },
     async () => {
       const lines = [

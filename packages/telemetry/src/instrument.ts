@@ -1,4 +1,3 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { recordEvent } from "./client.js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -18,7 +17,8 @@ type AnyFn = (...args: any[]) => any;
  * callback'tir (bkz. SDK tip tanımları); SDK'da biri diğerini çağırmaz, bu
  * yüzden ikisini birden sarmak bir çağrıyı iki kez kaydetmez.
  */
-export function instrumentServer(server: McpServer, serverName: string): void {
+/** Any McpServer (SDK v1 or v2): only its registerTool / tool methods are touched. */
+export function instrumentServer(server: object, serverName: string): void {
   const target = server as unknown as Record<"tool" | "registerTool", AnyFn | undefined>;
   for (const method of ["registerTool", "tool"] as const) {
     const original = target[method]?.bind(server) as AnyFn | undefined;

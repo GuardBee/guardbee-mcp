@@ -6,6 +6,8 @@
 
 GuardBee 的 MCP（Model Context Protocol）服务器系列——一个 monorepo，各包独立发布到 npm。
 
+网关和所有服务器都支持 MCP **2026-07-28** 与 **2025-11-25**（MCP TypeScript SDK v2），可与任一版本的客户端和服务器配合使用。
+
 ## 包列表
 
 | 包 | npm | 说明 |

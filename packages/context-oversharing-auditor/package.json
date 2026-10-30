@@ -2,7 +2,7 @@
   "name": "@guardbee/mcp-context-oversharing-auditor",
   "version": "0.3.2",
   "mcpName": "io.github.GuardBee/context-oversharing-auditor",
-  "description": "MCP server that audits agent/MCP source for OWASP MCP10:2025 context oversharing — unrestricted session/memory dumps, cross-user shared context, system-prompt leakage via tools, and unscoped vector recalls",
+  "description": "MCP server that audits agent/MCP source for OWASP MCP10:2025 context oversharing \u2014 unrestricted session/memory dumps, cross-user shared context, system-prompt leakage via tools, and unscoped vector recalls",
   "type": "module",
   "bin": {
     "guardbee-context-oversharing-auditor": "./dist/cli.js"
@@ -33,7 +33,7 @@
   },
   "dependencies": {
     "@guardbee/mcp-telemetry": "workspace:^",
-    "@modelcontextprotocol/sdk": "catalog:",
+    "@modelcontextprotocol/server": "catalog:",
     "zod": "catalog:"
   },
   "keywords": [

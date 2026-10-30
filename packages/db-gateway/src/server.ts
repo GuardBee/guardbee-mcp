@@ -1,5 +1,5 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { loadConfig, type GatewayConfig } from "./config";
 import { registerDbTools, registerWriteTools } from "./tools/db-tools";
@@ -35,9 +35,7 @@ export async function startStdioServer(
   configOverrides?: Partial<GatewayConfig>,
   dbAdapter?: DbAdapter
 ): Promise<void> {
-  const server = createServer(configOverrides, dbAdapter);
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
+  serveStdio(() => createServer(configOverrides, dbAdapter));
   console.error(`[guardbee-gateway] MCP server started (stdio)`);
 }
 

@@ -1,5 +1,5 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
 import { PROBES } from "./probes.js";
@@ -70,14 +70,15 @@ function formatSuiteResult(result: SuiteResult): string {
 }
 
 export async function startServer() {
-  const server = new McpServer({
-    name: "guardbee-llm-redteam",
-    version: "0.1.0",
+  serveStdio(() => {
+    const server = new McpServer({
+      name: "guardbee-llm-redteam",
+      version: "0.1.0",
+    });
+    instrumentServer(server, "llm-redteam");
+    registerTools(server);
+    return server;
   });
-  instrumentServer(server, "llm-redteam");
-  registerTools(server);
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }
 
 /** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
@@ -86,7 +87,6 @@ export function registerTools(server: McpServer): void {
     "list_probes",
     {
       description: "List all red-team probes this tool can run against a target LLM/chatbot, grouped by category. Every probe is canary-based (safe) — none ask the target to produce genuinely harmful content.",
-      inputSchema: {},
     },
     async () => {
       const byCategory = new Map<string, typeof PROBES>();

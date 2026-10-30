@@ -3,18 +3,19 @@ import { mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { getDefaultEnvironment } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { getDefaultEnvironment } from "@modelcontextprotocol/client/stdio";
 import { baselineServer, checkServer } from "../core.js";
 import type { ConnectionTarget } from "../types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixturePath = join(__dirname, "fixtures", "mock-server.mjs");
 
-function targetFor(mode: "v1" | "v2"): ConnectionTarget {
+/** `modern`: the same server on SDK v2, which speaks MCP 2026-07-28. */
+function targetFor(mode: "v1" | "v2", modern = false): ConnectionTarget {
   return {
     type: "stdio",
     command: process.execPath,
-    args: [fixturePath],
+    args: [modern ? join(__dirname, "fixtures", "modern-mock-server.mjs") : fixturePath],
     env: { ...getDefaultEnvironment(), FIXTURE_MODE: mode },
   };
 }
@@ -93,4 +94,14 @@ describe("baselineServer + checkServer — gerçek stdio MCP server round trip",
     const result = await checkServer(targetFor("v1"), "server-b", baseDir);
     expect(result.isNewBaseline).toBe(true); // server-b hiç baseline'lanmamış, server-a'nınkiyle karışmadı
   }, 15000);
+});
+
+describe("MCP 2026-07-28 target", () => {
+  it("baselines and catches the same rug pull on a server that speaks 2026-07-28", async () => {
+    const baseDir = tempBaseDir();
+    await baselineServer(targetFor("v1", true), "fixture-server", baseDir);
+    const result = await checkServer(targetFor("v2", true), "fixture-server", baseDir);
+    expect(result.toolCount).toBe(2);
+    expect(result.findings.length).toBeGreaterThan(0);
+  }, 20000);
 });

@@ -2,7 +2,7 @@
   "name": "@guardbee/mcp-owasp-scan",
   "version": "0.4.0",
   "mcpName": "io.github.GuardBee/owasp-scan",
-  "description": "OWASP MCP Top 10 scanner: one CLI and MCP server that runs GuardBee's auditors over a codebase or a live MCP server, maps findings to MCP01–MCP10 and grades A–F",
+  "description": "OWASP MCP Top 10 scanner: one CLI and MCP server that runs GuardBee's auditors over a codebase or a live MCP server, maps findings to MCP01\u2013MCP10 and grades A\u2013F",
   "type": "module",
   "bin": {
     "guardbee-owasp-scan": "./dist/cli.js"
@@ -34,15 +34,16 @@
   "dependencies": {
     "@guardbee/guard-core": "workspace:^",
     "@guardbee/mcp-audit-gap-auditor": "workspace:^",
-    "@guardbee/mcp-context-oversharing-auditor": "workspace:^",
     "@guardbee/mcp-config-auditor": "workspace:^",
+    "@guardbee/mcp-context-oversharing-auditor": "workspace:^",
     "@guardbee/mcp-oauth-auditor": "workspace:^",
     "@guardbee/mcp-secret-scanner": "workspace:^",
     "@guardbee/mcp-server-auditor": "workspace:^",
     "@guardbee/mcp-telemetry": "workspace:^",
     "@guardbee/mcp-tool-poisoning-scanner": "workspace:^",
     "@guardbee/mcp-toxic-flow-auditor": "workspace:^",
-    "@modelcontextprotocol/sdk": "catalog:",
+    "@modelcontextprotocol/client": "catalog:",
+    "@modelcontextprotocol/server": "catalog:",
     "zod": "catalog:"
   },
   "keywords": [

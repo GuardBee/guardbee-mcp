@@ -10,6 +10,8 @@
 
 **AI ajanları ve MCP için güvenlik.** GuardBee, ajanlarınızla tool'ları ve modelleri arasına bir geçit koyar: kişisel veriyi ve secret'ları maskeler, prompt injection'ı ve zehirli veri akışlarını engeller, riskli çağrılardan önce sorar ve değiştirilemez bir audit log tutar. Yanında kodunuzu ve config'lerinizi OWASP MCP Top 10'a göre kontrol eden tarayıcılar var. Açık kaynak (MIT), kendi makinenizde çalışır, hesap gerekmez.
 
+Geçit ve tüm sunucular MCP **2026-07-28** ve **2025-11-25** konuşur (MCP TypeScript SDK v2); iki sürümdeki istemci ve sunucularla da çalışır.
+
 ```bash
 # Mevcut MCP sunucularınızı geçidin arkasına alın (önce istemci config'inizi yedekler)
 npx -y @guardbee/mcp-security-proxy@^1 init --client claude-desktop   # ya da cursor, claude-code

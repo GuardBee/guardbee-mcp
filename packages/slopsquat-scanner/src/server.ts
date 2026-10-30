@@ -1,5 +1,5 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
 import { scanNpm, scanPip, checkSinglePackage } from "./scanner.js";
@@ -36,14 +36,15 @@ function formatSingle(finding: Finding | null, name: string, ecosystem: string):
 }
 
 export async function startServer() {
-  const server = new McpServer({
-    name: "guardbee-slopsquat-scanner",
-    version: "0.1.0",
+  serveStdio(() => {
+    const server = new McpServer({
+      name: "guardbee-slopsquat-scanner",
+      version: "0.1.0",
+    });
+    instrumentServer(server, "slopsquat-scanner");
+    registerTools(server);
+    return server;
   });
-  instrumentServer(server, "slopsquat-scanner");
-  registerTools(server);
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }
 
 /** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */

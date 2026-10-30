@@ -1,5 +1,5 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { OPT_IN_PII, PERSONAL_DATA_CATEGORIES, PII_PATTERNS } from "@guardbee/guard-core";
 import { z } from "zod";
@@ -13,10 +13,12 @@ const common = {
 };
 
 export async function startServer(version = "0.1.0") {
-  const server = new McpServer({ name: "guardbee-document-scanner", version });
-  instrumentServer(server, "document-scanner");
-  registerTools(server);
-  await server.connect(new StdioServerTransport());
+  serveStdio(() => {
+    const server = new McpServer({ name: "guardbee-document-scanner", version });
+    instrumentServer(server, "document-scanner");
+    registerTools(server);
+    return server;
+  });
 }
 
 /** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
@@ -50,7 +52,6 @@ export function registerTools(server: McpServer): void {
     "list_detectors",
     {
       description: "List the PII and credential detectors this scanner runs",
-      inputSchema: {},
     },
     async () => {
     const personal = PERSONAL_DATA_CATEGORIES.map((c) => `  • ${c}${(OPT_IN_PII as readonly string[]).includes(c) ? " (opt-in)" : ""}`);

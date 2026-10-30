@@ -1,5 +1,5 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
 import {
@@ -17,14 +17,15 @@ import type { Finding } from "./dns.js";
 import * as dns from "dns/promises";
 
 export async function startServer() {
-  const server = new McpServer({
-    name: "guardbee-dns-intelligence",
-    version: "0.1.0",
+  serveStdio(() => {
+    const server = new McpServer({
+      name: "guardbee-dns-intelligence",
+      version: "0.1.0",
+    });
+    instrumentServer(server, "dns-intelligence");
+    registerTools(server);
+    return server;
   });
-  instrumentServer(server, "dns-intelligence");
-  registerTools(server);
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }
 
 /** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */

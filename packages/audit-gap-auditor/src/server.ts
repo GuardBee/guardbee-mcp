@@ -1,5 +1,5 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
 import { scanText, scanFile, scanDirectory } from "./scanner.js";
@@ -33,14 +33,15 @@ function formatFindings(findings: Finding[], scannedFiles: number, durationMs: n
 }
 
 export async function startServer() {
-  const server = new McpServer({
-    name: "guardbee-audit-gap-auditor",
-    version: "0.1.0",
+  serveStdio(() => {
+    const server = new McpServer({
+      name: "guardbee-audit-gap-auditor",
+      version: "0.1.0",
+    });
+    instrumentServer(server, "audit-gap-auditor");
+    registerTools(server);
+    return server;
   });
-  instrumentServer(server, "audit-gap-auditor");
-  registerTools(server);
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }
 
 /** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
@@ -96,7 +97,6 @@ export function registerTools(server: McpServer): void {
     "list_patterns",
     {
       description: "List every OWASP MCP08 audit-gap check this auditor runs",
-      inputSchema: {},
     },
     async () => {
       const lines = ["Supported MCP08 audit-gap checks:\n"];
