@@ -7,7 +7,7 @@
 
 > Este é um resumo curto. A documentação completa (em inglês) está em [README.md](README.md).
 
-Todas as ferramentas de segurança MCP da GuardBee em uma só instalação: um servidor MCP com as ferramentas dos pacotes que você escolher e uma CLI que executa qualquer pacote. 30 pacotes, 128 ferramentas MCP.
+Todas as ferramentas de segurança MCP da GuardBee em uma só instalação: um servidor MCP com as ferramentas dos pacotes que você escolher e uma CLI que executa qualquer pacote. 30 pacotes, 129 ferramentas MCP.
 
 > A telemetria vem **desativada** por padrão. Com `GUARDBEE_TELEMETRY=1`, são enviados o servidor, a ferramenta, o sucesso, a duração e valores curtos de parâmetros, como um caminho de arquivo; textos mais longos e campos como `content`, `token` ou `password` são substituídos por um marcador. Veja [`@guardbee/mcp-telemetry`](../telemetry/PT-BR.md).
 
@@ -19,7 +19,7 @@ npm install -g @guardbee/security-suite
 
 ## Ferramentas MCP
 
-`guardbee serve` oferece por padrão o grupo **recommended** (31 ferramentas): varredura OWASP MCP Top 10 de uma vez, segredos, prompt injection, fluxos tóxicos, configs de clientes MCP e CVEs de dependências. Escolha outros com `--tools=code,network` (grupos ou ids de pacotes) ou `--tools=all` (128 ferramentas). Os nomes das ferramentas levam o prefixo do pacote: `secrets_scan_text`, `injection_scan_text`. `guardbee list` mostra pacotes e grupos.
+`guardbee serve` oferece por padrão o grupo **recommended** (31 ferramentas): varredura OWASP MCP Top 10 de uma vez, segredos, prompt injection, fluxos tóxicos, configs de clientes MCP e CVEs de dependências. Escolha outros com `--tools=code,network` (grupos ou ids de pacotes) ou `--tools=all` (129 ferramentas). Os nomes das ferramentas levam o prefixo do pacote: `secrets_scan_text`, `injection_scan_text`. `guardbee list` mostra pacotes e grupos.
 
 ```json
 { "mcpServers": { "guardbee": { "command": "npx", "args": ["-y", "@guardbee/security-suite", "serve", "--tools=recommended"] } } }

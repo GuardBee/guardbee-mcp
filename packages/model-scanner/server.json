@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.GuardBee/model-scanner",
-  "description": "Scans ML model files (PyTorch, safetensors, Keras, ONNX) for supply-chain risks",
+  "description": "Scans ML model files (PyTorch, joblib, NumPy, GGUF, TensorFlow…) and HF repos for supply-chain risks",
   "repository": {
     "url": "https://github.com/GuardBee/guardbee-mcp",
     "source": "github",

@@ -2,7 +2,7 @@
   "name": "@guardbee/mcp-model-scanner",
   "version": "0.3.1",
   "mcpName": "io.github.GuardBee/model-scanner",
-  "description": "MCP server that scans ML model files (PyTorch, pickle, safetensors, Keras/H5, ONNX) for supply-chain risks \u2014 malicious pickle deserialization gadgets, disguised/malformed safetensors headers, Keras Lambda-layer RCE, and ONNX external-data path traversal",
+  "description": "MCP server that scans ML model files (PyTorch, pickle, joblib, dill, NumPy, safetensors, Keras, ONNX, GGUF, TensorFlow) and Hugging Face repos for supply-chain risks \u2014 malicious pickle gadgets, disguised or malformed headers, Keras Lambda-layer RCE, GGUF chat-template injection, and graph ops that touch files",
   "type": "module",
   "bin": {
     "guardbee-model-scanner": "./dist/cli.js"
@@ -45,6 +45,10 @@
     "supply-chain",
     "pickle",
     "safetensors",
+    "joblib",
+    "gguf",
+    "tensorflow",
+    "huggingface",
     "guardbee",
     "devtools"
   ],

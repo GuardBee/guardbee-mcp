@@ -5,6 +5,11 @@ import { scanSafetensorsFile } from "./safetensorsScanner.js";
 import { scanH5File } from "./h5Scanner.js";
 import { scanOnnxFile } from "./onnxScanner.js";
 import { readZipEntries, extractZipEntry } from "./zip.js";
+import { scanJoblibFile } from "./joblibScanner.js";
+import { scanNpyFile, scanNpzFile } from "./numpyScanner.js";
+import { scanGgufFile } from "./ggufScanner.js";
+import { kerasConfigFindings } from "./h5Scanner.js";
+import { scanTensorflowGraph, scanTfliteFile } from "./tensorflowScanner.js";
 
 export interface Finding {
   patternId: string;
@@ -34,7 +39,14 @@ const MAX_ZIP_ENTRY_BYTES = 50 * 1024 * 1024;
 const MODEL_EXTENSIONS = new Set([
   ".pkl", ".pickle", ".pt", ".pth", ".ckpt", ".bin",
   ".safetensors", ".h5", ".hdf5", ".keras", ".onnx",
+  ".joblib", ".jbl", ".dill", ".npy", ".npz", ".gguf",
+  ".pb", ".pbtxt", ".tflite",
 ]);
+
+/** Whether a path has an extension this scanner handles. */
+export function isModelFile(path: string): boolean {
+  return MODEL_EXTENSIONS.has(extname(path).toLowerCase());
+}
 
 const SKIP_DIRS = new Set([
   "node_modules", ".git", ".svn", "dist", "build", ".next",
@@ -64,6 +76,14 @@ function scanZipModel(filePath: string): { findings: Finding[]; skipped: boolean
   const fd = openSync(filePath, "r");
   try {
     const entries = readZipEntries(fd, fileSize);
+    const kerasConfig = extname(filePath).toLowerCase() === ".keras" ? entries.find((e) => e.name === "config.json") : undefined;
+    if (kerasConfig) {
+      const config = kerasConfig.uncompressedSize <= MAX_ZIP_ENTRY_BYTES ? extractZipEntry(fd, kerasConfig) : null;
+      if (!config) {
+        return { findings: [infoFinding("keras_config_unreadable", "Could not read config.json from the .keras archive", "The model config was not checked for Lambda layers. Investigate manually.", filePath, "medium")], skipped: false, format: "keras-v3" };
+      }
+      return { findings: kerasConfigFindings(config.toString("utf8"), filePath), skipped: false, format: "keras-v3" };
+    }
     const dataPkl = entries.find((e) => e.name === "data.pkl" || e.name.endsWith("/data.pkl"));
 
     if (!dataPkl) {
@@ -127,8 +147,27 @@ export function scanModelFile(filePath: string): { findings: Finding[]; skipped:
   }
   if (!stat.isFile() || stat.size === 0) return { findings: [], skipped: true, format: "empty" };
 
-  const { buf: sniff } = readPrefix(filePath, 4);
-  if (sniff.length === 4 && sniff[0] === 0x50 && sniff[1] === 0x4b && sniff[2] === 0x03 && sniff[3] === 0x04) {
+  const { buf: sniff } = readPrefix(filePath, 6);
+  if (ext === ".gguf" || sniff.toString("latin1", 0, 4) === "GGUF") {
+    return { findings: scanGgufFile(filePath), skipped: false, format: "gguf" };
+  }
+  if (ext === ".npz") {
+    return { findings: scanNpzFile(filePath), skipped: false, format: "numpy-npz" };
+  }
+  if (ext === ".npy" || sniff.toString("latin1", 1, 6) === "NUMPY") {
+    return { findings: scanNpyFile(filePath), skipped: false, format: "numpy-npy" };
+  }
+  if (ext === ".joblib" || ext === ".jbl") {
+    return { findings: scanJoblibFile(filePath), skipped: false, format: "joblib" };
+  }
+  if (ext === ".pb" || ext === ".pbtxt") {
+    const findings = scanTensorflowGraph(filePath);
+    return findings ? { findings, skipped: false, format: "tensorflow" } : { findings: [], skipped: true, format: "not-a-tensorflow-graph" };
+  }
+  if (ext === ".tflite") {
+    return { findings: scanTfliteFile(filePath), skipped: false, format: "tflite" };
+  }
+  if (sniff.length >= 4 && sniff[0] === 0x50 && sniff[1] === 0x4b && sniff[2] === 0x03 && sniff[3] === 0x04) {
     return scanZipModel(filePath);
   }
 
@@ -142,13 +181,19 @@ export function scanModelFile(filePath: string): { findings: Finding[]; skipped:
     return { findings: scanOnnxFile(filePath), skipped: false, format: "onnx" };
   }
 
-  // Remaining candidates (.pkl/.pickle/.pt/.pth/.ckpt/.bin) are treated as a
-  // raw (non-zip, legacy torch.save) pickle stream.
+  // Remaining candidates (.pkl/.pickle/.pt/.pth/.ckpt/.bin/.dill) are treated
+  // as a raw (non-zip, legacy torch.save) pickle stream.
   const { buf, fileSize } = readPrefix(filePath, MAX_PICKLE_SCAN_BYTES);
 
   const looksLikePickle = buf.length > 0 && [0x80, 0x28, 0x63, 0x7d, 0x5d, 0x8c].includes(buf[0]);
   if (!looksLikePickle) {
     return { findings: [], skipped: true, format: "not-a-pickle" };
+  }
+
+  // joblib.dump output saved under a pickle extension: array bytes follow
+  // each NumpyArrayWrapper, which only the joblib walker can step over.
+  if (buf.includes("NumpyArrayWrapper") && buf.includes("numpy_pickle")) {
+    return { findings: scanJoblibFile(filePath), skipped: false, format: "joblib" };
   }
 
   const note = fileSize > buf.length ? `scanned first ${(buf.length / 1024 / 1024).toFixed(1)}MB of ${(fileSize / 1024 / 1024).toFixed(1)}MB` : undefined;
@@ -163,7 +208,7 @@ export function scanModelFile(filePath: string): { findings: Finding[]; skipped:
     ));
   }
 
-  return { findings, skipped: false, format: "pickle" };
+  return { findings, skipped: false, format: ext === ".dill" ? "dill" : "pickle" };
 }
 
 export function scanDirectory(

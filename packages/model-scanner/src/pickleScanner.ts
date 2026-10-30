@@ -1,4 +1,6 @@
+import { ByteSource } from "./byteSource.js";
 import { classifyGlobal } from "./dangerousGlobals.js";
+import { runPickle } from "./pickleVm.js";
 import type { Finding } from "./scanner.js";
 
 const MAX_STRING_ARG = 1_000_000; // guard against a single opcode arg claiming an absurd length
@@ -274,7 +276,15 @@ export function scanPickleBuffer(
   filePath: string | undefined,
   note?: string
 ): { findings: Finding[]; truncated: boolean; globalsFound: number } {
-  const { globals, truncated } = disassemblePickle(buf);
+  // The VM follows the pickle stack, so STACK_GLOBAL resolves to the strings
+  // actually on it, including ones fetched back from the memo (BINGET), which
+  // the disassembler's recent-strings window gets wrong on numpy 2 pickles.
+  const run = runPickle(ByteSource.fromBuffer(buf), 0);
+  return { findings: findingsForGlobals(run.globals, filePath, note), truncated: !run.stopped, globalsFound: run.globals.length };
+}
+
+/** Findings for the globals a pickle stream references: dangerous ones by rule, unrecognized ones for review. */
+export function findingsForGlobals(globals: GlobalRef[], filePath: string | undefined, note?: string): Finding[] {
   const findings: Finding[] = [];
 
   for (const g of globals) {
@@ -313,5 +323,5 @@ export function scanPickleBuffer(
     }
   }
 
-  return { findings, truncated, globalsFound: globals.length };
+  return findings;
 }

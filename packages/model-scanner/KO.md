@@ -4,7 +4,7 @@
 
 > 이 문서는 짧은 요약입니다. 전체 문서(영어)는 [README.md](README.md)를 참고하세요.
 
-ML 모델 파일(PyTorch, pickle, safetensors, Keras/H5, ONNX)의 공급망 위험을 검사합니다: 악성 pickle 가젯, 위장된 safetensors 헤더, Keras Lambda 레이어 RCE, ONNX 외부 데이터 경로 조작.
+ML 모델 파일(PyTorch, pickle, joblib, dill, NumPy, safetensors, Keras/H5, ONNX, GGUF, TensorFlow)과 Hugging Face 저장소의 공급망 위험을 검사합니다: 악성 pickle 가젯, 위장된 safetensors 헤더, Keras Lambda 레이어 RCE, ONNX 외부 데이터 경로 조작, GGUF 채팅 템플릿 인젝션, 파일을 읽거나 쓰는 TensorFlow 연산.
 
 ## 설치
 
@@ -30,7 +30,7 @@ Claude Desktop:
 
 ## MCP 도구
 
-`scan_file`, `scan_directory`, `list_patterns`
+`scan_file`, `scan_directory`, `scan_hf_repo`, `list_patterns`
 
 각 도구의 자세한 설명은 [README.md](README.md)에 있습니다.
 

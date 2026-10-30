@@ -4,7 +4,7 @@
 
 > これは短い概要です。完全なドキュメント（英語）は [README.md](README.md) をご覧ください。
 
-ML モデルファイル（PyTorch、pickle、safetensors、Keras/H5、ONNX）のサプライチェーンリスクを検査します：悪意ある pickle ガジェット、偽装された safetensors ヘッダー、Keras Lambda 層による RCE、ONNX の外部データのパストラバーサル。
+ML モデルファイル（PyTorch、pickle、joblib、dill、NumPy、safetensors、Keras/H5、ONNX、GGUF、TensorFlow）と Hugging Face リポジトリのサプライチェーンリスクを検査します：悪意ある pickle ガジェット、偽装された safetensors ヘッダー、Keras Lambda 層による RCE、ONNX の外部データのパストラバーサル、GGUF チャットテンプレートへのインジェクション、ファイルを読み書きする TensorFlow 演算。
 
 ## インストール
 
@@ -30,7 +30,7 @@ Claude Desktop:
 
 ## MCP ツール
 
-`scan_file`, `scan_directory`, `list_patterns`
+`scan_file`, `scan_directory`, `scan_hf_repo`, `list_patterns`
 
 各ツールの詳細は [README.md](README.md) を参照してください。
 

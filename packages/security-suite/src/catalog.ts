@@ -44,7 +44,7 @@ export const PACKAGES: SuitePackage[] = [
   { id: "document-scanner", pkg: "@guardbee/mcp-document-scanner", prefix: "document", summary: "PII and credentials in PDFs and images (OCR) before they reach an LLM", groups: ["code"] },
   { id: "reverse-shield", pkg: "@guardbee/mcp-reverse-shield", prefix: "reverse", summary: "How easily a shipped app can be reverse engineered (web, Electron, APK/AAB, IPA, Unity, native); fix diffs, CI baselines", groups: ["code"] },
   { id: "slopsquat-scanner", pkg: "@guardbee/mcp-slopsquat-scanner", prefix: "slopsquat", summary: "Hallucinated or brand-new package names (slopsquatting)", groups: ["supply-chain"] },
-  { id: "model-scanner", pkg: "@guardbee/mcp-model-scanner", prefix: "model", summary: "Malicious pickle, safetensors, Keras and ONNX model files", groups: ["supply-chain"] },
+  { id: "model-scanner", pkg: "@guardbee/mcp-model-scanner", prefix: "model", summary: "Malicious pickle, joblib, NumPy, safetensors, Keras, ONNX, GGUF and TensorFlow model files, and Hugging Face repos", groups: ["supply-chain"] },
   { id: "rug-pull-detector", pkg: "@guardbee/mcp-rug-pull-detector", prefix: "rug_pull", summary: "MCP tool definitions that change after you approved them", groups: ["supply-chain"] },
   { id: "ssl-inspector", pkg: "@guardbee/mcp-ssl-inspector", prefix: "ssl", summary: "TLS certificates, ciphers and HSTS", groups: ["network"] },
   { id: "dns-intelligence", pkg: "@guardbee/mcp-dns-intelligence", prefix: "dns", summary: "DNS records, SPF/DMARC/DKIM, subdomain takeover", groups: ["network"] },
