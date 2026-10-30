@@ -7,12 +7,12 @@
     "source": "github",
     "subfolder": "packages/mcp-server-auditor"
   },
-  "version": "0.4.0",
+  "version": "0.4.1",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@guardbee/mcp-server-auditor",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "transport": {
         "type": "stdio"
       }

@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-dependency-auditor",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "mcpName": "io.github.GuardBee/dependency-auditor",
   "description": "Dependency vulnerability scanner (OSV) for npm and pip manifests, with single-package lookups for PyPI, crates.io, Maven, Go and RubyGems; CLI and MCP server",
   "type": "module",
