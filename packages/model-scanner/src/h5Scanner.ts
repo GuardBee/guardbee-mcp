@@ -49,7 +49,32 @@ export function scanH5File(filePath: string): Finding[] {
 
   const text = buf.toString("latin1");
 
-  if (/"class_name"\s*:\s*"Lambda"/.test(text)) {
+  findings.push(...kerasConfigFindings(text, filePath));
+
+  if (toRead < fileSize) {
+    findings.push(mkFinding(
+      "h5_partial_scan",
+      `Only scanned the first ${(toRead / 1024 / 1024).toFixed(1)}MB of a ${(fileSize / 1024 / 1024).toFixed(1)}MB file`,
+      "format-integrity",
+      "low",
+      "This scanner does a bounded text-pattern heuristic rather than full HDF5 structural parsing. A clean result here is not a full guarantee.",
+      filePath
+    ));
+  }
+
+  return findings;
+}
+
+/**
+ * The Keras RCE vector in a serialized model config, wherever the config is
+ * stored (HDF5 attributes, a .keras zip's config.json, a SavedModel's
+ * keras_metadata.pb): a Lambda layer, whose function is a marshalled Python
+ * code object that older Keras versions (and Keras 3 with safe_mode=False)
+ * execute on load.
+ */
+export function kerasConfigFindings(text: string, filePath: string): Finding[] {
+  const findings: Finding[] = [];
+  if (/"class_name"\s*:\s*"(?:Lambda|__lambda__)"/.test(text)) {
     findings.push(mkFinding(
       "keras_lambda_layer",
       "Model config contains a Keras Lambda layer",
@@ -67,17 +92,6 @@ export function scanH5File(filePath: string): Finding[] {
       "code-execution",
       "high",
       "This pattern is associated with executable-code-carrying layer configs (Lambda / custom py_function). Review the model config before loading.",
-      filePath
-    ));
-  }
-
-  if (toRead < fileSize) {
-    findings.push(mkFinding(
-      "h5_partial_scan",
-      `Only scanned the first ${(toRead / 1024 / 1024).toFixed(1)}MB of a ${(fileSize / 1024 / 1024).toFixed(1)}MB file`,
-      "format-integrity",
-      "low",
-      "This scanner does a bounded text-pattern heuristic rather than full HDF5 structural parsing. A clean result here is not a full guarantee.",
       filePath
     ));
   }

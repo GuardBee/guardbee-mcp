@@ -4,7 +4,7 @@
 
 > Dies ist eine kurze Zusammenfassung. Die vollständige Dokumentation (Englisch) steht in [README.md](README.md).
 
-Prüft ML-Modelldateien (PyTorch, pickle, safetensors, Keras/H5, ONNX) auf Supply-Chain-Risiken: bösartige Pickle-Gadgets, getarnte safetensors-Header, RCE über Keras-Lambda-Layer und Path Traversal bei externen ONNX-Daten.
+Prüft ML-Modelldateien (PyTorch, pickle, joblib, dill, NumPy, safetensors, Keras/H5, ONNX, GGUF, TensorFlow) und Hugging-Face-Repos auf Supply-Chain-Risiken: bösartige Pickle-Gadgets, getarnte safetensors-Header, RCE über Keras-Lambda-Layer Path Traversal bei externen ONNX-Daten, Chat-Template-Injection in GGUF und TensorFlow-Ops, die Dateien lesen oder schreiben.
 
 ## Installation
 
@@ -30,7 +30,7 @@ Claude Desktop:
 
 ## MCP-Tools
 
-`scan_file`, `scan_directory`, `list_patterns`
+`scan_file`, `scan_directory`, `scan_hf_repo`, `list_patterns`
 
 Details zu jedem Tool stehen in [README.md](README.md).
 

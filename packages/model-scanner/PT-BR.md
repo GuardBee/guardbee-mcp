@@ -4,7 +4,7 @@
 
 > Este é um resumo curto. A documentação completa (em inglês) está em [README.md](README.md).
 
-Analisa arquivos de modelos de ML (PyTorch, pickle, safetensors, Keras/H5, ONNX) em busca de riscos de cadeia de suprimentos: gadgets maliciosos em pickle, cabeçalhos safetensors disfarçados, RCE via camada Lambda do Keras e path traversal em dados externos do ONNX.
+Analisa arquivos de modelos de ML (PyTorch, pickle, joblib, dill, NumPy, safetensors, Keras/H5, ONNX, GGUF, TensorFlow) e repos do Hugging Face em busca de riscos de cadeia de suprimentos: gadgets maliciosos em pickle, cabeçalhos safetensors disfarçados, RCE via camada Lambda do Keras path traversal em dados externos do ONNX, injeção em templates de chat GGUF e operações do TensorFlow que leem ou gravam arquivos.
 
 ## Instalação
 
@@ -30,7 +30,7 @@ Claude Desktop:
 
 ## Ferramentas MCP
 
-`scan_file`, `scan_directory`, `list_patterns`
+`scan_file`, `scan_directory`, `scan_hf_repo`, `list_patterns`
 
 Os detalhes de cada ferramenta estão em [README.md](README.md).
 

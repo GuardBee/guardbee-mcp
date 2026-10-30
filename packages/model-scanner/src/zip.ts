@@ -1,5 +1,5 @@
 import { readSync } from "fs";
-import { inflateRawSync } from "zlib";
+import { constants, inflateRawSync } from "zlib";
 
 export interface ZipEntry {
   name: string;
@@ -126,4 +126,29 @@ export function extractZipEntry(fd: number, entry: ZipEntry): Buffer | null {
     }
   }
   return null;
+}
+
+/**
+ * Up to `maxBytes` of an entry's decompressed data without reading the rest,
+ * for formats whose header and metadata sit at the start of an entry that
+ * may be gigabytes long.
+ */
+export function extractZipEntryPrefix(fd: number, entry: ZipEntry, maxBytes: number): Buffer | null {
+  const lfh = readAt(fd, entry.localHeaderOffset, 30);
+  if (lfh.length < 30 || lfh.readUInt32LE(0) !== LFH_SIG) return null;
+  const dataStart = entry.localHeaderOffset + 30 + lfh.readUInt16LE(26) + lfh.readUInt16LE(28);
+  if (entry.compressionMethod === 0) return readAt(fd, dataStart, Math.min(entry.compressedSize, maxBytes));
+  if (entry.compressionMethod !== 8) return null;
+  // Deflate expands at most ~1032x; try a compressed prefix that cannot overflow maxBytes first.
+  let best: Buffer | null = null;
+  for (const inBytes of [Math.ceil(maxBytes / 1032), Math.ceil(maxBytes / 8), maxBytes]) {
+    const compressed = readAt(fd, dataStart, Math.min(entry.compressedSize, inBytes));
+    try {
+      best = inflateRawSync(compressed, { finishFlush: constants.Z_SYNC_FLUSH, maxOutputLength: maxBytes });
+    } catch {
+      return best;
+    }
+    if (best.length >= Math.min(maxBytes, entry.uncompressedSize) || compressed.length === entry.compressedSize) return best;
+  }
+  return best;
 }

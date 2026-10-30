@@ -3,6 +3,7 @@ import { startServer } from "./server.js";
 import { scanModelFile, scanDirectory } from "./scanner.js";
 import type { Finding } from "./scanner.js";
 import { buildSarif } from "./sarif.js";
+import { parseHfTarget, scanHfRepo } from "./hf.js";
 import { loadConfig, configFilePath } from "./config.js";
 import { statSync, readFileSync } from "fs";
 import { resolve, dirname } from "path";
@@ -87,42 +88,58 @@ async function runCli(rawArgs: string[]): Promise<void> {
     process.exit(2);
   }
 
-  const cfg = loadConfig(target, {
+  const hf = parseHfTarget(target);
+  const configRoot = hf ? "." : target;
+  const cfg = loadConfig(configRoot, {
     ...(cliFail !== "any" ? { failOn: cliFail } : {}),
     ...(cliMax !== 2000 ? { maxFiles: cliMax } : {}),
   });
-  const cfgPath = configFilePath(target);
+  const cfgPath = configFilePath(configRoot);
   if (cfgPath && format === "text") process.stderr.write(`[guardbee] Using config: ${cfgPath}\n`);
 
   const { failOn, maxFiles } = cfg;
 
-  let stat;
-  try {
-    stat = statSync(target);
-  } catch {
-    console.error(`Path not found: ${target}`);
-    process.exit(2);
-  }
-
   let findings: Finding[];
   let scannedFiles: number;
   let durationMs: number;
+  let source: Record<string, unknown> = {};
 
-  if (stat.isDirectory()) {
-    const result = scanDirectory(target, { maxFiles, exclude: cfg.exclude });
+  if (hf) {
+    const result = await scanHfRepo(hf.repo, { revision: hf.revision, maxFiles });
+    if (format === "text") {
+      process.stderr.write(`[guardbee] ${hf.repo}@${result.revision} → commit ${result.sha}: ${result.modelFiles.length} model file(s)\n`);
+      for (const p of result.partialFiles) process.stderr.write(`[guardbee] ${p}: large file, scanned from its first 64 MB (and a zip's last 64 MB)\n`);
+      if (result.notScanned.length) process.stderr.write(`[guardbee] ${result.notScanned.length} model file(s) over --max-files not scanned\n`);
+    }
     findings = result.findings;
     scannedFiles = result.scannedFiles;
     durationMs = result.durationMs;
+    source = { repo: result.repo, revision: result.revision, sha: result.sha, partialFiles: result.partialFiles, notScanned: result.notScanned };
   } else {
-    const start = Date.now();
-    const result = scanModelFile(target);
-    findings = result.findings;
-    scannedFiles = result.skipped ? 0 : 1;
-    durationMs = Date.now() - start;
+    let stat;
+    try {
+      stat = statSync(target);
+    } catch {
+      console.error(`Path not found: ${target}`);
+      process.exit(2);
+    }
+
+    if (stat.isDirectory()) {
+      const result = scanDirectory(target, { maxFiles, exclude: cfg.exclude });
+      findings = result.findings;
+      scannedFiles = result.scannedFiles;
+      durationMs = result.durationMs;
+    } else {
+      const start = Date.now();
+      const result = scanModelFile(target);
+      findings = result.findings;
+      scannedFiles = result.skipped ? 0 : 1;
+      durationMs = Date.now() - start;
+    }
   }
 
   if (format === "json") {
-    console.log(JSON.stringify({ findings, scannedFiles, durationMs }, null, 2));
+    console.log(JSON.stringify({ ...source, findings, scannedFiles, durationMs }, null, 2));
   } else if (format === "sarif") {
     console.log(JSON.stringify(buildSarif(getVersion(), findings), null, 2));
   } else {
@@ -140,13 +157,21 @@ Usage (MCP server):
 
 Usage (CLI):
   guardbee-model-scanner scan <path>    Scan a model file or a directory of model files
+  guardbee-model-scanner scan hf://<owner>/<repo>[@<revision>]
+                                        Scan a Hugging Face model repo at a pinned commit
+                                        (HF_TOKEN for gated/private repos)
 
 Supported formats:
   .pt .pth .ckpt   PyTorch checkpoints (zip container with data.pkl, or legacy raw pickle)
-  .pkl .pickle .bin  Raw pickle streams
+  .pkl .pickle .bin .dill  Raw pickle streams (dill gadgets included)
+  .joblib .jbl     joblib dumps, including arrays and nested object-array pickles; zlib/gzip
+  .npy .npz        NumPy object arrays (pickled data) and pickles disguised as NumPy files
   .safetensors     Header structure/integrity validation
-  .h5 .hdf5 .keras Keras Lambda-layer RCE heuristic
+  .h5 .hdf5 .keras Keras Lambda-layer RCE heuristic (HDF5 and Keras 3 zip)
   .onnx            external_data path-traversal heuristic
+  .gguf            Header/tensor validation, chat-template SSTI and injected instructions
+  .pb .pbtxt       TensorFlow SavedModel / GraphDef: file, Python and debug-URL ops
+  .tflite          TensorFlow Lite Flex ops that reach files or Python
 
 Options:
   --fail-on=<level>   Exit 1 if issues at this severity or above are found

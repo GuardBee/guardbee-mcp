@@ -7,4 +7,10 @@ export type { DangerousGlobalRule, GlobalRiskCategory, GlobalClassification } fr
 export { scanSafetensorsFile } from "./safetensorsScanner.js";
 export { scanH5File } from "./h5Scanner.js";
 export { scanOnnxFile } from "./onnxScanner.js";
+export { scanJoblibFile } from "./joblibScanner.js";
+export { scanNpyFile, scanNpzFile } from "./numpyScanner.js";
+export { scanGgufFile, checkTemplateText } from "./ggufScanner.js";
+export { scanTensorflowGraph, scanTfliteFile, RISKY_TF_OPS } from "./tensorflowScanner.js";
+export { scanHfRepo, parseHfTarget, HfError } from "./hf.js";
+export type { HfScanOptions, HfScanResult } from "./hf.js";
 export { registerTools } from "./server.js";
