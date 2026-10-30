@@ -29,7 +29,7 @@ import { BudgetStore, costOf, type LlmCaller, type LlmUsage } from "./budget.js"
 import { DEFAULT_MAX_TEXT_CHARS, MAX_BODY_BYTES, type LlmApi, type LlmConfig, type LlmDocuments, type LlmProvider } from "./config.js";
 import { SseRelay, apiOf, errorBody, mapCompletion, mapPrompt, promptTexts, unmaskableParts, usageOf, type LlmShape } from "./shapes.js";
 import { SseRewriter, type RewritePrepare, type TextRewrite } from "./stream.js";
-import { base64Bytes, mapDocuments, textPart, type InlineDocument } from "./documents.js";
+import { base64Bytes, mapDocuments, textPart, type DocumentModality, type InlineDocument } from "./documents.js";
 
 type Json = Record<string, unknown>;
 
@@ -125,6 +125,7 @@ function sendJson(res: http.ServerResponse, status: number, body: unknown, heade
 }
 
 interface ReadDocument {
+  modality: DocumentModality;
   label: string;
   bytes: number;
   sha256: string;
@@ -135,35 +136,57 @@ interface ReadDocument {
   unread?: string;
 }
 
+const IMAGE_KINDS = new Set(["png", "jpeg", "gif", "webp", "bmp", "tiff"]);
+
+/** The modalities llm.documents reads. */
+function documentModalities(config: LlmDocuments | undefined): Set<DocumentModality> {
+  const out = new Set<DocumentModality>();
+  if (config?.pdf) out.add("pdf");
+  if (config?.images) out.add("image");
+  return out;
+}
+
+/** `PDF "report.pdf"`, `image "image 2"`: how a document is named in reasons and warnings. */
+const describeDocument = (doc: Pick<ReadDocument, "modality" | "label">) => `${doc.modality === "pdf" ? "PDF" : "image"} "${doc.label}"`;
+
 /**
- * The inline PDFs of a request, in mapDocuments order, read with the
- * document scanner. Anything short of every page's text — too large, not a
- * PDF, encrypted, over maxPages, a page without a text layer and no OCR, an
- * error, the time limit — leaves `text` unset: the document was not checked.
+ * The inline PDFs and images of a request, in mapDocuments order, read with
+ * the document scanner. Anything short of all the text — too large, not what
+ * it claims to be, encrypted, over maxPages, a page without a text layer and
+ * no OCR, OCR not installed, an error, the time limit — leaves `text` unset:
+ * the document was not checked.
  */
-async function readDocuments(shape: LlmShape, body: Json, config: LlmDocuments): Promise<ReadDocument[]> {
+async function readDocuments(shape: LlmShape, body: Json, config: LlmDocuments, modalities: ReadonlySet<DocumentModality>): Promise<ReadDocument[]> {
   const found: InlineDocument[] = [];
-  mapDocuments(shape, body, (doc) => (found.push(doc), undefined));
+  mapDocuments(shape, body, (doc) => (found.push(doc), undefined), modalities);
   if (found.length === 0) return [];
   const { detectKind, extractText } = await import("@guardbee/mcp-document-scanner");
   const out: ReadDocument[] = [];
   for (const doc of found) {
     const bytes = base64Bytes(doc.data);
     if (bytes > config.maxBytes) {
-      out.push({ label: doc.label, bytes, sha256: "", pages: 0, unread: `${bytes} bytes, over llm.documents.maxBytes (${config.maxBytes})` });
+      out.push({ modality: doc.modality, label: doc.label, bytes, sha256: "", pages: 0, unread: `${bytes} bytes, over llm.documents.maxBytes (${config.maxBytes})` });
       continue;
     }
     const data = Buffer.from(doc.data, "base64");
-    const read: ReadDocument = { label: doc.label, bytes: data.length, sha256: createHash("sha256").update(data).digest("hex"), pages: 0 };
+    const read: ReadDocument = { modality: doc.modality, label: doc.label, bytes: data.length, sha256: createHash("sha256").update(data).digest("hex"), pages: 0 };
     out.push(read);
-    if (detectKind(data.subarray(0, 16)) !== "pdf") {
-      read.unread = "the data is not a PDF";
+    const kind = detectKind(data.subarray(0, 16));
+    if (doc.modality === "pdf" ? kind !== "pdf" : !IMAGE_KINDS.has(kind)) {
+      read.unread = doc.modality === "pdf" ? "the data is not a PDF" : "the data is not an image";
       continue;
     }
     let timer: NodeJS.Timeout | undefined;
     try {
       const extraction = await Promise.race([
-        extractText(new Uint8Array(data), { ocr: config.ocr, maxBytes: config.maxBytes, maxPages: config.maxPages }),
+        extractText(new Uint8Array(data), {
+          // An image is only read with OCR; `ocr` is about PDF pages without a text layer
+          ocr: doc.modality === "image" || config.ocr,
+          maxBytes: config.maxBytes,
+          maxPages: config.maxPages,
+          languages: config.languages,
+          ...(config.langPath ? { langPath: config.langPath } : {}),
+        }),
         new Promise<never>((_, reject) => {
           timer = setTimeout(() => reject(new Error(`reading took over ${config.timeoutSeconds} s (llm.documents.timeoutSeconds)`)), config.timeoutSeconds * 1000);
           timer.unref();
@@ -173,7 +196,7 @@ async function readDocuments(shape: LlmShape, body: Json, config: LlmDocuments):
       if (extraction.notes.length > 0) read.unread = extraction.notes.join("; ");
       else read.text = extraction.pages.map((page) => page.text).join("\n\n");
     } catch (err) {
-      // pdf.js errors name the problem (PasswordException, InvalidPDFException) without quoting content
+      // pdf.js and Tesseract errors name the problem (PasswordException, InvalidPDFException) without quoting content
       read.unread = err instanceof Error && err.message.includes("llm.documents") ? err.message : `could not be read (${err instanceof Error ? err.name : typeof err})`;
     } finally {
       clearTimeout(timer);
@@ -345,10 +368,12 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
       refuse(403, `model "${model}" is not allowed for ${caller.user ? `user "${caller.user}"` : "this key"} (llm.access)`, "llm:access");
     }
 
-    // 0b. Inline PDFs (llm.documents.pdf): their text takes their place in `checked`,
-    //     which every check below reads; the provider still gets the PDF itself.
-    //     One that cannot be read in full stays in place, and so stays unmaskable.
-    const documents = llm.documents?.pdf && shape !== "embeddings" ? await readDocuments(shape, body, llm.documents) : [];
+    // 0b. Inline PDFs and images (llm.documents): their text takes their place in
+    //     `checked`, which every check below reads; the provider still gets the
+    //     file itself. One that cannot be read in full stays in place, and so
+    //     stays unmaskable.
+    const modalities = documentModalities(llm.documents);
+    const documents = llm.documents && modalities.size > 0 && shape !== "embeddings" ? await readDocuments(shape, body, llm.documents, modalities) : [];
     const documentChecks = [
       ...(shape !== "embeddings" && interceptors.promptInjection?.enabled !== false ? ["injection"] : []),
       ...(interceptors.egressSecrets?.enabled !== false ? ["credentials"] : []),
@@ -357,9 +382,9 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
       "pii",
     ];
     for (const doc of documents) {
-      if (doc.unread) log({ ...base, type: "warn", ruleId: "documents:unread", reason: `PDF "${doc.label}" not read: ${doc.unread}` });
+      if (doc.unread) log({ ...base, type: "warn", ruleId: "documents:unread", reason: `${describeDocument(doc)} not read: ${doc.unread}` });
     }
-    checked = documents.length > 0 ? mapDocuments(shape, body, (_doc, i, part) => (documents[i]?.text !== undefined ? textPart(shape, documents[i]!.text!, part) : undefined)) : body;
+    checked = documents.length > 0 ? mapDocuments(shape, body, (_doc, i, part) => (documents[i]?.text !== undefined ? textPart(shape, documents[i]!.text!, part) : undefined), modalities) : body;
 
     // 1. Prompt injection in what people and tools wrote. Text sent for embedding is
     //    not run by a model, and a document about injection must still be indexable.
@@ -446,7 +471,7 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     }
     if (masking) {
       // What the proxy cannot read, it cannot mask: refused, not forwarded
-      const unreadable = [...documents.filter((doc) => doc.unread).map((doc) => `PDF "${doc.label}" (${doc.unread})`), ...unmaskableParts(shape, checked)];
+      const unreadable = [...documents.filter((doc) => doc.unread).map((doc) => `${describeDocument(doc)} (${doc.unread})`), ...unmaskableParts(shape, checked)];
       if (unreadable.length > 0) {
         failClosed(415, FAIL_CLOSED.unmaskable, `the request holds content the proxy cannot mask: ${unreadable.join(", ")}`, "pii:unmaskable");
       }
@@ -459,8 +484,8 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     }
     const spans = masking ? await names() : undefined;
 
-    // 2e. PII in a PDF is counted like any other; with masking on it refuses the
-    //     request, since the proxy cannot rewrite a PDF and will not send it unmasked.
+    // 2e. PII in a PDF or image is counted like any other; with masking on it refuses
+    //     the request, since the proxy cannot rewrite the file and will not send it unmasked.
     const docHits: Record<string, number> = {};
     const readDocs = documents.filter((doc) => doc.text !== undefined);
     if (readDocs.length > 0) {
@@ -480,7 +505,7 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
         );
       }
       if (masking && maskable.size > 0) {
-        refuse(403, `${readDocs.map((doc) => `PDF "${doc.label}"`).join(", ")} holds ${[...maskable].join(", ")}; the proxy cannot mask inside a PDF, so the request was not sent`, "pii:document");
+        refuse(403, `${readDocs.map(describeDocument).join(", ")} holds ${[...maskable].join(", ")}; the proxy cannot mask inside a PDF or an image, so the request was not sent`, "pii:document");
       }
     }
 
@@ -514,9 +539,9 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     );
     for (const [category, n] of Object.entries(docHits)) hits[category] = (hits[category] ?? 0) + n;
     const piiHits = Object.keys(hits).length > 0 ? { piiHits: hits } : {};
-    // The log keeps a placeholder with each PDF's hash, never its bytes
-    const logged = documents.length > 0 ? mapDocuments(shape, forward, (_doc, i, part) => textPart(shape, `[pdf "${documents[i]!.label}": ${documents[i]!.bytes} bytes, sha256 ${documents[i]!.sha256}]`, part)) : forward;
-    const documentsRead = readDocs.length > 0 ? { documents: readDocs.map((doc) => ({ name: doc.label, modality: "pdf" as const, bytes: doc.bytes, sha256: doc.sha256, pages: doc.pages, chars: doc.text!.length, checks: documentChecks })) } : {};
+    // The log keeps a placeholder with each file's hash, never its bytes
+    const logged = documents.length > 0 ? mapDocuments(shape, forward, (_doc, i, part) => textPart(shape, `[${documents[i]!.modality} "${documents[i]!.label}": ${documents[i]!.bytes} bytes, sha256 ${documents[i]!.sha256}]`, part), modalities) : forward;
+    const documentsRead = readDocs.length > 0 ? { documents: readDocs.map((doc) => ({ name: doc.label, modality: doc.modality, bytes: doc.bytes, sha256: doc.sha256, pages: doc.pages, chars: doc.text!.length, checks: documentChecks })) } : {};
     log({ ...base, type: "tool_call", input: logged, ...piiHits, ...documentsRead, ...(routedFrom ? { llm: { model, routedFrom } } : {}) });
 
     // 5. To the provider. The answer is rewritten when tokens must go back or

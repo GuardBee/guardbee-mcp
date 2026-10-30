@@ -423,12 +423,15 @@ llm:
   maskResponses: false           # also mask PII the model writes (prompts are always checked)
   timeoutSeconds: 120
   maxTextChars: 2000000          # longest single text the proxy masks; longer → 413
-  documents:                     # read inline PDFs instead of refusing them (415); off by default
+  documents:                     # read inline PDFs and images instead of refusing PDFs (415) and passing images; off by default
     pdf: true
-    ocr: false                   # true: OCR pages with no text layer (needs tesseract.js + @napi-rs/canvas)
-    maxBytes: 20971520           # per PDF; larger → 415
+    images: true                 # OCR inline images (needs tesseract.js)
+    ocr: false                   # true: OCR PDF pages with no text layer (needs tesseract.js + @napi-rs/canvas)
+    languages: [tur, eng]        # Tesseract languages
+    # langPath: /opt/tessdata    # local <lang>.traineddata, so OCR never downloads language data
+    maxBytes: 20971520           # per file; larger → 415
     maxPages: 50                 # a longer PDF → 415
-    timeoutSeconds: 30           # reading time per PDF; over it → 415
+    timeoutSeconds: 30           # reading time per file; over it → 415
 interceptors:
   piiMasking: { enabled: true, mode: tokenize }
 ```
@@ -452,13 +455,13 @@ What every request goes through, in order:
 5. **Sensitive routing** (`llm.sensitive`). When the prompt holds personal data (optionally only some `categories`) or one of the listed `topics`, the request goes to `sensitive.model` — an Ollama, vLLM or llama.cpp model you run — instead of the model asked for. The audit log gets a `warn` event with `ruleId: llm:route:sensitive` naming both models and why, so routed requests show up in the dashboard, and the usage event carries `llm.routedFrom`. If the local model has no route for the request's API (an Anthropic request with only an OpenAI-compatible local model), the request is refused rather than sent to the provider it was meant to avoid. Budgets count the routed model.
 6. **Budgets.** Requests, tokens and USD per user (or per key) or for the whole gateway, over fixed windows. A request is admitted while every matching budget has room; tokens and cost are known only after the answer, so the call that crosses a limit completes and the next one gets `429` with `Retry-After`.
 7. **PII** (`interceptors.piiMasking`) in message text, tool-call arguments and tool results is masked, or with `mode: tokenize` replaced by tokens the proxy turns back into real values in the answer — the provider never sees them, the user does. The text of Anthropic `document` blocks with a text or content source is masked too. Image data, ids and tool names are left alone; content the proxy cannot read is refused (see [Failure behavior](#failure-behavior)).
-8. **Audit.** A `tool_call` event (`tool: llm:<model>`, `upstream: <provider>`, `labels: [llm]`, `user`, `piiHits`, and `documents` for PDFs read — see below) and a `tool_response` event with `llm: { model, inputTokens, outputTokens, costUsd }`. Refusals are `blocked` events with `ruleId` `llm:injection`, `llm:credential` or the budget id.
+8. **Audit.** A `tool_call` event (`tool: llm:<model>`, `upstream: <provider>`, `labels: [llm]`, `user`, `piiHits`, and `documents` for PDFs and images read — see below) and a `tool_response` event with `llm: { model, inputTokens, outputTokens, costUsd }`. Refusals are `blocked` events with `ruleId` `llm:injection`, `llm:credential` or the budget id.
 
 **Endpoints.** `POST /chat/completions`, `POST /responses` (OpenAI Responses API) and `POST /embeddings` go to providers with `api: openai`; `POST /messages` to `api: anthropic`; `GET /models` lists the literal (non-glob) routes the caller may use. Responses go through the same steps as chat: `instructions`, message items (`input_text`, earlier `output_text`), function and custom tool call arguments, tool call outputs and stored-prompt `variables` are masked; reasoning items, item references and the provider's own tool calls are passed back as they are; `input_file` and `input_audio` are refused (`415`). With `mode: tokenize`, tokens are put back in the answer, but a conversation continued with `previous_response_id` holds tokens from an earlier request that this request cannot put back — send the history in `input` if the answer must show real values.
 
 Streaming works for chat, Messages and Responses. A plain stream is relayed event by event; for OpenAI the proxy adds `stream_options.include_usage` to count tokens and drops that extra chunk if the client did not ask for it. When the answer has to be rewritten (PII tokens to put back, or `maskResponses`), it is rewritten as it streams: text — message content, tool-call arguments, Anthropic text, JSON and thinking deltas — is held only until a safe cut (a space with no digit on either side, so a grouped number such as an IBAN or a card is never split; a private key block until its END line; a line with an `Adres:` label until it ends) and rewritten together with the last 300 characters already sent, so a label like `Pasaport No:` still applies to a value in the next event. Whatever is still held goes out just before the choice's finish chunk or the block's stop event. For the Responses API, `output_text`, function-call argument and reasoning-summary deltas are held and rewritten the same way; each `.done` event, item, part and the final `response.completed` carry the same rewritten text, so the SDK's assembled answer matches the deltas. Provider errors are passed through unchanged, so SDK retries and error types keep working.
 
-### PDFs in requests
+### PDFs and images in requests
 
 With `llm.documents.pdf: true`, an inline PDF is read instead of refused: OpenAI `file` parts and Responses `input_file` parts with a `data:application/pdf;base64,` URL, and Anthropic `document` blocks with a base64 PDF source, in messages, the system prompt and tool results. The proxy extracts the PDF's text layer with [`@guardbee/mcp-document-scanner`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/document-scanner) and puts that text through every step above, in the PDF's place: prompt injection, credentials, topic rules, sensitive routing and PII.
 
@@ -468,7 +471,13 @@ With `llm.documents.pdf: true`, an inline PDF is read instead of refused: OpenAI
 - **Not readable in full:** over `maxBytes` or `maxPages`, not really a PDF, encrypted or corrupt, slower than `timeoutSeconds`, or a page without a text layer while `ocr` is off. A `warn` event `documents:unread` names the reason, and the PDF stays unmaskable: `415 guardbee_unmaskable_content` while masking applies (see [Failure behavior](#failure-behavior)). A PDF that was only partly read is never treated as checked.
 - **Audit:** the `tool_call` event's `input` holds `[pdf "<name>": <bytes> bytes, sha256 <hash>]` instead of the PDF. Its `documents` field lists each PDF read: `{ name, modality: "pdf", bytes, sha256, pages, chars, checks }`, where `checks` names the checks that ran over its text (`injection`, `credentials`, `topics`, `sensitive-routing`, `pii`).
 
-Not covered yet: PDFs given by file id or URL (still `415`), person names found by the `ner:` model inside a PDF, images and audio. Reading a PDF costs time on every request that carries one; `timeoutSeconds` and `maxPages` bound it.
+With `llm.documents.images: true`, inline images are read the same way, with OCR: OpenAI `image_url` and Responses `input_image` parts with a `data:image/...;base64,` URL, and Anthropic `image` blocks with a base64 source, in messages, the system prompt and tool results. The text OCR finds takes the image's place in every check, with the same outcomes as a PDF: a clean image is forwarded unchanged, one holding personal data the proxy would mask is refused with `403 pii:document`, and one that cannot be read (`tesseract.js` not installed, data that is not an image, over `maxBytes`, slower than `timeoutSeconds`) is `415 guardbee_unmaskable_content` while masking applies. The audit placeholder is `[image "image <n>": <bytes> bytes, sha256 <hash>]` and `documents` entries have `modality: "image"`.
+
+- **Install `tesseract.js`** next to the proxy (`npm i tesseract.js`). Language data (`languages`, default Turkish and English) is downloaded once into `~/.cache/guardbee/tessdata`; set `langPath` to a folder with the `.traineddata` files to keep the proxy offline.
+- **OCR reads printed text, not everything a model sees.** Handwriting, low-contrast or tiny text, text in photos and charts can be missed, and a model can still read what OCR did not. Treat `images: true` as a check that catches screenshots of documents, chats and forms, not as a guarantee that an image holds no personal data.
+- **Cost:** about 0.3 s per screenshot on a laptop CPU, on every request that carries one, more for large images; `timeoutSeconds` and `maxBytes` bound it.
+
+Not covered yet: PDFs given by file id or URL (still `415`), images given by URL or file id (forwarded unread: the proxy does not fetch them), person names found by the `ner:` model inside a PDF or image, and audio. Reading a PDF costs time on every request that carries one; `timeoutSeconds` and `maxPages` bound it.
 
 ### Embeddings
 
@@ -487,10 +496,10 @@ The gateway fails closed: when it cannot check or mask a request, the provider i
 | Status | Code | When | Audit `ruleId` |
 | --- | --- | --- | --- |
 | `502` | `guardbee_masking_failed` | A detector or scan threw, a block pattern ran over its time budget, or the name model (`ner:`) did not answer. Covers every check before the call: injection, credentials, topics, sensitive routing, masking. | `pii:masking-failed`, `pii:pattern-timeout`, `pii:ner-failed` |
-| `415` | `guardbee_unmaskable_content` | The request holds content the proxy cannot read: OpenAI `input_audio` or `file` parts, an Anthropic `document` with a PDF (base64, url or file) source, an unknown part or block type, or content that is not text or a list. With `llm.documents.pdf`, inline PDFs are read and only one that cannot be read in full is refused. The message names what was found. | `pii:unmaskable` |
+| `415` | `guardbee_unmaskable_content` | The request holds content the proxy cannot read: OpenAI `input_audio` or `file` parts, an Anthropic `document` with a PDF (base64, url or file) source, an unknown part or block type, or content that is not text or a list. With `llm.documents.pdf`, inline PDFs are read and only one that cannot be read in full is refused; with `llm.documents.images`, so is an inline image that cannot be read. The message names what was found. | `pii:unmaskable` |
 | `413` | `guardbee_text_too_large` | A single text (message, part, tool result) is longer than `llm.maxTextChars` (default 2,000,000 characters). The limit is per text, not per request: split the text into several messages or parts. | `pii:text-too-large` |
 
-What is not refused: images (`image_url`, Anthropic `image`) are forwarded unchanged and are not inspected; in an assistant turn, blocks the provider itself produced (`thinking`, `redacted_thinking`, `server_tool_use`, `*_tool_result`) are passed back as they are. `415` and `413` apply only when the request is masked — with `piiMasking.enabled: false`, on a route with `masking: off`, or for a request routed in-house by `llm.sensitive` without `mask: true`, nothing is masked and nothing is refused for being unmaskable.
+What is not refused: images (`image_url`, `input_image`, Anthropic `image`) are forwarded unchanged and, without `llm.documents.images`, are not inspected; in an assistant turn, blocks the provider itself produced (`thinking`, `redacted_thinking`, `server_tool_use`, `*_tool_result`) are passed back as they are. `415` and `413` apply only when the request is masked — with `piiMasking.enabled: false`, on a route with `masking: off`, or for a request routed in-house by `llm.sensitive` without `mask: true`, nothing is masked and nothing is refused for being unmaskable.
 
 An answer that cannot be masked (`maskResponses`, or a failure while putting tokens back) is withheld: the text is replaced by `[GuardBee: withheld, …]`, also mid-stream, and the event is logged with the same `ruleId`s.
 
