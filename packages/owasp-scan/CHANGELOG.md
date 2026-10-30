@@ -1,5 +1,20 @@
 # @guardbee/mcp-owasp-scan
 
+## 0.5.1
+
+### Patch Changes
+
+- [#247](https://github.com/GuardBee/guardbee-mcp/pull/247) [`30cc59d`](https://github.com/GuardBee/guardbee-mcp/commit/30cc59d169b9e0146e5ca785de7536c4dc4e98b9) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Tool schemas are now declared with `z.object(...)` instead of raw Zod shapes, which MCP SDK v2 deprecates. The JSON Schema sent to clients is unchanged.
+- Updated dependencies [[`30cc59d`](https://github.com/GuardBee/guardbee-mcp/commit/30cc59d169b9e0146e5ca785de7536c4dc4e98b9)]:
+  - @guardbee/mcp-audit-gap-auditor@0.4.1
+  - @guardbee/mcp-context-oversharing-auditor@0.4.1
+  - @guardbee/mcp-config-auditor@0.8.1
+  - @guardbee/mcp-server-auditor@0.4.1
+  - @guardbee/mcp-oauth-auditor@0.5.1
+  - @guardbee/mcp-secret-scanner@1.1.1
+  - @guardbee/mcp-tool-poisoning-scanner@0.5.1
+  - @guardbee/mcp-toxic-flow-auditor@1.1.1
+
 ## 0.5.0
 
 ### Minor Changes

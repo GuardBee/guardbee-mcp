@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-server-auditor",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "mcpName": "io.github.GuardBee/mcp-server-auditor",
   "description": "MCP server that audits other MCP servers' tool definitions for insecure patterns \u2014 excessive-agency tool names, shell/eval/SQL/SSRF sinks fed by raw tool input, overly permissive schemas, hardcoded secrets, and wildcard CORS",
   "type": "module",

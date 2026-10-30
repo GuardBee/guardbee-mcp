@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-document-scanner",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "mcpName": "io.github.GuardBee/document-scanner",
   "description": "MCP server and CLI that finds PII and credentials inside PDFs, screenshots and scanned documents \u2014 PDF text extraction plus optional OCR (Turkish and English) \u2014 before they reach an LLM",
   "type": "module",
