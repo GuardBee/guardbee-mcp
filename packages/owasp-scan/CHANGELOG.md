@@ -1,5 +1,24 @@
 # @guardbee/mcp-owasp-scan
 
+## 0.5.0
+
+### Minor Changes
+
+- [#245](https://github.com/GuardBee/guardbee-mcp/pull/245) [`29bac2f`](https://github.com/GuardBee/guardbee-mcp/commit/29bac2f679cf97fd48d3d09eef80f328d77f5655) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Move to the MCP TypeScript SDK v2: every server now speaks MCP 2026-07-28 as well as 2025-11-25, choosing per connection (`serveStdio`). Tools without arguments no longer declare an empty input schema. The rug-pull detector and owasp-scan connect to target servers with version negotiation, so they read servers on either revision. `instrumentServer` from `@guardbee/mcp-telemetry` accepts an SDK v1 or v2 server.
+
+### Patch Changes
+
+- Updated dependencies [[`29bac2f`](https://github.com/GuardBee/guardbee-mcp/commit/29bac2f679cf97fd48d3d09eef80f328d77f5655)]:
+  - @guardbee/mcp-audit-gap-auditor@0.4.0
+  - @guardbee/mcp-context-oversharing-auditor@0.4.0
+  - @guardbee/mcp-config-auditor@0.8.0
+  - @guardbee/mcp-server-auditor@0.4.0
+  - @guardbee/mcp-oauth-auditor@0.5.0
+  - @guardbee/mcp-secret-scanner@1.1.0
+  - @guardbee/mcp-telemetry@0.3.1
+  - @guardbee/mcp-tool-poisoning-scanner@0.5.0
+  - @guardbee/mcp-toxic-flow-auditor@1.1.0
+
 ## 0.4.0
 
 ### Minor Changes

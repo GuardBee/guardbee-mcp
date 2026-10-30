@@ -1,5 +1,13 @@
 # @guardbee/mcp-security-proxy
 
+## 1.32.1
+
+### Patch Changes
+
+- Updated dependencies [[`29bac2f`](https://github.com/GuardBee/guardbee-mcp/commit/29bac2f679cf97fd48d3d09eef80f328d77f5655)]:
+  - @guardbee/mcp-document-scanner@0.4.0
+  - @guardbee/mcp-telemetry@0.3.1
+
 ## 1.32.0
 
 ### Minor Changes

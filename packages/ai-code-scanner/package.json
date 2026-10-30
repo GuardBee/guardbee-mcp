@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-ai-code-scanner",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "mcpName": "io.github.GuardBee/ai-code-scanner",
   "description": "MCP server that scans code for insecure LLM/AI integration patterns \u2014 client-exposed API keys, unsafe handling of model output, excessive agent tool permissions, and PII sent to third-party LLMs",
   "type": "module",

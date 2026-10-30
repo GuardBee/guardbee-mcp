@@ -7,12 +7,12 @@
     "source": "github",
     "subfolder": "packages/ssl-inspector"
   },
-  "version": "0.4.2",
+  "version": "0.5.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@guardbee/mcp-ssl-inspector",
-      "version": "0.4.2",
+      "version": "0.5.0",
       "transport": {
         "type": "stdio"
       }
