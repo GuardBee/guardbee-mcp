@@ -1,17 +1,29 @@
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { randomBytes } from "crypto";
 import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-  ListResourcesRequestSchema,
-  ListPromptsRequestSchema,
-  GetPromptRequestSchema,
-  ReadResourceRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
+  CLIENT_CAPABILITIES_META_KEY,
+  createRequestStateCodec,
+  inputRequired,
+  inputResponse,
+  Server,
+  type RequestStateCodec,
+  type ServerContext,
+  type Transport,
+} from "@modelcontextprotocol/server";
+import { serveStdio, type StdioServerHandle } from "@modelcontextprotocol/server/stdio";
 import { isHttpUpstream, type McpServerConfig, type ProxyConfig, type UpstreamConfig } from "./types.js";
 import { sandboxContext, sandboxIssues } from "./gateway/sandbox.js";
 import { AuditLogger } from "./audit/logger.js";
-import { chainApprovers, dashboardApprover, elicitationApprover, type Approver } from "./gateway/approval.js";
+import {
+  ApprovalRequired,
+  approvalAnswer,
+  approvalForm,
+  chainApprovers,
+  dashboardApprover,
+  elicitationApprover,
+  type ApprovalOutcome,
+  type Approver,
+  type DeferredApprovals,
+} from "./gateway/approval.js";
 import { fromLegacyConfig, type GatewayConfig } from "./gateway/config.js";
 import { Gateway, type CallerIdentity, type Sampler } from "./gateway/gateway.js";
 import { connectUpstream, type Upstream } from "./gateway/upstream.js";
@@ -25,8 +37,60 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { startTracing } from "./tracing.js";
 
+/** The first revision without sessions or server→client requests. */
+export const MODERN_PROTOCOL = "2026-07-28";
+
+/**
+ * What an approval round trip carries through a 2026-07-28 client: the
+ * answers so far and the approval the client is being asked now. Signed (see
+ * approvalStateCodec), so a client cannot make up an answer.
+ */
+export interface ApprovalState {
+  answers: [string, ApprovalOutcome][];
+  pending: string;
+}
+
+/**
+ * HMAC codec for ApprovalState. A random key works while one process serves
+ * every round of a call; replicas behind a load balancer share listen.stateKeyEnv.
+ * The state is bound to the caller (`authInfo.clientId`, set from the user and
+ * context in HTTP mode) so one user's state does not answer another's call.
+ */
+export function approvalStateCodec(config: GatewayConfig, key?: string): RequestStateCodec<ApprovalState> {
+  return createRequestStateCodec<ApprovalState>({
+    key: key ?? randomBytes(32),
+    ttlSeconds: Math.max(60, config.approval.timeoutSeconds),
+    bind: (ctx) => `${ctx.mcpReq.method}\0${ctx.http?.authInfo?.clientId ?? ""}`,
+  });
+}
+
+/** Served on 2026-07-28 or later: per-request envelope, no server→client requests. */
+export function isModern(server: Server): boolean {
+  const version = server.getNegotiatedProtocolVersion();
+  return version !== undefined && version >= MODERN_PROTOCOL;
+}
+
+/**
+ * The per-call approval context for a 2026-07-28 request: answers from the
+ * verified requestState plus the one the client just gave. Undefined on
+ * 2025-11-25, where approvals are asked with a real elicitation request.
+ */
+function deferredFor(server: Server, ctx: ServerContext): DeferredApprovals | undefined {
+  if (!isModern(server)) return undefined;
+  const state = ctx.mcpReq.requestState<ApprovalState>();
+  const answers = new Map<string, ApprovalOutcome>(state?.answers ?? []);
+  if (state) {
+    const response = inputResponse(ctx.mcpReq.inputResponses, "approve");
+    answers.set(state.pending, response.kind === "elicit" ? approvalAnswer(response) : "declined");
+  }
+  // 2026-07-28 declares capabilities on every request, in its _meta envelope
+  const envelope = ctx.mcpReq.envelope as Record<string, unknown> | undefined;
+  const declared = (envelope?.[CLIENT_CAPABILITIES_META_KEY] ?? server.getClientCapabilities()) as { elicitation?: unknown } | undefined;
+  return { answers, retry: state !== undefined, canElicit: Boolean(declared?.elicitation) };
+}
+
 /** The MCP server the agent talks to; every request goes through the gateway. */
-export function createProxyServer(gateway: Gateway): Server {
+export function createProxyServer(gateway: Gateway, codec: RequestStateCodec<ApprovalState> = approvalStateCodec(gateway.config)): Server {
   const server = new Server(
     { name: "guardbee-security-proxy", version: "1.0.0" },
     {
@@ -35,24 +99,72 @@ export function createProxyServer(gateway: Gateway): Server {
         resources: {},
         prompts: {},
       },
+      // A forged or expired approval state is refused before the handler runs
+      requestState: { verify: codec.verify },
     }
   );
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: await gateway.listTools() }));
-  server.setRequestHandler(CallToolRequestSchema, async (req) =>
-    gateway.callTool(req.params.name, req.params.arguments ?? {})
-  );
-  server.setRequestHandler(ListResourcesRequestSchema, async () => ({ resources: await gateway.listResources() }));
-  server.setRequestHandler(ReadResourceRequestSchema, async (req) => gateway.readResource(req.params.uri));
-  server.setRequestHandler(ListPromptsRequestSchema, async () => ({ prompts: await gateway.listPrompts() }));
-  server.setRequestHandler(GetPromptRequestSchema, async (req) =>
-    gateway.getPrompt(req.params.name, req.params.arguments)
-  );
-  gateway.onToolsChanged(() => {
-    void server.sendToolListChanged().catch(() => {});
+  server.setRequestHandler("tools/list", async () => ({ tools: await gateway.listTools() }));
+  server.setRequestHandler("tools/call", async (req, ctx) => {
+    const deferred = deferredFor(server, ctx);
+    try {
+      // The upstream may speak another revision than this client: shape the result for this one
+      const result = await gateway.callTool(req.params.name, req.params.arguments ?? {}, deferred ? { deferred } : {});
+      return server.projectCallToolResult(result, undefined);
+    } catch (err) {
+      if (!(err instanceof ApprovalRequired) || !deferred) throw err;
+      return inputRequired({
+        inputRequests: { approve: inputRequired.elicit(approvalForm(err.request)) },
+        requestState: await codec.mint({ answers: [...deferred.answers], pending: err.key }, ctx),
+      });
+    }
+  });
+  server.setRequestHandler("resources/list", async () => ({ resources: await gateway.listResources() }));
+  server.setRequestHandler("resources/read", async (req, ctx) => {
+    const deferred = deferredFor(server, ctx);
+    return gateway.readResource(req.params.uri, deferred ? { deferred } : {});
+  });
+  server.setRequestHandler("prompts/list", async () => ({ prompts: await gateway.listPrompts() }));
+  server.setRequestHandler("prompts/get", async (req, ctx) => {
+    const deferred = deferredFor(server, ctx);
+    return gateway.getPrompt(req.params.name, req.params.arguments, deferred ? { deferred } : {});
   });
 
   return server;
+}
+
+/**
+ * Approval channels in the configured order. Elicitation goes to the server
+ * `current()` returns, the one serving the session's latest request: over
+ * 2026-07-28 that is a new instance per request.
+ */
+export function gatewayApprover(config: GatewayConfig, current: () => Server | undefined): Approver {
+  // Read approval settings on every request: a dashboard policy update can change them mid-session.
+  return (request) => {
+    const { timeoutSeconds, channels } = config.approval;
+    return chainApprovers(
+      channels.map((channel): Approver =>
+        channel === "dashboard" && config.audit.dashboard
+          ? dashboardApprover(config.audit.dashboard, timeoutSeconds)
+          : (req) => elicitationApprover(current(), timeoutSeconds)(req)
+      )
+    )(request);
+  };
+}
+
+/**
+ * Servers' sampling requests go to this session's client, when it offers
+ * sampling and is on 2025-11-25: on 2026-07-28 a server cannot ask the client
+ * in the middle of another server's call.
+ */
+export function gatewaySampler(current: () => Server | undefined): Sampler {
+  return {
+    available: () => {
+      const server = current();
+      return Boolean(server && !isModern(server) && server.getClientCapabilities()?.sampling);
+    },
+    create: (params) => current()!.createMessage(params),
+  };
 }
 
 /**
@@ -64,27 +176,16 @@ export function createGatewayServer(
   upstreams: Upstream[],
   config: GatewayConfig,
   audit: AuditLogger,
-  options: { sessionId?: string; identity?: CallerIdentity; quotas?: QuotaStore; pinStore?: PinStore } = {}
+  options: { sessionId?: string; identity?: CallerIdentity; quotas?: QuotaStore; pinStore?: PinStore; codec?: RequestStateCodec<ApprovalState> } = {}
 ): { gateway: Gateway; server: Server } {
   let server: Server | undefined;
-  // Read approval settings on every request: a dashboard policy update can change them mid-session.
-  const approver: Approver = (request) => {
-    const { timeoutSeconds, channels } = config.approval;
-    return chainApprovers(
-      channels.map((channel): Approver =>
-        channel === "dashboard" && config.audit.dashboard
-          ? dashboardApprover(config.audit.dashboard, timeoutSeconds)
-          : (req) => (server ? elicitationApprover(server, timeoutSeconds)(req) : Promise.resolve("unavailable"))
-      )
-    )(request);
-  };
-  // Servers' sampling requests go to this session's client, when it offers sampling
-  const sampler: Sampler = {
-    available: () => Boolean(server?.getClientCapabilities()?.sampling),
-    create: (params) => server!.createMessage(params),
-  };
-  const gateway = new Gateway(upstreams, config, audit, approver, { ...options, sampler });
-  server = createProxyServer(gateway);
+  const { codec = approvalStateCodec(config), ...rest } = options;
+  const gateway = new Gateway(upstreams, config, audit, gatewayApprover(config, () => server), { ...rest, sampler: gatewaySampler(() => server) });
+  server = createProxyServer(gateway, codec);
+  const current = server;
+  gateway.onToolsChanged(() => {
+    void current.sendToolListChanged().catch(() => {});
+  });
   return { gateway, server };
 }
 
@@ -235,8 +336,10 @@ export async function startGateway(config: GatewayConfig): Promise<void> {
     return;
   }
 
-  const { gateway, server } = createGatewayServer(upstreams, config, audit, { ...(pinStore ? { pinStore } : {}), ...(counters ? { quotas: new QuotaStore(Date.now, counters) } : {}) });
-  await server.connect(new StdioServerTransport());
+  const { gateway, stdio } = serveGatewayStdio(upstreams, config, audit, {
+    ...(pinStore ? { pinStore } : {}),
+    ...(counters ? { quotas: new QuotaStore(Date.now, counters) } : {}),
+  });
 
   // The client usually just closes stdin; without this the process ended with
   // audit events still queued for the dashboard.
@@ -244,15 +347,52 @@ export async function startGateway(config: GatewayConfig): Promise<void> {
   const shutdown = async () => {
     if (closing) return;
     closing = true;
-    await server.close().catch(() => {});
+    await stdio.close().catch(() => {});
     await gateway.close();
     await stopTracing?.();
     process.exit(0);
   };
-  server.onclose = () => void shutdown();
   process.stdin.on("end", () => void shutdown());
   process.on("SIGINT", () => void shutdown());
   process.on("SIGTERM", () => void shutdown());
+}
+
+/**
+ * The gateway over stdio (or `transport`): one agent per process, so one
+ * Gateway. serveStdio builds a server for the protocol revision the client
+ * opens with (and one for a discovery probe it may discard); each serves this
+ * gateway, and the last one built is the live one.
+ */
+export function serveGatewayStdio(
+  upstreams: Upstream[],
+  config: GatewayConfig,
+  audit: AuditLogger,
+  options: { pinStore?: PinStore; quotas?: QuotaStore; transport?: Transport } = {},
+): { gateway: Gateway; stdio: StdioServerHandle } {
+  const { transport, ...gatewayOptions } = options;
+  const codec = approvalStateCodec(config);
+  let current: Server | undefined;
+  let unsubscribe: (() => void) | undefined;
+  const gateway = new Gateway(upstreams, config, audit, gatewayApprover(config, () => current), {
+    ...gatewayOptions,
+    sampler: gatewaySampler(() => current),
+  });
+  const stdio = serveStdio(
+    () => {
+      const server = createProxyServer(gateway, codec);
+      unsubscribe?.();
+      unsubscribe = gateway.onToolsChanged(() => {
+        void server.sendToolListChanged().catch(() => {});
+      });
+      current = server;
+      return server;
+    },
+    {
+      ...(transport ? { transport } : {}),
+      onerror: (err) => process.stderr.write(`[guardbee-proxy] ${err.message}\n`),
+    },
+  );
+  return { gateway, stdio };
 }
 
 /** 0.x entry point: one server, unprefixed tool names, toxic flows only warn. */

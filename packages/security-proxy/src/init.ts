@@ -122,7 +122,9 @@ export function planInit(clientConfigText: string, yamlPath: string, auditPath: 
         kept.push({
           name: key,
           reason: url
-            ? "SSE server: the proxy speaks Streamable HTTP only, so this one bypasses the policy"
+            ? `SSE server: the proxy speaks Streamable HTTP only, so this one bypasses the policy${
+                /\/sse\/?(?:[?#]|$)/.test(url) ? "; many servers (Cloudflare's among them) now serve it at /mcp instead of /sse" : ""
+              }`
             : "no command or url",
         });
       } else {

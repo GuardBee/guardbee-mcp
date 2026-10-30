@@ -12,6 +12,8 @@ export type McpServerConfig = {
   provenance?: "off" | "warn" | "require";
   /** Run the server in an OS sandbox (gateway/sandbox.ts); absent → a plain child process. */
   sandbox?: SandboxConfig;
+  /** MCP revision to speak to this server; absent → auto (see UpstreamProtocol). */
+  protocol?: UpstreamProtocol;
 };
 
 /** A Streamable HTTP MCP server the proxy connects to as a client. */
@@ -20,7 +22,15 @@ export type HttpUpstreamConfig = {
   headers?: Record<string, string>;
   /** Which addresses the proxy's connections to this server may reach (SSRF guard). */
   network?: UpstreamNetworkConfig;
+  /** MCP revision to speak to this server; absent → auto (see UpstreamProtocol). */
+  protocol?: UpstreamProtocol;
 };
+
+/**
+ * `auto`: ask the server for 2026-07-28 (server/discover) and fall back to the
+ * 2025-11-25 initialize handshake; a version pins that revision only.
+ */
+export type UpstreamProtocol = "auto" | "2025-11-25" | "2026-07-28";
 
 /**
  * `open` (default): any host; `allowlist`: only `allowHosts`. Link-local

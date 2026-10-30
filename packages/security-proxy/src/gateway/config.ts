@@ -5,7 +5,7 @@ import { z } from "zod";
 import { checkTopicReferences, policyShape, type TopicDefinition } from "@guardbee/guard-core";
 import { loadProxyConfig } from "../config.js";
 import os from "os";
-import type { AuditConfig, McpServerConfig, ProxyConfig, UpstreamConfig, UpstreamNetworkConfig } from "../types.js";
+import type { AuditConfig, McpServerConfig, ProxyConfig, UpstreamConfig, UpstreamNetworkConfig, UpstreamProtocol } from "../types.js";
 import type { ExporterConfig } from "../audit/exporters.js";
 import type { Label } from "./labels.js";
 import type { PolicyAction, PolicyRule } from "./policy.js";
@@ -32,7 +32,20 @@ export type ListenConfig =
       oidc?: OidcConfig;
       /** Add the user's LDAP / Active Directory groups to the token's. */
       ldap?: DirectoryConfig;
+      /** Open 2025-11-25 sessions plus 2026-07-28 contexts (see contextIdleSeconds). */
       maxSessions: number;
+      /**
+       * 2026-07-28 clients have no session: their calls share a context
+       * (taint, PII tokens, pins) per user and X-GuardBee-Context header,
+       * dropped after this many idle seconds.
+       */
+      contextIdleSeconds: number;
+      /**
+       * HMAC key (≥ 32 bytes) for the state of a 2026-07-28 approval round
+       * trip; absent → a random key per process, so behind a load balancer
+       * every replica must share one.
+       */
+      stateKey?: string;
     };
 
 /** Where the policy (labels, rules, taint, approval, defaults, interceptors) comes from. */
@@ -124,6 +137,7 @@ const upstreamSchema = z
       .optional(),
     url: z.string().optional(),
     headers: z.record(z.string(), z.string()).optional(),
+    protocol: z.enum(["auto", "2025-11-25", "2026-07-28"]).optional(),
     network: z
       .object({
         mode: z.enum(["open", "allowlist"]).optional(),
@@ -273,6 +287,8 @@ const listenSchema = z
       .strict()
       .optional(),
     maxSessions: z.number().int().positive().default(100),
+    contextIdleSeconds: z.number().int().positive().default(1800),
+    stateKeyEnv: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable").optional(),
     ldap: z
       .object({
         url: z.string().regex(/^ldaps?:\/\//, "url must start with ldap:// or ldaps://"),
@@ -341,7 +357,7 @@ const yamlSchema = z
       })
       .strict()
       .default({ source: "local", refreshSeconds: 60 }),
-    listen: listenSchema.default({ transport: "stdio", host: "127.0.0.1", port: 8787, path: "/mcp", apiKeys: [], maxSessions: 100 }),
+    listen: listenSchema.default({ transport: "stdio", host: "127.0.0.1", port: 8787, path: "/mcp", apiKeys: [], maxSessions: 100, contextIdleSeconds: 1800 }),
     llm: llmSchema.optional(),
     ner: nerSchema.optional(),
     pins: z.object({ file: z.string().min(1).optional() }).strict().optional(),
@@ -425,20 +441,29 @@ function interpolateRecord(record: Record<string, string> | undefined, where: st
 
 function interpolateUpstream(
   name: string,
-  upstream: { command?: string; args?: string[]; env?: Record<string, string>; provenance?: McpServerConfig["provenance"]; sandbox?: McpServerConfig["sandbox"]; url?: string; headers?: Record<string, string>; network?: UpstreamNetworkConfig },
+  upstream: { command?: string; args?: string[]; env?: Record<string, string>; provenance?: McpServerConfig["provenance"]; sandbox?: McpServerConfig["sandbox"]; url?: string; headers?: Record<string, string>; network?: UpstreamNetworkConfig; protocol?: UpstreamProtocol },
 ): UpstreamConfig {
   const where = `upstreams.${name}`;
+  const protocol = upstream.protocol ? { protocol: upstream.protocol } : {};
   if (upstream.url !== undefined) {
     const headers = interpolateRecord(upstream.headers, where);
-    return { url: interpolate(upstream.url, where), ...(headers ? { headers } : {}), ...(upstream.network ? { network: upstream.network } : {}) };
+    return { url: interpolate(upstream.url, where), ...(headers ? { headers } : {}), ...(upstream.network ? { network: upstream.network } : {}), ...protocol };
   }
   return {
     command: interpolate(upstream.command!, where),
+    ...protocol,
     ...(upstream.provenance ? { provenance: upstream.provenance } : {}),
     ...(upstream.sandbox ? { sandbox: upstream.sandbox } : {}),
     args: upstream.args?.map((arg) => interpolate(arg, where)),
     env: interpolateRecord(upstream.env, where),
   };
+}
+
+function resolveStateKey(name: string): string {
+  const key = process.env[name];
+  if (!key) throw new Error(`Environment variable ${name} (listen.stateKeyEnv) is not set`);
+  if (Buffer.byteLength(key, "utf8") < 32) throw new Error(`listen.stateKeyEnv: ${name} must hold at least 32 bytes`);
+  return key;
 }
 
 function resolveLdap(ldap: { bindPasswordEnv: string } & Omit<DirectoryConfig, "bindPassword">): DirectoryConfig {
@@ -477,7 +502,7 @@ export function parseGatewayYaml(source: string, fileLabel = "guardbee-proxy.yam
     throw new Error(`Invalid ${fileLabel}:\n  - approval.channels: "dashboard" needs audit.dashboard (url and apiKeyEnv)`);
   }
   // The directory password is resolved from the environment, like every other secret
-  const { ldap: rawLdap, ...listenRest } = cfg.listen;
+  const { ldap: rawLdap, stateKeyEnv, ...listenRest } = cfg.listen;
   return {
     upstreams: Object.fromEntries(
       Object.entries(cfg.upstreams).map(([name, upstream]) => [name, interpolateUpstream(name, upstream)]),
@@ -490,6 +515,7 @@ export function parseGatewayYaml(source: string, fileLabel = "guardbee-proxy.yam
             transport: "http",
             apiKeys: listenRest.apiKeys.map((key) => interpolate(key, "listen.apiKeys")),
             ...(rawLdap ? { ldap: resolveLdap(rawLdap) } : {}),
+            ...(stateKeyEnv ? { stateKey: resolveStateKey(stateKeyEnv) } : {}),
           }
         : { transport: "stdio" },
     namespaced: true,

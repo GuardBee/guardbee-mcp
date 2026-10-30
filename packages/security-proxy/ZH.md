@@ -203,7 +203,7 @@ audit:
 - **会话相互隔离。** 每个 MCP 会话都有自己的污点状态、PII 令牌和工具固定；一个智能体的有毒数据流绝不会拦截另一个智能体。所有会话共享上游连接。审计事件带有 `sessionId`。
 - **没有密钥就不能监听网络。** 未配置 `listen.apiKeys` 或 `listen.oidc` 就在回环地址以外监听属于配置错误。密钥以恒定时间比较；错误或缺失的密钥返回 `401`。
 - **用户（`listen.oidc`）：** 代理除 API 密钥外（或代替它）接受你的 OpenID Connect 提供商（Okta、Entra ID、Auth0、Keycloak、Google 等）签发的 JWT。它会根据颁发者的 JWKS（通过发现文档或 `jwksUri` 获取）验证签名，并校验颁发者、`audience`（必填：为其他服务签发的令牌会被拒绝）和有效期。用户来自 `userClaim`（默认 `sub`；常用 `email`），组来自 `groupsClaim`（默认 `groups`，列表或以空格分隔的字符串）。规则可以匹配 `user`（glob，例如 `"*@contractor.com"`）和 `group`，每个审计事件都带有 `user`。会话属于打开它的用户：其他用户的令牌访问该会话会得到 `403`。`401` 响应带有 `WWW-Authenticate: Bearer resource_metadata=…`，`/.well-known/oauth-protected-resource`（RFC 9728）会给出颁发者，因此实现了授权规范的 MCP 客户端能找到登录位置；在反向代理之后请将 `oidc.resource` 设为公网 URL。
-- `GET /healthz` 返回 `{"ok": true, "sessions": N}`。超过 `maxSessions` 的会话返回 `503`。
+- `GET /healthz` 返回 `{"ok": true, "sessions": N, "contexts": M}`（2025 会话与 2026-07-28 上下文）。超过 `maxSessions` 的会话和上下文返回 `503`。
 - **仪表盘：** `audit.dashboard` 会用从 `apiKeyEnv` 读取的工作区 API 密钥，把每个审计事件批量发送到 GuardBee 仪表盘；密钥不写在文件中。仪表盘不可达时，事件会在内存中等待（最多 10,000 条）并稍后发送。被拒绝的密钥只会在 stderr 报告一次。工具调用从不等待仪表盘。
 - `init` 现在也会把 Streamable HTTP 服务器（`url` + `headers`）移到代理之后。旧的 SSE 服务器保留在客户端配置中并会被报告。
 
@@ -216,6 +216,17 @@ docker run -p 8787:8787 -e GUARDBEE_PROXY_KEY=... -e GUARDBEE_API_KEY=... \
 ```
 
 ---
+
+## MCP 协议版本
+
+代理在两侧都支持 MCP **2026-07-28** 和 **2025-11-25**（以及更早的 2025 版本），并可混用：2025 版本的智能体可以通过代理使用 2026-07-28 服务器，反之亦然。基于 MCP TypeScript SDK v2。
+
+- **智能体。** stdio 在连接时确定版本。HTTP 由每个请求声明版本：2025 客户端照旧获得会话（`Mcp-Session-Id`），2026-07-28 请求无会话。
+- **上游。** 默认先向服务器请求 2026-07-28（`server/discover`），不支持时回退到 2025 的 `initialize` 握手。可按上游用 `protocol` 固定：`auto`（默认）、`2025-11-25`（不探测）或 `2026-07-28`（仅新版）。stdio 下 `auto` 会为探测再短暂启动一次服务器；不能启动两次的服务器请设置 `protocol: 2025-11-25`。`docker` 或 `podman` 沙箱中的服务器默认 `2025-11-25`；设为 `auto` 或 `2026-07-28` 时在其自身容器内探测。
+- **取代会话的机制（HTTP，2026-07-28）。** 污点、PII 令牌、工具固定和异常计数按**用户与上下文**保存：用户来自 OIDC 令牌（使用 API key 的调用者视为同一用户），上下文来自可选的 `X-GuardBee-Context` 请求头（1–128 个字母、数字、`.`、`_`、`:`、`-`，例如每个对话一个值）。没有该请求头时，同一用户的调用共享一个上下文（偏向拦截）。上下文在 `listen.contextIdleSeconds`（默认 1800）秒无请求后释放；会话与上下文总数受 `listen.maxSessions` 限制。发现请求和 `subscriptions/listen`（由 `Mcp-Method` 请求头识别）不占用上下文。
+- **审批。** 2026-07-28 服务器不能在调用中途向客户端发送 elicitation 请求。规则要求调用前审批时，代理以 `input_required` 回应；客户端显示表单并带着答复重发调用，之后调用才会到达服务器。答复放在签名的 `requestState` 中，绑定用户、工具和参数，无法伪造或用于其他调用。只能在服务器返回后进行的审批（结果上的主题规则）和采样审批，若 `approval.channels` 包含 dashboard 则交给它，否则拒绝。负载均衡后的多副本需共享密钥：`listen.stateKeyEnv`（至少 32 字节；默认每个进程随机）。
+- **采样。** 不能在其他服务器调用中途向 2026-07-28 客户端请求补全，因此此类客户端下服务器的采样请求会被拒绝（`sampling:unavailable`）。智能体为 2025-11-25 时，调用中请求采样的 2026-07-28 *服务器*照常处理。
+- **不支持 SSE。** 代理只连接和提供 Streamable HTTP。`guardbee-proxy init` 不迁移 SSE 服务器，并提示多数服务器现已用 `/mcp` 取代 `/sse`。
 
 ## MCP 工具
 

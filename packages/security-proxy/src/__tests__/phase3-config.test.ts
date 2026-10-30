@@ -36,7 +36,7 @@ describe("listen", () => {
 
   it("allows HTTP on loopback without a key", () => {
     const cfg = parseGatewayYaml(base + "listen: { transport: http, port: 9000 }");
-    expect(cfg.listen).toEqual({ transport: "http", host: "127.0.0.1", port: 9000, path: "/mcp", apiKeys: [], maxSessions: 100 });
+    expect(cfg.listen).toEqual({ transport: "http", host: "127.0.0.1", port: 9000, path: "/mcp", apiKeys: [], maxSessions: 100, contextIdleSeconds: 1800 });
   });
 
   it("refuses to listen on the network without an API key", () => {
