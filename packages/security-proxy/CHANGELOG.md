@@ -1,5 +1,19 @@
 # @guardbee/mcp-security-proxy
 
+## 1.33.0
+
+### Minor Changes
+
+- [#251](https://github.com/GuardBee/guardbee-mcp/pull/251) [`9381839`](https://github.com/GuardBee/guardbee-mcp/commit/93818390e88597ea4c12e11575390e4d23dde1ac) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - LLM gateway: read PDFs in requests instead of refusing them ([#239](https://github.com/GuardBee/guardbee-mcp/issues/239)).
+  
+  With `llm.documents.pdf: true`, inline PDFs are read with `@guardbee/mcp-document-scanner` and their text goes through every prompt check: injection, credentials, topic rules, sensitive routing and PII. This covers OpenAI `file` parts, Responses `input_file` parts and Anthropic base64 `document` blocks.
+  
+  - A clean PDF is forwarded unchanged.
+  - A PDF holding personal data the proxy would mask is refused with `403` (`pii:document`), unless the route has masking off or `llm.sensitive` keeps it in-house.
+  - A PDF that cannot be read in full (size, pages, encryption, timeout, scanned pages with OCR off) stays `415 guardbee_unmaskable_content`.
+  - The audit log records each PDF's name, size, hash, pages and the checks that ran (`documents`), never its bytes.
+  - Off by default: without `llm.documents`, PDFs are refused with `415` as before.
+
 ## 1.32.1
 
 ### Patch Changes
