@@ -1,5 +1,11 @@
 # @guardbee/mcp-security-proxy
 
+## 1.32.0
+
+### Minor Changes
+
+- [#243](https://github.com/GuardBee/guardbee-mcp/pull/243) [`d7233af`](https://github.com/GuardBee/guardbee-mcp/commit/d7233af6e4ac04288c6138a50034d3b07465b965) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Speak MCP 2026-07-28 next to 2025-11-25, on the MCP TypeScript SDK v2. Agents and upstreams can be on either revision and are mixed freely. Upstreams negotiate by default (`server/discover`, falling back to `initialize`); pin one with `upstreams.<name>.protocol` (`auto`, `2025-11-25`, `2026-07-28`). Over HTTP, 2026-07-28 requests are served without a session: taint, PII tokens, pins and anomaly counters are kept per user and optional `X-GuardBee-Context` header (`listen.contextIdleSeconds`), and discovery and `subscriptions/listen` requests are routed by their `Mcp-Method` header without taking a context. Approvals for 2026-07-28 clients use `input_required` with a signed `requestState` bound to the user, tool and arguments (`listen.stateKeyEnv` for replicas); approvals after a server answered and sampling go to the dashboard channel or are refused. Upstream lists are always fetched fresh, so a server's cache hint cannot hide a changed definition. `guardbee-proxy init` points SSE entries at `/mcp`.
+
 ## 1.31.0
 
 ### Minor Changes
