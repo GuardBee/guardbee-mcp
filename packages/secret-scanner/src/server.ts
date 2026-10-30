@@ -58,11 +58,11 @@ export function registerTools(server: McpServer): void {
     "scan_text",
     {
       description: "Scan a text string or code snippet for exposed secrets and API keys",
-      inputSchema: {
+      inputSchema: z.object({
         content: z.string().describe("The text content to scan"),
         label: z.string().optional().describe("Optional label shown in findings (e.g. filename)"),
         entropy: z.boolean().optional().describe("Also flag random-looking values assigned to secret-like names (default true)"),
-      },
+      }),
     },
     async ({ content, label, entropy }) => {
       const findings = scanText(content, label, label, { entropy });
@@ -98,10 +98,10 @@ export function registerTools(server: McpServer): void {
     "scan_file",
     {
       description: "Scan a single file for exposed secrets and API keys",
-      inputSchema: {
+      inputSchema: z.object({
         path: z.string().describe("Absolute or relative path to the file to scan"),
         entropy: z.boolean().optional().describe("Also flag random-looking values assigned to secret-like names (default true)"),
-      },
+      }),
     },
     async ({ path: filePath, entropy }) => {
       const { findings, skipped } = scanFile(filePath, filePath, { entropy });
@@ -134,7 +134,7 @@ export function registerTools(server: McpServer): void {
     "scan_directory",
     {
       description: "Recursively scan a directory for exposed secrets and API keys. Automatically skips node_modules, .git, dist, and binary files.",
-      inputSchema: {
+      inputSchema: z.object({
         path: z.string().describe("Absolute or relative path to the directory to scan"),
         maxFiles: z.number().int().positive().optional().describe("Maximum number of files to scan (default: 5000)"),
         include: z
@@ -147,7 +147,7 @@ export function registerTools(server: McpServer): void {
           .describe("Skip files/dirs whose path contains one of these strings"),
         baseline: z.string().optional().describe("Path to a baseline file: only findings not in it are reported"),
         entropy: z.boolean().optional().describe("Also flag random-looking values assigned to secret-like names (default true)"),
-      },
+      }),
     },
     async ({ path: dirPath, maxFiles, include, exclude, baseline, entropy }) => {
       const result = scanDirectory(dirPath, { maxFiles, include, exclude, entropy });
@@ -161,14 +161,14 @@ export function registerTools(server: McpServer): void {
     "scan_git",
     {
       description: "Scan a git repository for secrets in what git says was added: the staged changes (before a commit) or every commit's added lines (history). History finds secrets that were deleted from the files but are still in the repository.",
-      inputSchema: {
+      inputSchema: z.object({
         path: z.string().describe("A directory inside the git repository"),
         mode: z.enum(["staged", "history"]).describe("staged: lines added in the index; history: lines added by each commit"),
         range: z.string().optional().describe("History only: a revision range such as main..HEAD (default: all refs)"),
         maxCommits: z.number().int().positive().optional().describe("History only: stop after this many commits"),
         baseline: z.string().optional().describe("Path to a baseline file: only findings not in it are reported"),
         entropy: z.boolean().optional().describe("Also flag random-looking values assigned to secret-like names (default true)"),
-      },
+      }),
     },
     async ({ path: repoPath, mode, range, maxCommits, baseline, entropy }) => {
       const result = await scanGit({ cwd: repoPath, mode, entropy, ...(range ? { range } : {}), ...(maxCommits ? { maxCommits } : {}) });
@@ -187,9 +187,9 @@ export function registerTools(server: McpServer): void {
     "scan_agent_history",
     {
       description: "Scan the transcripts coding agents keep on this machine (Claude Code, Codex, Gemini CLI, Continue) for secrets that were pasted into a chat or printed by a command. Such a secret was already sent to the model provider and should be rotated. Each secret is reported once with how often it appears.",
-      inputSchema: {
+      inputSchema: z.object({
         entropy: z.boolean().optional().describe("Also flag random-looking values assigned to secret-like names (default false here: transcripts hold a lot of code)"),
-      },
+      }),
     },
     async ({ entropy }) => {
       const result = scanAgentHistory({ entropy: entropy ?? false });

@@ -34,13 +34,13 @@ export function registerTools(server: McpServer): void {
     "enumerate_dns",
     {
       description: "Enumerate all DNS records for a domain and detect misconfigurations: SPF, DMARC, DKIM key strength, MTA-STS/TLS-RPT, MX, DNSSEC (signed / broken / weak algorithms) and CAA (including whether it blocks the CA of the live certificate) and nameservers (lame delegation, anonymous zone transfer, open recursion)",
-      inputSchema: {
+      inputSchema: z.object({
         domain: z.string().describe("Domain to enumerate (e.g. example.com)"),
         nameserverProbe: z
           .boolean()
           .optional()
           .describe("Query each nameserver directly for lame delegation, SOA serial drift, anonymous zone transfer (AXFR) and open recursion (default: true)"),
-      },
+      }),
     },
     async ({ domain, nameserverProbe }) => {
       const start = Date.now();
@@ -54,10 +54,10 @@ export function registerTools(server: McpServer): void {
     "audit_domains",
     {
       description: "Audit several domains at once (e.g. every brand or country domain) and compare them: an A–F grade per domain from all DNS, email, DNSSEC, CAA and nameserver checks, plus each domain's most serious findings",
-      inputSchema: {
+      inputSchema: z.object({
         domains: z.array(z.string()).min(1).max(20).describe("Domains to audit, e.g. [\"example.com\", \"example.de\"]"),
         nameserverProbe: z.boolean().optional().describe("Query nameservers directly (default: true)"),
-      },
+      }),
     },
     async ({ domains, nameserverProbe }) => {
       const start = Date.now();
@@ -87,7 +87,7 @@ export function registerTools(server: McpServer): void {
     "enumerate_subdomains",
     {
       description: "Find subdomains from Certificate Transparency logs and a common-name wordlist, and detect subdomain takeovers: CNAMEs to S3, GitHub Pages, Azure, Heroku, Netlify and other providers whose resource is gone (verified fingerprints), or to targets that no longer exist",
-      inputSchema: {
+      inputSchema: z.object({
         domain: z.string().describe("Root domain to enumerate subdomains for (e.g. example.com)"),
         httpProbe: z
           .boolean()
@@ -97,7 +97,7 @@ export function registerTools(server: McpServer): void {
           .boolean()
           .optional()
           .describe("Add names found in Certificate Transparency logs via crt.sh and Cert Spotter (default: true; sends only the domain name)"),
-      },
+      }),
     },
     async ({ domain, httpProbe, certificateTransparency }) => {
       const start = Date.now();
@@ -115,10 +115,10 @@ export function registerTools(server: McpServer): void {
     "check_takeover",
     {
       description: "Check specific hostnames (e.g. from your DNS zone or certificate logs) for subdomain takeover",
-      inputSchema: {
+      inputSchema: z.object({
         hosts: z.array(z.string()).min(1).max(200).describe("Hostnames to check, e.g. [\"blog.example.com\"]"),
         httpProbe: z.boolean().optional().describe("Fetch pages to match takeover fingerprints (default: true)"),
-      },
+      }),
     },
     async ({ hosts, httpProbe }) => {
       const lines: string[] = [];
@@ -148,13 +148,13 @@ export function registerTools(server: McpServer): void {
     "check_email_security",
     {
       description: "Check a domain's email security: MX, SPF (nested lookup count), DMARC, DKIM key strength, MTA-STS and TLS-RPT, with remediation advice",
-      inputSchema: {
+      inputSchema: z.object({
         domain: z.string().describe("Domain to check email security for"),
         dkimSelectors: z
           .array(z.string())
           .optional()
           .describe("Additional DKIM selectors to check (default: common selectors)"),
-      },
+      }),
     },
     async ({ domain: input, dkimSelectors: extraSelectors }) => {
       const start = Date.now();
@@ -240,12 +240,12 @@ export function registerTools(server: McpServer): void {
     "lookup_dns",
     {
       description: "Perform a targeted DNS lookup for specific record types on a domain",
-      inputSchema: {
+      inputSchema: z.object({
         domain: z.string().describe("Domain to query"),
         type: z
           .enum(["A", "AAAA", "MX", "NS", "TXT", "CNAME", "SOA"])
           .describe("DNS record type to look up"),
-      },
+      }),
     },
     async ({ domain: input, type }) => {
       try {

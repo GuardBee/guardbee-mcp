@@ -47,12 +47,12 @@ export function registerTools(server: McpServer): void {
     "owasp_scan_path",
     {
       description: "Run a unified OWASP MCP Top 10 scan over a filesystem path — orchestrates secret, server, oauth, audit-gap, context-oversharing, toxic-flow, and tool-poisoning auditors; returns A–F grade.",
-      inputSchema: {
+      inputSchema: z.object({
         path: z.string().describe("File or directory to scan"),
         maxFiles: z.number().int().positive().optional(),
         discoverShadow: z.boolean().optional().describe("Also discover Shadow MCP on this host (MCP09)"),
         allowlistPath: z.string().optional().describe("Allowlist file for Shadow MCP discover"),
-      },
+      }),
     },
     async ({ path, maxFiles, discoverShadow, allowlistPath }) => {
       const report = scanPath(path, { maxFiles, discoverShadow, allowlistPath });
@@ -64,11 +64,11 @@ export function registerTools(server: McpServer): void {
     "owasp_scan_live",
     {
       description: "Connect to a live MCP server (stdio or HTTP), call tools/list, then grade toxic-flow + tool-poisoning (MCP03/MCP10).",
-      inputSchema: {
+      inputSchema: z.object({
         url: z.string().url().optional().describe("Streamable HTTP MCP URL"),
         command: z.string().optional().describe("stdio command to spawn"),
         args: z.array(z.string()).optional(),
-      },
+      }),
     },
     async ({ url, command, args }) => {
       if (url) {
@@ -87,10 +87,10 @@ export function registerTools(server: McpServer): void {
     "owasp_scan_catalog",
     {
       description: "Audit a tools/list JSON dump for toxic flows and tool-description poisoning (MCP03/MCP10).",
-      inputSchema: {
+      inputSchema: z.object({
         catalog: z.string().describe("JSON string: { tools: [...] } or a bare tools array"),
         label: z.string().optional(),
-      },
+      }),
     },
     async ({ catalog, label }) => {
       const report = scanCatalogJson(catalog, label);

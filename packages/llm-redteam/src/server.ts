@@ -109,7 +109,7 @@ export function registerTools(server: McpServer): void {
     "run_probe_suite",
     {
       description: "Run canary-based red-team probes against a live LLM endpoint or chatbot you control, to test whether known jailbreak/extraction/obfuscation techniques bypass its guardrails. ONLY point this at an endpoint you own or are explicitly authorized to test — every probe consumes API quota on the target. Probes never request genuinely harmful content; success is measured by whether the target reproduces a random one-time token, proving an override instruction was obeyed.",
-      inputSchema: {
+      inputSchema: z.object({
         target: TargetConfigSchema,
         categories: z
           .array(z.enum(["instruction-override", "extraction", "obfuscation", "refusal-suppression", "multilingual"]))
@@ -117,7 +117,7 @@ export function registerTools(server: McpServer): void {
           .describe("Only run probes in these categories"),
         probeIds: z.array(z.string()).optional().describe("Only run these specific probe IDs (see list_probes)"),
         maxProbes: z.number().int().positive().optional().describe("Cap the number of probes run, to limit API cost"),
-      },
+      }),
       annotations: { openWorldHint: true, readOnlyHint: false, idempotentHint: false },
     },
     async ({ target: targetConfig, categories, probeIds, maxProbes }) => {

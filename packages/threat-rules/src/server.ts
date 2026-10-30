@@ -89,13 +89,13 @@ export function registerTools(server: McpServer): void {
     "evaluate_text",
     {
       description: "Evaluate free text against Agent Threat Rules (ATR) plus GuardBee KVKK/TR rules. Returns matches with follow-up scanner hints.",
-      inputSchema: {
+      inputSchema: z.object({
         content: z.string().describe("Text to evaluate"),
         type: eventTypeSchema.describe("ATR event type (default: llm_input)"),
         lane: z.enum(["enforce", "alert", "hunt"]).optional().describe("Detection lane (default: hunt)"),
         scanContext: z.enum(["mcp", "skill"]).optional(),
         format: z.enum(["text", "json", "sarif"]).optional(),
-      },
+      }),
     },
     async ({ content, type, lane, scanContext, format }) => {
       const text = await runEval(content, {
@@ -112,12 +112,12 @@ export function registerTools(server: McpServer): void {
     "evaluate_file",
     {
       description: "Read a local file and evaluate its contents against ATR + GuardBee rules",
-      inputSchema: {
+      inputSchema: z.object({
         path: z.string().describe("Path to a text file (max 2MB)"),
         type: eventTypeSchema,
         lane: z.enum(["enforce", "alert", "hunt"]).optional(),
         format: z.enum(["text", "json", "sarif"]).optional(),
-      },
+      }),
     },
     async ({ path: filePath, type, lane, format }) => {
       try {
@@ -141,13 +141,13 @@ export function registerTools(server: McpServer): void {
     "evaluate_event",
     {
       description: "Evaluate a structured ATR AgentEvent JSON (type, content, fields, sessionId, …).",
-      inputSchema: {
+      inputSchema: z.object({
         event: z
           .string()
           .describe("JSON AgentEvent: { type, content, fields?, sessionId?, agentId?, scanContext? }"),
         lane: z.enum(["enforce", "alert", "hunt"]).optional(),
         format: z.enum(["text", "json", "sarif"]).optional(),
-      },
+      }),
     },
     async ({ event, lane, format }) => {
       let parsed: {
@@ -187,7 +187,7 @@ export function registerTools(server: McpServer): void {
     "list_rules",
     {
       description: "List loaded ATR + GuardBee detection rules (optionally filter by category or source).",
-      inputSchema: {
+      inputSchema: z.object({
         category: z
           .enum([
             "prompt-injection",
@@ -203,7 +203,7 @@ export function registerTools(server: McpServer): void {
           .optional(),
         source: z.enum(["atr", "guardbee"]).optional(),
         lane: z.enum(["enforce", "alert", "hunt"]).optional(),
-      },
+      }),
     },
     async ({ category, source, lane }) => {
       const { engine } = await getEngine((lane as Lane | undefined) ?? "hunt");
@@ -227,9 +227,9 @@ export function registerTools(server: McpServer): void {
     "rule_stats",
     {
       description: "Summarize loaded rule counts by category and source (ATR vs GuardBee)",
-      inputSchema: {
+      inputSchema: z.object({
         lane: z.enum(["enforce", "alert", "hunt"]).optional(),
-      },
+      }),
     },
     async ({ lane }) => {
       const { engine } = await getEngine((lane as Lane | undefined) ?? "hunt");

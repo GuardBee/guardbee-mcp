@@ -51,9 +51,9 @@ export function registerTools(server: McpServer): void {
     "scan_file",
     {
       description: "Scan a single ML model file for supply-chain risks: dangerous Python globals reachable during pickle deserialization (os/subprocess/eval/socket/etc, including inside PyTorch's zip checkpoint container), a malformed or disguised .safetensors header, a Keras Lambda-layer RCE pattern in .h5/.keras files, or a path-traversal external_data reference in .onnx files.",
-      inputSchema: {
+      inputSchema: z.object({
         path: z.string().describe("Absolute or relative path to the model file (.pt, .pth, .ckpt, .pkl, .pickle, .bin, .safetensors, .h5, .hdf5, .keras, .onnx)"),
-      },
+      }),
     },
     async ({ path: filePath }) => {
       const { findings, skipped, format } = scanModelFile(filePath);
@@ -72,7 +72,7 @@ export function registerTools(server: McpServer): void {
     "scan_directory",
     {
       description: "Recursively scan a directory for ML model files (.pt, .pth, .ckpt, .pkl, .pickle, .bin, .safetensors, .h5, .hdf5, .keras, .onnx) and report supply-chain risks in each. Automatically skips node_modules, .git, venv, and other non-model directories.",
-      inputSchema: {
+      inputSchema: z.object({
         path: z.string().describe("Absolute or relative path to the directory to scan"),
         maxFiles: z.number().int().positive().optional().describe("Maximum number of files to scan (default: 2000)"),
         include: z
@@ -83,7 +83,7 @@ export function registerTools(server: McpServer): void {
           .array(z.string())
           .optional()
           .describe("Skip files/dirs whose path contains one of these strings"),
-      },
+      }),
     },
     async ({ path: dirPath, maxFiles, include, exclude }) => {
       const result = scanDirectory(dirPath, { maxFiles, include, exclude });

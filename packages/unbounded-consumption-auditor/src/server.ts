@@ -50,10 +50,10 @@ export function registerTools(server: McpServer): void {
     "scan_text",
     {
       description: "Scan LLM/agent application code for Unbounded Consumption (\"denial of wallet\") anti-patterns from OWASP LLM Top 10 2026's #6 category: LLM calls with no output token limit, hand-rolled HTTP calls to an LLM endpoint with no timeout, agent tool-calling or retry loops with no iteration cap, framework safety limits (LangChain max_iterations, openai-agents max_turns) explicitly disabled, and MCP tool handlers that make billable calls with no visible rate limiting.",
-      inputSchema: {
+      inputSchema: z.object({
         content: z.string().describe("The code content to scan"),
         label: z.string().optional().describe("Optional label shown in findings (e.g. filename)"),
-      },
+      }),
     },
     async ({ content, label }) => {
       const findings = scanText(content, label);
@@ -65,7 +65,7 @@ export function registerTools(server: McpServer): void {
     "scan_file",
     {
       description: "Scan a single file for Unbounded Consumption / denial-of-wallet anti-patterns",
-      inputSchema: { path: z.string().describe("Absolute or relative path to the file to scan") },
+      inputSchema: z.object({ path: z.string().describe("Absolute or relative path to the file to scan") }),
     },
     async ({ path: filePath }) => {
       const { findings, skipped } = scanFile(filePath);
@@ -80,12 +80,12 @@ export function registerTools(server: McpServer): void {
     "scan_directory",
     {
       description: "Recursively scan a directory of LLM/agent application source for Unbounded Consumption / denial-of-wallet anti-patterns",
-      inputSchema: {
+      inputSchema: z.object({
         path: z.string().describe("Absolute or relative path to the directory to scan"),
         maxFiles: z.number().int().positive().optional().describe("Maximum number of files to scan (default: 5000)"),
         include: z.array(z.string()).optional().describe("Only scan files whose path contains one of these strings"),
         exclude: z.array(z.string()).optional().describe("Skip files/dirs whose path contains one of these strings"),
-      },
+      }),
     },
     async ({ path: dirPath, maxFiles, include, exclude }) => {
       const result = scanDirectory(dirPath, { maxFiles, include, exclude });

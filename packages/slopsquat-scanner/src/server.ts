@@ -53,9 +53,9 @@ export function registerTools(server: McpServer): void {
     "scan_npm",
     {
       description: "Check every dependency declared in a package.json (dependencies, devDependencies, peerDependencies, optionalDependencies) against the real npm registry -- flags any package name that doesn't exist at all (a likely LLM-hallucinated dependency an attacker may have pre-registered, i.e. 'slopsquatting'), and separately notes any that exist but were only first published very recently.",
-      inputSchema: {
+      inputSchema: z.object({
         directory: z.string().describe("Path to the directory containing package.json"),
-      },
+      }),
     },
     async ({ directory }) => {
       const result = await scanNpm(directory);
@@ -70,9 +70,9 @@ export function registerTools(server: McpServer): void {
     "scan_pip",
     {
       description: "Check every dependency declared in requirements.txt or pyproject.toml against the real PyPI registry -- flags any package name that doesn't exist at all (a likely LLM-hallucinated dependency an attacker may have pre-registered), and separately notes any that exist but were only first published very recently.",
-      inputSchema: {
+      inputSchema: z.object({
         directory: z.string().describe("Path to the directory containing requirements.txt or pyproject.toml"),
-      },
+      }),
     },
     async ({ directory }) => {
       const result = await scanPip(directory);
@@ -87,10 +87,10 @@ export function registerTools(server: McpServer): void {
     "check_package",
     {
       description: "Check a single package name against the real npm or PyPI registry",
-      inputSchema: {
+      inputSchema: z.object({
         name: z.string().describe("Package name"),
         ecosystem: z.enum(["npm", "PyPI"]).describe("Which registry to check"),
-      },
+      }),
     },
     async ({ name, ecosystem }) => {
       const finding = await checkSinglePackage(name, ecosystem);
@@ -102,9 +102,9 @@ export function registerTools(server: McpServer): void {
     "scan_directory",
     {
       description: "Auto-detect and check both npm and pip manifests (package.json, requirements.txt, pyproject.toml) in a directory against their real registries",
-      inputSchema: {
+      inputSchema: z.object({
         directory: z.string().describe("Path to the project root directory"),
-      },
+      }),
     },
     async ({ directory }) => {
       const [npm, pip] = await Promise.all([scanNpm(directory), scanPip(directory)]);

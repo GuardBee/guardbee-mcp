@@ -50,10 +50,10 @@ export function registerTools(server: McpServer): void {
     "scan_text",
     {
       description: "Scan a text string — a RAG chunk, a scraped web page, a document, a tool result — for indirect prompt injection payloads (instruction-override phrases, spoofed chat-template roles, hidden/invisible text, content addressing 'the AI' directly, data-exfiltration attempts) before it reaches a model's context.",
-      inputSchema: {
+      inputSchema: z.object({
         content: z.string().describe("The text content to scan"),
         label: z.string().optional().describe("Optional label shown in findings (e.g. source URL or filename)"),
-      },
+      }),
     },
     async ({ content, label }) => {
       const findings = scanText(content, label);
@@ -65,9 +65,9 @@ export function registerTools(server: McpServer): void {
     "scan_file",
     {
       description: "Scan a single file (a knowledge-base document, an HTML page, extracted text) for indirect prompt injection payloads",
-      inputSchema: {
+      inputSchema: z.object({
         path: z.string().describe("Absolute or relative path to the file to scan"),
-      },
+      }),
     },
     async ({ path: filePath }) => {
       const { findings, skipped } = scanFile(filePath);
@@ -86,7 +86,7 @@ export function registerTools(server: McpServer): void {
     "scan_directory",
     {
       description: "Recursively scan a directory — e.g. a RAG knowledge base or a corpus of scraped pages — for indirect prompt injection payloads. Automatically skips node_modules, .git, dist, and binary files.",
-      inputSchema: {
+      inputSchema: z.object({
         path: z.string().describe("Absolute or relative path to the directory to scan"),
         maxFiles: z.number().int().positive().optional().describe("Maximum number of files to scan (default: 5000)"),
         include: z
@@ -97,7 +97,7 @@ export function registerTools(server: McpServer): void {
           .array(z.string())
           .optional()
           .describe("Skip files/dirs whose path contains one of these strings"),
-      },
+      }),
     },
     async ({ path: dirPath, maxFiles, include, exclude }) => {
       const result = scanDirectory(dirPath, { maxFiles, include, exclude });

@@ -50,11 +50,11 @@ export function registerTools(server: McpServer): void {
     "scan_text",
     {
       description: "Scan MCP server source (TypeScript/JavaScript, Python, Go) for tool poisoning (hidden instructions embedded in a tool's `description` string, read by the calling LLM as trusted context) and confused-deputy tools (a name/description promising read-only behavior while the handler has a shell/eval/file-write/env-dump sink).",
-      inputSchema: {
+      inputSchema: z.object({
         content: z.string().describe("The source code to scan"),
         label: z.string().optional().describe("Optional label shown in findings (e.g. filename); its extension picks the language"),
         language: z.enum(["typescript", "javascript", "python", "go"]).optional().describe("Source language, when the label has no extension (default: typescript)"),
-      },
+      }),
     },
     async ({ content, label, language }) => {
       const findings = scanText(content, label, language);
@@ -66,7 +66,7 @@ export function registerTools(server: McpServer): void {
     "scan_file",
     {
       description: "Scan a single file for tool-poisoning and confused-deputy patterns in MCP tool registrations",
-      inputSchema: { path: z.string().describe("Absolute or relative path to the file to scan") },
+      inputSchema: z.object({ path: z.string().describe("Absolute or relative path to the file to scan") }),
     },
     async ({ path: filePath }) => {
       const { findings, skipped } = scanFile(filePath);
@@ -81,12 +81,12 @@ export function registerTools(server: McpServer): void {
     "scan_directory",
     {
       description: "Recursively scan a directory of MCP server source for tool-poisoning and confused-deputy patterns",
-      inputSchema: {
+      inputSchema: z.object({
         path: z.string().describe("Absolute or relative path to the directory to scan"),
         maxFiles: z.number().int().positive().optional().describe("Maximum number of files to scan (default: 5000)"),
         include: z.array(z.string()).optional().describe("Only scan files whose path contains one of these strings"),
         exclude: z.array(z.string()).optional().describe("Skip files/dirs whose path contains one of these strings"),
-      },
+      }),
     },
     async ({ path: dirPath, maxFiles, include, exclude }) => {
       const result = scanDirectory(dirPath, { maxFiles, include, exclude });

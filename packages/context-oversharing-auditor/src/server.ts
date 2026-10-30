@@ -50,10 +50,10 @@ export function registerTools(server: McpServer): void {
     "scan_text",
     {
       description: "Scan agent/MCP source for OWASP MCP10:2025 context oversharing — full conversation dumps, unscoped memory tools, shared global session stores, system-prompt leaks via tools, cross-session tool-result bleed, and unfiltered vector queries.",
-      inputSchema: {
+      inputSchema: z.object({
         content: z.string().describe("The code content to scan"),
         label: z.string().optional().describe("Optional label shown in findings (e.g. filename)"),
-      },
+      }),
     },
     async ({ content, label }) => {
       const findings = scanText(content, label);
@@ -65,7 +65,7 @@ export function registerTools(server: McpServer): void {
     "scan_file",
     {
       description: "Scan a single file for OWASP MCP10 context-oversharing issues",
-      inputSchema: { path: z.string().describe("Absolute or relative path to the file to scan") },
+      inputSchema: z.object({ path: z.string().describe("Absolute or relative path to the file to scan") }),
     },
     async ({ path: filePath }) => {
       const { findings, skipped } = scanFile(filePath);
@@ -80,12 +80,12 @@ export function registerTools(server: McpServer): void {
     "scan_directory",
     {
       description: "Recursively scan a directory for OWASP MCP10 context-oversharing issues",
-      inputSchema: {
+      inputSchema: z.object({
         path: z.string().describe("Absolute or relative path to the directory to scan"),
         maxFiles: z.number().int().positive().optional().describe("Maximum number of files to scan (default: 5000)"),
         include: z.array(z.string()).optional().describe("Only scan files whose path contains one of these strings"),
         exclude: z.array(z.string()).optional().describe("Skip files/dirs whose path contains one of these strings"),
-      },
+      }),
     },
     async ({ path: dirPath, maxFiles, include, exclude }) => {
       const result = scanDirectory(dirPath, { maxFiles, include, exclude });

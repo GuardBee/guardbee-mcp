@@ -61,7 +61,7 @@ export function registerDbTools(
     "query_table",
     {
       description: "Query rows from a database table with optional filters. All results pass through the KVKK/GDPR gateway — sensitive fields are automatically masked.",
-      inputSchema: {
+      inputSchema: z.object({
         table: z.string().describe("Table name to query"),
         filter: z
           .record(z.string(), z.unknown())
@@ -74,7 +74,7 @@ export function registerDbTools(
           .max(200)
           .optional()
           .describe("Max rows to fetch before gateway limit is applied (default 50)"),
-      },
+      }),
     },
     async ({ table, filter = {}, limit = 50 }) => {
       const rawRows = await db.query(table, filter, limit);
@@ -118,7 +118,7 @@ export function registerDbTools(
     "describe_table",
     {
       description: "Get the column names and gateway masking policy for a table — helps the LLM understand what data it can access.",
-      inputSchema: { table: z.string().describe("Table name") },
+      inputSchema: z.object({ table: z.string().describe("Table name") }),
     },
     async ({ table }) => {
       const denied = describeTableAccessError(config, pipeline, table);
@@ -162,7 +162,7 @@ export function registerDbTools(
     "query_audit_log",
     {
       description: "Query the gateway's own audit log — inspect which tools were called, on which tables, whether they were allowed or denied (and why), and which fields were redacted/written. Covers events since this server process started; count is capped by the gateway's audit.bufferSize (default 200).",
-      inputSchema: {
+      inputSchema: z.object({
         table: z.string().optional().describe("Filter by table name"),
         tool: z.string().optional().describe("Filter by MCP tool name, e.g. 'query_table', 'update_row'"),
         operation: z
@@ -178,7 +178,7 @@ export function registerDbTools(
           .max(200)
           .optional()
           .describe("Max events to return, most recent first (default 50)"),
-      },
+      }),
     },
     async ({ table, tool, operation, deniedOnly, since, limit }) => {
       if (!config.audit.enabled) {
@@ -270,10 +270,10 @@ export function registerWriteTools(
     "insert_row",
     {
       description: "Insert a new row into a database table. Only works for tables/roles explicitly granted insert access, and never for fields protected by a PII masking rule (e.g. tcKimlik, passwordHash).",
-      inputSchema: {
+      inputSchema: z.object({
         table: z.string().describe("Table name to insert into"),
         data: z.record(z.string(), z.unknown()).describe("Column values for the new row, e.g. { name: 'Acme', status: 'active' }"),
-      },
+      }),
       annotations: { destructiveHint: false, idempotentHint: false, openWorldHint: false },
     },
     async ({ table, data }) => {
@@ -298,11 +298,11 @@ export function registerWriteTools(
     "update_row",
     {
       description: "Update rows matching a filter in a database table. Requires a non-empty filter — cannot update an entire table. Refuses to touch more than the gateway's maxAffectedRowsPerWrite limit; narrow your filter if that happens.",
-      inputSchema: {
+      inputSchema: z.object({
         table: z.string().describe("Table name"),
         filter: z.record(z.string(), z.unknown()).describe("Key-value filter identifying which rows to update — required, cannot be empty"),
         data: z.record(z.string(), z.unknown()).describe("Column values to set"),
-      },
+      }),
       annotations: { destructiveHint: true, idempotentHint: true, openWorldHint: false },
     },
     async ({ table, filter, data }) => {
@@ -334,10 +334,10 @@ export function registerWriteTools(
     "delete_row",
     {
       description: "Delete rows matching a filter from a database table. Requires a non-empty filter — cannot delete an entire table. Refuses to touch more than the gateway's maxAffectedRowsPerWrite limit; narrow your filter if that happens.",
-      inputSchema: {
+      inputSchema: z.object({
         table: z.string().describe("Table name"),
         filter: z.record(z.string(), z.unknown()).describe("Key-value filter identifying which rows to delete — required, cannot be empty"),
-      },
+      }),
       annotations: { destructiveHint: true, idempotentHint: true, openWorldHint: false },
     },
     async ({ table, filter }) => {

@@ -22,7 +22,7 @@ export function registerTools(server: McpServer): void {
     "inspect_ssl",
     {
       description: "Inspect TLS certificate, cipher suite, and protocol configuration for a single domain",
-      inputSchema: {
+      inputSchema: z.object({
         host: z.string().describe("Domain name or IP to inspect (e.g. example.com)"),
         port: z.number().optional().describe("Port to connect to (default: 443)"),
         checkHsts: z.boolean().optional().describe("Also check HSTS header via HTTP HEAD (default: true)"),
@@ -30,7 +30,7 @@ export function registerTools(server: McpServer): void {
           .boolean()
           .optional()
           .describe("Extra handshakes to find what the server still accepts: TLS 1.0/1.1, RSA key exchange, weak DH, weak ciphers (default: true)"),
-      },
+      }),
     },
     async ({ host, port = 443, checkHsts: doHsts = true, probes = true }) => {
       const start = Date.now();
@@ -59,11 +59,11 @@ export function registerTools(server: McpServer): void {
     "inspect_ssl_bulk",
     {
       description: "Inspect TLS configuration for multiple domains in parallel",
-      inputSchema: {
+      inputSchema: z.object({
         hosts: z.array(z.string()).describe("List of domain names to inspect"),
         port: z.number().optional().describe("Port to use for all domains (default: 443)"),
         probes: z.boolean().optional().describe("Run the legacy-protocol and weak-cipher probes for each domain (default: false; 8 extra handshakes per domain)"),
-      },
+      }),
     },
     async ({ hosts, port = 443, probes = false }) => {
       const start = Date.now();
@@ -84,10 +84,10 @@ export function registerTools(server: McpServer): void {
     "check_cert_expiry",
     {
       description: "Check certificate expiry for one or more domains and highlight certificates expiring soon",
-      inputSchema: {
+      inputSchema: z.object({
         hosts: z.array(z.string()).describe("Domain names to check"),
         warnDays: z.number().optional().describe("Warn if expiring within this many days (default: 30)"),
-      },
+      }),
     },
     async ({ hosts, warnDays = 30 }) => {
       const results = await Promise.all(hosts.map((h) => inspectHost(h, 443, 10_000, { probes: false, caa: false })));
@@ -112,10 +112,10 @@ export function registerTools(server: McpServer): void {
     "get_cert_info",
     {
       description: "Get detailed certificate information for a domain including fingerprint, SANs, and issuer chain",
-      inputSchema: {
+      inputSchema: z.object({
         host: z.string().describe("Domain to inspect"),
         port: z.number().optional().describe("Port (default: 443)"),
-      },
+      }),
     },
     async ({ host, port = 443 }) => {
       const result = await inspectHost(host, port, 10_000, { probes: false, caa: false });
