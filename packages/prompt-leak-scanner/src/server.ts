@@ -49,10 +49,10 @@ export function registerTools(server: McpServer): void {
     "scan_text",
     {
       description: "Scan a raw text string (e.g. a prompt you're about to send to an LLM) for leaked credentials (API keys, private keys, JWTs) and PII (TC Kimlik No, credit card, IBAN, email, phone) — checksum-validated where applicable to keep false positives low.",
-      inputSchema: {
+      inputSchema: z.object({
         content: z.string().describe("The text to scan"),
         label: z.string().optional().describe("Optional label shown in findings"),
-      },
+      }),
     },
     async ({ content, label }) => {
       const findings = scanText(content, label);
@@ -64,9 +64,9 @@ export function registerTools(server: McpServer): void {
     "scan_messages",
     {
       description: "Scan an OpenAI/Anthropic-style chat request body (a JSON object with a `messages` array and/or a `system` field) for leaked credentials and PII in every message's text content, before it would be sent to the model.",
-      inputSchema: {
+      inputSchema: z.object({
         body: z.record(z.string(), z.unknown()).describe("The chat request body object, e.g. { model, system, messages: [{ role, content }] }"),
-      },
+      }),
     },
     async ({ body }) => {
       const { findings } = scanBody(body);
@@ -78,9 +78,9 @@ export function registerTools(server: McpServer): void {
     "scan_file",
     {
       description: "Scan a single file — plain text, or a JSON chat-request-body fixture (auto-detected) — for leaked credentials and PII",
-      inputSchema: {
+      inputSchema: z.object({
         path: z.string().describe("Absolute or relative path to the file to scan"),
-      },
+      }),
     },
     async ({ path: filePath }) => {
       const { findings, skipped } = scanFile(filePath);
@@ -95,12 +95,12 @@ export function registerTools(server: McpServer): void {
     "scan_directory",
     {
       description: "Recursively scan a directory of prompt logs or request-body fixtures for leaked credentials and PII",
-      inputSchema: {
+      inputSchema: z.object({
         path: z.string().describe("Absolute or relative path to the directory to scan"),
         maxFiles: z.number().int().positive().optional().describe("Maximum number of files to scan (default: 5000)"),
         include: z.array(z.string()).optional().describe("Only scan files whose path contains one of these strings"),
         exclude: z.array(z.string()).optional().describe("Skip files/dirs whose path contains one of these strings"),
-      },
+      }),
     },
     async ({ path: dirPath, maxFiles, include, exclude }) => {
       const result = scanDirectory(dirPath, { maxFiles, include, exclude });

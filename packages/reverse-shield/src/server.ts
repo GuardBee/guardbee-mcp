@@ -60,14 +60,14 @@ export function registerTools(server: McpServer): void {
     "scan_artifact",
     {
       description: "Audit a shipped build artifact for how easily it can be reverse engineered — the defensive counterpart to reverse-engineering MCPs. Accepts an APK, an Electron app (.app bundle, app folder or app.asar), a macOS/Linux/Windows binary (Mach-O, ELF, PE, .NET assembly), a JavaScript bundle or source map, or a build output directory containing any of these. Reports shipped source maps and source code, missing minification/R8/.NET obfuscation, debug info and unstripped symbols, debuggable flags and entitlements, Electron fuses that allow Node/inspector/ASAR tampering, missing code signing, embedded credentials and internal hosts, with an A–F grade.",
-      inputSchema: {
+      inputSchema: z.object({
         path: z.string().describe("Absolute or relative path to the artifact or build output directory"),
         maxFiles: z.number().int().positive().optional().describe("Maximum number of files to check in a directory (default: 5000)"),
         include: z.array(z.string()).optional().describe("Only check files whose path contains one of these strings"),
         exclude: z.array(z.string()).optional().describe("Skip files/dirs whose path contains one of these strings"),
         ignore: z.array(z.string()).optional().describe("Accepted findings to leave out: a rule id, or rule:path-substring (e.g. bundle_secret:firebase-config.js)"),
         baseline: z.string().optional().describe("Path to a baseline written by `guardbee-reverse-shield scan --update-baseline`; the report then lists new and fixed findings"),
-      },
+      }),
     },
     async ({ path, maxFiles, include, exclude, ignore, baseline }) => {
       try {
@@ -85,10 +85,10 @@ export function registerTools(server: McpServer): void {
     "scan_url",
     {
       description: "Check a live website the way an analyst starts: fetch the page, read its same-site JavaScript bundles, follow sourceMappingURL comments and try <bundle>.map even when the comment was stripped. Reports publicly downloadable source maps (and whether they embed the original sources), unminified or development bundles, embedded credentials and internal hosts. Third-party scripts are not fetched.",
-      inputSchema: {
+      inputSchema: z.object({
         url: z.string().url().describe("Page URL (http or https)"),
         maxScripts: z.number().int().positive().max(100).optional().describe("Maximum number of same-site scripts to fetch (default: 25)"),
-      },
+      }),
     },
     async ({ url, maxScripts }) => {
       try {
@@ -103,9 +103,9 @@ export function registerTools(server: McpServer): void {
     "suggest_fixes",
     {
       description: "Read a project's build configuration (Vite, webpack, Next.js, Angular, Create React App, Android Gradle and manifest, React Native, electron-builder / Forge, .NET project files, Flutter) and propose the changes that close what scan_artifact reports: hidden source maps, minification, R8, debuggable and backup flags, Hermes, Electron fuses and ASAR, no embedded PDB. Returns unified diffs to review and apply (git apply); it never modifies files.",
-      inputSchema: {
+      inputSchema: z.object({
         projectPath: z.string().describe("Project source directory (not the build output)"),
-      },
+      }),
     },
     async ({ projectPath }) => {
       try {

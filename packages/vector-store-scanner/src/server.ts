@@ -49,13 +49,13 @@ export function registerTools(server: McpServer): void {
     "scan_endpoint",
     {
       description: "Probe a vector-database (or vector-index-capable) endpoint for unauthenticated exposure — Weaviate, Qdrant, Chroma, Elasticsearch/OpenSearch (HTTP fingerprinting, escalating from instance info → collection/schema listing → actual stored data), Redis (RESP PING without AUTH), and Postgres/pgvector (wire-protocol SSLRequest + StartupMessage handshake, no real credentials sent). Read-only — never writes or authenticates with real credentials.",
-      inputSchema: {
+      inputSchema: z.object({
         host: z.string().describe("Hostname or IP of the endpoint to probe"),
         port: z.number().optional().describe("Port to probe (defaults to the store type's conventional port, e.g. 6333 for Qdrant)"),
         type: z.enum(["auto", "weaviate", "qdrant", "chroma", "elasticsearch", "redis", "postgres"]).optional().describe("Store type to probe for. 'auto' (default) fingerprints the endpoint by trying each known type in turn."),
         tls: z.boolean().optional().describe("Use https:// for HTTP-based probes (Weaviate/Qdrant/Chroma/Elasticsearch). Default: false"),
         timeoutMs: z.number().optional().describe("Per-request timeout in milliseconds (default: 4000)"),
-      },
+      }),
     },
     async ({ host, port, type, tls, timeoutMs }) => {
       const result = await scanEndpoint({ host, port, type, tls, timeoutMs });

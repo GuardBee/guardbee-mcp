@@ -79,7 +79,7 @@ export function registerTools(server: McpServer): void {
     "baseline_server",
     {
       description: "Connect to an MCP server (stdio command or Streamable HTTP URL), read its current tools/list response, and store it as the trusted baseline for future drift checks. Call this once, right after you've reviewed and approved a server's tools.",
-      inputSchema: targetShape,
+      inputSchema: z.object(targetShape),
     },
     async (args) => {
       const { target, label } = resolveTarget(args);
@@ -92,7 +92,7 @@ export function registerTools(server: McpServer): void {
     "check_server",
     {
       description: "Connect to an MCP server and compare its current tools/list response against the stored baseline. A tool whose description, schema, or annotations changed since baseline is a 'rug pull' — approved once, silently different now. If no baseline exists yet, one is captured automatically (set autoBaseline=false to require an explicit baseline_server call first).",
-      inputSchema: { ...targetShape, autoBaseline: z.boolean().optional().describe("Automatically capture a baseline if none exists yet (default: true)") },
+      inputSchema: z.object({ ...targetShape, autoBaseline: z.boolean().optional().describe("Automatically capture a baseline if none exists yet (default: true)") }),
     },
     async (args) => {
       const { target, label } = resolveTarget(args);

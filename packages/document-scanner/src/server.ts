@@ -27,7 +27,7 @@ export function registerTools(server: McpServer): void {
     "scan_document",
     {
       description: "Find PII (TC Kimlik No, IBAN, card, passport, e-mail, phone, address…) and credentials inside a PDF, an image (screenshot, scanned page) or a text file on disk, before it is given to an LLM. PDFs are read from their text layer; images and scanned pages with OCR (Turkish and English).",
-      inputSchema: { path: z.string().describe("Path to a file, or a folder to scan every PDF and image in it"), ...common },
+      inputSchema: z.object({ path: z.string().describe("Path to a file, or a folder to scan every PDF and image in it"), ...common }),
     },
     async ({ path, ocr, languages, include }) => {
       const result = await scanDirectory(path, { ...(ocr !== undefined ? { ocr } : {}), ...(languages ? { languages } : {}), ...(include ? { include } : {}) });
@@ -39,7 +39,7 @@ export function registerTools(server: McpServer): void {
     "scan_base64",
     {
       description: "Scan a document given as base64 (an attachment, an image a tool returned) for PII and credentials. The type is detected from the bytes.",
-      inputSchema: { data: z.string().describe("Base64 bytes (a data: URL prefix is allowed)"), label: z.string().optional(), ...common },
+      inputSchema: z.object({ data: z.string().describe("Base64 bytes (a data: URL prefix is allowed)"), label: z.string().optional(), ...common }),
     },
     async ({ data, label, ocr, languages, include }) => {
       const bytes = new Uint8Array(Buffer.from(data.replace(/^data:[^,]*,/, ""), "base64"));

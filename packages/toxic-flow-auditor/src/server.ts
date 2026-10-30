@@ -51,10 +51,10 @@ export function registerTools(server: McpServer): void {
     "audit_catalog",
     {
       description: "Audit a tools/list-shaped JSON catalog for the lethal trifecta (toxic flow): untrusted content + sensitive/private data + exfiltration or destruction on the same MCP server. Returns an A–F grade.",
-      inputSchema: {
+      inputSchema: z.object({
         catalog: z.string().describe("JSON array of tools, or { tools: [...] } from tools/list"),
         label: z.string().optional().describe("Optional label for the server/catalog"),
-      },
+      }),
     },
     async ({ catalog, label }) => {
       const tools = parseToolsJson(catalog);
@@ -67,10 +67,10 @@ export function registerTools(server: McpServer): void {
     "scan_source",
     {
       description: "Scan TypeScript/JavaScript MCP server source for .registerTool(...) and .tool(...) registrations and audit them for toxic flows",
-      inputSchema: {
+      inputSchema: z.object({
         content: z.string().describe("Source code to scan"),
         label: z.string().optional(),
-      },
+      }),
     },
     async ({ content, label }) => {
       const result = scanSourceText(content, label);
@@ -82,7 +82,7 @@ export function registerTools(server: McpServer): void {
     "scan_file",
     {
       description: "Scan a single source file for toxic flows",
-      inputSchema: { path: z.string() },
+      inputSchema: z.object({ path: z.string() }),
     },
     async ({ path: filePath }) => {
       const { result, skipped } = scanSourceFile(filePath);
@@ -97,11 +97,11 @@ export function registerTools(server: McpServer): void {
     "scan_directory",
     {
       description: "Recursively scan a directory of MCP server source for toxic flows across all registered tools",
-      inputSchema: {
+      inputSchema: z.object({
         path: z.string(),
         maxFiles: z.number().int().positive().optional(),
         exclude: z.array(z.string()).optional(),
-      },
+      }),
     },
     async ({ path: dirPath, maxFiles, exclude }) => {
       const result = scanDirectory(dirPath, { maxFiles, exclude });

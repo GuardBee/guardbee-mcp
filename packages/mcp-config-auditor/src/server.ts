@@ -61,10 +61,10 @@ export function registerTools(server: McpServer): void {
     "scan_config_text",
     {
       description: "Scan an MCP client config JSON string (Cursor mcp.json, Claude Desktop, Windsurf, or VS Code) for unpinned packages, secrets, wildcard auto-approve, unauthenticated remote endpoints, and typosquats.",
-      inputSchema: {
+      inputSchema: z.object({
         content: z.string().describe("Raw JSON config"),
         label: z.string().optional().describe("Optional filename shown in findings"),
-      },
+      }),
     },
     async ({ content, label }) => {
       const findings = scanConfigText(content, label);
@@ -76,7 +76,7 @@ export function registerTools(server: McpServer): void {
     "scan_file",
     {
       description: "Scan one MCP client config file, or a SKILL.md agent skill when the file has that name.",
-      inputSchema: { path: z.string().describe("Path to the config file") },
+      inputSchema: z.object({ path: z.string().describe("Path to the config file") }),
     },
     async ({ path: filePath }) => {
       const { findings, skipped } = scanConfigFile(filePath);
@@ -89,10 +89,10 @@ export function registerTools(server: McpServer): void {
     "scan_skill_text",
     {
       description: "Scan one agent SKILL.md (YAML frontmatter plus body) for unrestricted allowed-tools, instruction override, credential file reads, and literal secrets. Name collisions across skills require a directory scan.",
-      inputSchema: {
+      inputSchema: z.object({
         content: z.string().describe("Raw SKILL.md text"),
         label: z.string().optional().describe("Optional filename shown in findings"),
-      },
+      }),
     },
     async ({ content, label }) => {
       const findings = scanSkillText(content, label);
@@ -104,11 +104,11 @@ export function registerTools(server: McpServer): void {
     "scan_directory",
     {
       description: "Find mcp.json, mcp_config.json, claude_desktop_config.json, and SKILL.md under a directory and audit each one. A directory scan also compares skill names. Does not start any MCP server.",
-      inputSchema: {
+      inputSchema: z.object({
         path: z.string().describe("Directory to search"),
         maxFiles: z.number().int().positive().optional().describe("Maximum files to consider (default: 5000)"),
         exclude: z.array(z.string()).optional().describe("Skip paths containing one of these strings"),
-      },
+      }),
     },
     async ({ path: dirPath, maxFiles, exclude }) => {
       const result = scanDirectory(dirPath, { maxFiles, exclude });
@@ -120,9 +120,9 @@ export function registerTools(server: McpServer): void {
     "scan_inventory",
     {
       description: "Detect cross-server tool shadowing from an inventory of tool catalogs. Pass the tool names and descriptions already collected from each installed server. This tool does not connect to those servers.",
-      inputSchema: {
+      inputSchema: z.object({
         inventory: z.string().describe('JSON: {"servers":[{"name":"github","tools":[{"name":"create_issue","description":"..."}]}]}'),
-      },
+      }),
     },
     async ({ inventory }) => {
       let parsed: unknown;
@@ -144,7 +144,7 @@ export function registerTools(server: McpServer): void {
     "discover_shadow_mcp",
     {
       description: "OWASP MCP09:2025 — discover MCP client configs in well-known host paths (Cursor, Claude Desktop, Windsurf, VS Code, Claude Code) and flag servers that are not on an organization allowlist (Shadow MCP). Does not start any MCP server.",
-      inputSchema: {
+      inputSchema: z.object({
         allowlist: z
           .string()
           .optional()
@@ -156,7 +156,7 @@ export function registerTools(server: McpServer): void {
           .boolean()
           .optional()
           .describe("Also run the normal config content checks on each discovered file (default false)"),
-      },
+      }),
     },
     async ({ allowlist: allowlistText, home, includeContentAudit }) => {
       let allowlist = null;
@@ -186,9 +186,9 @@ export function registerTools(server: McpServer): void {
     "list_host_config_paths",
     {
       description: "List the well-known MCP client config paths this auditor checks during shadow (MCP09) discovery on the current OS.",
-      inputSchema: {
+      inputSchema: z.object({
         home: z.string().optional().describe("Override home directory"),
-      },
+      }),
     },
     async ({ home }) => {
       const paths = defaultHostConfigPaths(home);
