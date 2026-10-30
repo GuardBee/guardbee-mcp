@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-model-scanner",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "mcpName": "io.github.GuardBee/model-scanner",
   "description": "MCP server that scans ML model files (PyTorch, pickle, joblib, dill, NumPy, safetensors, Keras, ONNX, GGUF, TensorFlow) and Hugging Face repos for supply-chain risks \u2014 malicious pickle gadgets, disguised or malformed headers, Keras Lambda-layer RCE, GGUF chat-template injection, and graph ops that touch files",
   "type": "module",
