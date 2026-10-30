@@ -99,9 +99,28 @@ export interface LlmConfig {
   timeoutSeconds: number;
   /** Longest single text (message, part, tool result) the proxy masks; a longer one is refused with 413. */
   maxTextChars?: number;
+  /** Read inline PDFs instead of refusing them as unmaskable (llm/documents.ts). */
+  documents?: LlmDocuments;
+}
+
+/**
+ * PDFs in requests. With `pdf: true` an inline PDF's text is read and goes
+ * through every prompt check; a PDF that is clean is forwarded unchanged, one
+ * that holds PII the proxy would mask is refused (masking inside a PDF is not
+ * possible), and one that cannot be read in full stays unmaskable (415).
+ */
+export interface LlmDocuments {
+  pdf: boolean;
+  /** OCR pages without a text layer (needs tesseract.js and @napi-rs/canvas). Off: such pages make the PDF unreadable. */
+  ocr: boolean;
+  maxBytes: number;
+  maxPages: number;
+  timeoutSeconds: number;
 }
 
 export const DEFAULT_MAX_TEXT_CHARS = 2_000_000;
+/** Largest request body the gateway reads. */
+export const MAX_BODY_BYTES = 32 * 1024 * 1024;
 
 const envName = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable");
 
@@ -163,6 +182,16 @@ export const llmSchema = z
     maskResponses: z.boolean().default(false),
     timeoutSeconds: z.number().int().positive().default(120),
     maxTextChars: z.number().int().positive().default(DEFAULT_MAX_TEXT_CHARS),
+    documents: z
+      .object({
+        pdf: z.boolean().default(false),
+        ocr: z.boolean().default(false),
+        maxBytes: z.number().int().positive().max(MAX_BODY_BYTES).default(20 * 1024 * 1024),
+        maxPages: z.number().int().positive().default(50),
+        timeoutSeconds: z.number().int().positive().default(30),
+      })
+      .strict()
+      .optional(),
     access: z
       .array(
         z
@@ -230,6 +259,7 @@ export function resolveLlmConfig(raw: LlmYaml): LlmConfig {
     maskResponses: raw.maskResponses,
     timeoutSeconds: raw.timeoutSeconds,
     maxTextChars: raw.maxTextChars,
+    ...(raw.documents ? { documents: raw.documents } : {}),
     access: raw.access,
     accessDefault: raw.accessDefault,
     ...(raw.sensitive ? { sensitive: raw.sensitive } : {}),
