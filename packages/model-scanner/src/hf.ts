@@ -59,7 +59,8 @@ export async function scanHfRepo(repo: string, options: HfScanOptions = {}): Pro
   const revision = options.revision ?? "main";
   if (!REPO_ID.test(repo)) throw new HfError(`Not a Hugging Face repo id: ${repo} (expected "owner/name")`);
   if (!REVISION.test(revision) || revision.split("/").includes("..")) throw new HfError(`Not a valid revision: ${revision}`);
-  const endpoint = (options.endpoint ?? process.env.HF_ENDPOINT ?? "https://huggingface.co").replace(/\/+$/, "");
+  let endpoint = options.endpoint ?? process.env.HF_ENDPOINT ?? "https://huggingface.co";
+  while (endpoint.endsWith("/")) endpoint = endpoint.slice(0, -1);
   const token = options.token ?? process.env.HF_TOKEN ?? process.env.HUGGING_FACE_HUB_TOKEN;
   const doFetch = options.fetchImpl ?? fetch;
   const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
