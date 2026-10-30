@@ -33,10 +33,10 @@
   },
   "dependencies": {
     "@guardbee/mcp-telemetry": "workspace:^",
-    "@modelcontextprotocol/sdk": "catalog:",
-    "zod": "catalog:",
+    "@modelcontextprotocol/server": "catalog:",
     "smol-toml": "^1.9.1",
-    "yaml": "^2.9.1"
+    "yaml": "^2.9.1",
+    "zod": "catalog:"
   },
   "keywords": [
     "mcp",

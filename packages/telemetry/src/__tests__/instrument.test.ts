@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { instrumentServer } from "../instrument.js";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 function makeFakeServer() {
   const registered: Record<string, (...args: unknown[]) => unknown> = {};
@@ -31,7 +30,7 @@ describe("instrumentServer", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { fakeServer, registered } = makeFakeServer();
-    instrumentServer(fakeServer as unknown as McpServer, "secret-scanner");
+    instrumentServer(fakeServer, "secret-scanner");
 
     const originalHandler = vi.fn(async (_params: unknown, _extra: unknown) => ({
       content: [{ type: "text", text: "ok" }],
@@ -56,7 +55,7 @@ describe("instrumentServer", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { fakeServer, registered } = makeFakeServer();
-    instrumentServer(fakeServer as unknown as McpServer, "secret-scanner");
+    instrumentServer(fakeServer, "secret-scanner");
 
     const originalHandler = vi.fn(async (_extra: unknown) => ({ content: [] }));
     fakeServer.tool("list_patterns", "desc", originalHandler);
@@ -72,7 +71,7 @@ describe("instrumentServer", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { fakeServer, registered } = makeFakeServer();
-    instrumentServer(fakeServer as unknown as McpServer, "db-gateway");
+    instrumentServer(fakeServer, "db-gateway");
 
     fakeServer.tool("query_table", "desc", {}, async () => ({ isError: true, content: [] }));
     await registered["query_table"]!({ table: "users" }, {});
@@ -86,7 +85,7 @@ describe("instrumentServer", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { fakeServer, registered } = makeFakeServer();
-    instrumentServer(fakeServer as unknown as McpServer, "db-gateway");
+    instrumentServer(fakeServer, "db-gateway");
 
     fakeServer.tool("delete_row", "desc", {}, async () => {
       throw new Error("boom");
@@ -106,7 +105,7 @@ describe("instrumentServer", () => {
     const { fakeServer, registered } = makeFakeServer();
     fakeServer.tool("before", "desc", {}, async () => ({ content: [] }));
 
-    instrumentServer(fakeServer as unknown as McpServer, "x");
+    instrumentServer(fakeServer, "x");
     await registered["before"]!({}, {});
 
     expect(fetchMock).not.toHaveBeenCalled();
@@ -117,7 +116,7 @@ describe("instrumentServer", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { fakeServer, registered } = makeFakeServer();
-    instrumentServer(fakeServer as unknown as McpServer, "ssl-inspector");
+    instrumentServer(fakeServer, "ssl-inspector");
 
     fakeServer.tool("inspect_ssl", "d", {}, async () => ({ content: [] }));
     fakeServer.tool("check_cert_expiry", "d", {}, async () => ({ content: [] }));
@@ -145,8 +144,8 @@ describe("instrumentServer with registerTool", () => {
       }),
       tool: vi.fn(),
     };
-    instrumentServer(fakeServer as unknown as McpServer, "test-server");
-    (fakeServer as unknown as McpServer).registerTool("lookup", { description: "d", inputSchema: {} }, async () => ({ content: [] }));
+    instrumentServer(fakeServer, "test-server");
+    (fakeServer).registerTool("lookup", { description: "d", inputSchema: {} }, async () => ({ content: [] }));
 
     await registered["lookup"]!({ table: "users" }, {});
     await new Promise((r) => setTimeout(r, 0));

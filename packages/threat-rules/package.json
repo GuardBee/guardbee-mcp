@@ -2,7 +2,7 @@
   "name": "@guardbee/mcp-threat-rules",
   "version": "0.4.2",
   "mcpName": "io.github.GuardBee/threat-rules",
-  "description": "GuardBee MCP bridge to Agent Threat Rules (ATR) — evaluate agent/MCP events against the open Sigma-like detection standard for prompt injection, tool poisoning, context exfiltration, and MCP attacks",
+  "description": "GuardBee MCP bridge to Agent Threat Rules (ATR) \u2014 evaluate agent/MCP events against the open Sigma-like detection standard for prompt injection, tool poisoning, context exfiltration, and MCP attacks",
   "type": "module",
   "bin": {
     "guardbee-threat-rules": "./dist/cli.js"
@@ -35,7 +35,7 @@
   "dependencies": {
     "@guardbee/guard-core": "workspace:^",
     "@guardbee/mcp-telemetry": "workspace:^",
-    "@modelcontextprotocol/sdk": "catalog:",
+    "@modelcontextprotocol/server": "catalog:",
     "agent-threat-rules": "^4.0.0",
     "zod": "catalog:"
   },

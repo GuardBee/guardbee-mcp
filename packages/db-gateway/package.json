@@ -68,7 +68,7 @@
   "dependencies": {
     "@guardbee/guard-core": "workspace:^",
     "@guardbee/mcp-telemetry": "workspace:^",
-    "@modelcontextprotocol/sdk": "catalog:",
+    "@modelcontextprotocol/server": "catalog:",
     "zod": "catalog:"
   },
   "peerDependencies": {
@@ -97,7 +97,7 @@
   },
   "devDependencies": {
     "@types/pg": "^8.11.6",
-    "pg": "^8.13.1",
-    "mysql2": "^3.11.4"
+    "mysql2": "^3.11.4",
+    "pg": "^8.13.1"
   }
 }

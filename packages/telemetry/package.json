@@ -34,9 +34,6 @@
   "peerDependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0"
   },
-  "devDependencies": {
-    "@modelcontextprotocol/sdk": "catalog:"
-  },
   "keywords": [
     "mcp",
     "guardbee",
@@ -55,5 +52,6 @@
   },
   "engines": {
     "node": ">=18"
-  }
+  },
+  "dependencies": {}
 }

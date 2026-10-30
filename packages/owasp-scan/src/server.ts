@@ -1,5 +1,5 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
 import { scanPath, scanLive, scanCatalogJson } from "./orchestrator.js";
@@ -30,14 +30,15 @@ function formatReport(report: OwaspReport): string {
 }
 
 export async function startServer() {
-  const server = new McpServer({
-    name: "guardbee-owasp-scan",
-    version: "0.1.0",
+  serveStdio(() => {
+    const server = new McpServer({
+      name: "guardbee-owasp-scan",
+      version: "0.1.0",
+    });
+    instrumentServer(server, "owasp-scan");
+    registerTools(server);
+    return server;
   });
-  instrumentServer(server, "owasp-scan");
-  registerTools(server);
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }
 
 /** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
@@ -101,7 +102,6 @@ export function registerTools(server: McpServer): void {
     "list_owasp_coverage",
     {
       description: "List OWASP MCP Top 10 categories and which GuardBee scanners cover them in this meta-scan",
-      inputSchema: {},
     },
     async () => {
       const lines = ["OWASP MCP Top 10 coverage in @guardbee/mcp-owasp-scan:\n"];

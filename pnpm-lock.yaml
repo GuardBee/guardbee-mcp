@@ -75,9 +75,9 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -87,9 +87,9 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -99,9 +99,9 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -111,9 +111,9 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -123,9 +123,9 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -135,9 +135,9 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -150,9 +150,9 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       '@prisma/client':
         specifier: '>=4.0.0'
         version: 7.10.0(typescript@7.0.2)
@@ -181,9 +181,9 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       smol-toml:
         specifier: ^1.9.1
         version: 1.9.1
@@ -199,9 +199,9 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -214,9 +214,9 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       unpdf:
         specifier: ^1.8.1
         version: 1.9.1(@napi-rs/canvas@1.0.13)
@@ -236,9 +236,9 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -261,9 +261,9 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -273,9 +273,9 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -288,9 +288,9 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -300,9 +300,9 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -312,9 +312,9 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -339,9 +339,9 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -378,9 +378,12 @@ importers:
       '@guardbee/mcp-toxic-flow-auditor':
         specifier: workspace:^
         version: link:../toxic-flow-auditor
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/client':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
+      '@modelcontextprotocol/server':
+        specifier: 'catalog:'
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -402,9 +405,9 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -417,9 +420,9 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -432,9 +435,9 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -450,12 +453,19 @@ importers:
       '@guardbee/mcp-tool-poisoning-scanner':
         specifier: workspace:^
         version: link:../tool-poisoning-scanner
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/client':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
+      '@modelcontextprotocol/server':
+        specifier: 'catalog:'
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
+    devDependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: 'catalog:'
+        version: 1.32.2(zod@4.6.7)
 
   packages/secret-scanner:
     dependencies:
@@ -465,9 +475,9 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -637,21 +647,25 @@ importers:
       '@guardbee/mcp-vulnerability-scanner':
         specifier: workspace:^
         version: link:../vulnerability-scanner
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
+    devDependencies:
+      '@modelcontextprotocol/client':
+        specifier: 'catalog:'
+        version: 2.4.0
 
   packages/slopsquat-scanner:
     dependencies:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -661,17 +675,17 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
 
   packages/telemetry:
-    devDependencies:
+    dependencies:
       '@modelcontextprotocol/sdk':
-        specifier: 'catalog:'
+        specifier: ^1.30.0
         version: 1.32.2(zod@4.6.7)
 
   packages/threat-rules:
@@ -682,9 +696,9 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       agent-threat-rules:
         specifier: ^4.0.0
         version: 4.2.1(zod@4.6.7)
@@ -700,9 +714,9 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -715,9 +729,9 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -727,9 +741,9 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -739,9 +753,9 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -751,9 +765,9 @@ importers:
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
-      '@modelcontextprotocol/sdk':
+      '@modelcontextprotocol/server':
         specifier: 'catalog:'
-        version: 1.32.2(zod@4.6.7)
+        version: 2.4.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7

@@ -2,7 +2,7 @@
   "name": "@guardbee/mcp-rug-pull-detector",
   "version": "0.3.4",
   "mcpName": "io.github.GuardBee/rug-pull-detector",
-  "description": "MCP server that connects to another MCP server (stdio or Streamable HTTP), baselines its tools/list response, and detects 'rug pulls' — a tool silently changing description, schema, or annotations after it was already approved",
+  "description": "MCP server that connects to another MCP server (stdio or Streamable HTTP), baselines its tools/list response, and detects 'rug pulls' \u2014 a tool silently changing description, schema, or annotations after it was already approved",
   "type": "module",
   "bin": {
     "guardbee-rug-pull-detector": "./dist/cli.js"
@@ -35,7 +35,8 @@
     "@guardbee/guard-core": "workspace:^",
     "@guardbee/mcp-telemetry": "workspace:^",
     "@guardbee/mcp-tool-poisoning-scanner": "workspace:^",
-    "@modelcontextprotocol/sdk": "catalog:",
+    "@modelcontextprotocol/client": "catalog:",
+    "@modelcontextprotocol/server": "catalog:",
     "zod": "catalog:"
   },
   "keywords": [
@@ -60,5 +61,9 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "catalog:",
+    "@modelcontextprotocol/server": "catalog:"
   }
 }

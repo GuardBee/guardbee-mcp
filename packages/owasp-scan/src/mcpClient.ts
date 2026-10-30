@@ -1,6 +1,5 @@
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
+import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import type { ConnectionTarget } from "./types.js";
 
 export interface LiveTool {
@@ -17,7 +16,11 @@ export interface LiveServerInfo {
 
 /** Connect just long enough to call tools/list (same pattern as rug-pull-detector). */
 export async function connectAndListTools(target: ConnectionTarget, timeoutMs = 15000): Promise<LiveServerInfo> {
-  const client = new Client({ name: "guardbee-owasp-scan", version: "0.1.0" }, { capabilities: {} });
+  const client = new Client(
+    { name: "guardbee-owasp-scan", version: "0.1.0" },
+    // Ask for 2026-07-28 first, fall back to the 2025 handshake: a scan reads servers of either revision
+    { capabilities: {}, versionNegotiation: { mode: "auto" } },
+  );
   const transport =
     target.type === "stdio"
       ? new StdioClientTransport({ command: target.command, args: target.args, env: target.env, cwd: target.cwd })

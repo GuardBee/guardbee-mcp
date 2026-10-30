@@ -1,5 +1,5 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
 import { resolve } from "path";
@@ -65,11 +65,12 @@ function formatCheckResult(result: CheckResult): string {
 }
 
 export async function startServer() {
-  const server = new McpServer({ name: "guardbee-rug-pull-detector", version: "0.1.0" });
-  instrumentServer(server, "rug-pull-detector");
-  registerTools(server);
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
+  serveStdio(() => {
+    const server = new McpServer({ name: "guardbee-rug-pull-detector", version: "0.1.0" });
+    instrumentServer(server, "rug-pull-detector");
+    registerTools(server);
+    return server;
+  });
 }
 
 /** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
@@ -104,7 +105,6 @@ export function registerTools(server: McpServer): void {
     "list_baselines",
     {
       description: "List every server this scanner has a stored baseline for",
-      inputSchema: {},
     },
     async () => {
       const baselines = listBaselines(DEFAULT_BASE_DIR);

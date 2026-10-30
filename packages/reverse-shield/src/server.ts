@@ -1,5 +1,5 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
 import { applyIgnores, compareToBaseline, readBaseline } from "./baseline.js";
@@ -43,28 +43,31 @@ export function formatResult(result: ScanResult, diff?: BaselineDiff): string {
 }
 
 export async function startServer() {
-  const server = new McpServer({
-    name: "guardbee-reverse-shield",
-    version: "0.1.0",
+  serveStdio(() => {
+    const server = new McpServer({
+      name: "guardbee-reverse-shield",
+      version: "0.1.0",
+    });
+    instrumentServer(server, "reverse-shield");
+    registerTools(server);
+    return server;
   });
-  instrumentServer(server, "reverse-shield");
-  registerTools(server);
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }
 
 /** The package's tools, also served by @guardbee/security-suite under its own prefix. */
 export function registerTools(server: McpServer): void {
-  server.tool(
+  server.registerTool(
     "scan_artifact",
-    "Audit a shipped build artifact for how easily it can be reverse engineered — the defensive counterpart to reverse-engineering MCPs. Accepts an APK, an Electron app (.app bundle, app folder or app.asar), a macOS/Linux/Windows binary (Mach-O, ELF, PE, .NET assembly), a JavaScript bundle or source map, or a build output directory containing any of these. Reports shipped source maps and source code, missing minification/R8/.NET obfuscation, debug info and unstripped symbols, debuggable flags and entitlements, Electron fuses that allow Node/inspector/ASAR tampering, missing code signing, embedded credentials and internal hosts, with an A–F grade.",
     {
-      path: z.string().describe("Absolute or relative path to the artifact or build output directory"),
-      maxFiles: z.number().int().positive().optional().describe("Maximum number of files to check in a directory (default: 5000)"),
-      include: z.array(z.string()).optional().describe("Only check files whose path contains one of these strings"),
-      exclude: z.array(z.string()).optional().describe("Skip files/dirs whose path contains one of these strings"),
-      ignore: z.array(z.string()).optional().describe("Accepted findings to leave out: a rule id, or rule:path-substring (e.g. bundle_secret:firebase-config.js)"),
-      baseline: z.string().optional().describe("Path to a baseline written by `guardbee-reverse-shield scan --update-baseline`; the report then lists new and fixed findings"),
+      description: "Audit a shipped build artifact for how easily it can be reverse engineered — the defensive counterpart to reverse-engineering MCPs. Accepts an APK, an Electron app (.app bundle, app folder or app.asar), a macOS/Linux/Windows binary (Mach-O, ELF, PE, .NET assembly), a JavaScript bundle or source map, or a build output directory containing any of these. Reports shipped source maps and source code, missing minification/R8/.NET obfuscation, debug info and unstripped symbols, debuggable flags and entitlements, Electron fuses that allow Node/inspector/ASAR tampering, missing code signing, embedded credentials and internal hosts, with an A–F grade.",
+      inputSchema: {
+        path: z.string().describe("Absolute or relative path to the artifact or build output directory"),
+        maxFiles: z.number().int().positive().optional().describe("Maximum number of files to check in a directory (default: 5000)"),
+        include: z.array(z.string()).optional().describe("Only check files whose path contains one of these strings"),
+        exclude: z.array(z.string()).optional().describe("Skip files/dirs whose path contains one of these strings"),
+        ignore: z.array(z.string()).optional().describe("Accepted findings to leave out: a rule id, or rule:path-substring (e.g. bundle_secret:firebase-config.js)"),
+        baseline: z.string().optional().describe("Path to a baseline written by `guardbee-reverse-shield scan --update-baseline`; the report then lists new and fixed findings"),
+      },
     },
     async ({ path, maxFiles, include, exclude, ignore, baseline }) => {
       try {
@@ -78,12 +81,14 @@ export function registerTools(server: McpServer): void {
     },
   );
 
-  server.tool(
+  server.registerTool(
     "scan_url",
-    "Check a live website the way an analyst starts: fetch the page, read its same-site JavaScript bundles, follow sourceMappingURL comments and try <bundle>.map even when the comment was stripped. Reports publicly downloadable source maps (and whether they embed the original sources), unminified or development bundles, embedded credentials and internal hosts. Third-party scripts are not fetched.",
     {
-      url: z.string().url().describe("Page URL (http or https)"),
-      maxScripts: z.number().int().positive().max(100).optional().describe("Maximum number of same-site scripts to fetch (default: 25)"),
+      description: "Check a live website the way an analyst starts: fetch the page, read its same-site JavaScript bundles, follow sourceMappingURL comments and try <bundle>.map even when the comment was stripped. Reports publicly downloadable source maps (and whether they embed the original sources), unminified or development bundles, embedded credentials and internal hosts. Third-party scripts are not fetched.",
+      inputSchema: {
+        url: z.string().url().describe("Page URL (http or https)"),
+        maxScripts: z.number().int().positive().max(100).optional().describe("Maximum number of same-site scripts to fetch (default: 25)"),
+      },
     },
     async ({ url, maxScripts }) => {
       try {
@@ -94,11 +99,13 @@ export function registerTools(server: McpServer): void {
     },
   );
 
-  server.tool(
+  server.registerTool(
     "suggest_fixes",
-    "Read a project's build configuration (Vite, webpack, Next.js, Angular, Create React App, Android Gradle and manifest, React Native, electron-builder / Forge, .NET project files, Flutter) and propose the changes that close what scan_artifact reports: hidden source maps, minification, R8, debuggable and backup flags, Hermes, Electron fuses and ASAR, no embedded PDB. Returns unified diffs to review and apply (git apply); it never modifies files.",
     {
-      projectPath: z.string().describe("Project source directory (not the build output)"),
+      description: "Read a project's build configuration (Vite, webpack, Next.js, Angular, Create React App, Android Gradle and manifest, React Native, electron-builder / Forge, .NET project files, Flutter) and propose the changes that close what scan_artifact reports: hidden source maps, minification, R8, debuggable and backup flags, Hermes, Electron fuses and ASAR, no embedded PDB. Returns unified diffs to review and apply (git apply); it never modifies files.",
+      inputSchema: {
+        projectPath: z.string().describe("Project source directory (not the build output)"),
+      },
     },
     async ({ projectPath }) => {
       try {
@@ -109,10 +116,11 @@ export function registerTools(server: McpServer): void {
     },
   );
 
-  server.tool(
+  server.registerTool(
     "list_checks",
-    "List every reverse-engineering resistance check, grouped by target (web, electron, android, ios, native, dotnet, framework), with what each finding gives away and how to fix it",
-    {},
+    {
+      description: "List every reverse-engineering resistance check, grouped by target (web, electron, android, ios, native, dotnet, framework), with what each finding gives away and how to fix it",
+    },
     async () => {
       const lines = ["Reverse-engineering resistance checks:\n"];
       for (const target of ["web", "electron", "android", "ios", "native", "dotnet", "framework"] as const) {

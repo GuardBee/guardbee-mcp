@@ -1,18 +1,19 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
 import { inspectHost, checkHsts, formatInspectReport } from "./inspector.js";
 
 export async function startServer() {
-  const server = new McpServer({
-    name: "guardbee-ssl-inspector",
-    version: "0.1.0",
+  serveStdio(() => {
+    const server = new McpServer({
+      name: "guardbee-ssl-inspector",
+      version: "0.1.0",
+    });
+    instrumentServer(server, "ssl-inspector");
+    registerTools(server);
+    return server;
   });
-  instrumentServer(server, "ssl-inspector");
-  registerTools(server);
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
 }
 
 /** This package's MCP tools on `server`; @guardbee/security-suite serves several packages' tools from one process this way. */
