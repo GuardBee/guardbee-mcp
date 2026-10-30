@@ -7,12 +7,12 @@
     "source": "github",
     "subfolder": "packages/document-scanner"
   },
-  "version": "0.3.0",
+  "version": "0.4.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@guardbee/mcp-document-scanner",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "transport": {
         "type": "stdio"
       }

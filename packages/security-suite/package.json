@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/security-suite",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "mcpName": "io.github.GuardBee/security-suite",
   "description": "MCP security suite: every GuardBee scanner from one install, one MCP server with the tools you pick (OWASP MCP Top 10, secrets, prompt injection, toxic flows, supply chain, TLS/DNS) and a CLI that runs any of them",
   "type": "module",
