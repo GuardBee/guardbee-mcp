@@ -75,7 +75,9 @@
     "@guardbee/guard-core": "workspace:^",
     "@guardbee/mcp-document-scanner": "workspace:^",
     "@guardbee/mcp-telemetry": "workspace:^",
-    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@modelcontextprotocol/client": "catalog:",
+    "@modelcontextprotocol/node": "catalog:",
+    "@modelcontextprotocol/server": "catalog:",
     "@opentelemetry/api": "^1.9.1",
     "@sigstore/bundle": "^4.0.0",
     "@sigstore/protobuf-specs": "^0.5.2",
@@ -87,6 +89,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "catalog:",
     "@opentelemetry/exporter-trace-otlp-http": "^0.300.0",
     "@opentelemetry/resources": "^3.0.0",
     "@opentelemetry/sdk-trace-base": "^2.12.0",

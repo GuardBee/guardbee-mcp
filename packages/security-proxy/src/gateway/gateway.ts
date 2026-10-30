@@ -1,4 +1,4 @@
-import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
+import { ProtocolError, ProtocolErrorCode } from "@modelcontextprotocol/server";
 import type {
   CallToolResult,
   CreateMessageRequest,
@@ -8,7 +8,7 @@ import type {
   ReadResourceResult,
   Resource,
   Tool,
-} from "@modelcontextprotocol/sdk/types.js";
+} from "@modelcontextprotocol/server";
 import {
   detectTopics,
   maskPiiInValue,
@@ -36,7 +36,7 @@ import { describeChange, type PinChange, type PinStore } from "./pin-store.js";
 import type { AuditEvent } from "../types.js";
 import { orgPatternsFor, piiScopesFor, type PiiScopes } from "./pii-scope.js";
 import { AnomalyDetector, type AnomalyConfig } from "./anomaly.js";
-import type { Approver } from "./approval.js";
+import { ApprovalRequired, approvalKey, type ApprovalRequest, type Approver, type DeferredApprovals } from "./approval.js";
 import type { GatewayConfig } from "./config.js";
 import { maskFields } from "./fields.js";
 import { labelTool, type Label } from "./labels.js";
@@ -89,7 +89,7 @@ function addHits(into: PiiHits, from: PiiHits): PiiHits {
   return into;
 }
 const PREFIX = "[GuardBee Security Proxy]";
-/** Stable code in an McpError's data when a result is withheld because masking failed (same as the LLM gateway's). */
+/** Stable code in a ProtocolError's data when a result is withheld because masking failed (same as the LLM gateway's). */
 const MASKING_FAILED = "guardbee_masking_failed";
 
 interface ToolRoute {
@@ -140,7 +140,7 @@ export class Gateway {
   private readonly toolListeners: (() => void)[] = [];
   private readonly unsubscribers: (() => void)[] = [];
   private readonly sessionId?: string;
-  private readonly identity?: CallerIdentity;
+  private identity?: CallerIdentity;
   private readonly sampler?: Sampler;
   /** Shared by every session of the process over HTTP; this session's own over stdio. */
   private readonly quotas: QuotaStore;
@@ -151,7 +151,7 @@ export class Gateway {
    */
   constructor(
     private readonly upstreams: readonly Upstream[],
-    private readonly config: GatewayConfig,
+    readonly config: GatewayConfig,
     private readonly audit: AuditLogger,
     private readonly approver?: Approver,
     options: { sessionId?: string; identity?: CallerIdentity; sampler?: Sampler; quotas?: QuotaStore; now?: () => number; pinStore?: PinStore } = {},
@@ -171,9 +171,22 @@ export class Gateway {
     }
   }
 
+  /**
+   * A 2026-07-28 context is reused across requests: the groups come from the
+   * latest token (and directory). The user stays the same, it keys the context.
+   */
+  setIdentity(identity: CallerIdentity | undefined): void {
+    if (identity?.user !== this.identity?.user) throw new Error("a context belongs to one user");
+    this.identity = identity;
+  }
+
   /** Called when any upstream's tool list changed; proxy.ts relays it to the agent. */
-  onToolsChanged(listener: () => void): void {
+  onToolsChanged(listener: () => void): () => void {
     this.toolListeners.push(listener);
+    return () => {
+      const at = this.toolListeners.indexOf(listener);
+      if (at !== -1) this.toolListeners.splice(at, 1);
+    };
   }
 
   private get interceptors() {
@@ -389,6 +402,7 @@ export class Gateway {
     labels: readonly Label[],
     args: Record<string, unknown> = {},
     already?: string,
+    deferred?: DeferredApprovals,
   ): Promise<{ withheld?: string; force: boolean; maskFields?: string[] }> {
     const topics = this.topicsOf(value);
     const decision = evaluateTopicRules(this.config.rules, {
@@ -414,7 +428,7 @@ export class Gateway {
         return { force: true, ...(decision.maskFields ? { maskFields: decision.maskFields } : {}) };
       case "approve": {
         const outcome = this.approver
-          ? await this.approver({ tool: source, upstream: upstream.name, args, reason: `the answer ${reason}`, ...(this.sessionId ? { sessionId: this.sessionId } : {}) })
+          ? await this.approver({ tool: source, upstream: upstream.name, args, reason: `the answer ${reason}`, phase: "result", ...(this.sessionId ? { sessionId: this.sessionId } : {}), ...(deferred ? { deferred } : {}) })
           : "unavailable";
         this.log({ ...base, type: "approval", reason: `${outcome}: ${reason}` });
         return outcome === "approved" ? { force: false } : { withheld: `${reason}; not approved (${outcome})`, force: false };
@@ -435,7 +449,7 @@ export class Gateway {
       } catch (err) {
         const reason = err instanceof NerError ? `name detection failed: ${err.message}` : `name detection failed (${err instanceof Error ? err.name : typeof err})`;
         this.log({ ...where, type: "blocked", ruleId: "pii:ner-failed", reason });
-        throw new McpError(ErrorCode.InternalError, `${PREFIX} Result withheld: ${reason}`, { guardbee: MASKING_FAILED });
+        throw new ProtocolError(ProtocolErrorCode.InternalError, `${PREFIX} Result withheld: ${reason}`, { guardbee: MASKING_FAILED });
       }
     }
     const scopes = this.piiScopes(where.upstream);
@@ -472,7 +486,7 @@ export class Gateway {
       const timeout = err instanceof PiiPatternTimeoutError;
       const reason = timeout ? err.message : `masking failed (${err instanceof Error ? err.name : typeof err})`;
       this.log({ ...where, type: "blocked", ruleId: timeout ? "pii:pattern-timeout" : "pii:masking-failed", reason });
-      throw new McpError(ErrorCode.InternalError, `${PREFIX} Result withheld: ${reason}`, { guardbee: MASKING_FAILED });
+      throw new ProtocolError(ProtocolErrorCode.InternalError, `${PREFIX} Result withheld: ${reason}`, { guardbee: MASKING_FAILED });
     }
   }
 
@@ -539,7 +553,7 @@ export class Gateway {
   }
 
   /** One span per call (MCP semantic conventions); the audit events of the call become its events. */
-  async callTool(name: string, args: Record<string, unknown>): Promise<CallToolResult> {
+  async callTool(name: string, args: Record<string, unknown>, options: { deferred?: DeferredApprovals } = {}): Promise<CallToolResult> {
     const span = tracer().startSpan(`tools/call ${name}`, {
       kind: SpanKind.SERVER,
       attributes: {
@@ -551,10 +565,15 @@ export class Gateway {
       },
     });
     try {
-      const result = await withCallSpan(span, () => this.handleCall(name, args));
+      const result = await withCallSpan(span, () => this.handleCall(name, args, options.deferred));
       if (result.isError) span.setAttribute("error.type", "tool_error");
       return result;
     } catch (err) {
+      // Not a failure: the call goes back to the client for an approval
+      if (err instanceof ApprovalRequired) {
+        span.setAttribute("guardbee.approval", "input-required");
+        throw err;
+      }
       span.recordException(err instanceof Error ? err : String(err));
       span.setStatus({ code: SpanStatusCode.ERROR, message: err instanceof Error ? err.message : String(err) });
       throw err;
@@ -563,7 +582,7 @@ export class Gateway {
     }
   }
 
-  private async handleCall(name: string, args: Record<string, unknown>): Promise<CallToolResult> {
+  private async handleCall(name: string, args: Record<string, unknown>, deferred?: DeferredApprovals): Promise<CallToolResult> {
     const started = Date.now();
     let route = this.tools.get(name);
     if (!route) {
@@ -602,10 +621,11 @@ export class Gateway {
     };
     /** null = approved, go on; otherwise the result to return. */
     const askApproval = async (reason: string, extra: Partial<AuditEvent> = {}): Promise<CallToolResult | null> => {
-      const outcome = this.approver
-        ? await this.approver({ tool: name, upstream: upstream.name, args, reason, ...(this.sessionId ? { sessionId: this.sessionId } : {}) })
-        : "unavailable";
+      const request: ApprovalRequest = { tool: name, upstream: upstream.name, args, reason, phase: "call", ...(this.sessionId ? { sessionId: this.sessionId } : {}), ...(deferred ? { deferred } : {}) };
+      const outcome = this.approver ? await this.approver(request) : "unavailable";
       this.log({ ...base, type: "approval", input: args, reason: `${outcome}: ${reason}`, ...extra });
+      // Asked in the call's answer; the client sends the call again with it
+      if (outcome === "input-required") throw new ApprovalRequired(request, approvalKey(request));
       if (outcome === "approved") return null;
       // A client that cannot show the prompt is not probing the policy.
       if (outcome !== "unavailable") countRefusal();
@@ -624,7 +644,8 @@ export class Gateway {
     // Session behaviour: a locked session, a burst, a sweep of sensitive reads
     if (this.anomaly) {
       if (this.anomaly.locked) return block(this.anomaly.locked, { ruleId: "anomaly:repeated_blocks" }, false);
-      for (const anomaly of this.anomaly.observeCall(name, labels, args)) {
+      // A 2026-07-28 approval round sends the same call again: count it once
+      for (const anomaly of deferred?.retry ? [] : this.anomaly.observeCall(name, labels, args)) {
         const ruleId = `anomaly:${anomaly.kind}`;
         if (this.anomaly.blocking) return block(anomaly.reason, { ruleId }, false);
         if (anomaly.fresh) this.log({ ...base, type: "warn", ruleId, input: args, reason: anomaly.reason });
@@ -762,7 +783,7 @@ export class Gateway {
     );
     let result: CallToolResult;
     try {
-      result = await upstream.callTool(route.name, forwardArgs, this.samplingFor(upstream, name));
+      result = await upstream.callTool(route.name, forwardArgs, this.samplingFor(upstream, name, deferred));
       if (result.isError) upstreamSpan.setAttribute("error.type", "tool_error");
     } catch (err) {
       upstreamSpan.setStatus({ code: SpanStatusCode.ERROR, message: err instanceof Error ? err.message : String(err) });
@@ -803,7 +824,7 @@ export class Gateway {
     }
 
     // 7b. Topic rules on the result: a subject that only shows up in the answer
-    const topical = await this.topicsAfter(name, upstream, [content, result.structuredContent ?? null], labels, args, decision.ruleId);
+    const topical = await this.topicsAfter(name, upstream, [content, result.structuredContent ?? null], labels, args, decision.ruleId, deferred);
     if (topical.withheld) {
       countRefusal();
       return errorResult(`Tool result withheld: ${topical.withheld}`);
@@ -847,13 +868,13 @@ export class Gateway {
   }
 
   /** Lets the server ask for completions while this call runs, when interceptors.sampling is on. */
-  private samplingFor(upstream: Upstream, tool: string): CallOptions {
+  private samplingFor(upstream: Upstream, tool: string, deferred?: DeferredApprovals): CallOptions {
     if (!this.interceptors.sampling?.enabled) return {};
     let asked = 0;
     // The server's request arrives on its own transport: tie it back to this call's span
     const span = activeCallSpan();
     const handler = (params: CreateMessageRequest["params"]) =>
-      span ? withCallSpan(span, () => this.sample(upstream, tool, params, ++asked)) : this.sample(upstream, tool, params, ++asked);
+      span ? withCallSpan(span, () => this.sample(upstream, tool, params, ++asked, deferred)) : this.sample(upstream, tool, params, ++asked, deferred);
     return { sampling: { owner: this, handler } };
   }
 
@@ -867,6 +888,7 @@ export class Gateway {
     tool: string,
     params: CreateMessageRequest["params"],
     nth: number,
+    deferred?: DeferredApprovals,
   ): Promise<CreateMessageResult> {
     const config = this.interceptors.sampling;
     const source = `sampling:${upstream.name}`;
@@ -874,10 +896,12 @@ export class Gateway {
     const refuse = (reason: string, ruleId: string): never => {
       this.log({ ...base, type: "blocked", ruleId, reason });
       this.anomaly?.observeBlocked(source);
-      throw new McpError(ErrorCode.InvalidRequest, `${PREFIX} Sampling refused: ${reason}`);
+      throw new ProtocolError(ProtocolErrorCode.InvalidRequest, `${PREFIX} Sampling refused: ${reason}`);
     };
     if (!config?.enabled) return refuse("interceptors.sampling is off", "sampling:off");
-    if (!this.sampler?.available()) return refuse("the agent's client does not support sampling", "sampling:unavailable");
+    if (!this.sampler?.available()) {
+      return refuse("the agent's client does not support sampling, or speaks MCP 2026-07-28, where it cannot be asked in the middle of another server's call", "sampling:unavailable");
+    }
     const maxPerCall = config.maxPerCall ?? 3;
     if (nth > maxPerCall) return refuse(`more than ${maxPerCall} sampling requests during one call of "${tool}"`, "sampling:per_call");
 
@@ -893,7 +917,9 @@ export class Gateway {
             upstream: upstream.name,
             args: { systemPrompt: params.systemPrompt ?? null, messages: params.messages },
             reason: `"${upstream.name}" asks your model for a completion during "${tool}"`,
+            phase: "sampling",
             ...(this.sessionId ? { sessionId: this.sessionId } : {}),
+            ...(deferred ? { deferred } : {}),
           })
         : "unavailable";
       this.log({ ...base, type: "approval", reason: `${outcome}: sampling during "${tool}"` });
@@ -940,7 +966,7 @@ export class Gateway {
   }
 
   /** Resource contents come from outside the agent's control: they taint the session like an untrusted tool. */
-  async readResource(uri: string): Promise<ReadResourceResult> {
+  async readResource(uri: string, options: { deferred?: DeferredApprovals } = {}): Promise<ReadResourceResult> {
     let upstream = this.resources.get(uri);
     if (!upstream) {
       await this.listResources();
@@ -961,7 +987,7 @@ export class Gateway {
       if (scan.action === "warn") this.log({ type: "warn", tool: source, upstream: upstream.name, reason: scan.reason });
     }
 
-    const topical = await this.topicsAfter(source, upstream, texts, ["untrusted"]);
+    const topical = await this.topicsAfter(source, upstream, texts, ["untrusted"], {}, undefined, options.deferred);
     if (topical.withheld) throw new Error(`${PREFIX} Resource withheld: ${topical.withheld}`);
 
     let piiFound = false;
@@ -1019,7 +1045,7 @@ export class Gateway {
    * it gets the same injection scan and PII masking as a tool result. It does
    * not taint the session: the person picked it.
    */
-  async getPrompt(name: string, args?: Record<string, string>): Promise<GetPromptResult> {
+  async getPrompt(name: string, args?: Record<string, string>, options: { deferred?: DeferredApprovals } = {}): Promise<GetPromptResult> {
     let route = this.prompts.get(name);
     if (!route) {
       await this.listPrompts();
@@ -1037,7 +1063,7 @@ export class Gateway {
       }
       if (scan.action === "warn") this.log({ type: "warn", tool: source, upstream: route.upstream.name, reason: scan.reason });
     }
-    const topical = await this.topicsAfter(source, route.upstream, result.messages, [], args ?? {});
+    const topical = await this.topicsAfter(source, route.upstream, result.messages, [], args ?? {}, undefined, options.deferred);
     if (topical.withheld) throw new Error(`${PREFIX} Prompt withheld: ${topical.withheld}`);
     return { ...result, messages: (await this.protect(result.messages, topical.force, { upstream: route.upstream.name, tool: source })).value };
   }

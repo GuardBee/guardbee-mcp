@@ -1,7 +1,5 @@
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { CreateMessageRequestSchema, ErrorCode, McpError, ToolListChangedNotificationSchema } from "@modelcontextprotocol/sdk/types.js";
+import { Client, ProtocolError, ProtocolErrorCode, StreamableHTTPClientTransport, type VersionNegotiationOptions } from "@modelcontextprotocol/client";
+import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import type {
   CallToolResult,
   CreateMessageRequest,
@@ -11,12 +9,12 @@ import type {
   ReadResourceResult,
   Resource,
   Tool,
-} from "@modelcontextprotocol/sdk/types.js";
+} from "@modelcontextprotocol/client";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { classifyAddress, guardedFetch, normalizeHost, type EgressBlockedError, type EgressPolicy } from "@guardbee/guard-core";
 import { sandboxContext, sandboxLaunch } from "./sandbox.js";
-import { isHttpUpstream, type HttpUpstreamConfig, type McpServerConfig, type UpstreamConfig } from "../types.js";
+import { isHttpUpstream, type HttpUpstreamConfig, type McpServerConfig, type UpstreamConfig, type UpstreamProtocol } from "../types.js";
 
 /** Answers a server's sampling/createMessage request on behalf of one session. */
 export type SamplingHandler = (params: CreateMessageRequest["params"]) => Promise<CreateMessageResult>;
@@ -39,6 +37,8 @@ export interface Upstream {
   readResource(uri: string): Promise<ReadResourceResult>;
   listPrompts(): Promise<Prompt[]>;
   getPrompt(name: string, args?: Record<string, string>): Promise<GetPromptResult>;
+  /** The MCP revision negotiated with the server, e.g. 2025-11-25 or 2026-07-28. */
+  readonly protocolVersion?: string;
   /**
    * Register for the server's tools/list_changed notification. Several
    * sessions share one upstream, so each gets its own listener; the returned
@@ -49,31 +49,38 @@ export interface Upstream {
 }
 
 /** Wrap a connected MCP client. Resources and prompts are empty when the server does not offer them. */
-export function clientUpstream(name: string, client: Client, options: { sampling?: boolean } = {}): Upstream {
+export function clientUpstream(name: string, client: Client, options: { sampling?: boolean; toolListeners?: Set<() => void> } = {}): Upstream {
   const caps = () => client.getServerCapabilities() ?? {};
-  // Calls in flight that can answer sampling, newest last.
+  // Calls in flight that can answer sampling, newest last. A 2026-07-28
+  // server asks inside its tools/call answer (input_required); the client
+  // runs the same handler for it, still within callTool.
   const active: NonNullable<CallOptions["sampling"]>[] = [];
   if (options.sampling) {
-    client.setRequestHandler(CreateMessageRequestSchema, async (request) => {
+    client.setRequestHandler("sampling/createMessage", async (request) => {
       const owners = new Set(active.map((entry) => entry.owner));
       if (owners.size === 0) {
-        throw new McpError(ErrorCode.InvalidRequest, "GuardBee gateway: sampling is only answered while one of this server's tool calls is running");
+        throw new ProtocolError(ProtocolErrorCode.InvalidRequest, "GuardBee gateway: sampling is only answered while one of this server's tool calls is running");
       }
       if (owners.size > 1) {
-        throw new McpError(ErrorCode.InvalidRequest, "GuardBee gateway: several sessions are calling this server; cannot tell which one asked for sampling");
+        throw new ProtocolError(ProtocolErrorCode.InvalidRequest, "GuardBee gateway: several sessions are calling this server; cannot tell which one asked for sampling");
       }
       return active[active.length - 1]!.handler(request.params);
     });
   }
-  // The client keeps one handler per notification type: fan out from it.
-  const toolListeners = new Set<() => void>();
-  client.setNotificationHandler(ToolListChangedNotificationSchema, () => {
-    for (const listener of toolListeners) listener();
-  });
+  // The client keeps one tools/list_changed handler (proxyClient's listChanged): fan out from it.
+  const toolListeners = options.toolListeners ?? new Set<() => void>();
+  if (!options.toolListeners) {
+    client.setNotificationHandler("notifications/tools/list_changed", () => {
+      for (const listener of toolListeners) listener();
+    });
+  }
+  const protocolVersion = client.getNegotiatedProtocolVersion();
   return {
     name,
+    ...(protocolVersion ? { protocolVersion } : {}),
+    // Always ask the server: a cache hint it sets must not hide a changed definition from drift checks
     async listTools() {
-      return (await client.listTools()).tools;
+      return (await client.listTools(undefined, { cacheMode: "refresh" })).tools;
     },
     async callTool(tool, args, options) {
       const sampling = options?.sampling;
@@ -85,13 +92,13 @@ export function clientUpstream(name: string, client: Client, options: { sampling
       }
     },
     async listResources() {
-      return caps().resources ? (await client.listResources()).resources : [];
+      return caps().resources ? (await client.listResources(undefined, { cacheMode: "refresh" })).resources : [];
     },
     readResource(uri) {
-      return client.readResource({ uri });
+      return client.readResource({ uri }, { cacheMode: "refresh" });
     },
     async listPrompts() {
-      return caps().prompts ? (await client.listPrompts()).prompts : [];
+      return caps().prompts ? (await client.listPrompts(undefined, { cacheMode: "refresh" })).prompts : [];
     },
     getPrompt(prompt, args) {
       return client.getPrompt({ name: prompt, arguments: args });
@@ -106,9 +113,37 @@ export function clientUpstream(name: string, client: Client, options: { sampling
   };
 }
 
-/** Only offer sampling to servers when interceptors.sampling is on: a server may change course when it sees the capability. */
-function proxyClient(sampling: boolean): Client {
-  return new Client({ name: "guardbee-proxy-client", version: "1.0.0" }, { capabilities: sampling ? { sampling: {} } : {} });
+const NEGOTIATION: Record<UpstreamProtocol, VersionNegotiationOptions> = {
+  auto: { mode: "auto" },
+  "2025-11-25": { mode: "legacy" },
+  "2026-07-28": { mode: { pin: "2026-07-28" } },
+};
+
+/**
+ * Only offer sampling to servers when interceptors.sampling is on: a server
+ * may change course when it sees the capability. tools/list_changed comes as
+ * a notification from a 2025-11-25 server and over a subscriptions/listen
+ * stream the client opens itself on 2026-07-28; both reach `toolListeners`.
+ */
+function proxyClient(sampling: boolean, protocol: UpstreamProtocol = "auto"): { client: Client; toolListeners: Set<() => void> } {
+  const toolListeners = new Set<() => void>();
+  const client = new Client(
+    { name: "guardbee-proxy-client", version: "1.0.0" },
+    {
+      capabilities: sampling ? { sampling: {} } : {},
+      versionNegotiation: NEGOTIATION[protocol],
+      listChanged: {
+        tools: {
+          autoRefresh: false,
+          debounceMs: 0,
+          onChanged: () => {
+            for (const listener of toolListeners) listener();
+          },
+        },
+      },
+    },
+  );
+  return { client, toolListeners };
 }
 
 export interface ConnectOptions {
@@ -141,24 +176,38 @@ export async function upstreamEgressPolicy(server: HttpUpstreamConfig, resolve =
 }
 
 export async function connectHttpUpstream(name: string, server: HttpUpstreamConfig, options: ConnectOptions = {}): Promise<Upstream> {
-  const client = proxyClient(options.sampling ?? false);
+  const { client, toolListeners } = proxyClient(options.sampling ?? false, server.protocol);
   const policy = await upstreamEgressPolicy(server);
   const transport = new StreamableHTTPClientTransport(new URL(server.url), {
     requestInit: server.headers ? { headers: server.headers } : undefined,
     fetch: guardedFetch(policy, options.onEgressBlocked ? { onBlocked: options.onEgressBlocked } : {}),
   });
   await client.connect(transport);
-  return clientUpstream(name, client, options);
+  return clientUpstream(name, client, { ...options, toolListeners });
 }
 
 export function connectUpstream(name: string, server: UpstreamConfig, options: ConnectOptions = {}): Promise<Upstream> {
   return isHttpUpstream(server) ? connectHttpUpstream(name, server, options) : connectStdioUpstream(name, server, options);
 }
 
+/**
+ * Probes on the server's own process. The SDK's StdioClientTransport probes on
+ * a short-lived second process instead; a container sandbox runs under a fixed
+ * name, so a second container would clash with the first.
+ */
+class InPlaceStdioClientTransport extends StdioClientTransport {}
+
+/** A container sandbox is started once, so it is not probed unless `protocol` asks for it. */
+export function stdioProtocol(server: McpServerConfig): UpstreamProtocol {
+  const container = server.sandbox?.runtime === "docker" || server.sandbox?.runtime === "podman";
+  return server.protocol ?? (container ? "2025-11-25" : "auto");
+}
+
 export async function connectStdioUpstream(name: string, server: McpServerConfig, options: { sampling?: boolean } = {}): Promise<Upstream> {
-  const client = proxyClient(options.sampling ?? false);
+  const { client, toolListeners } = proxyClient(options.sampling ?? false, stdioProtocol(server));
   const launch = server.sandbox ? sandboxLaunch(server, server.sandbox, sandboxContext(name)) : undefined;
-  const transport = new StdioClientTransport(
+  const container = server.sandbox?.runtime === "docker" || server.sandbox?.runtime === "podman";
+  const transport = new (container ? InPlaceStdioClientTransport : StdioClientTransport)(
     launch ?? {
       command: server.command,
       args: server.args ?? [],
@@ -166,5 +215,5 @@ export async function connectStdioUpstream(name: string, server: McpServerConfig
     },
   );
   await client.connect(transport);
-  return clientUpstream(name, client, options);
+  return clientUpstream(name, client, { ...options, toolListeners });
 }

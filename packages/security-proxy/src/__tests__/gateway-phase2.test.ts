@@ -116,7 +116,7 @@ describe("approval", () => {
       return "approved";
     });
     expect((await gw.callTool("db__drop", { table: "t" })).isError).toBeFalsy();
-    expect(seen).toEqual([{ tool: "db__drop", upstream: "db", args: { table: "t" }, reason: "policy rule ask requires approval" }]);
+    expect(seen).toEqual([{ tool: "db__drop", upstream: "db", args: { table: "t" }, reason: "policy rule ask requires approval", phase: "call" }]);
     expect(db.calls).toHaveLength(1);
   });
 

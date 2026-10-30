@@ -134,7 +134,7 @@ describe("security-proxy over Streamable HTTP", () => {
     const { http: gw } = await gatewayWithTwoHttpUpstreams(1);
     await agent(gw.url, "proxy_key");
     const health = await fetch(gw.url.replace("/mcp", "/healthz"));
-    expect(await health.json()).toEqual({ ok: true, sessions: 1 });
+    expect(await health.json()).toEqual({ ok: true, sessions: 1, contexts: 0 });
     await expect(agent(gw.url, "proxy_key")).rejects.toThrow();
   });
 

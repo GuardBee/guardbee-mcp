@@ -302,7 +302,7 @@ audit:
     apiKeyEnv: GUARDBEE_API_KEY        # workspace API key with the gateway.write scope
 ```
 
-- **Sessions are isolated.** Each MCP session gets its own taint state, PII tokens and tool pins, so one agent's toxic flow never blocks another. All sessions share the upstream connections. Audit events carry the `sessionId`.
+- **Sessions are isolated.** Each MCP session gets its own taint state, PII tokens and tool pins, so one agent's toxic flow never blocks another. All sessions share the upstream connections. Audit events carry the `sessionId`. MCP 2026-07-28 has no sessions; see [MCP Protocol Versions](#mcp-protocol-versions) for what takes their place.
 - **No key, no network.** Listening on anything other than loopback without `listen.apiKeys` or `listen.oidc` is a config error. Keys are compared in constant time, and a wrong or missing key gets `401`.
 - **Network egress (`upstreams.<name>.network`):** every connection the proxy makes to an HTTP upstream, including each redirect hop, is checked at connect time: the name is resolved, every address is checked, and the socket connects to the checked address, so a DNS answer that changes between check and connect (rebinding) cannot reach an internal host. Link-local addresses (cloud metadata such as `169.254.169.254`), `0.0.0.0` and reserved ranges are always refused, in any encoding (octal/hex IPv4, IPv4-mapped or NAT64 IPv6). `blockPrivate` refuses loopback and private addresses (RFC 1918, CGNAT, `fc00::/7`); unset, it follows the configured URL: a server on `localhost` or a private address may stay there, a public one may not reach your network. `mode: allowlist` with `allowHosts` (`*.example.com` globs) limits the hosts. Refused connections are audit events `type: blocked`, `ruleId: network:private | network:metadata | network:reserved | network:host`, with `destination` (host and address, never the request), so they reach the SIEM exporters and the dashboard. Stdio servers open their own sockets; limiting those needs an OS sandbox and is not covered here.
 - **Directory groups (`listen.ldap`):** LDAP / Active Directory groups are added to the groups a caller already has — an OIDC user, or an LLM gateway key's user — so `group` matches in rules, quotas, `llm.access` and budgets can use the groups your organisation already maintains. The directory never makes a caller known: authentication stays with API keys, OIDC or gateway keys.
@@ -344,7 +344,7 @@ audit:
     onError: local                                  # local | fail-open | fail-closed
     timeoutMs: 250
   ```
-- `GET /healthz` returns `{"ok": true, "sessions": N}`. Sessions above `maxSessions` get `503`.
+- `GET /healthz` returns `{"ok": true, "sessions": N, "contexts": M}` (2025-era sessions and 2026-07-28 contexts). Sessions and contexts above `maxSessions` get `503`.
 - **Dashboard:** `audit.dashboard` sends every audit event, batched, to the GuardBee dashboard with a workspace API key taken from `apiKeyEnv`. The key never sits in the file. If the dashboard is unreachable, events wait in memory (up to 10,000) and go out later. A rejected key is reported once on stderr. Tool calls never wait for the dashboard.
 - `init` now also moves Streamable HTTP servers (`url` + `headers`) behind the proxy. Legacy SSE servers stay in the client config and are reported.
 
@@ -357,6 +357,31 @@ docker run -p 8787:8787 -e GUARDBEE_PROXY_KEY=... -e GUARDBEE_API_KEY=... \
 ```
 
 ---
+
+## MCP Protocol Versions
+
+The proxy speaks MCP **2026-07-28** and **2025-11-25** (and the 2025 revisions before it) on both sides, and mixes them: a 2025-era agent can use a 2026-07-28 server through the proxy, and the other way round. It is built on the MCP TypeScript SDK v2.
+
+- **Agents.** Over stdio the revision is settled when the client connects. Over HTTP each request says which revision it speaks: 2025-era clients get a session as before (`Mcp-Session-Id`), 2026-07-28 requests are served without one.
+- **Upstreams.** By default the proxy asks each server for 2026-07-28 (`server/discover`) and falls back to the 2025 `initialize` handshake. Pin a revision per upstream with `protocol`:
+
+  ```yaml
+  upstreams:
+    linear:
+      url: https://mcp.linear.app/mcp
+      protocol: auto          # default | 2025-11-25 (no probe) | 2026-07-28 (modern only)
+  ```
+
+  On stdio, `auto` starts the server once more for a moment to probe it; set `protocol: 2025-11-25` for a server that must not be started twice. A server in a `docker` or `podman` sandbox defaults to `2025-11-25`; with `auto` or `2026-07-28` it is probed in its own container.
+- **What replaces the session (HTTP, 2026-07-28).** Taint, PII tokens, tool pins and anomaly counters are kept per **user and context**: the user from the OIDC token (callers with an API key count as one user), and the context from an optional `X-GuardBee-Context` header (1–128 letters, digits, `.`, `_`, `:`, `-`), for example one value per agent conversation. Without the header a user's calls share one context, which errs on the side of blocking: data one conversation read still counts when another tries to send something out. A context is dropped after `listen.contextIdleSeconds` (default 1800) without a request; sessions and contexts together are capped by `listen.maxSessions`. Discovery and `subscriptions/listen` requests (recognised from the `Mcp-Method` header) take no context.
+- **Approvals.** A 2026-07-28 server cannot send the client an elicitation request in the middle of a call. When a rule needs approval before a call, the proxy answers the call with `input_required`; the client shows the form and sends the call again with the answer, and only then does the call reach the server. The answer travels in a signed `requestState` bound to the user, the tool and the exact arguments, so it cannot be reused for another call or forged. Approvals that can only be asked after the server answered (topic rules on results) and sampling approvals go to the dashboard channel when `approval.channels` has one, and are refused otherwise. Behind a load balancer, give every replica the same key so any of them can check the answer:
+
+  ```yaml
+  listen:
+    stateKeyEnv: GUARDBEE_STATE_KEY   # at least 32 bytes; default: a random key per process
+  ```
+- **Sampling.** A 2026-07-28 client cannot be asked for a completion in the middle of another server's call, so with such a client servers' sampling requests are refused (`sampling:unavailable`). A 2026-07-28 *server* that asks for sampling during a call is still handled as before when the agent is on 2025-11-25.
+- **No SSE.** The proxy connects to and serves Streamable HTTP only. `guardbee-proxy init` leaves SSE servers out and points at the `/mcp` endpoint most of them now serve instead of `/sse`.
 
 ## LLM API Gateway
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { Client as ProxyClient } from "@modelcontextprotocol/client";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import {
@@ -30,7 +31,7 @@ async function mcpUpstream(name: string, tools: Record<string, { description: st
   }));
   const [serverSide, clientSide] = InMemoryTransport.createLinkedPair();
   await server.connect(serverSide);
-  const client = new Client({ name: "gw", version: "0.0.0" }, { capabilities: {} });
+  const client = new ProxyClient({ name: "gw", version: "0.0.0" }, { capabilities: {} });
   await client.connect(clientSide);
   return Object.assign(clientUpstream(name, client), { server });
 }

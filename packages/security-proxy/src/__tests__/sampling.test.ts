@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { Client as ProxyClient } from "@modelcontextprotocol/client";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import {
@@ -47,7 +48,7 @@ async function samplingServer(name: string, asks: Ask[], sampling: boolean): Pro
   });
   const [serverSide, clientSide] = InMemoryTransport.createLinkedPair();
   await server.connect(serverSide);
-  const client = new Client({ name: "gw", version: "0.0.0" }, { capabilities: sampling ? { sampling: {} } : {} });
+  const client = new ProxyClient({ name: "gw", version: "0.0.0" }, { capabilities: sampling ? { sampling: {} } : {} });
   await client.connect(clientSide);
   return Object.assign(clientUpstream(name, client, { sampling }), { received });
 }
@@ -163,7 +164,7 @@ describe("sampling through the gateway", () => {
     server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [] }));
     const [serverSide, clientSide] = InMemoryTransport.createLinkedPair();
     await server.connect(serverSide);
-    const client = new Client({ name: "gw", version: "0.0.0" }, { capabilities: { sampling: {} } });
+    const client = new ProxyClient({ name: "gw", version: "0.0.0" }, { capabilities: { sampling: {} } });
     await client.connect(clientSide);
     clientUpstream("docs", client, { sampling: true });
     // The server asks on its own, with no call of its tools running
@@ -196,7 +197,7 @@ describe("sampling routing across sessions", () => {
     });
     const [serverSide, clientSide] = InMemoryTransport.createLinkedPair();
     await server.connect(serverSide);
-    const client = new Client({ name: "gw", version: "0.0.0" }, { capabilities: { sampling: {} } });
+    const client = new ProxyClient({ name: "gw", version: "0.0.0" }, { capabilities: { sampling: {} } });
     await client.connect(clientSide);
     const upstream = clientUpstream("docs", client, { sampling: true });
 

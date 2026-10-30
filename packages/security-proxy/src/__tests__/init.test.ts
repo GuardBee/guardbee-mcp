@@ -43,6 +43,7 @@ describe("planInit", () => {
     });
     expect(plan.kept.map((k) => k.name)).toEqual(["legacy", "old"]);
     expect(plan.kept[0]?.reason).toContain("bypasses the policy");
+    expect(plan.kept[0]?.reason).toContain("at /mcp instead of /sse");
   });
 
   it("leaves an existing proxy entry alone and refuses when nothing is left to move", () => {
