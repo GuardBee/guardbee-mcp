@@ -1,0 +1,81 @@
+# GuardBee MCP gateway in HTTP mode.
+#   helm install gateway ./charts/guardbee-gateway --set-file config=./guardbee-proxy.yaml \
+#     --set secret.values.GUARDBEE_PROXY_KEY=$(openssl rand -hex 32)
+
+image:
+  repository: ghcr.io/guardbee/mcp-security-proxy
+  # Defaults to the chart's appVersion. Pin a digest in production: tag@sha256:…
+  tag: ""
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+replicaCount: 1
+
+# Your guardbee-proxy.yaml (required), mounted at /etc/guardbee/guardbee-proxy.yaml from a
+# ConfigMap: no secrets in it — reference them as ${VAR} and put the values in `secret`.
+# listen must be transport http on 0.0.0.0 with listen.apiKeys or listen.oidc.
+# Example: examples/proxy/kubernetes.yaml   (helm install … --set-file config=that-file)
+config: ""
+
+# Environment variables for ${VAR} references: API keys, upstream tokens, Redis password.
+secret:
+  # Use a Secret you manage (sealed-secrets, external-secrets) instead of values here
+  existingSecret: ""
+  values: {}
+    # GUARDBEE_PROXY_KEY: "…"
+
+# Plain environment variables (OTEL_EXPORTER_OTLP_ENDPOINT, …)
+env: []
+
+service:
+  type: ClusterIP
+  port: 8787
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # MCP sessions are stateful: with several replicas, keep a session on one pod
+    # nginx.ingress.kubernetes.io/upstream-hash-by: "$http_mcp_session_id"
+  hosts:
+    - host: mcp-gateway.example.com
+      paths: [{ path: /, pathType: Prefix }]
+  tls: []
+
+resources:
+  requests: { cpu: 100m, memory: 256Mi }
+  limits: { memory: 1Gi }
+
+# More than one replica (or autoscaling) needs shared counters: state.backend redis in `config`,
+# and session affinity (MCP sessions live on one pod; see ingress annotations).
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile: { type: RuntimeDefault }
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities: { drop: [ALL] }
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1

@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "guardbee-gateway.fullname" . }}
+  labels: {{- include "guardbee-gateway.labels" . | nindent 4 }}
+data:
+  guardbee-proxy.yaml: |
+{{ required "set config to your guardbee-proxy.yaml: helm install … --set-file config=./guardbee-proxy.yaml (see examples/proxy/kubernetes.yaml)" .Values.config | indent 4 }}

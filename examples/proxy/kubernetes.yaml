@@ -1,0 +1,19 @@
+# The gateway in a Kubernetes cluster, with the Helm chart in charts/guardbee-gateway:
+#   helm install gateway ./charts/guardbee-gateway --set-file config=examples/proxy/kubernetes.yaml \
+#     --set secret.values.GUARDBEE_PROXY_KEY=$(openssl rand -hex 32) --set secret.values.GITHUB_TOKEN=$GITHUB_TOKEN
+# In a pod the proxy listens on 0.0.0.0, which it allows only with apiKeys or oidc.
+version: 1
+
+listen:
+  transport: http
+  host: 0.0.0.0
+  port: 8787
+  apiKeys: ["${GUARDBEE_PROXY_KEY}"]
+
+upstreams:
+  github:
+    url: https://api.githubcopilot.com/mcp/
+    headers: { Authorization: "Bearer ${GITHUB_TOKEN}" }
+
+audit:
+  sink: console                  # kubectl logs; or audit.exporters for a SIEM

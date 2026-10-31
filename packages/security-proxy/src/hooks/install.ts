@@ -8,6 +8,11 @@ const OURS = /security-proxy[\\/]dist[\\/]hook-cli\.js|(?:^|[\s/\\"])guardbee-ho
 
 const CURSOR_EVENTS = ["beforeShellExecution", "beforeMCPExecution", "beforeReadFile", "afterShellExecution", "afterMCPExecution"] as const;
 const CLAUDE_EVENTS = ["PreToolUse", "PostToolUse"] as const;
+const GEMINI_EVENTS = ["BeforeTool", "AfterTool"] as const;
+const WINDSURF_EVENTS = ["pre_run_command", "pre_read_code", "pre_write_code", "pre_mcp_tool_use", "post_run_command", "post_mcp_tool_use"] as const;
+
+/** Clients whose hooks are grouped under a matcher ({ matcher, hooks: [...] }); the others list commands per event. */
+const GROUPED = new Set<AgentName>(["claude-code", "codex", "gemini-cli"]);
 
 export interface InstallOptions {
   agent: AgentName;
@@ -24,8 +29,19 @@ export interface InstallOptions {
 }
 
 export function settingsPath(agent: AgentName, project = false, cwd = process.cwd(), home = os.homedir()): string {
-  if (agent === "claude-code") return project ? path.join(cwd, ".claude", "settings.json") : path.join(home, ".claude", "settings.json");
-  return project ? path.join(cwd, ".cursor", "hooks.json") : path.join(home, ".cursor", "hooks.json");
+  const base = project ? cwd : home;
+  switch (agent) {
+    case "claude-code":
+      return path.join(base, ".claude", "settings.json");
+    case "cursor":
+      return path.join(base, ".cursor", "hooks.json");
+    case "codex":
+      return path.join(base, ".codex", "hooks.json");
+    case "gemini-cli":
+      return path.join(base, ".gemini", "settings.json");
+    case "windsurf":
+      return project ? path.join(cwd, ".windsurf", "hooks.json") : path.join(home, ".codeium", "windsurf", "hooks.json");
+  }
 }
 
 const quote = (value: string) => `"${value.replace(/(["\\$`])/g, "\\$1")}"`;
@@ -45,7 +61,9 @@ const isOurs = (entry: unknown) => OURS.test(String(obj(entry)["command"] ?? "")
 function withoutOurs(agent: AgentName, settings: Json): Json {
   const hooks = { ...obj(settings["hooks"]) };
   for (const [event, value] of Object.entries(hooks)) {
-    if (agent === "claude-code") {
+    // Settings that live next to the events (Gemini CLI's hooks.enabled) stay
+    if (!Array.isArray(value)) continue;
+    if (GROUPED.has(agent)) {
       const groups = list(value)
         .map((group) => ({ ...obj(group), hooks: list(obj(group)["hooks"]).filter((h) => !isOurs(h)) }))
         .filter((group) => group.hooks.length > 0);
@@ -95,13 +113,26 @@ export function planInstall(options: InstallOptions, script: string): InstallRes
   const command = hookCommand(options, script);
   const settings = withoutOurs(options.agent, read(file));
   const hooks = obj(settings["hooks"]);
-  if (options.agent === "claude-code") {
-    for (const event of CLAUDE_EVENTS) {
-      hooks[event] = [...list(hooks[event]), { matcher: "*", hooks: [{ type: "command", command, timeout: 30 }] }];
-    }
-  } else {
-    settings["version"] ??= 1;
-    for (const event of CURSOR_EVENTS) hooks[event] = [...list(hooks[event]), { command }];
+  switch (options.agent) {
+    case "claude-code":
+      for (const event of CLAUDE_EVENTS) hooks[event] = [...list(hooks[event]), { matcher: "*", hooks: [{ type: "command", command, timeout: 30 }] }];
+      break;
+    case "codex":
+      for (const event of CLAUDE_EVENTS) hooks[event] = [...list(hooks[event]), { matcher: ".*", hooks: [{ type: "command", command, timeout: 30 }] }];
+      break;
+    case "gemini-cli":
+      for (const event of GEMINI_EVENTS) hooks[event] = [...list(hooks[event]), { matcher: ".*", hooks: [{ type: "command", command, name: "guardbee", timeout: 30_000 }] }];
+      // Gemini CLI runs hooks only when both switches are on
+      hooks["enabled"] = true;
+      settings["tools"] = { ...obj(settings["tools"]), enableHooks: true };
+      break;
+    case "windsurf":
+      for (const event of WINDSURF_EVENTS) hooks[event] = [...list(hooks[event]), { command, show_output: false }];
+      break;
+    case "cursor":
+      settings["version"] ??= 1;
+      for (const event of CURSOR_EVENTS) hooks[event] = [...list(hooks[event]), { command }];
+      break;
   }
   return { file, backup: null, command, settings: { ...settings, hooks } };
 }

@@ -4,16 +4,16 @@ import os from "os";
 import path from "path";
 import { AuditLogger } from "./audit/logger.js";
 import { loadGatewayConfig, parseGatewayYaml, type GatewayConfig } from "./gateway/config.js";
-import { AGENTS, handleEvent, type AgentName } from "./hooks/agents.js";
+import { AGENTS, handleEvent, isExitAnswer, type AgentName } from "./hooks/agents.js";
 import { HookEngine } from "./hooks/engine.js";
 import { install, planInstall, uninstall } from "./hooks/install.js";
 import { stateDir } from "./hooks/state.js";
 
 const USAGE = `guardbee-hook — GuardBee policy for coding agents' own tools (shell, file reads, web fetch)
 
-  guardbee-hook install   --claude-code|--cursor [--project] [--config <guardbee-proxy.yaml>] [--fail-closed] [--dry-run]
-  guardbee-hook uninstall --claude-code|--cursor [--project]
-  guardbee-hook <claude-code|cursor> [--config <file>] [--fail-closed]   (run by the agent; reads the event on stdin)`;
+  guardbee-hook install   --claude-code|--cursor|--codex|--gemini-cli|--windsurf [--project] [--config <guardbee-proxy.yaml>] [--fail-closed] [--dry-run]
+  guardbee-hook uninstall --claude-code|--cursor|--codex|--gemini-cli|--windsurf [--project]
+  guardbee-hook <claude-code|cursor|codex|gemini-cli|windsurf> [--config <file>] [--fail-closed]   (run by the agent; reads the event on stdin)`;
 
 function flag(args: string[], name: string): string | undefined {
   const at = args.indexOf(name);
@@ -51,21 +51,34 @@ async function run(agent: AgentName, args: string[]): Promise<void> {
     const audit = auditFor(config);
     const out = await handleEvent(agent, new HookEngine(config, audit), event);
     await audit.close();
-    if (out) process.stdout.write(JSON.stringify(out));
+    if (isExitAnswer(out)) {
+      process.stderr.write(out.stderr + "\n");
+      process.exitCode = out.exitCode;
+    } else if (out) process.stdout.write(JSON.stringify(out));
   } catch (err) {
     const message = `GuardBee hook error: ${err instanceof Error ? err.message : String(err)}`;
     process.stderr.write(message + "\n");
     if (!failClosed) return;
     if (agent === "cursor") process.stdout.write(JSON.stringify({ permission: "deny", user_message: message }));
+    else if (agent === "gemini-cli") process.stdout.write(JSON.stringify({ decision: "deny", reason: message }));
+    // Claude Code, Codex and Windsurf block on exit code 2 (stderr is the reason)
     else process.exitCode = 2;
   }
 }
 
 function agentFlag(args: string[]): AgentName {
-  if (args.includes("--claude-code")) return "claude-code";
-  if (args.includes("--cursor")) return "cursor";
-  throw new Error(`Name the agent: --claude-code or --cursor\n\n${USAGE}`);
+  const named = AGENTS.find((agent) => args.includes(`--${agent}`));
+  if (!named) throw new Error(`Name the agent: ${AGENTS.map((a) => `--${a}`).join(", ")}\n\n${USAGE}`);
+  return named;
 }
+
+const RESTART: Record<AgentName, string> = {
+  "claude-code": "Takes effect in new Claude Code sessions.",
+  cursor: "Restart Cursor to load the hooks.",
+  codex: "Codex asks you to review new hooks before they run: open /hooks in Codex and trust them.",
+  "gemini-cli": "Takes effect in new Gemini CLI sessions (tools.enableHooks and hooks.enabled are on).",
+  windsurf: "Restart Windsurf to load the hooks.",
+};
 
 function main(): Promise<void> | void {
   const [command, ...args] = process.argv.slice(2);
@@ -88,7 +101,7 @@ function main(): Promise<void> | void {
     if (/[\\/]_npx[\\/]/.test(script)) {
       process.stdout.write("Note: this runs from the npx cache, which can be cleared. For a stable path: npm i -g @guardbee/mcp-security-proxy && guardbee-hook install …\n");
     }
-    process.stdout.write(options.agent === "claude-code" ? "Takes effect in new Claude Code sessions.\n" : "Restart Cursor to load the hooks.\n");
+    process.stdout.write(`${RESTART[options.agent]}\n`);
     return;
   }
   if (command === "uninstall") {

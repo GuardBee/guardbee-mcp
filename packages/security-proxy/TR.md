@@ -395,6 +395,9 @@ Proxy yalnızca MCP trafiğini görür; kodlama ajanının kendi tool'ları (she
 npm i -g @guardbee/mcp-security-proxy
 guardbee-hook install --claude-code     # ~/.claude/settings.json (PreToolUse + PostToolUse)
 guardbee-hook install --cursor          # ~/.cursor/hooks.json
+guardbee-hook install --codex           # ~/.codex/hooks.json (Codex'te /hooks ile onaylayın)
+guardbee-hook install --gemini-cli      # ~/.gemini/settings.json (hook'ları açar)
+guardbee-hook install --windsurf        # ~/.codeium/windsurf/hooks.json
 guardbee-hook uninstall --claude-code   # yalnızca GuardBee girdilerini kaldırır
 ```
 

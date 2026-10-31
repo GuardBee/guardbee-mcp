@@ -1,0 +1,10 @@
+apiVersion: v2
+name: guardbee-gateway
+description: GuardBee MCP security gateway (remote / HTTP mode) on Kubernetes
+type: application
+version: 0.1.0
+appVersion: "1.36.0"
+home: https://github.com/GuardBee/guardbee-mcp/tree/main/packages/security-proxy
+sources:
+  - https://github.com/GuardBee/guardbee-mcp
+keywords: [mcp, security, gateway, ai-agents]

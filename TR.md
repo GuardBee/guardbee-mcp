@@ -24,6 +24,8 @@ npx -y @guardbee/mcp-owasp-scan scan . --fail-on=high
 
 <sub>Kendiniz çalıştırın: [`examples/demo`](examples/demo) (`npm install && npm start`).</sub>
 
+**Her yere kurulum:** npm, imzalı çok mimarili container imajı (`ghcr.io/guardbee/mcp-security-proxy`), Helm chart, kodlama ajanı hook'ları (Claude Code, Cursor, Codex, Gemini CLI, Windsurf), GitHub Action ve IDE'ler: [INSTALL.md](INSTALL.md).
+
 ## Hangi paketi kullanmalıyım?
 
 | Amacınız… | Kurun | Nasıl |
