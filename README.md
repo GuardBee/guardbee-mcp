@@ -65,6 +65,16 @@ The identifier detectors were tuned after reading this set's misses, so the chal
 
 GuardBee's rules alone trail mcp-guardian on tool poisoning: no Turkish patterns yet, and narrower phrasing. The [README](packages/mcp-bench/README.md) has the per-class numbers, the settings and the limitations.
 
+**Prompt injection and jailbreaks, Turkish + English:** [`packages/injection-bench`](packages/injection-bench) has 2,394 samples: Turkish 576 attacks / 569 benign, English 653 / 596. They come from public datasets (Gandalf, deepset, jackhhao, OpenAssistant) and from hand-written Turkish cases, and the provenance is documented. The [leaderboard](packages/injection-bench/results/LEADERBOARD.test.md) covers the held-out split:
+
+| F1 (test split) | Turkish | English |
+|---|---|---|
+| GuardBee rules (what the proxy blocks) | 28.6 (0% false positives) | 20.4 (0%) |
+| GuardBee rules + local LLM judge (qwen2.5:7b) | **89.6** | **90.8** |
+| ProtectAI DeBERTa-v3 prompt-injection v2 | 70.2 | 89.1 |
+
+The rules are precise but catch only 11–19% of attacks, and the English-trained classifier loses 19 F1 points in Turkish. The [README](packages/injection-bench/README.md) explains both.
+
 ## Examples
 
 Ready-to-copy proxy policies (minimal, KVKK, coding agent, LLM gateway), client configs for Claude Desktop, Claude Code, Cursor and VS Code, and CI templates for GitHub Actions and GitLab: [`examples/`](examples).
