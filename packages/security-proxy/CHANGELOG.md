@@ -1,5 +1,48 @@
 # @guardbee/mcp-security-proxy
 
+## 1.37.0
+
+### Minor Changes
+
+- [#273](https://github.com/GuardBee/guardbee-mcp/pull/273) [`296c988`](https://github.com/GuardBee/guardbee-mcp/commit/296c988ae110929b40fb81f5606fbe93fd32be8b) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - A2A gateway: an `a2a:` section serves Agent2Agent agents at `<path>/<name>`. Callers must authenticate (API key or OIDC, with `allowGroups` per agent). Injection in messages and in returned tasks and artifacts is blocked or warned, including streamed responses event by event. Personal data is masked. Push-notification webhooks to private or metadata addresses are refused. Agent cards are rewritten to point at the gateway, and every call is audited. Covers A2A 1.0 and 0.3 JSON-RPC.
+
+- [#269](https://github.com/GuardBee/guardbee-mcp/pull/269) [`8de1cd1`](https://github.com/GuardBee/guardbee-mcp/commit/8de1cd1497915a4686a41ff4b841e9cd37a25f14) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - More ways to run the gateway:
+  
+  - `guardbee-hook install --codex | --gemini-cli | --windsurf` puts the GuardBee policy, taint and secret checks on those agents' own tools:
+    - Codex PreToolUse/PostToolUse;
+    - Gemini CLI BeforeTool/AfterTool, with the hook switches turned on;
+    - Windsurf Cascade pre_*/post_* hooks, which block with exit code 2.
+  - A multi-arch container image, `ghcr.io/guardbee/mcp-security-proxy`, is published after each release with an SBOM, SLSA provenance and a cosign signature. Its base image is pinned by digest.
+  - A Helm chart in `charts/guardbee-gateway` runs the gateway non-root with a read-only root filesystem, with a config ConfigMap, a secret for `${VAR}`s, `/healthz` probes, and an optional HPA, PDB and Ingress.
+  - INSTALL.md lists every channel.
+
+- [#266](https://github.com/GuardBee/guardbee-mcp/pull/266) [`ca17dea`](https://github.com/GuardBee/guardbee-mcp/commit/ca17dea9e1167efcbe36ac0c8b73b3fe3ca941ae) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Optional LLM judge (any OpenAI-compatible endpoint, local by default: Ollama, llama.cpp, vLLM).
+  
+  - guard-core: `Judge` with `classifyInjection` and `checkAlignment`. It returns schema-checked JSON at temperature 0, with a latency budget and a cache, and reports the model and version. It is off unless configured, and a non-local endpoint needs `allowRemote` and https. Alignment behaviors must quote handler code that really exists, and behaviors the description states are dropped. `judgeFromEnv` reads `GUARDBEE_JUDGE_URL` / `GUARDBEE_JUDGE_MODEL`.
+  - tool-poisoning-scanner: `--judge` checks each tool's handler against its description (`judge_description_behavior_mismatch`), with the model in findings and SARIF.
+  - prompt-injection-scanner: `--judge` finds paraphrased or translated injections (`judge_semantic_injection`).
+  - security-proxy: a `judge` config block. A borderline (warn) injection finding on tool arguments or results is raised to a block when the judge is confident it is malicious; with `mayClear` a confident "benign" clears it. `budgetMs` and `onError` (open/closed) apply. `scope: results` also judges every tool result the rules let through. Audit events carry `judge` (model, version, verdict, confidence, latency, outcome); CEF puts the model in `flexString1`.
+  - Benchmark in bench/judge: rules alone vs. judge (qwen2.5:3b, qwen2.5:7b) on 50 English and Turkish injection samples and 16 tool alignment cases.
+
+- [#264](https://github.com/GuardBee/guardbee-mcp/pull/264) [`fb81d57`](https://github.com/GuardBee/guardbee-mcp/commit/fb81d57371b9e06a3ff6c05a8877717276e51a89) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - GuardBee MCP Index: A–F trust grades for the servers in the official MCP Registry, rebuilt weekly from their published packages (static scan with the GuardBee scanners, OSV vulnerabilities and malware, Sigstore build provenance, maintenance; rubric in packages/mcp-index/RUBRIC.md).
+  
+  - guard-core: `loadMcpIndex` (downloads the whole index, cached for a day, so lookups send no names), `lookupMcpGrade` (by what a command launches: npm, PyPI, image), `gradeBelow`, `isMcpGrade`, index types.
+  - mcp-config-auditor: `--grades` on `scan <file>` and `discover` shows each server's grade; `--min-grade=<A-F>` reports servers below it (`mcp_index_grade_below_minimum`, MCP04); `--index-url`, `--offline`.
+  - security-proxy: `guardbee-proxy init --grades` shows the grades; `--min-grade <A-F>` leaves servers below it out of both the gateway and the client config (they stay in the backup).
+
+- [#267](https://github.com/GuardBee/guardbee-mcp/pull/267) [`04efcf5`](https://github.com/GuardBee/guardbee-mcp/commit/04efcf501876fdf437aa04f924dc1e288fa265cb) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Upstream identity: each caller acts as themselves at HTTP upstreams, and their own token is never forwarded.
+  
+  - `upstreams.<name>.auth.mode: token-exchange` exchanges the caller's OIDC access token (RFC 8693) for one with the upstream as audience. Tested against Keycloak.
+  - `oauth-per-user` lets each user connect their own account at a third-party OAuth server through a consent page the gateway serves (PKCE S256, signed single-use links, CSRF token, exact redirect URI, RFC 9207 `iss`, no framing). Tokens are stored encrypted (AES-256-GCM) and refreshed.
+  - Scope minimization: a call asks for `scopes` plus the called tool's `toolScopes`, and steps up on `insufficient_scope`. Elevations and consents are audit events (`auth:step-up`, `auth:consent`).
+  - Tool responses record `upstreamIdentity` next to `user`.
+  - New top-level `upstreamAuth` (`publicUrl`, `encryptionKeyEnv`, `tokenFile`).
+
+### Patch Changes
+
+- Updated dependencies [[`ca17dea`](https://github.com/GuardBee/guardbee-mcp/commit/ca17dea9e1167efcbe36ac0c8b73b3fe3ca941ae), [`fb81d57`](https://github.com/GuardBee/guardbee-mcp/commit/fb81d57371b9e06a3ff6c05a8877717276e51a89)]:
+  - @guardbee/guard-core@1.5.0
+
 ## 1.36.0
 
 ### Minor Changes
