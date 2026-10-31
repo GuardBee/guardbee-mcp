@@ -281,7 +281,7 @@ HTTP modunda proxy, uygulamalarınızla model sağlayıcıları (OpenAI, Anthrop
 
 Tam yapılandırma örneği için [README](README.md#llm-api-gateway) dosyasına bakın.
 
-### İsteklerdeki PDF'ler ve görseller
+### İsteklerdeki PDF'ler, görseller ve ses
 
 `llm.documents.pdf: true` ile istek içindeki bir PDF reddedilmek yerine okunur: `data:application/pdf;base64,` URL'li OpenAI `file` ve Responses `input_file` parçaları, base64 PDF kaynaklı Anthropic `document` blokları (mesajlarda, system prompt'ta ve tool sonuçlarında). Proxy PDF'in metin katmanını [`@guardbee/mcp-document-scanner`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/document-scanner) ile çıkarır ve bu metni, PDF'in yerine, yukarıdaki her adımdan geçirir: prompt injection, credential, konu kuralları, hassas yönlendirme ve PII.
 
@@ -297,11 +297,20 @@ Tam yapılandırma örneği için [README](README.md#llm-api-gateway) dosyasına
 - **OCR basılı metni okur, modelin gördüğü her şeyi değil.** El yazısı, düşük kontrastlı veya çok küçük metin, fotoğraf ve grafiklerdeki metin kaçabilir; model OCR'ın okumadığını yine de okuyabilir. `images: true`'yu belge, sohbet ve form ekran görüntülerini yakalayan bir kontrol olarak görün, bir görselde kişisel veri olmadığının garantisi olarak değil.
 - **Maliyet:** dizüstü CPU'da ekran görüntüsü başına yaklaşık 0,3 sn, görsel taşıyan her istekte; büyük görsellerde daha fazla. `timeoutSeconds` ve `maxBytes` bunu sınırlar.
 
-Henüz kapsanmayanlar: file id veya URL ile verilen PDF'ler (yine `415`), URL veya file id ile verilen görseller (okunmadan iletilir: proxy bunları indirmez), `ner:` modelinin PDF veya görsel içindeki kişi adları ve ses. PDF okumak, PDF taşıyan her istekte süre ekler; `timeoutSeconds` ve `maxPages` bunu sınırlar.
+`llm.documents.audio` ile Chat Completions `input_audio` parçaları (`wav`, `mp3`) belirttiğiniz konuşmadan metne servisiyle yazıya dökülür ve döküm aynı sonuçlarla her kontrolden geçer: temiz ses değiştirilmeden iletilir, içinde kişisel veri söylenen ses `403 pii:document` ile reddedilir, yazıya dökülemeyen ses (başka format, o formatta olmayan veri, servis kapalı, hata dönüyor veya `timeoutSeconds`'tan yavaş) maskeleme uygulanıyorsa `415 guardbee_unmaskable_content` olur. Audit'teki yer tutucu `[audio "audio <n>": <bayt> bytes, sha256 <hash>]`; dökümün kendisi loglanmaz.
+
+- **Servis**, OpenAI'ın `POST /v1/audio/transcriptions` isteğini (multipart `file`, `model`, `response_format=json`, isteğe bağlı `language`) alıp `{ "text": … }` dönen herhangi bir endpoint olabilir: [whisper.cpp](https://github.com/ggml-org/whisper.cpp) `whisper-server --inference-path /v1/audio/transcriptions`, faster-whisper-server / Speaches, vLLM veya bir sağlayıcının API'si.
+- **Ses bu servise, kontrollerden önce, olduğu gibi gider**; servisi verinin gidebileceği yerde çalıştırın: kendi makinenizde veya ağınızda. Herkese açık bir API'ye yönlendirmek her sesli mesajı oraya göndermek demektir.
+- **Konuşmadan metne yanlış duyabilir.** Sesli okunan numaralar ("on bir, sıfır sıfır…") kelime olarak veya hatalı dönebilir; bunu net konuşmayı yakalayan bir kontrol olarak görün, garanti olarak değil.
+- **Maliyet:** her ses parçası için bir döküm, CPU'da dakikalık konuşma başına birkaç saniye; `timeoutSeconds` ve `maxBytes` bunu sınırlar.
+
+Henüz kapsanmayanlar: file id veya URL ile verilen PDF'ler (yine `415`), URL veya file id ile verilen görseller (okunmadan iletilir: proxy bunları indirmez), `ner:` modelinin PDF, görsel veya döküm içindeki kişi adları ve Responses ya da Realtime API'deki ses. PDF okumak, PDF taşıyan her istekte süre ekler; `timeoutSeconds` ve `maxPages` bunu sınırlar.
 
 ```yaml
 llm:
-  documents: { pdf: true, images: true, ocr: false, languages: [tur, eng], maxBytes: 20971520, maxPages: 50, timeoutSeconds: 30 }
+  documents:
+    { pdf: true, images: true, ocr: false, languages: [tur, eng], maxBytes: 20971520, maxPages: 50, timeoutSeconds: 30,
+      audio: { url: "http://127.0.0.1:8080/v1/audio/transcriptions", model: whisper-1, language: tr } }
 ```
 
 ### Embeddings
@@ -321,7 +330,7 @@ Gateway kapalı başarısız olur (fail closed): bir isteği kontrol edemediğin
 | Durum | Kod | Ne zaman | Audit `ruleId` |
 | --- | --- | --- | --- |
 | `502` | `guardbee_masking_failed` | Bir dedektör veya tarama hata fırlattı, bir block kalıbı zaman bütçesini aştı ya da isim modeli (`ner:`) yanıt vermedi. Çağrıdan önceki her kontrolü kapsar: injection, credential, konu, hassas yönlendirme, maskeleme. | `pii:masking-failed`, `pii:pattern-timeout`, `pii:ner-failed` |
-| `415` | `guardbee_unmaskable_content` | İstekte proxy'nin okuyamadığı içerik var: OpenAI `input_audio` veya `file` parçaları, kaynağı PDF (base64, url, file) olan Anthropic `document`, bilinmeyen parça/blok türü, metin ya da liste olmayan içerik. `llm.documents.pdf` ile istek içindeki PDF'ler okunur, yalnızca tamamı okunamayan reddedilir; `llm.documents.images` ile okunamayan görseller de reddedilir. Mesaj bulunanı adıyla söyler. | `pii:unmaskable` |
+| `415` | `guardbee_unmaskable_content` | İstekte proxy'nin okuyamadığı içerik var: OpenAI `input_audio` veya `file` parçaları, kaynağı PDF (base64, url, file) olan Anthropic `document`, bilinmeyen parça/blok türü, metin ya da liste olmayan içerik. `llm.documents.pdf` ile istek içindeki PDF'ler okunur, yalnızca tamamı okunamayan reddedilir; `llm.documents.images` ve `llm.documents.audio` ile okunamayan görseller ve ses de reddedilir. Mesaj bulunanı adıyla söyler. | `pii:unmaskable` |
 | `413` | `guardbee_text_too_large` | Tek bir metin (mesaj, parça, tool sonucu) `llm.maxTextChars`'tan (varsayılan 2.000.000 karakter) uzun. Sınır istek başına değil metin başınadır: metni birkaç mesaja veya parçaya bölün. | `pii:text-too-large` |
 
 Reddedilmeyenler: görseller (`image_url`, `input_image`, Anthropic `image`) olduğu gibi iletilir ve `llm.documents.images` yoksa incelenmez; assistant turunda sağlayıcının kendi ürettiği bloklar (`thinking`, `redacted_thinking`, `server_tool_use`, `*_tool_result`) aynen geri gönderilir. `415` ve `413` yalnızca istek maskelendiğinde uygulanır: `piiMasking.enabled: false`, `masking: off` olan bir route veya `llm.sensitive` ile `mask: true` olmadan içeri yönlendirilen istek maskelenmez, maskelenemez diye de reddedilmez.

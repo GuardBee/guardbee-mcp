@@ -104,12 +104,12 @@ export interface LlmConfig {
 }
 
 /**
- * PDFs and images in requests. With `pdf: true` an inline PDF's text is
- * read, with `images: true` an inline image's text is read with OCR, and that
- * text goes through every prompt check. One that is clean is forwarded
- * unchanged, one that holds PII the proxy would mask is refused (masking
- * inside a PDF or an image is not possible), and one that cannot be read in
- * full is unmaskable (415).
+ * PDFs, images and audio in requests. With `pdf: true` an inline PDF's text
+ * is read, with `images: true` an inline image's text is read with OCR, with
+ * `audio` an audio part is transcribed, and that text goes through every
+ * prompt check. One that is clean is forwarded unchanged, one that holds PII
+ * the proxy would mask is refused (masking inside a file is not possible),
+ * and one that cannot be read in full is unmaskable (415).
  */
 export interface LlmDocuments {
   pdf: boolean;
@@ -121,9 +121,26 @@ export interface LlmDocuments {
   languages: string[];
   /** A local folder with `<lang>.traineddata`, so OCR never downloads language data. */
   langPath?: string;
+  /** Transcribe OpenAI `input_audio` parts with this speech-to-text service. Unset: audio stays unmaskable (415). */
+  audio?: LlmAudio;
   maxBytes: number;
   maxPages: number;
   timeoutSeconds: number;
+}
+
+/**
+ * An OpenAI-compatible transcription endpoint (`POST .../audio/transcriptions`,
+ * multipart, `{ text }` back): whisper.cpp's server, faster-whisper-server,
+ * vLLM, or a provider. The audio is sent there as is, so it should run where
+ * the data may go: in-house.
+ */
+export interface LlmAudio {
+  url: string;
+  model: string;
+  /** Sent as `Authorization: Bearer`. */
+  apiKey?: string;
+  /** ISO-639-1 hint for the speech-to-text model; unset: it detects the language. */
+  language?: string;
 }
 
 export const DEFAULT_MAX_TEXT_CHARS = 2_000_000;
@@ -197,6 +214,15 @@ export const llmSchema = z
         ocr: z.boolean().default(false),
         languages: z.array(z.string().regex(/^[a-z_]{3,16}$/, "a Tesseract language code such as eng")).min(1).default(["tur", "eng"]),
         langPath: z.string().min(1).optional(),
+        audio: z
+          .object({
+            url: z.string().url().refine((u) => /^https?:\/\//.test(u), "an http(s) URL"),
+            model: z.string().min(1).default("whisper-1"),
+            apiKeyEnv: envName.optional(),
+            language: z.string().regex(/^[a-z]{2}$/, "an ISO-639-1 code such as tr").optional(),
+          })
+          .strict()
+          .optional(),
         maxBytes: z.number().int().positive().max(MAX_BODY_BYTES).default(20 * 1024 * 1024),
         maxPages: z.number().int().positive().default(50),
         timeoutSeconds: z.number().int().positive().default(30),
@@ -251,6 +277,13 @@ function env(name: string, where: string): string {
   return value;
 }
 
+function resolveDocuments(raw: NonNullable<LlmYaml["documents"]>): LlmDocuments {
+  const { audio, ...rest } = raw;
+  if (!audio) return rest;
+  const { apiKeyEnv, ...endpoint } = audio;
+  return { ...rest, audio: { ...endpoint, ...(apiKeyEnv ? { apiKey: env(apiKeyEnv, "llm.documents.audio.apiKeyEnv") } : {}) } };
+}
+
 /** Resolve keys from the environment: the config file never holds a secret. */
 export function resolveLlmConfig(raw: LlmYaml): LlmConfig {
   const keys = raw.keys.map((key, index) => ({ key: env(key.keyEnv, `llm.keys[${index}].keyEnv`), user: key.user, groups: key.groups }));
@@ -270,7 +303,7 @@ export function resolveLlmConfig(raw: LlmYaml): LlmConfig {
     maskResponses: raw.maskResponses,
     timeoutSeconds: raw.timeoutSeconds,
     maxTextChars: raw.maxTextChars,
-    ...(raw.documents ? { documents: raw.documents } : {}),
+    ...(raw.documents ? { documents: resolveDocuments(raw.documents) } : {}),
     access: raw.access,
     accessDefault: raw.accessDefault,
     ...(raw.sensitive ? { sensitive: raw.sensitive } : {}),
