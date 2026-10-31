@@ -4,8 +4,9 @@ import { dirname, resolve } from "path";
 import { fileURLToPath } from "url";
 import { configFilePath, loadConfig } from "./config.js";
 import { buildSarif } from "./sarif.js";
-import { discoverHostMcp, loadAllowlistFile, scanConfigFile, scanDirectory, scanInventory } from "./scanner.js";
-import { buildInventory, uploadInventory } from "./inventory.js";
+import { discoverHostMcp, loadAllowlistFile, scanConfigFile, scanDirectory, scanInventory, type Allowlist } from "./scanner.js";
+import { parseAllowlist } from "./discover.js";
+import { allowlistUrlFor, buildInventory, fetchDashboardAllowlist, inventoryKey, uploadInventory } from "./inventory.js";
 import { isMcpGrade, type McpGrade } from "@guardbee/guard-core";
 import { formatGrades, gradeFindings, gradeServer, loadIndexForGrades, type ServerGrade } from "./grades.js";
 import { parseMcpConfig } from "./parseConfig.js";
@@ -214,7 +215,7 @@ function runInventory(rawArgs: string[]): void {
 async function runDiscover(rawArgs: string[]): Promise<void> {
   const parsedArgs = parseArgs(rawArgs);
   const { failOn, format, allowlist: allowlistPath, home, includeContentAudit, upload, uploadUrl, includeUser } = parsedArgs;
-  let allowlist = null;
+  let allowlist: Allowlist | null = null;
   if (allowlistPath) {
     try {
       allowlist = loadAllowlistFile(allowlistPath);
@@ -223,8 +224,33 @@ async function runDiscover(rawArgs: string[]): Promise<void> {
       process.exit(2);
     }
   }
+  // The organization allowlist from the dashboard, merged with a local file if both are given
+  if (rawArgs.includes("--allowlist-from-dashboard")) {
+    const apiKey = process.env["GUARDBEE_API_KEY"];
+    if (!apiKey) {
+      console.error("--allowlist-from-dashboard needs GUARDBEE_API_KEY (a workspace API key with the gateway.read or gateway.write scope)");
+      process.exit(2);
+    }
+    try {
+      const fromDashboard = parseAllowlist(JSON.stringify(await fetchDashboardAllowlist({ apiKey, url: allowlistUrlFor(uploadUrl) })));
+      allowlist = allowlist
+        ? { names: new Set([...allowlist.names, ...fromDashboard.names]), packages: new Set([...allowlist.packages, ...fromDashboard.packages]), hosts: new Set([...allowlist.hosts, ...fromDashboard.hosts]) }
+        : fromDashboard;
+    } catch (err) {
+      console.error(`Cannot read the dashboard allowlist: ${err instanceof Error ? err.message : String(err)}`);
+      process.exit(2);
+    }
+  }
   const result = discoverHostMcp({ home, allowlist, includeContentAudit });
-  const inventory = buildInventory(result, { includeUser });
+  if (format === "text") console.log(`Discovered ${result.scannedFiles} config(s); ${result.missingPaths} well-known path(s) absent.`);
+  // Grades first, so the uploaded inventory carries them
+  const graded = await gradeStep(
+    result.discovered.flatMap((d) => d.servers.map((server) => ({ server, file: d.path }))),
+    parsedArgs,
+    format,
+  );
+  const gradeMap = new Map(graded.grades.map((g) => [inventoryKey(g.file ?? "", g.server), g.grade] as const));
+  const inventory = buildInventory(result, { includeUser, ...(parsedArgs.grades ? { grades: gradeMap } : {}) });
 
   if (upload) {
     const apiKey = process.env["GUARDBEE_API_KEY"];
@@ -238,12 +264,6 @@ async function runDiscover(rawArgs: string[]): Promise<void> {
     if (!sent.ok) process.exitCode = 2;
   }
 
-  if (format === "text") console.log(`Discovered ${result.scannedFiles} config(s); ${result.missingPaths} well-known path(s) absent.`);
-  const graded = await gradeStep(
-    result.discovered.flatMap((d) => d.servers.map((server) => ({ server, file: d.path }))),
-    parsedArgs,
-    format,
-  );
   const findings = [...result.findings, ...graded.findings];
   if (format === "json") {
     console.log(
@@ -294,6 +314,8 @@ Options:
   --include-content-audit  Also run content checks on discovered configs (discover)
   --upload            Send the inventory to the GuardBee dashboard (GUARDBEE_API_KEY, scope gateway.write)
   --upload-url=<url>  Another dashboard endpoint (implies --upload)
+  --allowlist-from-dashboard  Use the organization allowlist managed in the dashboard (discover;
+                      GUARDBEE_API_KEY with gateway.read or gateway.write); merged with --allowlist
   --no-user           Leave the OS user name out of the inventory
   --grades            Show each server's GuardBee MCP Index grade (scan <file>, discover); downloads the
                       whole index (cached a day), so no server name leaves the machine
