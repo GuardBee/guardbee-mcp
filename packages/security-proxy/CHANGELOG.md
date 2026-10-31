@@ -1,5 +1,11 @@
 # @guardbee/mcp-security-proxy
 
+## 1.36.0
+
+### Minor Changes
+
+- [#260](https://github.com/GuardBee/guardbee-mcp/pull/260) [`292bf77`](https://github.com/GuardBee/guardbee-mcp/commit/292bf77de4d02e7c47dfd6c2189f882013ab49a7) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Sandboxed stdio upstreams can reach a host allowlist: `sandbox.network: allowlist` with `allowHosts` (and `blockPrivate`, default true). The gateway runs an egress proxy per upstream (CONNECT and plain HTTP) that connects only to those hosts, checks the resolved address on the connection (metadata, link-local and private refused, DNS rebinding included) and audits every refusal. The sandbox can reach that proxy and nothing else: Seatbelt allows only its localhost port, bwrap gets its own network namespace with a forwarder to the proxy's unix socket, docker / podman put the server on an `--internal` network with a forwarder sidecar (removed on exit). `HTTP_PROXY` / `HTTPS_PROXY`, `NODE_USE_ENV_PROXY` and `npm_config_*proxy` are set in the sandbox and cannot be overridden by the upstream's env.
+
 ## 1.35.0
 
 ### Minor Changes
