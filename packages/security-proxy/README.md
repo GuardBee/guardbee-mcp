@@ -225,6 +225,26 @@ Containers use `image`, or `node:22-alpine` for node/npx/npm/pnpm, `ghcr.io/astr
 - **`guardbee-proxy init --grades`** prints each imported server's [GuardBee MCP Index](https://guardbee.github.io/guardbee-mcp/) grade (A–F, from its published package: static scan, known vulnerabilities and malware, build provenance, maintenance; the index is downloaded whole and searched locally, so no server name is sent). **`--min-grade C`** leaves out servers graded below C: they are neither moved behind the proxy nor left in the client config, where they would run unchecked; the backup keeps them. Servers with no grade (local commands, remote URLs, servers outside the official registry) are always moved.
 - **Limits of the model.** `sandbox-exec` is deprecated by Apple but still the macOS mechanism; it does not limit CPU or memory. `bwrap` needs unprivileged user namespaces (some distributions restrict them with AppArmor). Neither hides files you did not list from reading on the non-container runtimes: only the credential list, `.env` files and `fs.deny` are hidden, everything else stays readable (use a container for an allowlist). `network: allowlist` filters by host name and port-agnostic: it does not inspect what is sent to an allowed host. Raw TCP and UDP (a database driver, DNS) do not go through an HTTP proxy, so they get no network under it. Windows has no built-in runtime: use `docker` or `podman`.
 
+## LLM Judge (optional)
+
+The injection rules are fast and explainable but match phrases they know. An optional **judge** gives a second opinion from a model: a paraphrased, indirect or translated instruction, or an article that only *quotes* one. It is off unless configured, and runs best on a local model (Ollama, llama.cpp, vLLM, LM Studio: any OpenAI-compatible endpoint), so nothing leaves the machine.
+
+```yaml
+judge:
+  endpoint: http://127.0.0.1:11434/v1   # Ollama; a non-local endpoint also needs allowRemote: true (and https)
+  model: qwen2.5:7b
+  budgetMs: 500        # time the judge may add to a call; past it, onError decides
+  onError: open        # open: keep the rules' decision; closed: block the borderline item
+  minConfidence: 0.7
+  mayClear: false      # true: a confident "benign" removes a rules warning (still audited)
+  scope: borderline    # borderline: only what the rules warned about; results: every tool result too
+```
+
+- **Raise, not clear.** The judge sees only what the rules left open: a `warn` on tool arguments or results (with `scope: results`, also every result the rules let through). A confident `malicious` verdict raises it to the configured action (`interceptors.*.action`, usually `block`, audit `ruleId: judge:injection`). Anything else keeps the rules' decision. A `benign` verdict clears a warning only with `mayClear: true`, and the cleared warning stays in the audit log.
+- **Budget.** A judge that does not answer within `budgetMs` (or fails) leaves the warning (`onError: open`) or blocks the borderline item (`closed`). A result the rules found clean is never blocked because the judge is down.
+- **On record.** Every audit event the judge touched carries `judge: { model, version, verdict, confidence, latencyMs, cached, outcome }`. CEF exports name the model in `flexString1`. Verdicts are cached by input (`cacheSize`).
+- **Numbers.** On GuardBee's [judge benchmark](../../bench/judge/README.md) (50 English and Turkish injection samples), the rules catch 16% of the attacks. `qwen2.5:7b` catches all of them with no false positives, at about 1 s per call on a laptop; `qwen2.5:3b` catches 96% at 0.7 s. The set is small and the numbers optimistic; see the caveats there.
+
 ## Security Reports
 
 `guardbee-proxy report` turns the audit log into a periodic report for a security team or an auditor: totals, the findings grouped and mapped to **OWASP Top 10 for LLM Applications (2025)** and **MITRE ATLAS**, personal-data counts, the rules and tools that blocked most, and the state of the hash chain. Payloads are never in it — only counts and the logged reasons.

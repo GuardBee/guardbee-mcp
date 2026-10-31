@@ -13,7 +13,7 @@ interface SarifResult {
   ruleId: string;
   level: "error" | "warning" | "note";
   message: { text: string };
-  properties?: { language: string };
+  properties?: { language?: string; judgeModel?: string; judgeModelVersion?: string; judgeConfidence?: number };
   locations?: Array<{
     physicalLocation: {
       artifactLocation: { uri: string; uriBaseId: string };
@@ -48,7 +48,7 @@ export function buildSarif(toolVersion: string, findings: Finding[]): object {
       ruleId: f.patternId,
       level: severityToLevel(f.severity),
       message: { text: `${f.patternName} — ${f.recommendation}` },
-      ...(f.language ? { properties: { language: f.language } } : {}),
+      ...(f.language || f.judge ? { properties: { ...(f.language ? { language: f.language } : {}), ...(f.judge ? { judgeModel: f.judge.model, ...(f.judge.version ? { judgeModelVersion: f.judge.version } : {}), judgeConfidence: f.judge.confidence } : {}) } } : {}),
     };
     if (f.file) {
       result.locations = [

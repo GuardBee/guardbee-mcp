@@ -95,6 +95,17 @@ These are **heuristic** findings — a static text-pattern scan, not a semantic/
 
 ---
 
+## LLM judge (optional)
+
+The patterns know attack phrases; a paraphrased, indirect or translated instruction slips past them. `--judge` also has a model read each file, in chunks, and reports instructions aimed at an agent as `judge_semantic_injection` (high). The finding carries `judge: { model, version, confidence }`, also in SARIF `properties`. The judge only adds findings.
+
+```bash
+GUARDBEE_JUDGE_URL=http://127.0.0.1:11434/v1 GUARDBEE_JUDGE_MODEL=qwen2.5:7b \
+  npx @guardbee/mcp-prompt-injection-scanner scan ./docs --judge
+```
+
+It is off unless configured. Since the content goes to the endpoint, a non-local one needs `--judge-allow-remote` and https. On GuardBee's [judge benchmark](../../bench/judge/README.md) (50 English and Turkish samples), the patterns catch 16% of the attacks and `qwen2.5:7b` all of them, with no false positives.
+
 ## Configuration (`guardbee.yml`)
 
 ```yaml

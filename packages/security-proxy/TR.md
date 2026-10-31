@@ -173,6 +173,26 @@ Politika, taint ve maskeleme MCP mesajlarını görür. Bir stdio sunucusu ise s
 - **`guardbee-proxy init --grades`** içe aktarılan her sunucunun [GuardBee MCP Index](https://guardbee.github.io/guardbee-mcp/) notunu (A–F; yayımlanan paketinden: statik tarama, bilinen açık ve zararlı yazılım, build provenance, bakım) yazdırır; indeks bütün olarak indirilip yerelde aranır, hiçbir sunucu adı gönderilmez. **`--min-grade C`** C'nin altındaki sunucuları dışarıda bırakır: ne proxy'nin arkasına taşınırlar ne de denetimsiz çalışacakları istemci yapılandırmasında kalırlar; yedekte dururlar. Notu olmayan sunucular (yerel komutlar, uzak URL'ler, resmi registry dışındakiler) her zaman taşınır.
 - **Sınırlar:** `sandbox-exec` Apple tarafından kullanımdan kaldırılmış olsa da macOS'un mekanizmasıdır ve CPU/bellek sınırlamaz; `bwrap` ayrıcalıksız user namespace ister. Container olmayan runtime'larda yalnızca kimlik listesi, `.env` dosyaları ve `fs.deny` okumaya kapalıdır, gerisi okunabilir (allowlist için container kullanın). `network: allowlist` host adına göre süzer, izin verilen bir host'a ne gönderildiğine bakmaz; HTTP proxy'den geçmeyen ham TCP ve UDP (veritabanı sürücüsü, DNS) bu modda ağsız kalır. Ayrıntılı tablo ve örnek için [README](README.md#sandboxed-upstreams).
 
+## LLM Hakem (isteğe bağlı)
+
+Enjeksiyon kuralları hızlı ve açıklanabilir ama bildikleri ifadeleri yakalar. İsteğe bağlı **judge** bir modelden ikinci görüş alır: başka sözcüklerle, dolaylı ya da çevrilmiş bir talimatı yakalar; yalnızca saldırıyı *alıntılayan* bir makaleyi ayırt eder. Yapılandırılmadıkça kapalıdır; en iyi yerel bir modelle çalışır (Ollama, llama.cpp, vLLM, LM Studio: OpenAI uyumlu her uç nokta), böylece hiçbir şey makineden çıkmaz.
+
+```yaml
+judge:
+  endpoint: http://127.0.0.1:11434/v1   # yerel olmayan bir uç nokta için ayrıca allowRemote: true (ve https)
+  model: qwen2.5:7b
+  budgetMs: 500        # hakemin bir çağrıya ekleyebileceği süre; aşılırsa onError karar verir
+  onError: open        # open: kuralların kararı kalır; closed: sınırdaki öğe engellenir
+  minConfidence: 0.7
+  mayClear: false      # true: emin bir "benign" kural uyarısını kaldırır (yine de audit'e yazılır)
+  scope: borderline    # borderline: yalnızca kuralların uyardığı; results: her tool sonucu da
+```
+
+- **Yükseltir, kaldırmaz.** Hakem yalnızca kuralların açık bıraktığını görür: tool argümanları ya da sonuçları üzerindeki bir `warn` (`scope: results` ile kuralların geçirdiği her sonuç da). Emin bir `malicious` kararı bunu yapılandırılmış aksiyona yükseltir (genellikle `block`, audit `ruleId: judge:injection`); diğer her şey kuralların kararını korur. `benign` bir uyarıyı yalnızca `mayClear: true` ile kaldırır ve kaldırılan uyarı audit'te kalır.
+- **Süre bütçesi.** `budgetMs` içinde cevap vermeyen (ya da hata veren) hakem uyarıyı bırakır (`onError: open`) veya sınırdaki öğeyi engeller (`closed`). Kuralların temiz bulduğu bir sonuç, hakem kapalı diye asla engellenmez.
+- **Kayıtta.** Hakemin dokunduğu her audit olayında `judge: { model, version, verdict, confidence, latencyMs, cached, outcome }` bulunur; CEF dışa aktarımı modeli `flexString1`'de verir.
+- **Sayılar.** GuardBee'nin [hakem benchmark'ında](../../bench/judge/README.md) (50 İngilizce ve Türkçe örnek) kurallar saldırıların %16'sını, `qwen2.5:7b` tamamını yanlış pozitifsiz (dizüstünde ~1 sn), `qwen2.5:3b` %96'sını (0,7 sn) yakalar. Küme küçüktür ve sayılar iyimserdir; uyarılar orada.
+
 ## Güvenlik Raporları
 
 `guardbee-proxy report`, audit log'dan güvenlik ekibi veya denetçi için dönemsel bir rapor üretir: özet sayılar, **OWASP LLM Top 10 (2025)** ve **MITRE ATLAS** ile eşlenmiş bulgular, kişisel veri sayıları, en çok engelleyen kurallar ve hash zincirinin durumu. Payload asla rapora girmez.

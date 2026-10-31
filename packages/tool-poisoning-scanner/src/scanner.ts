@@ -14,6 +14,8 @@ export interface Finding {
   owasp?: string;
   /** Source language the finding was read from (typescript, javascript, python, go). */
   language?: SourceLanguage;
+  /** Set on findings made by the LLM judge (--judge): the model that judged, and how sure it was. */
+  judge?: { model: string; version?: string; confidence: number };
   file?: string;
   line: number;
   column: number;
@@ -27,6 +29,8 @@ export interface ScanResult {
   totalFindings: number;
   findings: Finding[];
   durationMs: number;
+  /** The files that were scanned. */
+  paths: string[];
 }
 
 const SKIP_EXTENSIONS = new Set([
@@ -110,7 +114,7 @@ function extractSchemaStrings(body: string): Array<{ text: string; index: number
   return out;
 }
 
-function locationOf(text: string, absoluteIndex: number): { line: number; column: number } {
+export function locationOf(text: string, absoluteIndex: number): { line: number; column: number } {
   const before = text.slice(0, absoluteIndex);
   const line = before.split("\n").length;
   const lastNl = before.lastIndexOf("\n");
@@ -119,7 +123,7 @@ function locationOf(text: string, absoluteIndex: number): { line: number; column
 }
 
 /** A tool definition in any supported language, as the checks below see it. */
-interface ScannedTool {
+export interface ScannedTool {
   name: string;
   description: { text: string; index: number } | null;
   /** Parameter descriptions and other schema strings, absolute offsets. */
@@ -142,7 +146,7 @@ function typescriptTools(text: string): ScannedTool[] {
   }));
 }
 
-function toolsOf(text: string, language: SourceLanguage | undefined): ScannedTool[] {
+export function toolsOf(text: string, language: SourceLanguage | undefined): ScannedTool[] {
   if (language === "python" || language === "go") {
     return extractSourceTools(text, language).map((tool) => ({
       name: tool.name,
@@ -278,6 +282,7 @@ export function scanDirectory(
     throw new Error(`maxFiles must be a positive integer (got ${String(maxFiles)})`);
   }
   const allFindings: Finding[] = [];
+  const paths: string[] = [];
   let scannedFiles = 0;
   let skippedFiles = 0;
 
@@ -311,6 +316,7 @@ export function scanDirectory(
         if (skipped) skippedFiles++;
         else {
           scannedFiles++;
+          paths.push(fullPath);
           allFindings.push(...findings);
         }
       }
@@ -323,6 +329,7 @@ export function scanDirectory(
     scannedFiles,
     skippedFiles,
     totalFindings: allFindings.length,
+    paths,
     findings: allFindings,
     durationMs: Date.now() - start,
   };

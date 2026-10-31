@@ -106,6 +106,10 @@ tool-poisoning-scanner:
 
 ---
 
+## LLM hakem (isteğe bağlı)
+
+Sink kuralları shell, eval, dosya yazma ve ortam dökümünü görür. Argümanlarını üçüncü tarafa gönderen "salt okunur" bir tool'u ya da yıkıcı bir handler hakkında sadece belirsiz olan bir açıklamayı görmez. `--judge` her tool için bir modele sorar: model ad, açıklama, `readOnlyHint` ve handler kodunu okur; kodun yaptığı ama açıklamanın söylemediği her davranışı, kodu alıntılayarak listeler. `GUARDBEE_JUDGE_URL` / `GUARDBEE_JUDGE_MODEL` (örn. Ollama `http://127.0.0.1:11434/v1`, `qwen2.5:7b`) ya da `--judge-url=` / `--judge-model=` ile açılır; yerel olmayan bir uç nokta `--judge-allow-remote` ve https ister. Kodda gerçekten bulunmayan alıntılar ve açıklamanın zaten söylediği davranışlar atılır. Hakem bulgu ekler, asla kaldırmaz: `judge_description_behavior_mismatch` (MCP03); bulgu `judge: { model, version, confidence }` taşır, SARIF'te de yer alır. [Benchmark](../../bench/judge/README.md): sink kuralları 8 yanıltıcı tool'un 3'ünü, `qwen2.5:7b` 7'sini yanlış pozitifsiz bulur.
+
 ## Kısıtlamalar (bilinçli tasarım)
 
 - **Kapsam**: TypeScript/JavaScript (`server.tool(...)` ve `server.registerTool(...)`), Python (`@mcp.tool()` dekoratörleri ve düşük seviyeli `Tool(...)` + `@server.call_tool()`) ve Go (resmi go-sdk, mark3labs/mcp-go). Dil dosya uzantısından anlaşılır (`scan_text` bir `language` alır). TypeScript'te `setRequestHandler(ListToolsRequestSchema, ...)` tarzı (ham bir `{name, description, inputSchema}` dizisi) henüz kapsanmıyor; Rust, Java, Kotlin, C# ve diğer diller de.
