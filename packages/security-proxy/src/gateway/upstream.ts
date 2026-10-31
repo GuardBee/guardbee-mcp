@@ -13,7 +13,8 @@ import type {
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { classifyAddress, guardedFetch, normalizeHost, type EgressBlockedError, type EgressPolicy } from "@guardbee/guard-core";
-import { sandboxContext, sandboxLaunch } from "./sandbox.js";
+import { startEgressProxy, type EgressProxy } from "./egress.js";
+import { egressListen, sandboxContext, sandboxLaunch } from "./sandbox.js";
 import { isHttpUpstream, type HttpUpstreamConfig, type McpServerConfig, type UpstreamConfig, type UpstreamProtocol } from "../types.js";
 
 /** Answers a server's sampling/createMessage request on behalf of one session. */
@@ -203,9 +204,24 @@ export function stdioProtocol(server: McpServerConfig): UpstreamProtocol {
   return server.protocol ?? (container ? "2025-11-25" : "auto");
 }
 
-export async function connectStdioUpstream(name: string, server: McpServerConfig, options: { sampling?: boolean } = {}): Promise<Upstream> {
+export async function connectStdioUpstream(name: string, server: McpServerConfig, options: ConnectOptions = {}): Promise<Upstream> {
   const { client, toolListeners } = proxyClient(options.sampling ?? false, stdioProtocol(server));
-  const launch = server.sandbox ? sandboxLaunch(server, server.sandbox, sandboxContext(name)) : undefined;
+  const ctx = sandboxContext(name);
+  // network: allowlist — the sandbox's only way out, started before the server and closed with it
+  let egress: EgressProxy | undefined;
+  if (server.sandbox && server.sandbox.runtime !== "none" && server.sandbox.network === "allowlist") {
+    egress = await startEgressProxy(
+      { mode: "allowlist", allowHosts: server.sandbox.allowHosts ?? [], blockPrivate: server.sandbox.blockPrivate ?? true },
+      { listen: egressListen(server.sandbox, ctx), ...(options.onEgressBlocked ? { onBlocked: options.onEgressBlocked } : {}) },
+    );
+  }
+  let launch;
+  try {
+    launch = server.sandbox ? sandboxLaunch(server, server.sandbox, ctx, egress) : undefined;
+  } catch (err) {
+    await egress?.close();
+    throw err;
+  }
   const container = server.sandbox?.runtime === "docker" || server.sandbox?.runtime === "podman";
   const transport = new (container ? InPlaceStdioClientTransport : StdioClientTransport)(
     launch ?? {
@@ -214,6 +230,18 @@ export async function connectStdioUpstream(name: string, server: McpServerConfig
       env: { ...process.env, ...(server.env ?? {}) } as Record<string, string>,
     },
   );
-  await client.connect(transport);
-  return clientUpstream(name, client, { ...options, toolListeners });
+  try {
+    await client.connect(transport);
+  } catch (err) {
+    await egress?.close();
+    throw err;
+  }
+  const upstream = clientUpstream(name, client, { ...options, toolListeners });
+  if (!egress) return upstream;
+  const close = upstream.close.bind(upstream);
+  upstream.close = async () => {
+    await close();
+    await egress.close();
+  };
+  return upstream;
 }

@@ -13,7 +13,9 @@ import type { McpServerConfig } from "../types.js";
  *   and `fs.deny` cannot be read;
  * - no host environment variable is passed unless listed in `env`
  *   (the upstream's own `env` values always are);
- * - `network: none` cuts all network access.
+ * - `network: none` cuts all network access; `network: allowlist` leaves only
+ *   the gateway's egress proxy (egress.ts), which connects to `allowHosts`
+ *   and nothing else.
  *
  * Containers (docker, podman) also take CPU, memory and process limits.
  */
@@ -32,7 +34,11 @@ export interface SandboxConfig {
   };
   /** Host environment variables passed in, by name. */
   env: string[];
-  network: "none" | "open";
+  network: "none" | "open" | "allowlist";
+  /** network: allowlist — host names or globs the server may reach, through the egress proxy. */
+  allowHosts?: string[];
+  /** network: allowlist — also refuse loopback and private addresses (default true). Metadata and link-local are always refused. */
+  blockPrivate?: boolean;
   limits?: { cpus?: number; memory?: string; pids?: number };
 }
 
@@ -96,6 +102,104 @@ export function sandboxContext(name: string): SandboxContext {
   };
 }
 
+/** Where the gateway's egress proxy for this sandbox listens (network: allowlist). */
+export interface EgressEndpoint {
+  /** TCP port on the host's 127.0.0.1 (sandbox-exec; docker and podman outside Linux). */
+  port?: number;
+  /** Unix socket (bwrap; docker and podman on Linux). */
+  socket?: string;
+}
+
+/** The directory of the egress socket and helper scripts, inside the private home. */
+export const egressDir = (home: string) => path.join(home, "egress");
+
+/** The port the in-sandbox forwarder listens on (its own network namespace or container). */
+const INNER_PROXY_PORT = 3128;
+
+/** Proxy settings every common client reads: curl, Node (NODE_USE_ENV_PROXY), npm, pip / uv, Go, Deno, Bun. */
+export function proxyEnv(url: string): Record<string, string> {
+  return {
+    HTTP_PROXY: url,
+    HTTPS_PROXY: url,
+    http_proxy: url,
+    https_proxy: url,
+    NODE_USE_ENV_PROXY: "1",
+    npm_config_proxy: url,
+    npm_config_https_proxy: url,
+  };
+}
+
+/**
+ * Forwards TCP from a local listener to the egress proxy (a unix socket or
+ * host:port), then optionally runs a command. Inside bwrap it gives the
+ * server a 127.0.0.1 proxy in a network namespace that has nothing else; in
+ * the docker / podman sidecar it bridges the internal network to the gateway.
+ */
+export const FORWARDER_SCRIPT = `// GuardBee sandbox egress forwarder (generated)
+import net from "node:net";
+import { spawn } from "node:child_process";
+const argv = process.argv.slice(2);
+const sep = argv.indexOf("--");
+const opts = sep < 0 ? argv : argv.slice(0, sep);
+const value = (flag) => opts[opts.indexOf(flag) + 1];
+const [lhost, lport] = value("--listen").split(/:(?=\\d+$)/);
+const to = value("--to");
+const target = to.startsWith("/") ? { path: to } : { host: to.slice(0, to.lastIndexOf(":")), port: Number(to.slice(to.lastIndexOf(":") + 1)) };
+const server = net.createServer((client) => {
+  const upstream = net.connect(target);
+  client.pipe(upstream).pipe(client);
+  client.on("error", () => upstream.destroy());
+  upstream.on("error", () => client.destroy());
+});
+server.listen(Number(lport), lhost, () => {
+  if (sep < 0) return;
+  const child = spawn(argv[sep + 1], argv.slice(sep + 2), { stdio: "inherit" });
+  for (const signal of ["SIGTERM", "SIGINT", "SIGHUP"]) process.on(signal, () => child.kill(signal));
+  child.on("error", (err) => { process.stderr.write(String(err) + "\\n"); process.exit(127); });
+  child.on("exit", (code, signal) => process.exit(code ?? (signal ? 128 : 1)));
+});
+`;
+
+/**
+ * docker / podman with network: allowlist. Puts the server container on an
+ * --internal network (no route out) together with a forwarder sidecar that is
+ * also on the default network and forwards to the gateway's egress proxy;
+ * runs the server with stdio attached and removes all three on exit.
+ */
+export const CONTAINER_LAUNCHER_SCRIPT = `// GuardBee sandbox container launcher (generated)
+import { readFileSync } from "node:fs";
+import { spawn, spawnSync } from "node:child_process";
+const spec = JSON.parse(readFileSync(process.argv[2], "utf8"));
+const run = (args) => spawnSync(spec.runtime, args, { stdio: ["ignore", "ignore", "pipe"], encoding: "utf8" });
+const cleanup = () => {
+  run(["rm", "-f", spec.container, spec.sidecar]);
+  run(["network", "rm", spec.network]);
+};
+const fail = (step, result) => {
+  process.stderr.write("[guardbee-sandbox] " + step + " failed: " + (result.stderr || result.error || "").toString().trim() + "\\n");
+  cleanup();
+  process.exit(1);
+};
+cleanup();
+let result = run(["network", "create", "--internal", spec.network]);
+if (result.status !== 0) fail("network create", result);
+result = run(["run", "-d", "--rm", "--name", spec.sidecar, ...spec.sidecarArgs]);
+if (result.status !== 0) fail("egress sidecar", result);
+result = run(["network", "connect", "--alias", "egress", spec.network, spec.sidecar]);
+if (result.status !== 0) fail("network connect", result);
+const child = spawn(spec.runtime, spec.serverArgs, { stdio: "inherit" });
+let done = false;
+const finish = (code) => {
+  if (done) return;
+  done = true;
+  cleanup();
+  process.exit(code);
+};
+for (const signal of ["SIGTERM", "SIGINT", "SIGHUP"]) process.on(signal, () => { child.kill(signal); finish(143); });
+child.on("error", () => finish(127));
+child.on("exit", (code, signal) => finish(code ?? (signal ? 128 : 1)));
+`;
+
 export interface Launch {
   command: string;
   args: string[];
@@ -104,6 +208,17 @@ export interface Launch {
 }
 
 const base = (command: string) => command.split(/[\\/]/).pop()!.replace(/\.(cmd|exe)$/i, "");
+
+/** The egress forwarder sidecar's image (docker, podman with network: allowlist). */
+export const SIDECAR_IMAGE = "node:22-alpine";
+
+/** How the gateway's egress proxy listens for this sandbox: a unix socket where the sandbox can reach one, a loopback port otherwise. */
+export function egressListen(sandbox: SandboxConfig, ctx: SandboxContext): { tcp: true } | { socket: string } {
+  const container = sandbox.runtime === "docker" || sandbox.runtime === "podman";
+  // Docker Desktop and podman machine do not carry unix sockets through bind mounts (ENOTSUP)
+  if (sandbox.runtime === "bwrap" || (container && ctx.platform === "linux")) return { socket: path.join(egressDir(sandboxHome(ctx)), "proxy.sock") };
+  return { tcp: true };
+}
 
 /** An image that has the command, for the package runners servers are usually started with. */
 export function defaultImage(command: string): string | undefined {
@@ -153,17 +268,18 @@ function dotenvFiles(dirs: string[]): string[] {
 }
 
 /** Environment inside the sandbox: a minimal base, the allowlisted host variables, and the upstream's own. */
-function sandboxEnv(server: McpServerConfig, sandbox: SandboxConfig, ctx: SandboxContext, home: string): Record<string, string> {
+function sandboxEnv(server: McpServerConfig, sandbox: SandboxConfig, ctx: SandboxContext, home: string, proxy?: string): Record<string, string> {
   const env: Record<string, string> = { HOME: home, TMPDIR: path.join(home, "tmp") };
   for (const name of ["PATH", "LANG", "LC_ALL", "TERM", "TZ"]) if (ctx.env[name] !== undefined) env[name] = ctx.env[name]!;
   for (const name of sandbox.env) if (ctx.env[name] !== undefined) env[name] = ctx.env[name]!;
-  return { ...env, ...(server.env ?? {}) };
+  // The proxy settings come last: neither the host nor the upstream's env can point around the egress proxy
+  return { ...env, ...(server.env ?? {}), ...(proxy ? proxyEnv(proxy) : {}) };
 }
 
 const sbString = (value: string) => `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 
 /** A Seatbelt profile (macOS sandbox-exec) for this sandbox. */
-export function seatbeltProfile(sandbox: SandboxConfig, ctx: SandboxContext, home: string): string {
+export function seatbeltProfile(sandbox: SandboxConfig, ctx: SandboxContext, home: string, egress?: EgressEndpoint): string {
   // Temporary files go to the private home (TMPDIR): the shared temp directories stay read-only
   const writable = [home, ...sandbox.fs.readWrite.map((p) => expand(p, ctx))].map(real);
   const denied = deniedPaths(sandbox, ctx).map(real);
@@ -175,6 +291,8 @@ export function seatbeltProfile(sandbox: SandboxConfig, ctx: SandboxContext, hom
     // Credentials neither read nor written; last match wins, so this comes after the allowances
     `(deny file-read* file-write* ${denied.map((p) => `(subpath ${sbString(p)})`).join(" ")} (regex #"/\\.env(\\.[^/]*)?$"))`,
     ...(sandbox.network === "none" ? ["(deny network*)"] : []),
+    // allowlist: the egress proxy's port on the host loopback is the only destination
+    ...(sandbox.network === "allowlist" ? ["(deny network*)", `(allow network-outbound (remote ip "localhost:${egress?.port ?? 0}"))`] : []),
     // No talking to other processes' sockets (docker.sock, ssh-agent) even with network open
     "(deny network-outbound (remote unix-socket))",
     // …except the system resolver, which answers DNS over a unix socket on macOS
@@ -184,25 +302,46 @@ export function seatbeltProfile(sandbox: SandboxConfig, ctx: SandboxContext, hom
 }
 
 /** How to start `server` inside `sandbox`. `runtime: none` returns the command as it is. */
-export function sandboxLaunch(server: McpServerConfig, sandbox: SandboxConfig, ctx: SandboxContext): Launch {
+/**
+ * How to start `server` inside `sandbox`. `runtime: none` returns the command
+ * as it is. With `network: allowlist`, `egress` is where the gateway's egress
+ * proxy listens (a socket for bwrap and Linux containers, a port otherwise;
+ * see egressListen).
+ */
+export function sandboxLaunch(server: McpServerConfig, sandbox: SandboxConfig, ctx: SandboxContext, egress?: EgressEndpoint): Launch {
   const args = server.args ?? [];
   const home = sandboxHome(ctx);
   if (sandbox.runtime === "none") {
     return { command: server.command, args, env: { ...(ctx.env as Record<string, string>), ...(server.env ?? {}) } };
   }
   fs.mkdirSync(path.join(home, "tmp"), { recursive: true, mode: 0o700 });
-  const env = sandboxEnv(server, sandbox, ctx, home);
+  const allowlist = sandbox.network === "allowlist";
+  if (allowlist && !egress?.port && !egress?.socket) throw new Error("network: allowlist needs the egress proxy to be started first");
+  const container = sandbox.runtime === "docker" || sandbox.runtime === "podman";
+  const proxyUrl = !allowlist
+    ? undefined
+    : sandbox.runtime === "sandbox-exec"
+      ? `http://127.0.0.1:${egress!.port}`
+      : container
+        ? `http://egress:${INNER_PROXY_PORT}`
+        : `http://127.0.0.1:${INNER_PROXY_PORT}`;
+  const env = sandboxEnv(server, sandbox, ctx, home, proxyUrl);
+  if (allowlist) {
+    fs.mkdirSync(egressDir(home), { recursive: true, mode: 0o700 });
+    fs.writeFileSync(path.join(egressDir(home), "forward.mjs"), FORWARDER_SCRIPT, { mode: 0o644 });
+  }
   const readOnly = sandbox.fs.readOnly.map((p) => expand(p, ctx));
   const readWrite = sandbox.fs.readWrite.map((p) => expand(p, ctx));
   const denied = deniedPaths(sandbox, ctx);
 
   if (sandbox.runtime === "sandbox-exec") {
     const profile = path.join(home, "sandbox.sb");
-    fs.writeFileSync(profile, seatbeltProfile(sandbox, ctx, home), { mode: 0o600 });
+    fs.writeFileSync(profile, seatbeltProfile(sandbox, ctx, home, egress), { mode: 0o600 });
     return { command: "sandbox-exec", args: ["-f", profile, server.command, ...args], env };
   }
 
   if (sandbox.runtime === "bwrap") {
+    // allowlist: a network namespace of its own (only loopback), where the forwarder relays to the egress socket
     const out = ["--die-with-parent", "--new-session", "--unshare-all", ...(sandbox.network === "open" ? ["--share-net"] : [])];
     out.push("--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp", "--bind", home, home);
     for (const p of readWrite) out.push("--bind", p, p);
@@ -213,15 +352,19 @@ export function sandboxLaunch(server: McpServerConfig, sandbox: SandboxConfig, c
     }
     out.push("--clearenv");
     for (const [key, value] of Object.entries(env)) out.push("--setenv", key, value);
-    out.push("--chdir", ctx.cwd, "--", server.command, ...args);
+    out.push("--chdir", ctx.cwd, "--");
+    if (allowlist) out.push(process.execPath, path.join(egressDir(home), "forward.mjs"), "--listen", `127.0.0.1:${INNER_PROXY_PORT}`, "--to", egress!.socket!, "--");
+    out.push(server.command, ...args);
     return { command: "bwrap", args: out, env };
   }
 
   // docker / podman: nothing of the host is visible unless mounted
   const containerHome = "/sandbox-home";
-  const out = ["run", "-i", "--rm", "--init", "--name", `guardbee-${ctx.name.replace(/[^\w.-]/g, "_")}-${process.pid}`];
+  const out = ["run", "-i", "--rm", "--init"];
   out.push("--read-only", "--tmpfs", "/tmp", "--cap-drop", "ALL", "--security-opt", "no-new-privileges");
-  out.push("--network", sandbox.network === "none" ? "none" : "bridge");
+  const containerName = `guardbee-${ctx.name.replace(/[^\w.-]/g, "_")}-${process.pid}`;
+  const internalNetwork = `guardbee-net-${ctx.name.replace(/[^\w.-]/g, "_")}-${process.pid}`;
+  out.push("--network", sandbox.network === "none" ? "none" : allowlist ? internalNetwork : "bridge");
   if (sandbox.limits?.cpus !== undefined) out.push("--cpus", String(sandbox.limits.cpus));
   if (sandbox.limits?.memory !== undefined) out.push("--memory", sandbox.limits.memory);
   if (sandbox.limits?.pids !== undefined) out.push("--pids-limit", String(sandbox.limits.pids));
@@ -244,7 +387,28 @@ export function sandboxLaunch(server: McpServerConfig, sandbox: SandboxConfig, c
     out.push("-e", key);
   }
   out.push(sandbox.image ?? defaultImage(server.command)!, server.command, ...args);
-  return { command: sandbox.runtime, args: out, env: clientEnv };
+  out.splice(1, 0, "--name", containerName);
+  if (!allowlist) return { command: sandbox.runtime, args: out, env: clientEnv };
+
+  // The sidecar is the only member of the internal network with a route out, and it only forwards to the egress proxy
+  const dir = egressDir(home);
+  const sidecarArgs = ["--network", sandbox.runtime === "podman" ? "podman" : "bridge", "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--memory", "64m", "--pids-limit", "32"];
+  if (ctx.platform === "linux" && ctx.uid !== undefined) sidecarArgs.push("--user", `${ctx.uid}:${ctx.gid ?? ctx.uid}`);
+  sidecarArgs.push("-v", `${dir}:/egress`);
+  // Linux: the socket is shared through the mount; Docker Desktop / podman machine: the host's loopback through host.*.internal
+  const to = egress!.socket ? `/egress/${path.basename(egress!.socket)}` : `${sandbox.runtime === "podman" ? "host.containers.internal" : "host.docker.internal"}:${egress!.port}`;
+  sidecarArgs.push(SIDECAR_IMAGE, "node", "/egress/forward.mjs", "--listen", `0.0.0.0:${INNER_PROXY_PORT}`, "--to", to);
+  const spec = {
+    runtime: sandbox.runtime,
+    network: internalNetwork,
+    container: containerName,
+    sidecar: `guardbee-egress-${ctx.name.replace(/[^\w.-]/g, "_")}-${process.pid}`,
+    sidecarArgs,
+    serverArgs: out,
+  };
+  fs.writeFileSync(path.join(dir, "launch.json"), JSON.stringify(spec, null, 2), { mode: 0o600 });
+  fs.writeFileSync(path.join(dir, "launch.mjs"), CONTAINER_LAUNCHER_SCRIPT, { mode: 0o644 });
+  return { command: process.execPath, args: [path.join(dir, "launch.mjs"), path.join(dir, "launch.json")], env: clientEnv };
 }
 
 function onPath(binary: string, env: NodeJS.ProcessEnv): boolean {

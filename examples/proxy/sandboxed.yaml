@@ -22,7 +22,8 @@ upstreams:
     env: { GITHUB_PERSONAL_ACCESS_TOKEN: "${GITHUB_TOKEN}" }   # passed in: it is the upstream's own env
     sandbox:
       runtime: docker                     # image: node:22-alpine (from the command)
-      network: open                       # it calls api.github.com
+      network: allowlist                  # only these hosts, through the gateway's egress proxy
+      allowHosts: [registry.npmjs.org, api.github.com]   # npx downloads the package; the server calls the API
       limits: { cpus: 1, memory: 512m, pids: 128 }
 
   # No network at all: the package must already be in the image.
