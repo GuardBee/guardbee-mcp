@@ -54,6 +54,17 @@ Detection is measured, not claimed: [`packages/pii-bench`](packages/pii-bench) i
 
 The identifier detectors were tuned after reading this set's misses, so the challenge sets are the fairer measure; the [pii-bench README](packages/pii-bench/README.md) lists the limits. Any other detector can be run on the same data through its `System` interface.
 
+**MCP attacks:** [`packages/mcp-bench`](packages/mcp-bench) is a public dataset (CC BY 4.0) of poisoned and benign tool definitions, injected and benign tool results, toxic and safe tool catalogs, and rug-pull sequences, in English and Turkish. Third-party baselines run on the same data, and CI fails if GuardBee's scores drop. The [leaderboard](packages/mcp-bench/results/LEADERBOARD.test.md) covers the held-out split:
+
+| Task (test split) | GuardBee rules | GuardBee + local judge | mcp-guardian 2.4.0 | Cisco MCP Scanner YARA 4.8.7 |
+|---|---|---|---|---|
+| Tool poisoning, F1 | 0.50 | **0.75** | 0.61 | 0.42 |
+| Indirect injection in tool results, F1 | 0.47 | **0.83** | 0.59 | 0.27 |
+| Toxic flows (lethal trifecta), F1 | **0.91** | — | — | — |
+| Rug pulls (drift + content checks), F1 | **0.89** | — | — | — |
+
+GuardBee's rules alone trail mcp-guardian on tool poisoning: no Turkish patterns yet, and narrower phrasing. The [README](packages/mcp-bench/README.md) has the per-class numbers, the settings and the limitations.
+
 ## Examples
 
 Ready-to-copy proxy policies (minimal, KVKK, coding agent, LLM gateway), client configs for Claude Desktop, Claude Code, Cursor and VS Code, and CI templates for GitHub Actions and GitLab: [`examples/`](examples).

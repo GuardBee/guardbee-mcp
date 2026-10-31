@@ -1,0 +1,31 @@
+{
+  "GuardBee (rules)": {
+    "tools": {
+      "f1": 0.45,
+      "recall": 0.3,
+      "precision": 0.9
+    },
+    "results": {
+      "f1": 0.4,
+      "recall": 0.28,
+      "precision": 0.7
+    },
+    "flows": {
+      "f1": 0.8571,
+      "recall": 0.75,
+      "precision": 1
+    },
+    "rugpulls": {
+      "f1": 0.6667,
+      "recall": 1,
+      "precision": 0.5
+    }
+  },
+  "GuardBee (drift + content)": {
+    "rugpulls": {
+      "f1": 0.9474,
+      "recall": 0.9,
+      "precision": 1
+    }
+  }
+}
