@@ -277,7 +277,8 @@ async function connectSandboxed(name: string, server: UpstreamConfig, audit: Aud
   try {
     const upstream = await connect();
     const fsNote = sandbox.fs.readWrite.length ? `writable: ${sandbox.fs.readWrite.join(", ")}` : "read-only";
-    process.stderr.write(`[guardbee-proxy] upstream ${name}: sandboxed (${sandbox.runtime}, network ${sandbox.network}, ${fsNote})\n`);
+    const network = sandbox.network === "allowlist" ? `network allowlist: ${(sandbox.allowHosts ?? []).join(", ")}` : `network ${sandbox.network}`;
+    process.stderr.write(`[guardbee-proxy] upstream ${name}: sandboxed (${sandbox.runtime}, ${network}, ${fsNote})\n`);
     return upstream;
   } catch (err) {
     const reason = `sandbox ${sandbox.runtime} failed to start: ${err instanceof Error ? err.message : String(err)}`;

@@ -123,7 +123,9 @@ const upstreamSchema = z
           .strict()
           .default({ readOnly: [], readWrite: [], deny: [] }),
         env: z.array(z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable")).default([]),
-        network: z.enum(["none", "open"]).default("open"),
+        network: z.enum(["none", "open", "allowlist"]).default("open"),
+        allowHosts: z.array(z.string().regex(/^[A-Za-z0-9*.:[\]-]+$/, "a host name, IP address or glob such as *.example.com")).optional(),
+        blockPrivate: z.boolean().optional(),
         limits: z
           .object({
             cpus: z.number().positive().optional(),
@@ -134,6 +136,12 @@ const upstreamSchema = z
           .optional(),
       })
       .strict()
+      .superRefine((sandbox, ctx) => {
+        if (sandbox.network === "allowlist" && !sandbox.allowHosts?.length) ctx.addIssue({ code: "custom", path: ["allowHosts"], message: "network allowlist needs at least one host" });
+        if (sandbox.network !== "allowlist" && (sandbox.allowHosts !== undefined || sandbox.blockPrivate !== undefined)) {
+          ctx.addIssue({ code: "custom", path: ["network"], message: "allowHosts and blockPrivate apply to network: allowlist" });
+        }
+      })
       .optional(),
     url: z.string().optional(),
     headers: z.record(z.string(), z.string()).optional(),
