@@ -11,11 +11,11 @@ Tersine mühendislik MCP'leri artık bir agent'ın kaynak kodu olmayan bir uygul
 ```
 Claude ──► reverse-shield ──► build artifact'ın / canlı site
               │
-              ├─ web       source map'ler (paketlenmiş, inline, herkese açık), minify edilmemiş / dev bundle, anahtarlar, iç host'lar
+              ├─ web       source map'ler (paketlenmiş, inline, herkese açık), minify edilmemiş / dev bundle, anahtarlar, iç host'lar, WebAssembly debug bilgisi ve isimleri
               ├─ electron  fuse'lar (RunAsNode, --inspect, NODE_OPTIONS, ASAR integrity), açık uygulama kodu, app.asar içindeki kod
               ├─ android   APK ve AAB: debuggable, R8/ProGuard yok, imza şeması, backup, düz React Native bundle, strip edilmemiş .so
-              ├─ ios       IPA ve .app: Debug yapılandırmasıyla derlenmiş build, development profili, düz React Native bundle, executable
-              ├─ motorlar  Unity (IL2CPP metadata, Mono assembly'leri), PyInstaller, Java/Spring Boot JAR, Flutter
+              ├─ ios       IPA ve .app: Debug yapılandırmasıyla derlenmiş build, development profili, düz React Native bundle, paket içindeki .dSYM, executable
+              ├─ motorlar  Unity (IL2CPP metadata, Mono assembly'leri), PyInstaller, Java/Spring Boot JAR, Flutter (Dart obfuscation)
               ├─ native    debug bilgisi, semboller, get-task-allow, hardened runtime, imza, PIE/NX/RELRO/canary (ELF, Mach-O, PE)
               ├─ secret'lar yukarıdakilerin hepsinde anahtarlar: dex, resources.arsc, plist, config dosyaları, Hermes bytecode, .so ve executable'lar
               └─ .NET      obfuscation yok, gömülü PDB, sızan build yolları
@@ -31,7 +31,8 @@ Claude ──► reverse-shield ──► build artifact'ın / canlı site
 | `sourcemap_shipped` / `sourcemap_inline` / `sourcemap_publicly_reachable` | high | web | Orijinal dosya yolları ve yapı |
 | `eval_devtool_bundle` | high | web | Her modülün yoluyla birlikte dev bundle |
 | `bundle_secret` | anahtar türüne göre | hepsi | İstemci kodunda, bir uygulama paketinde ya da binary'de çalışan bir kimlik bilgisi |
-| `unminified_bundle` / `dev_build_framework` | medium | web | Okunabilir kod / framework'ün dev runtime'ı |
+| `wasm_debug_info` | high | web | DWARF'lı WebAssembly: kaynak dosyalar, satırlar, tipler |
+| `unminified_bundle` / `dev_build_framework` / `wasm_name_section` | medium | web | Okunabilir kod / framework'ün dev runtime'ı / isimli WebAssembly fonksiyonları |
 | `sourcemap_reference` / `internal_endpoint` | low | web | Map'in yeri / localhost, özel IP'ler, staging host'ları |
 | `electron_fuse_run_as_node` / `electron_fuse_inspect_args` | high | electron | İmzalı uygulamanın içinde Node runtime'ı ya da debugger |
 | `electron_app_unpacked` | high | electron | Düzenlenebilir klasör olarak uygulama kodu |
@@ -43,9 +44,10 @@ Claude ──► reverse-shield ──► build artifact'ın / canlı site
 | `native_symbols_not_stripped` / `native_no_hardened_runtime` / `native_injection_entitlement` / `native_unsigned` | medium | native | İsimli fonksiyonlar / dylib enjeksiyonu / yamalı kopyaların çalışması |
 | `native_no_pie` / `native_no_nx` | medium | native | Exploit'e elverişli sabit adresler / çalıştırılabilir stack |
 | `native_no_relro` / `native_no_stack_canary` / `native_adhoc_signed` / `native_build_path_leak` | low | native | Sertleştirme boşlukları ve build makinesi ayrıntıları |
-| `ios_debug_build` / `ios_js_bundle_plaintext` | high | ios | Tam sembollü, optimize edilmemiş kod ve preview stub'ları / okunabilir RN bundle |
+| `ios_debug_build` / `ios_js_bundle_plaintext` / `ios_dsym_shipped` | high | ios | Tam sembollü, optimize edilmemiş kod ve preview stub'ları / okunabilir RN bundle / paket içinde tam DWARF sembolleri |
 | `ios_development_profile` | medium | ios | Kayıtlı cihazlarda debugger bağlama |
 | `unity_il2cpp_metadata` / `unity_mono_assemblies` | high | motorlar | Oyunun tüm sınıf, metot ve string'leri / dnSpy ile C# script'leri |
+| `flutter_not_obfuscated` | high | motorlar | blutter / reFlutter için Dart sınıf ve metot isimleri |
 | `python_pyinstaller_bundle` / `java_not_obfuscated` | high | motorlar | Decompile edilebilir `.pyc` dosyaları / orijinal isimleriyle Java sınıfları |
 | `dotnet_not_obfuscated` / `dotnet_embedded_pdb` | high | .NET | Orijinal kaynağa çok yakın ILSpy/dnSpy çıktısı |
 
@@ -61,7 +63,9 @@ Claude ──► reverse-shield ──► build artifact'ın / canlı site
 - **iOS Debug build'leri**: Xcode 16, Debug build'in kodunu `<App>.debug.dylib` içine koyar ve yanına `__preview.dylib` ekler; paketteki ikisinden biri Debug yapılandırmasının yayınlandığını gösterir.
 - **Unity**: IL2CPP `global-metadata.dat` sadece standart başlığı bozulmamışsa işaretlenir (korumalı build'ler şifreler); Mono `Assembly-CSharp.dll` .NET isim kontrolünden geçer.
 - **PyInstaller**: CArchive işaretçisi dosyanın tamamında aranır (macOS'te arşiv kod imzasından önce kendi bölümündedir); PyArmor ve Nuitka build'leri işaretlenmez, not düşülür.
-- **Flutter** uygulamaları tanınır ama Dart obfuscation ölçülmez; not, bunun yerine build bayraklarını verir.
+- **Flutter**: AOT snapshot'taki (`libapp.so`, `App.framework/App`) tanımlayıcıları okur. `--obfuscate` programın tanımladığı her şeyi iki-üç harfli isimlere çevirir, Dart VM'in kendi isimleri kalır; tanımlayıcıların en az %10'u bu kadar kısaysa snapshot geçer. Dart SDK'nın `gen_snapshot`'ıyla iki şekilde derlenmiş bir programla doğrulandı: bayraksız %1, bayrakla %31 (strip edilmemiş) ve %37 (strip edilmiş). 200'den az tanımlayıcı karar değil, nottur.
+- **WebAssembly**: sadece custom section'lar — `.debug_*` (DWARF), `name` (fonksiyon isimleri) ve `sourceMappingURL`; kodun kendisi değerlendirilmez.
+- **Hermes'li React Native**: işaretlenmez, not düşülür. Hermes bytecode disassemble edilebilir (hermes-dec, hbctool), ama ne kadar bilgi verdiği bundle'ın önce minify edilip edilmediğine bağlı ve bu henüz ölçülmüyor.
 
 ## Hızlı başlangıç
 

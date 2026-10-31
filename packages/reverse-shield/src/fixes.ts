@@ -334,7 +334,7 @@ const fixers: Array<{ match: (name: string, path: string) => boolean; fix: Fixer
     fix: (text) => {
       if (!/^\s*flutter\s*:/m.test(text)) return null;
       return {
-        ruleIds: ["native_symbols_not_stripped"],
+        ruleIds: ["flutter_not_obfuscated", "native_symbols_not_stripped"],
         title: "Flutter: obfuscate Dart code and split debug info at build time",
         note: "Build releases with: flutter build apk --obfuscate --split-debug-info=build/symbols (same flags for appbundle/ipa). Keep build/symbols private for crash symbolication.",
       };

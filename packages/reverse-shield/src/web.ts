@@ -2,6 +2,7 @@ import { finding } from "./finding.js";
 import type { Finding } from "./finding.js";
 import { findSecrets, lineCol } from "./secrets.js";
 import type { SecretScanOptions } from "./secrets.js";
+import { analyzeWasm } from "./wasm.js";
 
 const MIN_BYTES_FOR_MINIFY_CHECK = 4096;
 
@@ -163,6 +164,8 @@ export function analyzeJavaScript(text: string, file: string, options: JsCheckOp
 
 const JS_EXT = /\.(?:m|c)?js$/i;
 const MAP_EXT = /\.map$/i;
+const WASM_EXT = /\.wasm$/i;
+const MAX_WASM_BYTES = 64 * 1024 * 1024;
 export const MAX_TEXT_BYTES = 20 * 1024 * 1024;
 
 /** A file in a build directory, an ASAR or an APK, keyed by a "/"-separated path. */
@@ -174,7 +177,7 @@ export interface ArtifactFile {
 }
 
 export function isWebAsset(key: string): boolean {
-  return (JS_EXT.test(key) || MAP_EXT.test(key)) && !key.split("/").includes("node_modules");
+  return (JS_EXT.test(key) || MAP_EXT.test(key) || WASM_EXT.test(key)) && !key.split("/").includes("node_modules");
 }
 
 function resolveKey(fromKey: string, ref: string): string {
@@ -196,6 +199,11 @@ export function analyzeWebFiles(files: ArtifactFile[], secrets?: SecretScanOptio
   const keys = new Set(files.map((f) => f.key));
 
   for (const file of files) {
+    if (WASM_EXT.test(file.key)) {
+      const buf = file.size <= MAX_WASM_BYTES ? file.read() : null;
+      if (buf) findings.push(...analyzeWasm(buf, file.display));
+      continue;
+    }
     if (file.size > MAX_TEXT_BYTES) continue;
     if (MAP_EXT.test(file.key)) {
       const buf = file.read();

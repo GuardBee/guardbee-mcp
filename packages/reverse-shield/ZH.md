@@ -11,11 +11,11 @@
 ```
 Claude ──► reverse-shield ──► 你的构建产物 / 线上站点
               │
-              ├─ web       source map（随包发布、内联、可公开下载）、未压缩 / 开发版打包、密钥、内部主机
+              ├─ web       source map（随包发布、内联、可公开下载）、未压缩 / 开发版打包、密钥、内部主机、WebAssembly 调试信息与函数名
               ├─ electron  fuse（RunAsNode、--inspect、NODE_OPTIONS、ASAR 完整性）、未打包的应用代码、app.asar 内的代码
               ├─ android   APK 与 AAB：debuggable、未启用 R8/ProGuard、签名方案、备份、明文 React Native 包、未剥离符号的 .so
-              ├─ ios       IPA 与 .app：以 Debug 配置构建、开发描述文件、明文 React Native 包、可执行文件
-              ├─ 引擎      Unity（IL2CPP 元数据、Mono 程序集）、PyInstaller、Java/Spring Boot JAR、Flutter
+              ├─ ios       IPA 与 .app：以 Debug 配置构建、开发描述文件、明文 React Native 包、包内 .dSYM、可执行文件
+              ├─ 引擎      Unity（IL2CPP 元数据、Mono 程序集）、PyInstaller、Java/Spring Boot JAR、Flutter（Dart 混淆）
               ├─ native    调试信息、符号、get-task-allow、hardened runtime、签名、PIE/NX/RELRO/canary（ELF、Mach-O、PE）
               ├─ 密钥      以上所有产物中的密钥：dex、resources.arsc、plist、配置文件、Hermes 字节码、.so 与可执行文件
               └─ .NET      未混淆、内嵌 PDB、泄露的构建路径

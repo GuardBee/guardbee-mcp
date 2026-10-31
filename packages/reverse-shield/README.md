@@ -15,11 +15,11 @@ Reverse-engineering MCPs now let an agent take an app it has no source for — a
 ```
 Claude ──► reverse-shield ──► your build artifact / live site
               │
-              ├─ web       source maps (shipped, inline, publicly reachable), unminified / dev bundles, keys, internal hosts
+              ├─ web       source maps (shipped, inline, publicly reachable), unminified / dev bundles, keys, internal hosts, WebAssembly debug info and names
               ├─ electron  fuses (RunAsNode, --inspect, NODE_OPTIONS, ASAR integrity), unpacked app code, code inside app.asar
               ├─ android   APK and AAB: debuggable, R8/ProGuard missing, signing scheme, backup, plain React Native bundle, unstripped .so
-              ├─ ios       IPA and .app: Debug-configuration builds, development profiles, plain React Native bundle, the executable
-              ├─ engines   Unity (IL2CPP metadata, Mono assemblies), PyInstaller, Java/Spring Boot JARs, Flutter
+              ├─ ios       IPA and .app: Debug-configuration builds, development profiles, plain React Native bundle, .dSYM in the bundle, the executable
+              ├─ engines   Unity (IL2CPP metadata, Mono assemblies), PyInstaller, Java/Spring Boot JARs, Flutter (Dart obfuscation)
               ├─ native    debug info, symbols, get-task-allow, hardened runtime, signing, PIE/NX/RELRO/canary (ELF, Mach-O, PE)
               ├─ secrets   keys in everything above: dex, resources.arsc, plists, config files, Hermes bytecode, .so and executables
               └─ .NET      obfuscation missing, embedded PDB, leaked build paths
@@ -35,7 +35,8 @@ Everything runs locally and offline (except `scan_url`), with its own parsers fo
 | `sourcemap_shipped` / `sourcemap_inline` / `sourcemap_publicly_reachable` | high | web | Original file paths and structure |
 | `eval_devtool_bundle` | high | web | Dev bundle with each module's path |
 | `bundle_secret` | per key type | all | A working credential in client code, an app package or a binary |
-| `unminified_bundle` / `dev_build_framework` | medium | web | Readable code / framework dev runtime |
+| `wasm_debug_info` | high | web | WebAssembly with DWARF: source files, lines, types |
+| `unminified_bundle` / `dev_build_framework` / `wasm_name_section` | medium | web | Readable code / framework dev runtime / named WebAssembly functions |
 | `sourcemap_reference` / `internal_endpoint` | low | web | Where the map lives / localhost, private IPs, staging hosts |
 | `electron_fuse_run_as_node` / `electron_fuse_inspect_args` | high | electron | Node runtime or debugger inside the signed app |
 | `electron_app_unpacked` | high | electron | App code as an editable folder |
@@ -47,9 +48,10 @@ Everything runs locally and offline (except `scan_url`), with its own parsers fo
 | `native_symbols_not_stripped` / `native_no_hardened_runtime` / `native_injection_entitlement` / `native_unsigned` | medium | native | Named functions / dylib injection / patched copies run |
 | `native_no_pie` / `native_no_nx` | medium | native | Exploit-friendly fixed addresses / executable stack |
 | `native_no_relro` / `native_no_stack_canary` / `native_adhoc_signed` / `native_build_path_leak` | low | native | Hardening gaps and build-host details |
-| `ios_debug_build` / `ios_js_bundle_plaintext` | high | ios | Unoptimised code with full symbols and preview stubs / readable RN bundle |
+| `ios_debug_build` / `ios_js_bundle_plaintext` / `ios_dsym_shipped` | high | ios | Unoptimised code with full symbols and preview stubs / readable RN bundle / full DWARF symbols in the bundle |
 | `ios_development_profile` | medium | ios | Debugger attach on registered devices |
 | `unity_il2cpp_metadata` / `unity_mono_assemblies` | high | engines | Every class, method and string of the game / C# scripts via dnSpy |
+| `flutter_not_obfuscated` | high | engines | Dart class and method names for blutter / reFlutter |
 | `python_pyinstaller_bundle` / `java_not_obfuscated` | high | engines | Decompilable `.pyc` files / Java classes with original names |
 | `dotnet_not_obfuscated` / `dotnet_embedded_pdb` | high | .NET | ILSpy/dnSpy output close to the original source |
 
@@ -65,7 +67,9 @@ Everything runs locally and offline (except `scan_url`), with its own parsers fo
 - **iOS Debug builds**: Xcode 16 puts a Debug build's code in `<App>.debug.dylib` next to `__preview.dylib`; either one in a bundle means the Debug configuration was shipped.
 - **Unity**: IL2CPP's `global-metadata.dat` is flagged only when its standard header is intact (protected builds encrypt it); a Mono `Assembly-CSharp.dll` goes through the .NET name check.
 - **PyInstaller**: the CArchive cookie is searched across the whole file (on macOS the archive sits in its own section before the code signature); PyArmor and Nuitka builds are noted, not flagged.
-- **Flutter** apps are recognised, but Dart obfuscation is not measured — the note gives the build flags instead.
+- **Flutter**: reads the identifiers in the AOT snapshot (`libapp.so`, `App.framework/App`). `--obfuscate` renames everything the program defines to two- or three-letter names while the Dart VM's own names stay, so a snapshot passes when at least 10% of its identifiers are that short. Checked against one program built both ways with the Dart SDK's `gen_snapshot`: 1% without the flag, 31% (unstripped) and 37% (stripped) with it. Fewer than 200 identifiers is a note, not a verdict.
+- **WebAssembly**: custom sections only — `.debug_*` (DWARF), `name` (function names) and `sourceMappingURL`; the code itself is not judged.
+- **React Native with Hermes**: noted, not flagged. Hermes bytecode disassembles (hermes-dec, hbctool), but how much it gives away depends on whether the bundle was minified first, which is not measured yet.
 
 ## Quick start
 

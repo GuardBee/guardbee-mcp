@@ -112,7 +112,7 @@ const isAsciiText = (b: number) => (b >= 0x20 && b <= 0x7e) || b === 0x09 || b =
  * UTF-16LE runs at both alignments (.NET user strings, Windows resources,
  * older resource tables). One pass per encoding, so it stays linear.
  */
-export function printableStrings(buf: Buffer, minRun = MIN_RUN): string {
+export function printableStrings(buf: Buffer, minRun = MIN_RUN, utf16 = true): string {
   const out: string[] = [];
   let start = -1;
   for (let i = 0; i <= buf.length; i++) {
@@ -123,7 +123,7 @@ export function printableStrings(buf: Buffer, minRun = MIN_RUN): string {
       start = -1;
     }
   }
-  for (const align of [0, 1]) {
+  for (const align of utf16 ? [0, 1] : []) {
     start = -1;
     for (let i = align; i <= buf.length; i += 2) {
       const text = i + 1 < buf.length && buf[i + 1] === 0 && isAsciiText(buf[i]);
