@@ -1,5 +1,13 @@
 # @guardbee/mcp-rug-pull-detector
 
+## 0.4.2
+
+### Patch Changes
+
+- Updated dependencies [[`ca17dea`](https://github.com/GuardBee/guardbee-mcp/commit/ca17dea9e1167efcbe36ac0c8b73b3fe3ca941ae), [`fb81d57`](https://github.com/GuardBee/guardbee-mcp/commit/fb81d57371b9e06a3ff6c05a8877717276e51a89)]:
+  - @guardbee/guard-core@1.5.0
+  - @guardbee/mcp-tool-poisoning-scanner@0.6.0
+
 ## 0.4.1
 
 ### Patch Changes
