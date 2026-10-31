@@ -53,6 +53,7 @@ Claude ──► mcp-config-auditor ──► mcp.json  (or host-wide discover)
 | `allowlist_not_configured` | medium | MCP09:2025 | `discover` ran without an allowlist |
 | `unreviewed_mcp_server` | low | MCP09:2025 | Server seen during discover with no allowlist yet |
 | `mcp_server_drift_across_clients` | medium | MCP09:2025 | Same server key maps to different packages/URLs in two clients |
+| `mcp_index_grade_below_minimum` | high (F: critical) | MCP04:2025 | `--min-grade` — the server's GuardBee MCP Index grade is below the minimum |
 
 Loopback URLs (`localhost`, `127.0.0.1`, `::1`) are not remote findings. Placeholder values (`${API_KEY}`, `changeme`) are not secrets. Reported secret matches are redacted. `Bash(git diff:*)` is a command allowlist and is not an unrestricted shell. `Read` alone is not flagged.
 
@@ -74,6 +75,19 @@ npx @guardbee/mcp-config-auditor scan .cursor/mcp.json --fail-on=high --format=s
 npx @guardbee/mcp-config-auditor inventory ./tool-inventory.json
 npx @guardbee/mcp-config-auditor discover --allowlist=./mcp-allowlist.json --fail-on=high
 ```
+
+### GuardBee MCP Index grades
+
+`--grades` (on `scan <file>` and `discover`) shows the [GuardBee MCP Index](https://guardbee.github.io/guardbee-mcp/) grade of every configured server: an A–F trust grade for each server in the official MCP Registry, rebuilt weekly from its published package. The grade comes from the shipped code (the GuardBee scanners), known vulnerabilities and malware (OSV), Sigstore build provenance and maintenance signals; the [rubric](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/mcp-index/RUBRIC.md) is public and versioned. `--min-grade=C` also reports every server graded below C (`mcp_index_grade_below_minimum`, so `--fail-on` can gate on it).
+
+```bash
+npx @guardbee/mcp-config-auditor discover --min-grade=C
+#   A  filesystem  npm:@modelcontextprotocol/server-filesystem  graded @modelcontextprotocol/server-filesystem@2026.10.1
+#   D  notes       npm:notes-mcp                                graded notes-mcp@1.4.0 (the config runs the latest version)
+#   –  internal    local command: not a registry package
+```
+
+The whole index is downloaded (and cached for a day in `~/.guardbee/mcp-index.json`) and searched on this machine, so no server or package name is sent anywhere. `--offline` uses the cache only; `--index-url=` points at another copy. Local commands, remote URLs and servers outside the official registry have no grade and are never findings.
 
 ### Shadow MCP discover (MCP09)
 

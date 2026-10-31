@@ -132,3 +132,36 @@ describe("init --sandbox", () => {
     expect(defaultSandboxRuntime("linux", "")).toBe("docker");
   });
 });
+
+describe("init with MCP Index grades", () => {
+  const index = {
+    format: 1 as const,
+    rubricVersion: "2026-11",
+    generatedAt: "2026-11-01T00:00:00Z",
+    servers: [
+      { name: "io.github.a/good", version: "1", packages: [{ ecosystem: "npm" as const, identifier: "good-mcp" }], remote: false, grade: "A" as const, score: 95, reasons: [], scannedAt: "2026-11-01T00:00:00Z" },
+      { name: "io.github.b/bad", version: "1", packages: [{ ecosystem: "npm" as const, identifier: "bad-mcp" }], remote: false, grade: "D" as const, score: 64, reasons: [], scannedAt: "2026-11-01T00:00:00Z" },
+    ],
+  };
+  const config = JSON.stringify({ mcpServers: { good: { command: "npx", args: ["-y", "good-mcp"] }, bad: { command: "npx", args: ["-y", "bad-mcp"] }, local: { command: "node", args: ["s.js"] } } });
+
+  it("shows each server's grade and leaves out the ones below --min-grade", () => {
+    const plan = planInit(config, "/p.yaml", "/a.jsonl", { grades: { index, minGrade: "C" } });
+    expect(plan.graded.map((g) => [g.name, g.grade])).toEqual([
+      ["good", "A"],
+      ["bad", "D"],
+      ["local", null],
+    ]);
+    expect(plan.blocked).toEqual([{ name: "bad", reason: expect.stringContaining("grade D is below --min-grade C") }]);
+    expect(Object.keys(plan.migrated)).toEqual(["good", "local"]);
+    // Neither behind the proxy nor still in the client config, where it would run unchecked
+    expect(Object.keys(JSON.parse(plan.clientConfig).mcpServers)).toEqual(["guardbee"]);
+    expect(plan.yaml).not.toContain("bad-mcp");
+  });
+
+  it("only shows grades without --min-grade", () => {
+    const plan = planInit(config, "/p.yaml", "/a.jsonl", { grades: { index } });
+    expect(plan.blocked).toEqual([]);
+    expect(Object.keys(plan.migrated)).toEqual(["good", "bad", "local"]);
+  });
+});

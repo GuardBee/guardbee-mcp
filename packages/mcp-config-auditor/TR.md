@@ -51,6 +51,10 @@ npx @guardbee/mcp-config-auditor discover --allowlist=./mcp-allowlist.json --fai
 
 Dizin taraması `mcp.json`, `mcp_config.json`, `claude_desktop_config.json` ve `SKILL.md` açar. Adı `SKILL.md` olan bir dosya agent skill'i olarak denetlenir. Aynı ad ve benzeyen ad bulguları dizin taramasında çıkar; tek dosya diğer skill'leri göremez. Sunucular arası gölgeleme ayrıca tool envanteri ister, çünkü istemci config'i tool listesi içermez.
 
+## GuardBee MCP Index notları
+
+`--grades` (`scan <dosya>` ve `discover` ile) yapılandırılmış her sunucunun [GuardBee MCP Index](https://guardbee.github.io/guardbee-mcp/) notunu gösterir: resmi MCP Registry'deki her sunucu için, yayımlanan paketinden haftalık yeniden üretilen A–F güven notu. Not; paketle gelen koddan (GuardBee tarayıcıları), bilinen açık ve zararlı yazılım kayıtlarından (OSV), Sigstore build provenance'tan ve bakım sinyallerinden çıkar; [puanlama kuralları](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/mcp-index/RUBRIC.md) açık ve sürümlüdür. `--min-grade=C` ayrıca C'nin altındaki her sunucuyu bulgu olarak verir (`mcp_index_grade_below_minimum`; `--fail-on` ile CI kapısı yapılabilir). İndeksin tamamı indirilir (bir gün `~/.guardbee/mcp-index.json`'da önbelleklenir) ve bu makinede aranır: hiçbir sunucu ya da paket adı dışarı gönderilmez. `--offline` yalnızca önbelleği kullanır, `--index-url=` başka bir kopyayı gösterir. Yerel komutların, uzak URL'lerin ve resmi registry dışındaki sunucuların notu yoktur ve asla bulgu olmazlar.
+
 ## Shadow MCP keşfi ve envanter
 
 `discover`, Cursor, Claude Desktop, Claude Code (proje bazlı server'lar dahil: `claude-code:<yol>`), Windsurf, VS Code, Gemini CLI, Cline ve Zed yapılandırmalarını tarar ve her server'ı kurum allowlist'i ile karşılaştırır. `--format=json` her server için bir **envanter** üretir: istemci, yol, transport, komut, paket ve sürüm (sabitlenmiş mi), URL, env ve header **adları**, auto-approve ve bulgular. Gizli değer içermez: env/header değerleri alınmaz, `--token` benzeri bayrak değerleri ve bağlantı dizesi parolaları `[redacted]` olur, URL'lerden kimlik bilgisi ve sorgu değerleri atılır.

@@ -270,6 +270,9 @@ importers:
 
   packages/mcp-config-auditor:
     dependencies:
+      '@guardbee/guard-core':
+        specifier: workspace:^
+        version: link:../guard-core
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
@@ -279,6 +282,33 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.6.7
+
+  packages/mcp-index:
+    dependencies:
+      '@guardbee/guard-core':
+        specifier: workspace:^
+        version: link:../guard-core
+      '@guardbee/mcp-oauth-auditor':
+        specifier: workspace:^
+        version: link:../oauth-auditor
+      '@guardbee/mcp-secret-scanner':
+        specifier: workspace:^
+        version: link:../secret-scanner
+      '@guardbee/mcp-server-auditor':
+        specifier: workspace:^
+        version: link:../mcp-server-auditor
+      '@guardbee/mcp-tool-poisoning-scanner':
+        specifier: workspace:^
+        version: link:../tool-poisoning-scanner
+      '@sigstore/bundle':
+        specifier: ^4.0.0
+        version: 4.0.0
+      '@sigstore/tuf':
+        specifier: ^4.0.2
+        version: 4.0.2
+      '@sigstore/verify':
+        specifier: ^3.1.1
+        version: 3.1.1
 
   packages/mcp-server-auditor:
     dependencies:

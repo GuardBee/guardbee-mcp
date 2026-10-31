@@ -4,7 +4,7 @@ import os from "os";
 import path from "path";
 import { verifyAuditChain } from "./audit/logger.js";
 import { loadGatewayConfig } from "./gateway/config.js";
-import { clientConfigPath, defaultSandboxRuntime, runInit, type ClientName } from "./init.js";
+import { clientConfigPath, defaultSandboxRuntime, runInit, type ClientName, type InitGrades } from "./init.js";
 import { provenanceChecker, startGateway } from "./proxy.js";
 import { ProvenanceCache, checkUpstreamProvenance, defaultProvenanceCache, provenanceSarif } from "./gateway/provenance.js";
 import { buildAibom } from "./report/aibom.js";
@@ -13,7 +13,7 @@ import { isHttpUpstream } from "./types.js";
 import { PinStore, defaultPinFile } from "./gateway/pin-store.js";
 import { connectUpstream } from "./gateway/upstream.js";
 import { buildReport, signReport, verifyReport } from "./report/report.js";
-import { COMPLIANCE_FRAMEWORK_IDS, type ComplianceFrameworkId } from "@guardbee/guard-core";
+import { COMPLIANCE_FRAMEWORK_IDS, isMcpGrade, loadMcpIndex, type ComplianceFrameworkId, type McpGrade } from "@guardbee/guard-core";
 import { extractSigned, renderHtml, renderMarkdown, type Lang } from "./report/render.js";
 
 const CLIENTS: ClientName[] = ["claude-desktop", "cursor", "claude-code"];
@@ -34,13 +34,22 @@ function verifyAudit(filePath: string | undefined): void {
   process.exit(1);
 }
 
-function init(args: string[]): void {
+async function init(args: string[]): Promise<void> {
   const client = flag(args, "--client") as ClientName | undefined;
   const file = flag(args, "--file");
   if ((!client && !file) || (client && !CLIENTS.includes(client))) {
     throw new Error(
-      `Usage: guardbee-proxy init (--client ${CLIENTS.join("|")} | --file <mcp.json>) [--out <guardbee-proxy.yaml>] [--sandbox [runtime]] [--dry-run] [--force]`
+      `Usage: guardbee-proxy init (--client ${CLIENTS.join("|")} | --file <mcp.json>) [--out <guardbee-proxy.yaml>] [--sandbox [runtime]] [--grades] [--min-grade <A-F>] [--dry-run] [--force]`
     );
+  }
+  const minGradeArg = flag(args, "--min-grade")?.toUpperCase();
+  if (minGradeArg !== undefined && !isMcpGrade(minGradeArg)) throw new Error(`--min-grade takes A, B, C, D or F (got ${minGradeArg})`);
+  let grades: InitGrades | undefined;
+  if (args.includes("--grades") || minGradeArg) {
+    const indexUrl = flag(args, "--index-url");
+    const loaded = await loadMcpIndex({ ...(indexUrl ? { url: indexUrl } : {}), offline: args.includes("--offline") });
+    if (!loaded) throw new Error(args.includes("--offline") ? "no cached MCP Index (run once without --offline)" : "could not download the GuardBee MCP Index");
+    grades = { index: loaded.index, ...(minGradeArg ? { minGrade: minGradeArg as McpGrade } : {}) };
   }
   const dryRun = args.includes("--dry-run");
   let sandbox: SandboxRuntime | undefined;
@@ -52,6 +61,7 @@ function init(args: string[]): void {
   }
   const result = runInit({
     ...(sandbox ? { sandbox } : {}),
+    ...(grades ? { grades } : {}),
     clientConfigPath: file ?? clientConfigPath(client!),
     yamlPath: flag(args, "--out") ?? path.join(os.homedir(), ".guardbee", "guardbee-proxy.yaml"),
     dryRun,
@@ -61,11 +71,17 @@ function init(args: string[]): void {
   const out = process.stdout;
   for (const [key, name] of Object.entries(result.migrated)) out.write(`  moved   ${key} → upstream "${name}"\n`);
   for (const { name, reason } of result.kept) out.write(`  kept    ${name} (${reason})\n`);
+  for (const { name, reason } of result.blocked) out.write(`  blocked ${name} (${reason})\n`);
+  if (grades) {
+    out.write("\nMCP Index grades (https://guardbee.github.io/guardbee-mcp/):\n");
+    for (const { name, grade, note } of result.graded) out.write(`  ${(grade ?? "–").padEnd(2)} ${name}: ${note}\n`);
+  }
   if (dryRun) {
     out.write(`\n--- guardbee-proxy.yaml ---\n${result.yaml}\n--- client config ---\n${result.clientConfig}`);
     return;
   }
   out.write(`\nWrote the proxy config and pointed the client at it. Backup: ${result.backupPath}\n`);
+  if (result.blocked.length) out.write(`The blocked servers are only in the backup now; add them back by hand if you decide to run them.\n`);
   if (client === "claude-code" && !file) {
     out.write("Claude Code rewrites ~/.claude.json while it runs: quit it before init, or check the file afterwards.\n");
   }
@@ -194,8 +210,9 @@ const HELP = `guardbee-proxy: MCP security gateway
 Usage:
   guardbee-proxy [--config <guardbee-proxy.yaml>]   Run the gateway (stdio, or HTTP when listen is set)
   guardbee-proxy -- <command> [args...]            Single-server mode: wrap one stdio MCP server
-  guardbee-proxy init (--client ${CLIENTS.join("|")} | --file <mcp.json>) [--out <file>] [--sandbox [runtime]] [--dry-run] [--force]
-                                                   Move a client's MCP servers behind the gateway (--sandbox: run stdio servers sandboxed)
+  guardbee-proxy init (--client ${CLIENTS.join("|")} | --file <mcp.json>) [--out <file>] [--sandbox [runtime]] [--grades] [--min-grade <A-F>] [--dry-run] [--force]
+                                                   Move a client's MCP servers behind the gateway (--sandbox: run stdio servers sandboxed;
+                                                   --grades: show GuardBee MCP Index grades; --min-grade: leave out servers graded below it)
   guardbee-proxy validate [--config <file>]        Check a config without starting anything
   guardbee-proxy verify-audit <audit.jsonl>        Check an audit log's hash chain
   guardbee-proxy provenance [--config <file>] [--format sarif]
@@ -281,7 +298,7 @@ async function main() {
   if (command === "pins") return pins(rest);
   if (command === "aibom") return aibom(rest);
   if (command === "provenance") return provenance(rest);
-  if (command === "init") return init(rest);
+  if (command === "init") return void (await init(rest));
   if (command === "report") return report(rest);
   if (command === "verify-report") return verifyReportCommand(rest);
   if (command === "validate") {

@@ -2,6 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { stringify as toYaml } from "yaml";
+import { gradeBelow, lookupMcpGrade, parseLaunch, type McpGrade, type McpIndex } from "@guardbee/guard-core";
 import type { UpstreamConfig } from "./types.js";
 import type { SandboxConfig, SandboxRuntime } from "./gateway/sandbox.js";
 
@@ -30,6 +31,26 @@ export interface InitPlan {
   migrated: Record<string, string>;
   /** Entries left in the client config, and why. */
   kept: { name: string; reason: string }[];
+  /** GuardBee MCP Index grade of each moved server (with `grades`). */
+  graded: { name: string; grade: McpGrade | null; note: string }[];
+  /** Servers below `minGrade`: neither moved nor left in the client config (the backup still has them). */
+  blocked: { name: string; reason: string }[];
+}
+
+export interface InitGrades {
+  index: McpIndex;
+  /** Leave out servers graded below this. */
+  minGrade?: McpGrade;
+}
+
+function gradeOf(grades: InitGrades, command: string | undefined, args: string[] | undefined, url: string | undefined): { grade: McpGrade | null; note: string } {
+  if (url) return { grade: null, note: "remote server: the index grades published packages" };
+  const target = command ? parseLaunch(command, args ?? []) : undefined;
+  if (!target) return { grade: null, note: "local command: not a registry package" };
+  const match = lookupMcpGrade(grades.index, target);
+  if (!match) return { grade: null, note: "not in the MCP Index" };
+  if (match.entry.grade === null) return { grade: null, note: match.entry.note ?? "not graded" };
+  return { grade: match.entry.grade, note: `${match.entry.name}, ${match.entry.score}/100 (${match.package.identifier}@${match.package.version ?? "?"})` };
 }
 
 const PROXY_PACKAGE = "@guardbee/mcp-security-proxy";
@@ -92,7 +113,7 @@ function sandboxFor(command: string, args: string[] | undefined, runtime: Sandbo
   return { runtime, ...(dirs.length ? { fs: { readWrite: dirs } } : {}) };
 }
 
-export function planInit(clientConfigText: string, yamlPath: string, auditPath: string, options: { sandbox?: SandboxRuntime; home?: string } = {}): InitPlan {
+export function planInit(clientConfigText: string, yamlPath: string, auditPath: string, options: { sandbox?: SandboxRuntime; home?: string; grades?: InitGrades } = {}): InitPlan {
   const root = asRecord(JSON.parse(clientConfigText));
   if (!root) throw new Error("The client config is not a JSON object");
   const servers = asRecord(root["mcpServers"]);
@@ -101,6 +122,20 @@ export function planInit(clientConfigText: string, yamlPath: string, auditPath: 
   const upstreams: Record<string, UpstreamConfig> = {};
   const migrated: Record<string, string> = {};
   const kept: InitPlan["kept"] = [];
+  const graded: InitPlan["graded"] = [];
+  const blocked: InitPlan["blocked"] = [];
+  /** With grades: record the grade; false when the server is below the minimum and must not be moved. */
+  const admit = (key: string, command: string | undefined, args: string[] | undefined, url: string | undefined): boolean => {
+    if (!options.grades) return true;
+    const { grade, note } = gradeOf(options.grades, command, args, url);
+    graded.push({ name: key, grade, note });
+    const minimum = options.grades.minGrade;
+    if (grade && minimum && gradeBelow(grade, minimum)) {
+      blocked.push({ name: key, reason: `MCP Index grade ${grade} is below --min-grade ${minimum} (${note})` });
+      return false;
+    }
+    return true;
+  };
   const remaining: Record<string, unknown> = {};
   const taken = new Set<string>();
 
@@ -127,13 +162,13 @@ export function planInit(clientConfigText: string, yamlPath: string, auditPath: 
               }`
             : "no command or url",
         });
-      } else {
+      } else if (admit(key, undefined, undefined, url)) {
         const name = upstreamName(key, taken);
         const headers = stringRecord(entry["headers"]);
         upstreams[name] = { url, ...(headers ? { headers } : {}) };
         migrated[key] = name;
       }
-    } else {
+    } else if (admit(key, entry["command"], Array.isArray(entry["args"]) ? entry["args"].map(String) : undefined, undefined)) {
       const name = upstreamName(key, taken);
       const args = Array.isArray(entry["args"]) ? entry["args"].map(String) : undefined;
       const env = stringRecord(entry["env"]);
@@ -168,6 +203,8 @@ export function planInit(clientConfigText: string, yamlPath: string, auditPath: 
     clientConfig: JSON.stringify({ ...root, mcpServers: remaining }, null, 2) + "\n",
     migrated,
     kept,
+    graded,
+    blocked,
   };
 }
 
@@ -179,6 +216,8 @@ export interface InitOptions {
   now?: Date;
   /** Put stdio servers in this sandbox runtime. */
   sandbox?: SandboxRuntime;
+  /** Show MCP Index grades; leave out servers below minGrade. */
+  grades?: InitGrades;
 }
 
 export interface InitResult extends InitPlan {
@@ -195,7 +234,7 @@ export function runInit(options: InitOptions): InitResult {
     throw new Error(`${yamlPath} already exists; pass --force to overwrite it`);
   }
 
-  const plan = planInit(fs.readFileSync(clientPath, "utf8"), yamlPath, auditPath, options.sandbox ? { sandbox: options.sandbox } : {});
+  const plan = planInit(fs.readFileSync(clientPath, "utf8"), yamlPath, auditPath, { ...(options.sandbox ? { sandbox: options.sandbox } : {}), ...(options.grades ? { grades: options.grades } : {}) });
   if (options.dryRun) return plan;
 
   const stamp = (options.now ?? new Date()).toISOString().replace(/[:.]/g, "-");
