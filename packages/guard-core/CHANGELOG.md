@@ -1,5 +1,11 @@
 # @guardbee/guard-core
 
+## 1.4.1
+
+### Patch Changes
+
+- [#262](https://github.com/GuardBee/guardbee-mcp/pull/262) [`de1b35d`](https://github.com/GuardBee/guardbee-mcp/commit/de1b35d8ec7144d15b52f91cd9e314cdb8abf084) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Connection-string rules no longer let the user name run across whitespace, quotes, `@` or `/`, so a `postgresql://...` placeholder followed lines later by an `@scope/package` URL is not read as a connection string with a password.
+
 ## 1.4.0
 
 ### Minor Changes
