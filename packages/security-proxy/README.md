@@ -612,6 +612,9 @@ The proxy sees MCP traffic only. A coding agent's own tools — the shell, file 
 npm i -g @guardbee/mcp-security-proxy
 guardbee-hook install --claude-code                 # ~/.claude/settings.json (PreToolUse + PostToolUse)
 guardbee-hook install --cursor                      # ~/.cursor/hooks.json (shell, MCP, file reads)
+guardbee-hook install --codex                       # ~/.codex/hooks.json (PreToolUse + PostToolUse; trust them under /hooks)
+guardbee-hook install --gemini-cli                  # ~/.gemini/settings.json (BeforeTool + AfterTool; turns hooks on)
+guardbee-hook install --windsurf                    # ~/.codeium/windsurf/hooks.json (commands, file reads/writes, MCP)
 guardbee-hook install --claude-code --project       # .claude/settings.json in this repo
 guardbee-hook install --cursor --config ~/.guardbee/guardbee-proxy.yaml --fail-closed
 guardbee-hook uninstall --claude-code               # removes only GuardBee's entries

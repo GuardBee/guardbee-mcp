@@ -24,6 +24,8 @@ npx -y @guardbee/mcp-owasp-scan scan . --fail-on=high
 
 <sub>Run it yourself: [`examples/demo`](examples/demo) (`npm install && npm start`).</sub>
 
+**Install anywhere:** npm, a signed multi-arch container image (`ghcr.io/guardbee/mcp-security-proxy`), a Helm chart, coding-agent hooks (Claude Code, Cursor, Codex, Gemini CLI, Windsurf), a GitHub Action and IDEs: see [INSTALL.md](INSTALL.md).
+
 ## Which package should I use?
 
 | You want to… | Install | How |

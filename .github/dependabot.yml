@@ -24,3 +24,8 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+  # The proxy image's base, pinned by digest
+  - package-ecosystem: docker
+    directory: /packages/security-proxy
+    schedule:
+      interval: weekly

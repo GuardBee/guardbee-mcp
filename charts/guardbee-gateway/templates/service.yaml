@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "guardbee-gateway.fullname" . }}
+  labels: {{- include "guardbee-gateway.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector: {{- include "guardbee-gateway.selectorLabels" . | nindent 4 }}

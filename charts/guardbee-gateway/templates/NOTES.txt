@@ -1,0 +1,12 @@
+GuardBee MCP gateway {{ .Chart.AppVersion }} is starting.
+
+MCP endpoint (in the cluster):  http://{{ include "guardbee-gateway.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.port }}/mcp
+Health:                         /healthz
+
+Try it locally:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "guardbee-gateway.fullname" . }} 8787:{{ .Values.service.port }}
+  curl http://127.0.0.1:8787/healthz
+{{- if and (gt (int .Values.replicaCount) 1) (not (contains "redis" .Values.config)) }}
+
+WARNING: {{ .Values.replicaCount }} replicas without state.backend redis: each pod counts quotas and budgets on its own.
+{{- end }}
