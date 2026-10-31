@@ -1,6 +1,7 @@
 import fs from "fs";
 import http from "http";
 import net from "net";
+import path from "path";
 import { EgressBlockedError, checkAddress, checkHost, guardedLookup, normalizeHost, type EgressPolicy, type GuardOptions } from "@guardbee/guard-core";
 
 /**
@@ -124,6 +125,8 @@ export async function startEgressProxy(policy: EgressPolicy, options: EgressProx
 
   if ("socket" in options.listen) {
     const socket = options.listen.socket;
+    // The sandbox's private home may not exist yet: the socket directory is the gateway user's alone
+    fs.mkdirSync(path.dirname(socket), { recursive: true, mode: 0o700 });
     fs.rmSync(socket, { force: true });
     await new Promise<void>((resolve, reject) => server.once("error", reject).listen(socket, () => resolve()));
     fs.chmodSync(socket, 0o600);
