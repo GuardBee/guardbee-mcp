@@ -39,6 +39,8 @@ import { AnomalyDetector, type AnomalyConfig } from "./anomaly.js";
 import { ApprovalRequired, approvalKey, type ApprovalRequest, type Approver, type DeferredApprovals } from "./approval.js";
 import type { GatewayConfig } from "./config.js";
 import { judgeFor, secondOpinion } from "./judge.js";
+import { callerStorage, currentCaller, type CallerScope } from "./caller-context.js";
+import { CONNECT_TOOL } from "./authenticated-upstream.js";
 import { maskFields } from "./fields.js";
 import { labelTool, type Label } from "./labels.js";
 import { DataFingerprints } from "./fingerprints.js";
@@ -62,6 +64,8 @@ export interface Sampler {
 export interface CallerIdentity {
   user: string;
   groups: string[];
+  /** The caller's inbound access token, for upstreams with auth.mode token-exchange. Never logged or forwarded. */
+  token?: string;
 }
 
 /** Pattern names that are personal data; every other PII pattern is a credential and counts as "secret". */
@@ -176,6 +180,11 @@ export class Gateway {
    * A 2026-07-28 context is reused across requests: the groups come from the
    * latest token (and directory). The user stays the same, it keys the context.
    */
+  /** What upstreams with per-user auth see of this caller while a request runs. */
+  private callerScope(): CallerScope {
+    return { ...(this.identity?.user ? { user: this.identity.user } : {}), ...(this.identity?.token ? { token: this.identity.token } : {}) };
+  }
+
   setIdentity(identity: CallerIdentity | undefined): void {
     if (identity?.user !== this.identity?.user) throw new Error("a context belongs to one user");
     this.identity = identity;
@@ -497,6 +506,10 @@ export class Gateway {
   }
 
   async listTools(): Promise<Tool[]> {
+    return callerStorage.run(this.callerScope(), () => this.listToolsAs());
+  }
+
+  private async listToolsAs(): Promise<Tool[]> {
     const listed: Tool[] = [];
     for (const upstream of this.upstreams) {
       let tools: Tool[];
@@ -508,6 +521,13 @@ export class Gateway {
         continue;
       }
       this.stale.delete(upstream.name);
+      // A per-user upstream the caller has not connected yet offers only its connect tool: not a definition to pin
+      if (tools.length === 1 && tools[0]!.name === CONNECT_TOOL && !tools[0]!.outputSchema) {
+        const name = this.exposed(upstream, CONNECT_TOOL);
+        this.tools.set(name, { upstream, name: CONNECT_TOOL, labels: [] });
+        listed.push({ ...tools[0]!, name });
+        continue;
+      }
       tools = this.checkPersistentPins(upstream, tools);
       if (this.driftEnabled) {
         const observed = this.pinFor(upstream).observe(tools as ToolRecord[], this.driftAction);
@@ -555,6 +575,10 @@ export class Gateway {
 
   /** One span per call (MCP semantic conventions); the audit events of the call become its events. */
   async callTool(name: string, args: Record<string, unknown>, options: { deferred?: DeferredApprovals } = {}): Promise<CallToolResult> {
+    return callerStorage.run(this.callerScope(), () => this.callToolAs(name, args, options));
+  }
+
+  private async callToolAs(name: string, args: Record<string, unknown>, options: { deferred?: DeferredApprovals } = {}): Promise<CallToolResult> {
     const span = tracer().startSpan(`tools/call ${name}`, {
       kind: SpanKind.SERVER,
       attributes: {
@@ -683,7 +707,8 @@ export class Gateway {
 
     // 2. The live definition must still match the session pin
     const recheck = this.interceptors.definitionDrift?.recheck ?? "every-call";
-    if (this.driftEnabled && (recheck === "every-call" || this.stale.has(upstream.name))) {
+    // The connect placeholder of a per-user upstream is not a pinned definition
+    if (this.driftEnabled && route.name !== CONNECT_TOOL && (recheck === "every-call" || this.stale.has(upstream.name))) {
       try {
         const live = (await upstream.listTools()) as ToolRecord[];
         const pin = this.pinFor(upstream);
@@ -872,7 +897,9 @@ export class Gateway {
     this.taint.observe(name, labels, piiFound);
     if (labels.includes("sensitive") || piiFound) this.fingerprints.add(name, [result.content, result.structuredContent ?? null]);
     else if (this.config.taint.basis === "data") this.fingerprints.addOrdinary([result.content, result.structuredContent ?? null]);
-    this.log({ ...base, type: "tool_response", output: out.content, ...(piiFound ? { piiHits: hits } : {}) });
+    // Upstreams with per-user auth: who the upstream saw, next to `user` (who called the gateway)
+    const upstreamIdentity = currentCaller()?.upstreamIdentity;
+    this.log({ ...base, type: "tool_response", output: out.content, ...(piiFound ? { piiHits: hits } : {}), ...(upstreamIdentity ? { upstreamIdentity } : {}) });
     if (piiFound) activeCallSpan()?.setAttribute("guardbee.pii_hits", Object.values(hits).reduce((sum, n) => sum + n, 0));
 
     void recordEvent({
@@ -970,6 +997,10 @@ export class Gateway {
   }
 
   async listResources(): Promise<Resource[]> {
+    return callerStorage.run(this.callerScope(), () => this.listResourcesAs());
+  }
+
+  private async listResourcesAs(): Promise<Resource[]> {
     const listed: Resource[] = [];
     for (const upstream of this.upstreams) {
       try {
@@ -986,6 +1017,10 @@ export class Gateway {
 
   /** Resource contents come from outside the agent's control: they taint the session like an untrusted tool. */
   async readResource(uri: string, options: { deferred?: DeferredApprovals } = {}): Promise<ReadResourceResult> {
+    return callerStorage.run(this.callerScope(), () => this.readResourceAs(uri, options));
+  }
+
+  private async readResourceAs(uri: string, options: { deferred?: DeferredApprovals } = {}): Promise<ReadResourceResult> {
     let upstream = this.resources.get(uri);
     if (!upstream) {
       await this.listResources();
@@ -1044,6 +1079,10 @@ export class Gateway {
   }
 
   async listPrompts(): Promise<Prompt[]> {
+    return callerStorage.run(this.callerScope(), () => this.listPromptsAs());
+  }
+
+  private async listPromptsAs(): Promise<Prompt[]> {
     const listed: Prompt[] = [];
     for (const upstream of this.upstreams) {
       try {
@@ -1065,6 +1104,10 @@ export class Gateway {
    * not taint the session: the person picked it.
    */
   async getPrompt(name: string, args?: Record<string, string>, options: { deferred?: DeferredApprovals } = {}): Promise<GetPromptResult> {
+    return callerStorage.run(this.callerScope(), () => this.getPromptAs(name, args, options));
+  }
+
+  private async getPromptAs(name: string, args?: Record<string, string>, options: { deferred?: DeferredApprovals } = {}): Promise<GetPromptResult> {
     let route = this.prompts.get(name);
     if (!route) {
       await this.listPrompts();

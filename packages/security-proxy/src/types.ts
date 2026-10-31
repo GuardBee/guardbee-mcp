@@ -1,3 +1,4 @@
+import type { UpstreamAuth } from "./gateway/upstream-auth.js";
 import type { AnomalyConfig } from "./gateway/anomaly.js";
 import type { ExporterConfig } from "./audit/exporters.js";
 import type { PiiPresetName, PiiSelection } from "@guardbee/guard-core";
@@ -24,6 +25,8 @@ export type HttpUpstreamConfig = {
   network?: UpstreamNetworkConfig;
   /** MCP revision to speak to this server; absent → auto (see UpstreamProtocol). */
   protocol?: UpstreamProtocol;
+  /** Whose credential the gateway presents: static (headers), token-exchange or oauth-per-user (gateway/upstream-auth.ts). */
+  auth?: UpstreamAuth;
 };
 
 /**
@@ -218,6 +221,8 @@ export type AuditEvent = {
   documents?: { name: string; modality: "pdf" | "image" | "audio"; bytes: number; sha256: string; pages: number; chars: number; checks: string[] }[];
   /** Token usage of an LLM gateway call, with its price when llm.pricing covers the model. */
   llm?: { model: string; routedFrom?: string; inputTokens?: number; outputTokens?: number; costUsd?: number };
+  /** Upstreams with per-user auth: the identity the upstream saw (subject of the downstream token), never the token. */
+  upstreamIdentity?: string;
   /** The LLM judge's second opinion on a borderline finding (judge config): which model, what it said, how long it took. */
   judge?: { model: string; version?: string; verdict?: "malicious" | "suspicious" | "benign"; confidence?: number; latencyMs?: number; cached?: boolean; error?: string; outcome: "raised" | "cleared" | "kept" | "failed-open" | "failed-closed" };
   /** Hash chain: each event carries the previous event's hash. Set by AuditLogger. */

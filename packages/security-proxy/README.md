@@ -225,6 +225,66 @@ Containers use `image`, or `node:22-alpine` for node/npx/npm/pnpm, `ghcr.io/astr
 - **`guardbee-proxy init --grades`** prints each imported server's [GuardBee MCP Index](https://guardbee.github.io/guardbee-mcp/) grade (A–F, from its published package: static scan, known vulnerabilities and malware, build provenance, maintenance; the index is downloaded whole and searched locally, so no server name is sent). **`--min-grade C`** leaves out servers graded below C: they are neither moved behind the proxy nor left in the client config, where they would run unchecked; the backup keeps them. Servers with no grade (local commands, remote URLs, servers outside the official registry) are always moved.
 - **Limits of the model.** `sandbox-exec` is deprecated by Apple but still the macOS mechanism; it does not limit CPU or memory. `bwrap` needs unprivileged user namespaces (some distributions restrict them with AppArmor). Neither hides files you did not list from reading on the non-container runtimes: only the credential list, `.env` files and `fs.deny` are hidden, everything else stays readable (use a container for an allowlist). `network: allowlist` filters by host name and port-agnostic: it does not inspect what is sent to an allowed host. Raw TCP and UDP (a database driver, DNS) do not go through an HTTP proxy, so they get no network under it. Windows has no built-in runtime: use `docker` or `podman`.
 
+## Upstream Identity
+
+By default an HTTP upstream gets the credential in its `headers`, the same for every caller. In a shared gateway that means everyone acts as one account downstream. `upstreams.<name>.auth` makes each caller act as themselves. The caller's own token is **never forwarded**, because the MCP spec forbids token passthrough.
+
+**Token exchange (RFC 8693).** The caller signs in to the gateway with OIDC (`listen.oidc`). For each upstream, the gateway exchanges that token at the authorization server for one whose audience is the upstream.
+
+```yaml
+upstreams:
+  files:
+    url: https://files.internal.example/mcp
+    auth:
+      mode: token-exchange
+      tokenEndpoint: https://sso.example/realms/acme/protocol/openid-connect/token
+      clientId: guardbee-gateway
+      clientSecretEnv: GATEWAY_CLIENT_SECRET   # never in the file
+      audience: files-api                      # RFC 8693 audience; resource: (RFC 8707) also works
+      scopes: [files:read]                     # what every call gets
+      toolScopes: { "delete_*": [files:write] } # step-up for these tools
+```
+
+- **Keycloak** (26.2+, standard token exchange): turn on *Standard token exchange* on the gateway client. The caller's token must name the gateway in `aud` (an audience mapper on the MCP client), and the gateway client needs an audience mapper for the upstream's client. The CI test runs against Keycloak in docker.
+- **Microsoft Entra ID** (on-behalf-of): point `tokenEndpoint` at `https://login.microsoftonline.com/<tenant>/oauth2/v2.0/token`. Entra uses the OBO grant (`urn:ietf:params:oauth:grant-type:jwt-bearer`), not RFC 8693, so put an RFC 8693 broker in front of it, or use a provider that speaks 8693.
+- **Okta** (custom authorization server, token exchange enabled on the app): `tokenEndpoint: https://<org>.okta.com/oauth2/<server>/v1/token`, `audience` the target authorization server's audience.
+
+**Per-user OAuth.** For third-party services (GitHub, Google, Atlassian…), each user connects their own account once.
+
+```yaml
+listen: { transport: http, oidc: { … } }
+upstreamAuth:
+  publicUrl: https://gateway.example          # redirect URI: https://gateway.example/oauth/callback
+  encryptionKeyEnv: GUARDBEE_TOKEN_KEY         # openssl rand -base64 32
+upstreams:
+  github:
+    url: https://api.githubcopilot.com/mcp/
+    auth:
+      mode: oauth-per-user
+      authorizationEndpoint: https://github.com/login/oauth/authorize
+      tokenEndpoint: https://github.com/login/oauth/access_token
+      clientId: Iv1.abc123
+      clientSecretEnv: GITHUB_APP_SECRET
+      issuer: https://github.com                # RFC 9207 iss check, when the server sends it
+      scopes: [repo]
+```
+
+Until a user connects, the upstream offers one tool, `<name>__connect_account`. It returns a link to the gateway's consent page, which shows the upstream, the user and the scopes, with Allow and Cancel. Allow goes to the authorization server, then back to the callback, and the real tools appear.
+
+The flow is protected at every step:
+- the consent link is signed, bound to the user, valid ten minutes and usable once;
+- the form carries a CSRF token, also set as an `HttpOnly; SameSite=Strict` cookie;
+- the authorization request uses PKCE S256 and a single-use `state`;
+- there is one exact redirect URI;
+- the `iss` in the response is checked;
+- the pages cannot be framed (`frame-ancestors 'none'`, `X-Frame-Options: DENY`) or cached.
+
+Tokens are stored per user and upstream, encrypted with AES-256-GCM (`upstreamAuth.tokenFile`, default `~/.guardbee/upstream-tokens.enc`), and refreshed when they expire.
+
+**Scope minimization and step-up.** A call asks for `scopes`, plus the `toolScopes` of the tool being called. When an upstream answers `401`/`403` with `WWW-Authenticate: Bearer error="insufficient_scope", scope="…"`, the gateway gets a token with those scopes and retries once. Token exchange does this silently; per-user OAuth sends the user back to the consent page for the larger set. Each elevation is an audit event (`type: approval`, `ruleId: auth:step-up`, with the before and after scopes), and so is each consent (`auth:consent`).
+
+**Audit.** Each tool response from such an upstream records `user`, the caller at the gateway, and `upstreamIdentity`, whom the upstream saw (the downstream token's `preferred_username`, `upn`, `email` or `sub`). Tokens are never logged.
+
 ## LLM Judge (optional)
 
 The injection rules are fast and explainable but match phrases they know. An optional **judge** gives a second opinion from a model: a paraphrased, indirect or translated instruction, or an article that only *quotes* one. It is off unless configured, and runs best on a local model (Ollama, llama.cpp, vLLM, LM Studio: any OpenAI-compatible endpoint), so nothing leaves the machine.

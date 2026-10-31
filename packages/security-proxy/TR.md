@@ -173,6 +173,28 @@ Politika, taint ve maskeleme MCP mesajlarını görür. Bir stdio sunucusu ise s
 - **`guardbee-proxy init --grades`** içe aktarılan her sunucunun [GuardBee MCP Index](https://guardbee.github.io/guardbee-mcp/) notunu (A–F; yayımlanan paketinden: statik tarama, bilinen açık ve zararlı yazılım, build provenance, bakım) yazdırır; indeks bütün olarak indirilip yerelde aranır, hiçbir sunucu adı gönderilmez. **`--min-grade C`** C'nin altındaki sunucuları dışarıda bırakır: ne proxy'nin arkasına taşınırlar ne de denetimsiz çalışacakları istemci yapılandırmasında kalırlar; yedekte dururlar. Notu olmayan sunucular (yerel komutlar, uzak URL'ler, resmi registry dışındakiler) her zaman taşınır.
 - **Sınırlar:** `sandbox-exec` Apple tarafından kullanımdan kaldırılmış olsa da macOS'un mekanizmasıdır ve CPU/bellek sınırlamaz; `bwrap` ayrıcalıksız user namespace ister. Container olmayan runtime'larda yalnızca kimlik listesi, `.env` dosyaları ve `fs.deny` okumaya kapalıdır, gerisi okunabilir (allowlist için container kullanın). `network: allowlist` host adına göre süzer, izin verilen bir host'a ne gönderildiğine bakmaz; HTTP proxy'den geçmeyen ham TCP ve UDP (veritabanı sürücüsü, DNS) bu modda ağsız kalır. Ayrıntılı tablo ve örnek için [README](README.md#sandboxed-upstreams).
 
+## Upstream Kimliği
+
+Varsayılan olarak bir HTTP upstream'i `headers`'taki kimlik bilgisini alır; bu bilgi her çağıran için aynıdır, yani paylaşılan bir gateway'de herkes aşağıda tek hesapla iş görür. `upstreams.<ad>.auth` her çağıranın kendisi olarak iş görmesini sağlar. Çağıranın kendi token'ı **asla iletilmez**; MCP spesifikasyonu token passthrough'u yasaklar.
+
+- **Token exchange (RFC 8693):** Çağıran gateway'e OIDC ile girer (`listen.oidc`). Gateway bu token'ı, yetkilendirme sunucusunda audience'ı upstream olan bir token'la değiştirir.
+  - Ayarlar: `tokenEndpoint`, `clientId`, `clientSecretEnv` (sır asla dosyada durmaz), `audience` / `resource`, `scopes`, `toolScopes`.
+  - Keycloak 26.2+ (standard token exchange) docker'da CI testinde. Entra ID OBO grant'i kullanır, Okta'da token exchange'i açmak gerekir; ayrıntılar İngilizce README'de.
+- **Kullanıcı başına OAuth:** Üçüncü taraf servisler için (GitHub, Google, Atlassian…) her kullanıcı kendi hesabını bir kez bağlar.
+  - Bağlanana kadar upstream tek bir tool sunar: `<ad>__connect_account`. Bu tool gateway'in onay sayfasının bağlantısını verir.
+  - Bağlantı imzalıdır, kullanıcıya bağlıdır, 10 dakika geçerlidir ve tek kullanımlıktır.
+  - Form CSRF token'ı taşır (aynı değer `HttpOnly; SameSite=Strict` cookie'de de).
+  - Yetkilendirme isteği PKCE S256 ve tek kullanımlık `state` kullanır.
+  - Tek ve tam eşleşen bir redirect URI vardır (`<publicUrl>/oauth/callback`).
+  - Yanıttaki `iss` (RFC 9207) kontrol edilir.
+  - Sayfalar çerçeveye alınamaz ve önbelleğe alınmaz.
+  - Token'lar kullanıcı ve upstream bazında AES-256-GCM ile şifreli saklanır (`upstreamAuth.encryptionKeyEnv`, `tokenFile`) ve süresi dolunca yenilenir.
+- **Kapsam küçültme ve step-up:**
+  - Her çağrı `scopes` ile, çağrılan tool'un `toolScopes`'u da eklenerek istenir.
+  - Upstream `insufficient_scope` ile 401/403 dönerse gateway gereken kapsamla yeni bir token alır ve isteği bir kez tekrarlar. Kullanıcı başına OAuth'ta bunun için kullanıcıdan yeniden onay istenir.
+  - Her yükseltme bir audit olayıdır (`ruleId: auth:step-up`). Onaylar da öyledir (`auth:consent`).
+- **Audit:** Bu upstream'lerden gelen her yanıtta iki kayıt durur: `user` (gateway'i çağıran) ve `upstreamIdentity` (upstream'in gördüğü kimlik). Token'lar asla loglanmaz.
+
 ## LLM Hakem (isteğe bağlı)
 
 Enjeksiyon kuralları hızlı ve açıklanabilir ama bildikleri ifadeleri yakalar. İsteğe bağlı **judge** bir modelden ikinci görüş alır: başka sözcüklerle, dolaylı ya da çevrilmiş bir talimatı yakalar; yalnızca saldırıyı *alıntılayan* bir makaleyi ayırt eder. Yapılandırılmadıkça kapalıdır; en iyi yerel bir modelle çalışır (Ollama, llama.cpp, vLLM, LM Studio: OpenAI uyumlu her uç nokta), böylece hiçbir şey makineden çıkmaz.

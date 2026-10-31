@@ -83,8 +83,10 @@ describe("authenticator", () => {
   it("accepts a valid token found through discovery, with user and groups", async () => {
     const idp = await identityProvider();
     const auth = createAuthenticator([], oidc(idp.issuer));
-    const identity = await auth(`Bearer ${await token(idp.issuer, { sub: "ayse", groups: ["finance", "admins"] })}`);
-    expect(identity).toEqual({ via: "oidc", user: "ayse", groups: ["finance", "admins"] });
+    const jwt = await token(idp.issuer, { sub: "ayse", groups: ["finance", "admins"] });
+    const identity = await auth(`Bearer ${jwt}`);
+    // The token itself is kept (in memory) for upstream token exchange
+    expect(identity).toEqual({ via: "oidc", user: "ayse", groups: ["finance", "admins"], token: jwt });
     await auth(`Bearer ${await token(idp.issuer, { sub: "mehmet" })}`);
     expect(idp.discoveries()).toBe(1);
   });
@@ -93,7 +95,7 @@ describe("authenticator", () => {
     const idp = await identityProvider();
     const auth = createAuthenticator([], oidc(idp.issuer, { userClaim: "email", groupsClaim: "roles" }));
     const identity = await auth(`Bearer ${await token(idp.issuer, { sub: "x", email: "ayse@acme.test", roles: "read write" })}`);
-    expect(identity).toEqual({ via: "oidc", user: "ayse@acme.test", groups: ["read", "write"] });
+    expect(identity).toMatchObject({ via: "oidc", user: "ayse@acme.test", groups: ["read", "write"] });
   });
 
   it("refuses a wrong audience, a wrong issuer, an expired token, a foreign key, and no user claim", async () => {

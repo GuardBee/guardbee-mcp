@@ -20,7 +20,7 @@ describe("examples/proxy", () => {
 
   it.each(files)("%s parses", (file) => {
     const source = readFileSync(join(dir, file), "utf8");
-    for (const name of envOf(source)) vi.stubEnv(name, "example-value");
+    for (const name of envOf(source)) vi.stubEnv(name, Buffer.alloc(32, 7).toString("base64")); // valid for keys that must be 32 bytes, base64
     expect(() => parseGatewayYaml(source, file)).not.toThrow();
     // The commented-out blocks are meant to be switched on: they must parse too
     const uncommented = source.replace(/^# ((?:ner|  url|  timeoutMs)\b)/gm, "$1");

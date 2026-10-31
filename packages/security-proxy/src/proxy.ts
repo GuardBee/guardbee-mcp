@@ -10,7 +10,9 @@ import {
   type Transport,
 } from "@modelcontextprotocol/server";
 import { serveStdio, type StdioServerHandle } from "@modelcontextprotocol/server/stdio";
-import { isHttpUpstream, type McpServerConfig, type ProxyConfig, type UpstreamConfig } from "./types.js";
+import { ConsentPages } from "./gateway/consent.js";
+import { TokenStore, UpstreamCredentials, type AuthEvents } from "./gateway/upstream-auth.js";
+import { isHttpUpstream, type AuditEvent, type McpServerConfig, type ProxyConfig, type UpstreamConfig } from "./types.js";
 import { sandboxContext, sandboxIssues } from "./gateway/sandbox.js";
 import { AuditLogger } from "./audit/logger.js";
 import {
@@ -287,6 +289,46 @@ async function connectSandboxed(name: string, server: UpstreamConfig, audit: Aud
   }
 }
 
+/**
+ * Credential sources of upstreams with auth.mode token-exchange or
+ * oauth-per-user, the encrypted token store and the consent pages. Elevations
+ * and consents are audit events (type approval, ruleId auth:*).
+ */
+export function upstreamIdentities(config: GatewayConfig, audit: AuditLogger): { credentials: Map<string, UpstreamCredentials>; consent?: ConsentPages; connected?: (upstream: string) => void } {
+  const out: { credentials: Map<string, UpstreamCredentials>; consent?: ConsentPages; connected?: (upstream: string) => void } = { credentials: new Map() };
+  const authed = Object.entries(config.upstreams).flatMap(([name, upstream]) =>
+    isHttpUpstream(upstream) && upstream.auth && upstream.auth.mode !== "static" ? [[name, upstream.auth] as const] : [],
+  );
+  if (!authed.length) return out;
+  const http = config.listen.transport === "http";
+  if (authed.some(([, auth]) => auth.mode === "token-exchange") && !(config.listen.transport === "http" && config.listen.oidc)) {
+    throw new Error("auth.mode token-exchange needs callers signed in with OIDC: listen.transport http and listen.oidc");
+  }
+  const perUser = authed.some(([, auth]) => auth.mode === "oauth-per-user");
+  if (perUser && !config.upstreamAuth) throw new Error("auth.mode oauth-per-user needs upstreamAuth (publicUrl, encryptionKeyEnv)");
+  if (perUser && !http) throw new Error("auth.mode oauth-per-user needs listen.transport http: the consent page is served by the gateway");
+  const log = (event: Omit<AuditEvent, "ts">) => audit.log({ ts: new Date().toISOString(), ...event });
+  const events: AuthEvents = {
+    onStepUp: ({ upstream, user, from, to, reason }) =>
+      log({ type: "approval", ruleId: "auth:step-up", upstream, user, reason: `scope step-up for ${upstream}: ${from.join(" ") || "(none)"} → ${to.join(" ")} (${reason})` }),
+  };
+  const store = config.upstreamAuth ? new TokenStore(config.upstreamAuth.encryptionKey, config.upstreamAuth.tokenFile) : undefined;
+  if (config.upstreamAuth && perUser) {
+    out.consent = new ConsentPages({
+      publicUrl: config.upstreamAuth.publicUrl,
+      key: config.upstreamAuth.encryptionKey,
+      credentials: out.credentials,
+      onConnected: (upstream) => out.connected?.(upstream),
+      onEvent: ({ upstream, user, outcome, reason, scopes }) =>
+        log({ type: outcome === "connected" ? "approval" : "warn", ruleId: `auth:consent`, upstream, user, reason: `${upstream} account ${outcome}${scopes ? ` (scopes: ${scopes.join(" ") || "default"})` : ""}${reason ? `: ${reason}` : ""}` }),
+    });
+  }
+  for (const [name, auth] of authed) {
+    out.credentials.set(name, new UpstreamCredentials(name, auth, { ...(store ? { store } : {}), ...(out.consent ? { links: out.consent } : {}), events }));
+  }
+  return out;
+}
+
 export async function startGateway(config: GatewayConfig): Promise<void> {
   const { version } = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf8")) as { version: string };
   // OTLP export when OTEL_EXPORTER_OTLP_ENDPOINT is set and the SDK is installed
@@ -300,11 +342,14 @@ export async function startGateway(config: GatewayConfig): Promise<void> {
   const counters = sharedCounters(config, audit);
   const upstreams: Upstream[] = [];
   const provenance = provenanceChecker(config);
+  const identities = upstreamIdentities(config, audit);
   for (const [name, original] of Object.entries(config.upstreams)) {
     const server = isHttpUpstream(original) ? original : await checkedServer(name, original, config, audit, provenance);
     if (!isHttpUpstream(server)) checkSandbox(name, server, audit);
+    const credentials = identities.credentials.get(name);
     upstreams.push(
       await connectSandboxed(name, server, audit, () => connectUpstream(name, server, {
+        ...(credentials ? { credentials } : {}),
         sampling: config.interceptors.sampling?.enabled === true,
         onEgressBlocked: (error) =>
           audit.log({
@@ -322,7 +367,12 @@ export async function startGateway(config: GatewayConfig): Promise<void> {
   if (config.listen.transport === "http") {
     // Imported here: http-server.ts imports this module for createGatewayServer.
     const { startHttpGateway } = await import("./http-server.js");
-    const http = await startHttpGateway(upstreams, config, audit, config.listen, { ...(pinStore ? { pinStore } : {}), ...(counters ? { counters } : {}) });
+    identities.connected = (upstream) => (upstreams.find((u) => u.name === upstream) as { notifyConnected?: () => void } | undefined)?.notifyConnected?.();
+    const http = await startHttpGateway(upstreams, config, audit, config.listen, {
+      ...(pinStore ? { pinStore } : {}),
+      ...(counters ? { counters } : {}),
+      ...(identities.consent ? { consent: identities.consent } : {}),
+    });
     process.stderr.write(`[guardbee-proxy] listening on ${http.url}\n`);
     if (http.llmUrl) process.stderr.write(`[guardbee-proxy] LLM gateway on ${http.llmUrl} (chat/completions, messages, models)\n`);
     const shutdown = async () => {

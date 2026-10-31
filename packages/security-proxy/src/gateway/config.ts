@@ -3,6 +3,7 @@ import path from "path";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
 import { checkTopicReferences, judgeConfigIssue, policyShape, type TopicDefinition } from "@guardbee/guard-core";
+import type { UpstreamAuth } from "./upstream-auth.js";
 import { loadProxyConfig } from "../config.js";
 import os from "os";
 import type { AuditConfig, McpServerConfig, ProxyConfig, UpstreamConfig, UpstreamNetworkConfig, UpstreamProtocol } from "../types.js";
@@ -95,6 +96,8 @@ export interface GatewayConfig {
   state?: StateConfig;
   /** LLM judge for borderline injection findings; absent → off. */
   judge?: GatewayJudgeConfig;
+  /** Consent page and token store for upstreams.<name>.auth (oauth-per-user). */
+  upstreamAuth?: { publicUrl: string; encryptionKey: Buffer; tokenFile: string };
 }
 
 export interface GatewayJudgeConfig {
@@ -160,6 +163,39 @@ const upstreamSchema = z
       .optional(),
     url: z.string().optional(),
     headers: z.record(z.string(), z.string()).optional(),
+    /** Whose credential reaches this HTTP upstream: each caller's own (token-exchange, oauth-per-user) or the headers (static). */
+    auth: z
+      .discriminatedUnion("mode", [
+        z.object({ mode: z.literal("static") }).strict(),
+        z
+          .object({
+            mode: z.literal("token-exchange"),
+            tokenEndpoint: z.string().regex(/^https?:\/\//, "tokenEndpoint must be an http(s) URL"),
+            clientId: z.string().min(1),
+            clientSecretEnv: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable").optional(),
+            audience: z.string().min(1).optional(),
+            resource: z.string().regex(/^https?:\/\//, "resource must be an http(s) URL").optional(),
+            scopes: z.array(z.string().min(1)).default([]),
+            toolScopes: z.record(z.string(), z.array(z.string().min(1))).default({}),
+            clientAuth: z.enum(["client_secret_basic", "client_secret_post"]).default("client_secret_basic"),
+          })
+          .strict(),
+        z
+          .object({
+            mode: z.literal("oauth-per-user"),
+            authorizationEndpoint: z.string().regex(/^https:\/\/|^http:\/\/(?:localhost|127\.0\.0\.1)[:/]/, "authorizationEndpoint must be https (http only on localhost)"),
+            tokenEndpoint: z.string().regex(/^https:\/\/|^http:\/\/(?:localhost|127\.0\.0\.1)[:/]/, "tokenEndpoint must be https (http only on localhost)"),
+            clientId: z.string().min(1),
+            clientSecretEnv: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable").optional(),
+            issuer: z.string().min(1).optional(),
+            resource: z.string().regex(/^https?:\/\//, "resource must be an http(s) URL").optional(),
+            scopes: z.array(z.string().min(1)).default([]),
+            toolScopes: z.record(z.string(), z.array(z.string().min(1))).default({}),
+            clientAuth: z.enum(["client_secret_basic", "client_secret_post"]).default("client_secret_basic"),
+          })
+          .strict(),
+      ])
+      .optional(),
     protocol: z.enum(["auto", "2025-11-25", "2026-07-28"]).optional(),
     network: z
       .object({
@@ -185,6 +221,10 @@ const upstreamSchema = z
     }
     if (stdio && value.network !== undefined) {
       ctx.addIssue({ code: "custom", path: ["network"], message: "network rules apply to HTTP upstreams (url); for a stdio server use sandbox.network" });
+    }
+    if (stdio && value.auth !== undefined) ctx.addIssue({ code: "custom", path: ["auth"], message: "auth applies to HTTP upstreams (url): a stdio server gets its credentials through env" });
+    if (value.auth && value.auth.mode !== "static" && Object.keys(value.headers ?? {}).some((h) => h.toLowerCase() === "authorization")) {
+      ctx.addIssue({ code: "custom", path: ["headers"], message: `auth.mode ${value.auth.mode} sets each caller's own Authorization header: remove it from headers` });
     }
     if (stdio && http) ctx.addIssue({ code: "custom", message: "an upstream is either command/args/env (stdio) or url/headers (HTTP), not both" });
     else if (http && value.url === undefined) ctx.addIssue({ code: "custom", message: "an HTTP upstream needs a url" });
@@ -411,6 +451,18 @@ const yamlSchema = z
       .optional(),
     /** This file also (or only) serves guardbee-hook, the policy for coding agents' own tools. */
     hooks: z.object({}).strict().optional(),
+    /** Per-user upstream credentials (upstreams.<name>.auth): the consent page's public URL and the token store. */
+    upstreamAuth: z
+      .object({
+        /** This gateway as users' browsers reach it; the OAuth redirect URI is <publicUrl>/oauth/callback. */
+        publicUrl: z.string().regex(/^https:\/\/|^http:\/\/(?:localhost|127\.0\.0\.1)[:/]/, "publicUrl must be https (http only on localhost)"),
+        /** 32 random bytes, base64 (openssl rand -base64 32): encrypts stored tokens and signs consent links. */
+        encryptionKeyEnv: envVar,
+        /** Encrypted token file; default ~/.guardbee/upstream-tokens.enc. */
+        tokenFile: z.string().min(1).optional(),
+      })
+      .strict()
+      .optional(),
     /**
      * An LLM judge for borderline injection findings (warn level): a second
      * opinion that can raise one to a block, and clear one only with mayClear.
@@ -488,15 +540,32 @@ function interpolateRecord(record: Record<string, string> | undefined, where: st
   return record ? Object.fromEntries(Object.entries(record).map(([k, v]) => [k, interpolate(v, where)])) : undefined;
 }
 
+type AuthInput =
+  | { mode: "static" }
+  | ({ mode: "token-exchange" | "oauth-per-user"; clientSecretEnv?: string } & Record<string, unknown>);
+
+/** The client secret comes from the environment, never the file. */
+function resolveUpstreamAuth(name: string, auth: AuthInput | undefined): UpstreamAuth | undefined {
+  if (!auth || auth.mode === "static") return auth as UpstreamAuth | undefined;
+  const { clientSecretEnv, ...rest } = auth;
+  let clientSecret: string | undefined;
+  if (clientSecretEnv) {
+    clientSecret = process.env[clientSecretEnv];
+    if (!clientSecret) throw new Error(`Environment variable ${clientSecretEnv} (upstreams.${name}.auth.clientSecretEnv) is not set`);
+  }
+  return { ...rest, ...(clientSecret ? { clientSecret } : {}) } as unknown as UpstreamAuth;
+}
+
 function interpolateUpstream(
   name: string,
-  upstream: { command?: string; args?: string[]; env?: Record<string, string>; provenance?: McpServerConfig["provenance"]; sandbox?: McpServerConfig["sandbox"]; url?: string; headers?: Record<string, string>; network?: UpstreamNetworkConfig; protocol?: UpstreamProtocol },
+  upstream: { command?: string; args?: string[]; env?: Record<string, string>; provenance?: McpServerConfig["provenance"]; sandbox?: McpServerConfig["sandbox"]; url?: string; headers?: Record<string, string>; network?: UpstreamNetworkConfig; protocol?: UpstreamProtocol; auth?: AuthInput },
 ): UpstreamConfig {
   const where = `upstreams.${name}`;
   const protocol = upstream.protocol ? { protocol: upstream.protocol } : {};
   if (upstream.url !== undefined) {
     const headers = interpolateRecord(upstream.headers, where);
-    return { url: interpolate(upstream.url, where), ...(headers ? { headers } : {}), ...(upstream.network ? { network: upstream.network } : {}), ...protocol };
+    const auth = resolveUpstreamAuth(name, upstream.auth);
+    return { url: interpolate(upstream.url, where), ...(headers ? { headers } : {}), ...(upstream.network ? { network: upstream.network } : {}), ...protocol, ...(auth ? { auth } : {}) };
   }
   return {
     command: interpolate(upstream.command!, where),
@@ -506,6 +575,14 @@ function interpolateUpstream(
     args: upstream.args?.map((arg) => interpolate(arg, where)),
     env: interpolateRecord(upstream.env, where),
   };
+}
+
+function resolveUpstreamAuthConfig(config: { publicUrl: string; encryptionKeyEnv: string; tokenFile?: string }): NonNullable<GatewayConfig["upstreamAuth"]> {
+  const raw = process.env[config.encryptionKeyEnv];
+  if (!raw) throw new Error(`Environment variable ${config.encryptionKeyEnv} (upstreamAuth.encryptionKeyEnv) is not set`);
+  const encryptionKey = Buffer.from(raw, "base64");
+  if (encryptionKey.length !== 32) throw new Error(`upstreamAuth.encryptionKeyEnv: ${config.encryptionKeyEnv} must be 32 bytes, base64 (openssl rand -base64 32)`);
+  return { publicUrl: config.publicUrl.replace(/\/$/, ""), encryptionKey, tokenFile: config.tokenFile ?? path.join(os.homedir(), ".guardbee", "upstream-tokens.enc") };
 }
 
 function resolveStateKey(name: string): string {
@@ -583,6 +660,7 @@ export function parseGatewayYaml(source: string, fileLabel = "guardbee-proxy.yam
     ...(cfg.pins ? { pins: cfg.pins } : {}),
     provenance: cfg.provenance ?? { mode: "warn", offline: false },
     ...(cfg.state && cfg.state.backend === "redis" ? { state: { ...cfg.state, url: interpolate(cfg.state.url!, "state.url") } } : {}),
+    ...(cfg.upstreamAuth ? { upstreamAuth: resolveUpstreamAuthConfig(cfg.upstreamAuth) } : {}),
     ...(cfg.judge ? { judge: { ...cfg.judge, ...(cfg.judge.apiKey ? { apiKey: interpolate(cfg.judge.apiKey, "judge.apiKey") } : {}) } } : {}),
   };
 }
