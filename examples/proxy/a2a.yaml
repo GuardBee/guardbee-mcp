@@ -1,0 +1,36 @@
+# Agent2Agent (A2A) traffic through the gateway. Agents call each other at
+#   http://gateway:8787/a2a/<name>
+# instead of at the agent's own URL; discovery works through
+#   http://gateway:8787/a2a/<name>/.well-known/agent-card.json
+# Every caller authenticates to the gateway (an API key per agent here, or listen.oidc).
+version: 1
+listen:
+  transport: http
+  host: 0.0.0.0
+  port: 8787
+  apiKeys: ["${GB_AGENT_KEY}"]
+upstreams: {}
+
+a2a:
+  path: /a2a
+  agents:
+    research:
+      url: http://research-agent.internal:9999/
+      # Credentials the gateway presents to the agent; callers never see them
+      headers: { authorization: "Bearer ${RESEARCH_AGENT_TOKEN}" }
+    billing:
+      url: https://billing-agent.internal/a2a
+      allowGroups: [finance]   # with listen.oidc: only callers in this group
+  injection: block             # injection in messages and in returned artifacts: block | warn
+  maskRequests: true           # mask personal data before it reaches an agent
+  maskResponses: false
+  pushAllowHosts: []           # private webhook receivers you run yourself, e.g. [hooks.internal]
+
+interceptors:
+  piiMasking:
+    enabled: true
+    preset: KVKK
+
+audit:
+  sink: file
+  filePath: ./guardbee-a2a-audit.jsonl

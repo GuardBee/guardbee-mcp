@@ -33,6 +33,7 @@ Claude ──► MCP Security Proxy ──► Any MCP Server
 - **Gateway mode** — several MCP servers behind one proxy, one YAML policy (allow / deny / mask / warn)
 - **Toxic-flow blocking** — tracks the lethal trifecta across servers and blocks the egress call that would complete it
 - **LLM API gateway** — OpenAI- and Anthropic-compatible endpoints: gateway keys instead of provider keys, PII masking and injection checks on prompts, token and spend budgets, usage and cost in the audit log
+- **A2A gateway** — Agent2Agent calls between agents go through the gateway: callers authenticate, injection in messages and artifacts is blocked, personal data is masked, push-notification webhooks into private networks are refused, and every call is audited
 - **Coding-agent hooks** — `guardbee-hook` applies the same policy to Claude Code's and Cursor's own shell, file and web tools
 - **Zero Code Changes** — attaches in front of any existing MCP server
 
@@ -603,6 +604,35 @@ An answer that cannot be masked (`maskResponses`, or a failure while putting tok
 In the MCP gateway a masking failure withholds the tool result: the client gets an MCP error (`InternalError`, `Result withheld: …`) with `data: { guardbee: "guardbee_masking_failed" }`, and no `tool_response` event is written.
 
 ---
+
+## A2A Gateway
+
+Multi-agent systems call each other over [A2A](https://a2a-protocol.org) (Agent2Agent). With an `a2a:` section the gateway sits between them. An agent calls `http://gateway:8787/a2a/<name>` instead of the other agent's own URL; clients that discover agents can start from `/a2a/<name>/.well-known/agent-card.json`. The card is served with its URL rewritten to point at the gateway and with the gateway's auth scheme.
+
+```yaml
+listen: { transport: http, host: 0.0.0.0, port: 8787, apiKeys: ["${GB_AGENT_KEY}"] }   # or listen.oidc
+upstreams: {}
+a2a:
+  agents:
+    research: { url: "http://research-agent.internal:9999/", headers: { authorization: "Bearer ${RESEARCH_AGENT_TOKEN}" } }
+    billing:  { url: "https://billing-agent.internal/a2a", allowGroups: [finance] }
+  injection: block        # or warn
+  maskRequests: true      # personal data masked before it reaches an agent
+  maskResponses: false
+  pushAllowHosts: []      # private webhook receivers you run yourself
+```
+
+What it enforces:
+
+| | |
+| --- | --- |
+| **Who may call** | Every caller authenticates with `listen.apiKeys` or `listen.oidc`; A2A has no open mode. Only configured agents can be reached, and `allowGroups` limits an agent to callers in those groups. Agent names are listed only to authenticated callers. The caller's token is never forwarded: the agent gets the `headers` configured for it. |
+| **Messages to an agent** | Checked for prompt injection: `block` refuses with a JSON-RPC error, `warn` logs it. Personal data in text and data parts is masked (`maskRequests`). |
+| **What agents send back** | Tasks, artifacts, status messages and history are checked for indirect injection. Streamed responses (`SendStreamingMessage`, `SubscribeToTask`) are checked event by event, and the stream ends with an error before a bad event is forwarded. |
+| **Push-notification webhooks** | The URL a remote agent will POST to is resolved. If it points at a link-local or metadata address (169.254.169.254), the request is always refused. Private and loopback addresses are refused unless the host is in `pushAllowHosts`. This applies to `CreateTaskPushNotificationConfig`, the 0.3 `tasks/pushNotificationConfig/set`, and the push config inside `SendMessage`. |
+| **Audit** | Every call is a `tool_call` / `tool_response` event (`tool: a2a.SendMessage`, `upstream: <agent>`, the caller as `user`), with masking counts in `piiHits`. Refusals are `blocked` events with `ruleId` `a2a:*`. The events reach the same sinks, SIEM exporters and OTel traces as MCP traffic. |
+
+It works with the JSON-RPC binding of A2A 1.0 (`SendMessage`, `GetTask`, …) and 0.3 (`message/send`, `tasks/get`, …). The REST and gRPC bindings are not proxied, and the rewritten card lists only the JSON-RPC interface. The original card's signatures do not cover the rewritten card, so they are removed. Static checks of agent cards and webhook configs are in [`@guardbee/mcp-a2a-auditor`](../mcp-a2a-auditor). Full example: [`examples/proxy/a2a.yaml`](../../examples/proxy/a2a.yaml).
 
 ## Coding-Agent Hooks
 

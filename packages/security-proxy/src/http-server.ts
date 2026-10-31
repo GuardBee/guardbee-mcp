@@ -14,6 +14,7 @@ import { approvalStateCodec, createGatewayServer, createProxyServer, gatewayAppr
 import { Gateway } from "./gateway/gateway.js";
 import type { PinStore } from "./gateway/pin-store.js";
 import { createLlmHandler, type LlmHandler } from "./llm/gateway.js";
+import { createA2aHandler, type A2aHandler } from "./a2a/gateway.js";
 import { createDirectory, withDirectoryGroups, type ClientFactory } from "./directory.js";
 
 type HttpListen = Extract<ListenConfig, { transport: "http" }>;
@@ -141,6 +142,9 @@ export async function startHttpGateway(
         ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
         ...(options.counters ? { budgets: new BudgetStore(Date.now, options.counters) } : {}),
       })
+    : null;
+  const a2a: A2aHandler | null = config.a2a
+    ? createA2aHandler({ a2a: config.a2a, audit, authenticate, ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}), ...(listen.oidc?.resource ? { publicUrl: new URL(listen.oidc.resource).origin } : {}) })
     : null;
 
   /** This gateway's public URL: configured, or from the request (behind a proxy, set oidc.resource). */
@@ -287,7 +291,8 @@ export async function startHttpGateway(
       if (await options.consent.handle(req, res, url, () => readText(req, 64 * 1024))) return;
     }
     if (llm && (await llm(req, res))) return;
-    if (path !== listen.path || (upstreams.length === 0 && config.llm)) {
+    if (a2a && (await a2a(req, res))) return;
+    if (path !== listen.path || (upstreams.length === 0 && (config.llm || config.a2a))) {
       jsonRpcError(res, 404, "Not found");
       return;
     }
