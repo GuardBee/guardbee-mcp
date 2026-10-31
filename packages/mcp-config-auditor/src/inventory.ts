@@ -40,6 +40,23 @@ const SECRET_FLAG = /^--?(?:api[-_]?key|token|access[-_]?token|secret|password|p
 const SECRET_ASSIGN = /^(--?[\w-]*(?:key|token|secret|password|passwd|auth)[\w-]*=|[A-Z][A-Z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD)[A-Z0-9_]*=)(.+)$/i;
 const REDACTED = "[redacted]";
 
+/** scheme://user:password@host → scheme://user:[redacted]@host, scanned without a backtracking regex. */
+function redactUrlPasswords(text: string): string {
+  let out = "";
+  let from = 0;
+  for (let at = text.indexOf("://"); at >= 0; at = text.indexOf("://", at + 3)) {
+    const authority = at + 3;
+    let end = authority;
+    while (end < text.length && !"/@ \t\n".includes(text[end]!)) end++;
+    if (text[end] !== "@") continue;
+    const colon = text.indexOf(":", authority);
+    if (colon < 0 || colon >= end || colon === authority) continue;
+    out += `${text.slice(from, colon + 1)}${REDACTED}`;
+    from = end;
+  }
+  return out + text.slice(from);
+}
+
 export function redactArgs(args: string[]): string[] {
   return args.map((arg, index) => {
     if (index > 0 && SECRET_FLAG.test(args[index - 1]!)) return REDACTED;
@@ -47,7 +64,7 @@ export function redactArgs(args: string[]): string[] {
     if (assign) return `${assign[1]}${REDACTED}`;
     if (looksLikeSecret(arg)) return REDACTED;
     // A connection string with a password
-    return arg.replace(/(\w+:\/\/[^:/@\s]+:)[^@/\s]+@/g, `$1${REDACTED}@`);
+    return redactUrlPasswords(arg);
   });
 }
 

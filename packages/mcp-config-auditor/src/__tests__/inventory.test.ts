@@ -180,7 +180,7 @@ describe("CLI discover", () => {
 
   it.runIf(require("fs").existsSync(bin))("works offline: a local report with no key and no network", () => {
     write(join(home, ".cursor", "mcp.json"), { mcpServers: { notes: { command: "npx", args: ["-y", "random-notes-mcp"] } } });
-    const env = { ...process.env, GUARDBEE_TELEMETRY: "0" };
+    const env: NodeJS.ProcessEnv = { ...process.env, GUARDBEE_TELEMETRY: "0" };
     delete env["GUARDBEE_API_KEY"];
     const out = execFileSync(process.execPath, [bin, "discover", `--home=${home}`, "--format=json", "--fail-on=none", "--no-user"], { env }).toString();
     expect((JSON.parse(out) as { inventory: { servers: unknown[] } }).inventory.servers).toHaveLength(1);

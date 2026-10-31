@@ -87,8 +87,9 @@ export function packageSpec(command: string | undefined, args: string[]): string
 }
 
 export function splitPackageSpec(spec: string): { name: string; version: string | null } {
-  const pinnedEq = spec.match(/^(.*)==([0-9][^"]*)$/);
-  if (pinnedEq) return { name: pinnedEq[1], version: pinnedEq[2] };
+  // name==1.2.3 (PyPI): split at the last "==" without a backtracking regex
+  const eq = spec.lastIndexOf("==");
+  if (eq > 0 && /^[0-9][^"]*$/.test(spec.slice(eq + 2))) return { name: spec.slice(0, eq), version: spec.slice(eq + 2) };
   if (spec.startsWith("@")) {
     const slash = spec.indexOf("/");
     if (slash === -1) return { name: spec, version: null };
