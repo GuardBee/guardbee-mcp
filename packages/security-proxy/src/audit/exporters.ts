@@ -143,6 +143,8 @@ export function toCef(event: AuditEvent, version: string): string {
     ["cs5", event.piiHits ? JSON.stringify(event.piiHits) : undefined],
     ["cs6Label", event.labels?.length ? "labels" : undefined],
     ["cs6", event.labels?.join(",")],
+    ["flexString1Label", event.judge ? "judgeModel" : undefined],
+    ["flexString1", event.judge ? `${event.judge.model}${event.judge.version ? `@${event.judge.version}` : ""}` : undefined],
     ["msg", event.reason],
     ["externalId", event.hash],
   ];

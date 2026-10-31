@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { startServer } from "./server.js";
 import { scanFile, scanDirectory } from "./scanner.js";
+import { Judge, judgeFromEnv, type JudgeConfig } from "@guardbee/guard-core";
+import { judgeFiles } from "./judge.js";
 import type { Finding } from "./scanner.js";
 import { buildSarif } from "./sarif.js";
 import { loadConfig, configFilePath } from "./config.js";
@@ -51,7 +53,19 @@ function parseArgs(args: string[]): {
   failOn: string;
   format: string;
   maxFiles: number;
+  judge?: JudgeConfig;
 } {
+  const judgeUrl = args.find((a) => a.startsWith("--judge-url="))?.slice("--judge-url=".length);
+  const judgeModel = args.find((a) => a.startsWith("--judge-model="))?.slice("--judge-model=".length);
+  const fromEnv = args.includes("--judge") ? judgeFromEnv() : undefined;
+  if (args.includes("--judge") && !fromEnv && !(judgeUrl && judgeModel)) {
+    console.error("--judge needs GUARDBEE_JUDGE_URL and GUARDBEE_JUDGE_MODEL (or --judge-url= and --judge-model=)");
+    process.exit(2);
+  }
+  const judge: JudgeConfig | undefined =
+    judgeUrl && judgeModel
+      ? { endpoint: judgeUrl, model: judgeModel, ...(args.includes("--judge-allow-remote") ? { allowRemote: true } : {}), ...(process.env["GUARDBEE_JUDGE_API_KEY"] ? { apiKey: process.env["GUARDBEE_JUDGE_API_KEY"] } : {}) }
+      : fromEnv;
   const positionals: string[] = [];
   let failOn = "any";
   let format = "text";
@@ -64,7 +78,7 @@ function parseArgs(args: string[]): {
     else if (!arg.startsWith("--")) positionals.push(arg);
   }
 
-  return { positionals, failOn, format, maxFiles };
+  return { positionals, failOn, format, maxFiles, ...(judge ? { judge } : {}) };
 }
 
 function shouldFail(findings: Finding[], failOn: string): boolean {
@@ -76,7 +90,7 @@ function shouldFail(findings: Finding[], failOn: string): boolean {
 }
 
 async function runCli(rawArgs: string[]): Promise<void> {
-  const { positionals, failOn: cliFail, format, maxFiles: cliMax } = parseArgs(rawArgs);
+  const { positionals, failOn: cliFail, format, maxFiles: cliMax, judge: judgeConfig } = parseArgs(rawArgs);
 
   const target = positionals[0];
   if (!target) {
@@ -105,17 +119,35 @@ async function runCli(rawArgs: string[]): Promise<void> {
   let scannedFiles: number;
   let durationMs: number;
 
+  let paths: string[];
   if (stat.isDirectory()) {
     const result = scanDirectory(target, { maxFiles, exclude: cfg.exclude });
     findings = result.findings;
     scannedFiles = result.scannedFiles;
     durationMs = result.durationMs;
+    paths = result.paths;
   } else {
     const start = Date.now();
     const result = scanFile(target);
     findings = result.findings;
     scannedFiles = result.skipped ? 0 : 1;
     durationMs = Date.now() - start;
+    paths = result.skipped ? [] : [target];
+  }
+
+  if (judgeConfig) {
+    let judge: Judge;
+    try {
+      judge = new Judge(judgeConfig);
+    } catch (err) {
+      console.error(err instanceof Error ? err.message : String(err));
+      process.exit(2);
+    }
+    const start = Date.now();
+    let failures = 0;
+    findings = [...findings, ...(await judgeFiles(paths, judge, { onError: () => failures++ }))];
+    durationMs += Date.now() - start;
+    if (format === "text") process.stderr.write(`[guardbee] judge ${judgeConfig.model}: content checked${failures ? `, ${failures} chunk(s) failed` : ""}\n`);
   }
 
   if (format === "json") {
@@ -142,6 +174,9 @@ Options:
   --fail-on=<level>   Exit 1 if issues at this severity or above are found
                       Levels: any (default) | critical | high | medium | low | none
   --format=<fmt>      Output format: text (default) | json | sarif
+  --judge             Also ask an LLM judge for paraphrased or translated injections the patterns miss
+                      (GUARDBEE_JUDGE_URL + GUARDBEE_JUDGE_MODEL, e.g. http://127.0.0.1:11434/v1 and qwen2.5:7b)
+  --judge-url=<url> --judge-model=<m>   The same, as flags; a non-local URL also needs --judge-allow-remote
   --max-files=<n>     Max files to scan (default: 5000)
 
 Exit codes:

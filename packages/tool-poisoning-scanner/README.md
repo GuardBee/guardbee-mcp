@@ -110,6 +110,21 @@ tool-poisoning-scanner:
 
 ---
 
+## LLM judge (optional)
+
+The sink rules see a shell, eval, file write or environment dump. They do not see a "read-only" tool that posts its arguments to a third party, or a description that is merely vague about a destructive handler. `--judge` asks a model about every tool. The model gets the name, description, `readOnlyHint` and handler code, and lists what the code does that the description does not say, quoting the code for each behavior.
+
+```bash
+ollama pull qwen2.5:7b
+GUARDBEE_JUDGE_URL=http://127.0.0.1:11434/v1 GUARDBEE_JUDGE_MODEL=qwen2.5:7b \
+  npx @guardbee/mcp-tool-poisoning-scanner scan ./src --judge
+```
+
+- **Off unless asked, local by default.** The handler code goes to the endpoint, so a non-local one needs `--judge-allow-remote` (or `GUARDBEE_JUDGE_ALLOW_REMOTE=1`) and https.
+- **Grounded.** Each behavior the model reports must come with a quote that really is in the handler, or it is dropped. So is a behavior the description already states (an API it names, a file it says it writes, a command it says it runs).
+- **Adds, never removes.** Findings are `judge_description_behavior_mismatch` (MCP03, `high` for exfiltration, credentials, process or code execution and file writes). They carry `judge: { model, version, confidence }`, also in SARIF `properties`. A verdict below 0.7 confidence is not reported.
+- On GuardBee's [judge benchmark](../../bench/judge/README.md), the sink rules find 3 of 8 misleading tools. `qwen2.5:7b` finds 7 with no false positives; `qwen2.5:3b` finds 7 with 2 false positives.
+
 ## Limitations (by design)
 
 - **Scope**: TypeScript/JavaScript (`server.tool(...)` and `server.registerTool(...)`), Python (`@mcp.tool()` decorators and the low-level `Tool(...)` + `@server.call_tool()` form) and Go (official go-sdk, mark3labs/mcp-go). The language comes from the file extension (`scan_text` takes a `language`). The TypeScript `setRequestHandler(ListToolsRequestSchema, ...)` style (a raw array of `{name, description, inputSchema}` objects) isn't covered yet, nor are Rust, Java, Kotlin, C# or other languages.

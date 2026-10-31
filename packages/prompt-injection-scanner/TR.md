@@ -91,6 +91,10 @@ Bunlar **heuristic** bulgulardır — anlam/niyet analizi değil, statik metin k
 
 ---
 
+## LLM hakem (isteğe bağlı)
+
+Kalıplar saldırı ifadelerini tanır; başka sözcüklerle, dolaylı ya da çevrilmiş bir talimat onlardan kaçar. `--judge` her dosyayı parça parça bir modele de okutur ve bir ajana yönelik talimatları `judge_semantic_injection` (high) olarak bildirir; bulgu `judge: { model, version, confidence }` taşır, SARIF'te de yer alır. Hakem yalnızca bulgu ekler. `GUARDBEE_JUDGE_URL` / `GUARDBEE_JUDGE_MODEL` (örn. Ollama ve `qwen2.5:7b`) ile açılır; içerik uç noktaya gittiği için yerel olmayan bir uç nokta `--judge-allow-remote` ve https ister. [Benchmark](../../bench/judge/README.md): kalıplar 50 İngilizce ve Türkçe örnekteki saldırıların %16'sını, `qwen2.5:7b` tamamını yanlış pozitifsiz yakalar.
+
 ## Yapılandırma (`guardbee.yml`)
 
 ```yaml

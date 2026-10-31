@@ -14,6 +14,8 @@ export interface Finding {
   /** Eşleşen metin parçası — bir secret değil bir kalıp olduğu için redakte edilmez. */
   match: string;
   context: string;
+  /** Set on findings made by the LLM judge (--judge): the model that judged, and how sure it was. */
+  judge?: { model: string; version?: string; confidence: number };
 }
 
 export interface ScanResult {
@@ -22,6 +24,8 @@ export interface ScanResult {
   totalFindings: number;
   findings: Finding[];
   durationMs: number;
+  /** The files that were scanned. */
+  paths: string[];
 }
 
 const SKIP_EXTENSIONS = new Set([
@@ -113,6 +117,7 @@ export function scanDirectory(
     throw new Error(`maxFiles must be a positive integer (got ${String(maxFiles)})`);
   }
   const allFindings: Finding[] = [];
+  const paths: string[] = [];
   let scannedFiles = 0;
   let skippedFiles = 0;
 
@@ -149,6 +154,7 @@ export function scanDirectory(
           skippedFiles++;
         } else {
           scannedFiles++;
+          paths.push(fullPath);
           allFindings.push(...findings);
         }
       }
@@ -160,6 +166,7 @@ export function scanDirectory(
   return {
     scannedFiles,
     skippedFiles,
+    paths,
     totalFindings: allFindings.length,
     findings: allFindings,
     durationMs: Date.now() - start,

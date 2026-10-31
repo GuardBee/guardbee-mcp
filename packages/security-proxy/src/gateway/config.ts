@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
-import { checkTopicReferences, policyShape, type TopicDefinition } from "@guardbee/guard-core";
+import { checkTopicReferences, judgeConfigIssue, policyShape, type TopicDefinition } from "@guardbee/guard-core";
 import { loadProxyConfig } from "../config.js";
 import os from "os";
 import type { AuditConfig, McpServerConfig, ProxyConfig, UpstreamConfig, UpstreamNetworkConfig, UpstreamProtocol } from "../types.js";
@@ -93,6 +93,21 @@ export interface GatewayConfig {
   provenance: ProvenanceConfig;
   /** Shared counters (quotas, LLM budgets) in Redis; absent → in this process. */
   state?: StateConfig;
+  /** LLM judge for borderline injection findings; absent → off. */
+  judge?: GatewayJudgeConfig;
+}
+
+export interface GatewayJudgeConfig {
+  endpoint: string;
+  model: string;
+  apiKey?: string;
+  allowRemote: boolean;
+  budgetMs: number;
+  onError: "open" | "closed";
+  minConfidence: number;
+  mayClear: boolean;
+  scope: "borderline" | "results";
+  cacheSize: number;
 }
 
 export interface StateConfig {
@@ -396,6 +411,32 @@ const yamlSchema = z
       .optional(),
     /** This file also (or only) serves guardbee-hook, the policy for coding agents' own tools. */
     hooks: z.object({}).strict().optional(),
+    /**
+     * An LLM judge for borderline injection findings (warn level): a second
+     * opinion that can raise one to a block, and clear one only with mayClear.
+     * Off unless configured; a non-local endpoint needs allowRemote.
+     */
+    judge: z
+      .object({
+        endpoint: httpUrl,
+        model: z.string().min(1),
+        apiKey: z.string().optional(),
+        allowRemote: z.boolean().default(false),
+        /** Time the judge may add to a call, in ms; past it the finding stays as the rules made it (onError). */
+        budgetMs: z.number().int().positive().max(60_000).default(500),
+        onError: z.enum(["open", "closed"]).default("open"),
+        minConfidence: z.number().min(0).max(1).default(0.7),
+        mayClear: z.boolean().default(false),
+        /** borderline: only what the rules warned about; results: also every tool result the rules let through (one judge call each). */
+        scope: z.enum(["borderline", "results"]).default("borderline"),
+        cacheSize: z.number().int().min(0).max(100_000).default(1000),
+      })
+      .strict()
+      .superRefine((judge, ctx) => {
+        const issue = judgeConfigIssue({ endpoint: judge.endpoint, model: judge.model, allowRemote: judge.allowRemote });
+        if (issue) ctx.addIssue({ code: "custom", path: ["endpoint"], message: issue });
+      })
+      .optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
@@ -542,6 +583,7 @@ export function parseGatewayYaml(source: string, fileLabel = "guardbee-proxy.yam
     ...(cfg.pins ? { pins: cfg.pins } : {}),
     provenance: cfg.provenance ?? { mode: "warn", offline: false },
     ...(cfg.state && cfg.state.backend === "redis" ? { state: { ...cfg.state, url: interpolate(cfg.state.url!, "state.url") } } : {}),
+    ...(cfg.judge ? { judge: { ...cfg.judge, ...(cfg.judge.apiKey ? { apiKey: interpolate(cfg.judge.apiKey, "judge.apiKey") } : {}) } } : {}),
   };
 }
 

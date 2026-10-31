@@ -38,6 +38,7 @@ import { orgPatternsFor, piiScopesFor, type PiiScopes } from "./pii-scope.js";
 import { AnomalyDetector, type AnomalyConfig } from "./anomaly.js";
 import { ApprovalRequired, approvalKey, type ApprovalRequest, type Approver, type DeferredApprovals } from "./approval.js";
 import type { GatewayConfig } from "./config.js";
+import { judgeFor, secondOpinion } from "./judge.js";
 import { maskFields } from "./fields.js";
 import { labelTool, type Label } from "./labels.js";
 import { DataFingerprints } from "./fingerprints.js";
@@ -654,9 +655,16 @@ export class Gateway {
 
     // 1. Prompt injection in the arguments
     if (this.interceptors.promptInjection?.enabled !== false) {
-      const scan = scanForPromptInjection(args, this.interceptors.promptInjection?.action ?? "block");
+      const mode = this.interceptors.promptInjection?.action ?? "block";
+      const scan = scanForPromptInjection(args, mode);
       if (scan.action === "block") return block(scan.reason);
-      if (scan.action === "warn") this.log({ ...base, type: "warn", input: args, reason: scan.reason });
+      if (scan.action === "warn") {
+        // Borderline: the judge (when configured) gives a second opinion
+        const judge = judgeFor(this.config.judge);
+        const second = judge ? await secondOpinion(this.config.judge!, judge, args, "tool argument", scan.reason, mode) : undefined;
+        if (second?.action === "block") return block(second.reason, { ruleId: "judge:injection", judge: second.judge });
+        this.log({ ...base, type: "warn", input: args, reason: second?.reason ?? scan.reason, ...(second ? { judge: second.judge } : {}) });
+      }
     }
 
     // 1b. A definition that changed since it was approved (persistent pins)
@@ -795,9 +803,20 @@ export class Gateway {
     // 7. Indirect injection in the result (text and structured)
     let content = result.content;
     if (this.interceptors.toolResultInjection?.enabled !== false) {
-      const scan = scanToolResult([content, result.structuredContent ?? null], this.resultAction);
+      let scan = scanToolResult([content, result.structuredContent ?? null], this.resultAction);
+      let judged: AuditEvent["judge"];
+      // Borderline (the rules warned), or with judge.scope: results every result the rules let through
+      const judge = scan.action === "warn" || (scan.action === "allow" && this.config.judge?.scope === "results") ? judgeFor(this.config.judge) : undefined;
+      if (judge && scan.action !== "block") {
+        const ruleReason = scan.action === "warn" ? scan.reason : "Indirect prompt injection in tool result (MCP06:2025): no rule matched";
+        const second = await secondOpinion(this.config.judge!, judge, [content, result.structuredContent ?? null], "tool result", ruleReason, this.resultAction, scan.action);
+        judged = second.judge;
+        // A borderline finding the judge cleared (mayClear) stays on record
+        if (second.action === "allow" && scan.action === "warn") this.log({ ...base, type: "warn", output: content, reason: second.reason, judge: second.judge });
+        scan = second.action === "allow" ? { action: "allow" } : { action: second.action, reason: second.reason };
+      }
       if (scan.action === "block") {
-        this.log({ ...base, type: "blocked", output: content, reason: scan.reason });
+        this.log({ ...base, type: "blocked", output: content, reason: scan.reason, ...(judged ? { ruleId: "judge:injection", judge: judged } : {}) });
         countRefusal();
         void recordEvent({
           server: "security-proxy",
@@ -810,7 +829,7 @@ export class Gateway {
         return errorResult(`Tool result blocked: ${scan.reason}`);
       }
       if (scan.action === "warn") {
-        this.log({ ...base, type: "warn", output: content, reason: scan.reason });
+        this.log({ ...base, type: "warn", output: content, reason: scan.reason, ...(judged ? { judge: judged } : {}) });
         content = [{ type: "text", text: `${PREFIX} Warning: ${scan.reason}` }, ...content];
       }
     }

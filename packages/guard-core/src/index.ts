@@ -49,3 +49,5 @@ export { CAPABILITY_TITLES, COMPLIANCE_FRAMEWORKS, COMPLIANCE_FRAMEWORK_IDS, COM
 export type { ComplianceCapability, ComplianceControl, ComplianceFramework, ComplianceFrameworkId } from "./compliance.js";
 export { DEFAULT_MCP_INDEX_URL, MCP_GRADES, gradeBelow, imageRepository, isMcpGrade, loadMcpIndex, lookupMcpGrade } from "./mcp-index.js";
 export type { LoadMcpIndexOptions, LoadedMcpIndex, McpGrade, McpIndex, McpIndexEntry, McpIndexMatch, McpIndexPackage, McpIndexReason } from "./mcp-index.js";
+export { Judge, JudgeError, judgeConfigIssue, judgeFromEnv } from "./judge.js";
+export type { AlignmentBehavior, AlignmentJudgement, InjectionJudgement, JudgeConfig, JudgeModel, JudgeVerdict } from "./judge.js";
