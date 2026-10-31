@@ -1,0 +1,20 @@
+{
+  "name": "@guardbee/mcp-bench",
+  "version": "0.0.0",
+  "private": true,
+  "description": "MCP Security Benchmark: a public labeled dataset of poisoned and benign tool definitions, injected and benign tool results, toxic and safe tool catalogs, and rug-pull sequences, with a harness that scores GuardBee and third-party scanners (precision/recall/F1 with bootstrap 95% intervals, latency)",
+  "type": "module",
+  "scripts": {
+    "bench": "tsx src/run.ts",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@guardbee/guard-core": "workspace:^",
+    "@guardbee/mcp-toxic-flow-auditor": "workspace:^"
+  },
+  "devDependencies": {
+    "mcp-guardian": "2.4.0"
+  },
+  "license": "MIT"
+}

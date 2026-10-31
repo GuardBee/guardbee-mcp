@@ -1,0 +1,7 @@
+The MCP Security Benchmark dataset (the .jsonl files in this directory) is licensed under the
+Creative Commons Attribution 4.0 International License (CC BY 4.0):
+https://creativecommons.org/licenses/by/4.0/
+
+Attribution: "GuardBee MCP Security Benchmark" (https://github.com/GuardBee/guardbee-mcp/tree/main/packages/mcp-bench).
+
+All hosts, accounts and identifiers in it are made up; it contains no real secrets or personal data.
