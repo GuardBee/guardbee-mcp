@@ -1,0 +1,28 @@
+{
+  "name": "@guardbee/mcp-index",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Builds the GuardBee MCP Index: A–F trust grades for every server in the official MCP Registry (static scan, known vulnerabilities and malware, build provenance, maintenance)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "crawl": "node dist/cli.js crawl"
+  },
+  "dependencies": {
+    "@guardbee/guard-core": "workspace:^",
+    "@guardbee/mcp-oauth-auditor": "workspace:^",
+    "@guardbee/mcp-secret-scanner": "workspace:^",
+    "@guardbee/mcp-server-auditor": "workspace:^",
+    "@guardbee/mcp-tool-poisoning-scanner": "workspace:^",
+    "@sigstore/bundle": "^4.0.0",
+    "@sigstore/tuf": "^4.0.2",
+    "@sigstore/verify": "^3.1.1"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.9.0"
+  }
+}

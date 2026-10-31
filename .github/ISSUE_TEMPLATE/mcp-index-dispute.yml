@@ -1,0 +1,33 @@
+name: MCP Index — dispute a grade or opt out
+description: You maintain a server in the GuardBee MCP Index and think its grade is wrong, or want it left out.
+title: "[mcp-index] "
+labels: ["mcp-index"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Grades are made by the rules in [RUBRIC.md](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/mcp-index/RUBRIC.md). We answer disputes within 7 days. A wrong finding is fixed in the scanner, so every server gains from it; a grade is not changed by hand.
+  - type: input
+    id: server
+    attributes:
+      label: Registry name
+      description: As in the official MCP Registry, e.g. io.github.owner/server
+    validations:
+      required: true
+  - type: dropdown
+    id: request
+    attributes:
+      label: Request
+      options:
+        - A finding is wrong (false positive)
+        - Something is out of date (new version, fixed vulnerability)
+        - Leave my server out of the index (opt out)
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: Which reason in the grade, and why it does not apply. For an opt-out, say how you can be verified as a maintainer (a comment from the repository owner's account, or a commit to the repository).
+    validations:
+      required: true

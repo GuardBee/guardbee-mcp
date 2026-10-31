@@ -6,7 +6,10 @@ import { configFilePath, loadConfig } from "./config.js";
 import { buildSarif } from "./sarif.js";
 import { discoverHostMcp, loadAllowlistFile, scanConfigFile, scanDirectory, scanInventory } from "./scanner.js";
 import { buildInventory, uploadInventory } from "./inventory.js";
-import type { ConfigFinding, InventoryServer } from "./types.js";
+import { isMcpGrade, type McpGrade } from "@guardbee/guard-core";
+import { formatGrades, gradeFindings, gradeServer, loadIndexForGrades, type ServerGrade } from "./grades.js";
+import { parseMcpConfig } from "./parseConfig.js";
+import type { ConfigFinding, InventoryServer, ParsedServer } from "./types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -62,8 +65,16 @@ function parseArgs(args: string[]): {
   upload: boolean;
   uploadUrl?: string;
   includeUser: boolean;
+  grades: boolean;
+  minGrade?: McpGrade;
+  indexUrl?: string;
+  offline: boolean;
 } {
   const positionals: string[] = [];
+  let grades = false;
+  let minGrade: McpGrade | undefined;
+  let indexUrl: string | undefined;
+  let offline = false;
   let failOn = "any";
   let format = "text";
   let maxFiles = 5000;
@@ -85,20 +96,64 @@ function parseArgs(args: string[]): {
       upload = true;
       uploadUrl = arg.slice("--upload-url=".length);
     } else if (arg === "--no-user") includeUser = false;
+    else if (arg === "--grades") grades = true;
+    else if (arg.startsWith("--min-grade=")) {
+      const value = arg.slice("--min-grade=".length).toUpperCase();
+      if (!isMcpGrade(value)) {
+        console.error(`--min-grade takes A, B, C, D or F (got ${value})`);
+        process.exit(2);
+      }
+      minGrade = value;
+      grades = true;
+    } else if (arg.startsWith("--index-url=")) indexUrl = arg.slice("--index-url=".length);
+    else if (arg === "--offline") offline = true;
     else if (!arg.startsWith("--")) positionals.push(arg);
   }
-  return { positionals, failOn, format, maxFiles, allowlist, home, includeContentAudit, upload, ...(uploadUrl ? { uploadUrl } : {}), includeUser };
+  return {
+    positionals,
+    failOn,
+    format,
+    maxFiles,
+    allowlist,
+    home,
+    includeContentAudit,
+    upload,
+    ...(uploadUrl ? { uploadUrl } : {}),
+    includeUser,
+    grades,
+    ...(minGrade ? { minGrade } : {}),
+    ...(indexUrl ? { indexUrl } : {}),
+    offline,
+  };
 }
 
-function emit(findings: ConfigFinding[], scannedFiles: number, durationMs: number, format: string, failOn: string): void {
-  if (format === "json") console.log(JSON.stringify({ findings, scannedFiles, durationMs }, null, 2));
+type GradeArgs = Pick<ReturnType<typeof parseArgs>, "grades" | "minGrade" | "indexUrl" | "offline">;
+
+/** MCP Index grades for these servers (when --grades / --min-grade): printed in text mode, findings below the minimum. */
+async function gradeStep(servers: Array<{ server: ParsedServer; file?: string }>, args: GradeArgs, format: string): Promise<{ grades: ServerGrade[]; findings: ConfigFinding[] }> {
+  if (!args.grades) return { grades: [], findings: [] };
+  let index;
+  try {
+    index = await loadIndexForGrades({ ...(args.indexUrl ? { url: args.indexUrl } : {}), offline: args.offline });
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : String(err));
+    process.exit(2);
+  }
+  const grades = servers.map(({ server, file }) => gradeServer(index, server, file));
+  if (format === "text") console.log(`${formatGrades(grades)}\n`);
+  return { grades, findings: args.minGrade ? gradeFindings(grades, args.minGrade) : [] };
+}
+
+function emit(findings: ConfigFinding[], scannedFiles: number, durationMs: number, format: string, failOn: string, grades?: ServerGrade[]): void {
+  if (format === "json") console.log(JSON.stringify({ findings, scannedFiles, durationMs, ...(grades?.length ? { grades } : {}) }, null, 2));
   else if (format === "sarif") console.log(JSON.stringify(buildSarif(getVersion(), findings), null, 2));
   else printText(findings, scannedFiles, durationMs);
   process.exit(shouldFail(findings, failOn) ? 1 : 0);
 }
 
 async function runScan(rawArgs: string[]): Promise<void> {
-  const { positionals, failOn: cliFail, format, maxFiles: cliMax } = parseArgs(rawArgs);
+  const parsedArgs = parseArgs(rawArgs);
+  const { positionals, failOn: cliFail, format, maxFiles: cliMax } = parsedArgs;
   const target = positionals[0];
   if (!target) {
     console.error("Usage: guardbee-mcp-config-auditor scan <file-or-dir> [--fail-on=any] [--format=text|json|sarif]");
@@ -120,13 +175,15 @@ async function runScan(rawArgs: string[]): Promise<void> {
   }
 
   if (stat.isDirectory()) {
+    if (parsedArgs.grades) console.error("--grades / --min-grade apply to a config file or to discover, not to a directory scan");
     const result = scanDirectory(target, { maxFiles: cfg.maxFiles, exclude: cfg.exclude });
     emit(result.findings, result.scannedFiles, result.durationMs, format, cfg.failOn);
     return;
   }
   const start = Date.now();
   const result = scanConfigFile(target);
-  emit(result.findings, result.skipped ? 0 : 1, Date.now() - start, format, cfg.failOn);
+  const graded = await gradeStep(parseMcpConfig(readFileSync(target, "utf8")).servers.map((server) => ({ server, file: target })), parsedArgs, format);
+  emit([...result.findings, ...graded.findings], result.skipped ? 0 : 1, Date.now() - start, format, cfg.failOn, graded.grades);
 }
 
 function runInventory(rawArgs: string[]): void {
@@ -155,7 +212,8 @@ function runInventory(rawArgs: string[]): void {
 }
 
 async function runDiscover(rawArgs: string[]): Promise<void> {
-  const { failOn, format, allowlist: allowlistPath, home, includeContentAudit, upload, uploadUrl, includeUser } = parseArgs(rawArgs);
+  const parsedArgs = parseArgs(rawArgs);
+  const { failOn, format, allowlist: allowlistPath, home, includeContentAudit, upload, uploadUrl, includeUser } = parsedArgs;
   let allowlist = null;
   if (allowlistPath) {
     try {
@@ -180,19 +238,25 @@ async function runDiscover(rawArgs: string[]): Promise<void> {
     if (!sent.ok) process.exitCode = 2;
   }
 
+  if (format === "text") console.log(`Discovered ${result.scannedFiles} config(s); ${result.missingPaths} well-known path(s) absent.`);
+  const graded = await gradeStep(
+    result.discovered.flatMap((d) => d.servers.map((server) => ({ server, file: d.path }))),
+    parsedArgs,
+    format,
+  );
+  const findings = [...result.findings, ...graded.findings];
   if (format === "json") {
     console.log(
       JSON.stringify(
-        { findings: result.findings, scannedFiles: result.scannedFiles, missingPaths: result.missingPaths, durationMs: result.durationMs, inventory },
+        { findings, scannedFiles: result.scannedFiles, missingPaths: result.missingPaths, durationMs: result.durationMs, inventory, ...(parsedArgs.grades ? { grades: graded.grades } : {}) },
         null,
         2
       )
     );
-    process.exit(process.exitCode ?? (shouldFail(result.findings, failOn) ? 1 : 0));
+    process.exit(process.exitCode ?? (shouldFail(findings, failOn) ? 1 : 0));
     return;
   }
   if (format === "text") {
-    console.log(`Discovered ${result.scannedFiles} config(s); ${result.missingPaths} well-known path(s) absent.`);
     for (const server of inventory.servers) {
       const what = server.package ? `${server.package.name}@${server.package.version ?? "latest"}` : (server.url ?? server.command ?? "?");
       const env = server.envKeys.length ? ` env: ${server.envKeys.join(", ")}` : "";
@@ -200,7 +264,7 @@ async function runDiscover(rawArgs: string[]): Promise<void> {
     }
     console.log("");
   }
-  emit(result.findings, result.scannedFiles, result.durationMs, format, failOn);
+  emit(findings, result.scannedFiles, result.durationMs, format, failOn);
 }
 
 function printHelp(): void {
@@ -231,6 +295,11 @@ Options:
   --upload            Send the inventory to the GuardBee dashboard (GUARDBEE_API_KEY, scope gateway.write)
   --upload-url=<url>  Another dashboard endpoint (implies --upload)
   --no-user           Leave the OS user name out of the inventory
+  --grades            Show each server's GuardBee MCP Index grade (scan <file>, discover); downloads the
+                      whole index (cached a day), so no server name leaves the machine
+  --min-grade=<A-F>   Also report servers graded below this (implies --grades)
+  --index-url=<url>   Another index (default https://guardbee.github.io/guardbee-mcp/index/v1.json)
+  --offline           Use the cached index only
 `);
 }
 

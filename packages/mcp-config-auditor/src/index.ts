@@ -19,3 +19,5 @@ export { buildInventory, uploadInventory, redactArgs, sanitizeUrl, DEFAULT_UPLOA
 export type { InventoryEntry, InventoryReport } from "./inventory.js";
 export { parseHostConfig, stripJsonc } from "./discover.js";
 export { registerTools } from "./server.js";
+export { formatGrades, gradeFindings, gradeServer, loadIndexForGrades } from "./grades.js";
+export type { ServerGrade } from "./grades.js";
