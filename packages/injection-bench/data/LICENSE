@@ -1,0 +1,28 @@
+Turkish + English Prompt-Injection Benchmark — data licensing
+
+The files en.jsonl and tr.jsonl combine material under different licenses. Each row's `source` field says
+which applies to it.
+
+- source "hand-written": written for this benchmark by the GuardBee team.
+  License: Creative Commons Attribution 4.0 International (CC BY 4.0), https://creativecommons.org/licenses/by/4.0/
+  Attribution: "GuardBee Prompt-Injection Benchmark" (https://github.com/GuardBee/guardbee-mcp/tree/main/packages/injection-bench).
+
+- source "Lakera/gandalf_ignore_instructions": https://huggingface.co/datasets/Lakera/gandalf_ignore_instructions
+  License: MIT. Copyright (c) Lakera AI.
+
+- source "deepset/prompt-injections": https://huggingface.co/datasets/deepset/prompt-injections
+  License: Apache License 2.0. Copyright deepset GmbH.
+
+- source "jackhhao/jailbreak-classification": https://huggingface.co/datasets/jackhhao/jailbreak-classification
+  License: Apache License 2.0.
+
+- source "OpenAssistant/oasst2": https://huggingface.co/datasets/OpenAssistant/oasst2
+  License: Apache License 2.0. Copyright LAION / OpenAssistant contributors.
+
+Rows with a `translation` field are machine translations into Turkish of rows from the sources above. They were
+made with Helsinki-NLP/opus-mt-tc-big-en-tr (CC BY 4.0, https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-tr) and
+remain under the license of their source. Changes from the originals: whitespace normalized, the English text
+translated, de-duplicated, and labels mapped to attack/benign as described in the README.
+
+The compilation (selection, labels, splits, technique tags) is CC BY 4.0. No row is meant to contain real
+credentials or personal data; the tests check that none passes the identifier checksums.

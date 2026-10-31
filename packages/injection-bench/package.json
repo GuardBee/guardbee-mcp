@@ -1,0 +1,20 @@
+{
+  "name": "@guardbee/injection-bench",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Turkish + English prompt-injection and jailbreak benchmark: a public labeled dataset (1000+ samples per language) and a harness that scores GuardBee and third-party detectors (precision/recall/F1 with bootstrap 95% intervals, latency)",
+  "type": "module",
+  "scripts": {
+    "bench": "tsx src/run.ts",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@guardbee/guard-core": "workspace:^"
+  },
+  "devDependencies": {
+    "@huggingface/tokenizers": "^0.2.0",
+    "onnxruntime-node": "^1.30.0"
+  },
+  "license": "MIT"
+}

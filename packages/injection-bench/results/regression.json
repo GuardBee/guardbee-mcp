@@ -1,0 +1,26 @@
+{
+  "GuardBee rules (block)": {
+    "en": {
+      "f1": 0.2107,
+      "recall": 0.1179,
+      "precision": 0.9872
+    },
+    "tr": {
+      "f1": 0.2899,
+      "recall": 0.1701,
+      "precision": 0.98
+    }
+  },
+  "GuardBee rules (block or warn)": {
+    "en": {
+      "f1": 0.4084,
+      "recall": 0.268,
+      "precision": 0.8578
+    },
+    "tr": {
+      "f1": 0.3164,
+      "recall": 0.1892,
+      "precision": 0.9646
+    }
+  }
+}
