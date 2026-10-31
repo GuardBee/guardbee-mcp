@@ -10,7 +10,7 @@
 # In a container the proxy must listen on 0.0.0.0, and the config refuses that
 # without listen.apiKeys — see README "Remote mode".
 # Pinned by digest; Dependabot (docker ecosystem) proposes updates
-FROM node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+FROM node:25-alpine@sha256:bdf2cca6fe3dabd014ea60163eca3f0f7015fbd5c7ee1b0e9ccb4ced6eb02ef4
 
 ARG VERSION=1
 LABEL org.opencontainers.image.title="GuardBee MCP security proxy" \
