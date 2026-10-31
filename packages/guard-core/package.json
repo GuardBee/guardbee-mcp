@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/guard-core",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "PII masking and prompt injection detection library: checksum-validated Turkish and international identifiers, KVKK special categories, secrets, and lethal-trifecta tool classification",
   "type": "module",
   "main": "./dist/index.js",
