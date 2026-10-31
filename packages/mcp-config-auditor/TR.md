@@ -65,6 +65,9 @@ Dizin taraması `mcp.json`, `mcp_config.json`, `claude_desktop_config.json` ve `
 GUARDBEE_API_KEY=gb_… npx @guardbee/mcp-config-auditor discover --allowlist=./mcp-allowlist.json --upload --fail-on=none
 ```
 
+
+**Filo genelinde:** [FLEET.md](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/mcp-config-auditor/FLEET.md) Jamf, Intune, systemd ve CI tarifleri içerir. `--allowlist-from-dashboard` yöneticilerin dashboard'da yönettiği kurum allowlist'ine göre kontrol eder (`--allowlist` ile birlikte verilirse birleştirilir). `--grades` yüklenen envantere MCP Index notlarını ekler. Dashboard makineler × sunucular görünümünde onay durumunu, ilk görülmeyi, önceki taramadan beri değişenleri ve CSV dışa aktarımını sunar.
+
 ## Geri bildirim
 
 Sorunuz, öneriniz ya da yanlış bir alarm mı var? [GitHub Discussions](https://github.com/GuardBee/guardbee-mcp/discussions)'ta bir konu açın veya [issue oluşturun](https://github.com/GuardBee/guardbee-mcp/issues). GuardBee işinize yaradıysa [repoya](https://github.com/GuardBee/guardbee-mcp) bir ⭐ başkalarının da bulmasına yardım eder.

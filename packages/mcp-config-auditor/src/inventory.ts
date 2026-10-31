@@ -24,6 +24,8 @@ export interface InventoryEntry {
   autoApprove: boolean;
   /** patternIds of the discovery findings for this server in this file. */
   findings: string[];
+  /** GuardBee MCP Index grade (with --grades); null when the server has none. */
+  grade?: string | null;
 }
 
 export interface InventoryReport {
@@ -38,6 +40,23 @@ const SECRET_FLAG = /^--?(?:api[-_]?key|token|access[-_]?token|secret|password|p
 const SECRET_ASSIGN = /^(--?[\w-]*(?:key|token|secret|password|passwd|auth)[\w-]*=|[A-Z][A-Z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD)[A-Z0-9_]*=)(.+)$/i;
 const REDACTED = "[redacted]";
 
+/** scheme://user:password@host → scheme://user:[redacted]@host, scanned without a backtracking regex. */
+function redactUrlPasswords(text: string): string {
+  let out = "";
+  let from = 0;
+  for (let at = text.indexOf("://"); at >= 0; at = text.indexOf("://", at + 3)) {
+    const authority = at + 3;
+    let end = authority;
+    while (end < text.length && !"/@ \t\n".includes(text[end]!)) end++;
+    if (text[end] !== "@") continue;
+    const colon = text.indexOf(":", authority);
+    if (colon < 0 || colon >= end || colon === authority) continue;
+    out += `${text.slice(from, colon + 1)}${REDACTED}`;
+    from = end;
+  }
+  return out + text.slice(from);
+}
+
 export function redactArgs(args: string[]): string[] {
   return args.map((arg, index) => {
     if (index > 0 && SECRET_FLAG.test(args[index - 1]!)) return REDACTED;
@@ -45,7 +64,7 @@ export function redactArgs(args: string[]): string[] {
     if (assign) return `${assign[1]}${REDACTED}`;
     if (looksLikeSecret(arg)) return REDACTED;
     // A connection string with a password
-    return arg.replace(/(\w+:\/\/[^:/@\s]+:)[^@/\s]+@/g, `$1${REDACTED}@`);
+    return redactUrlPasswords(arg);
   });
 }
 
@@ -63,7 +82,11 @@ export function sanitizeUrl(raw: string): string {
   }
 }
 
-function entryFor(client: string, configPath: string, server: ParsedServer, findings: ConfigFinding[]): InventoryEntry {
+/** Key of a server in a config file, for the grade map. */
+export const inventoryKey = (configPath: string, name: string) => `${configPath}\u0000${name}`;
+
+function entryFor(client: string, configPath: string, server: ParsedServer, findings: ConfigFinding[], grades?: Map<string, string | null>): InventoryEntry {
+  const grade = grades?.get(inventoryKey(configPath, server.name));
   const spec = packageSpec(server.command, server.args);
   const pkg = spec ? splitPackageSpec(spec) : null;
   return {
@@ -79,11 +102,12 @@ function entryFor(client: string, configPath: string, server: ParsedServer, find
     headerKeys: Object.keys(server.headers).sort(),
     autoApprove: Array.isArray(server.autoApprove) ? server.autoApprove.length > 0 : Boolean(server.autoApprove),
     findings: [...new Set(findings.filter((f) => f.server === server.name && f.file === configPath).map((f) => f.patternId))],
+    ...(grade !== undefined ? { grade } : {}),
   };
 }
 
-export function buildInventory(result: DiscoverResult, options: { includeUser?: boolean; now?: Date } = {}): InventoryReport {
-  const servers = result.discovered.flatMap((d) => d.servers.map((server) => entryFor(d.client, d.path, server, result.findings)));
+export function buildInventory(result: DiscoverResult, options: { includeUser?: boolean; now?: Date; grades?: Map<string, string | null> } = {}): InventoryReport {
+  const servers = result.discovered.flatMap((d) => d.servers.map((server) => entryFor(d.client, d.path, server, result.findings, options.grades)));
   let user: string | undefined;
   if (options.includeUser !== false) {
     try {
@@ -118,4 +142,26 @@ export async function uploadInventory(report: InventoryReport, options: { apiKey
   });
   const text = await response.text().catch(() => "");
   return { ok: response.ok, status: response.status, message: text.slice(0, 300) };
+}
+
+/** The dashboard's allowlist endpoint next to the upload endpoint (same origin). */
+export function allowlistUrlFor(uploadUrl: string = DEFAULT_UPLOAD_URL): string {
+  return new URL("/api/v1/mcp/allowlist", uploadUrl).toString();
+}
+
+/**
+ * The organization allowlist managed in the GuardBee dashboard, in the
+ * allowlist file format (`{ names, packages, hosts }`), so every machine
+ * checks against the same list. Needs a workspace API key with gateway.read
+ * or gateway.write.
+ */
+export async function fetchDashboardAllowlist(options: { apiKey: string; url?: string; fetchImpl?: typeof fetch }): Promise<{ names: string[]; packages: string[]; hosts: string[] }> {
+  const response = await (options.fetchImpl ?? fetch)(options.url ?? allowlistUrlFor(), {
+    headers: { authorization: `Bearer ${options.apiKey}`, accept: "application/json" },
+    signal: AbortSignal.timeout(15_000),
+  });
+  const body = (await response.json().catch(() => ({}))) as { data?: { names?: unknown; packages?: unknown; hosts?: unknown }; error?: string };
+  if (!response.ok || !body.data) throw new Error(`dashboard allowlist: HTTP ${response.status}${body.error ? ` ${body.error}` : ""}`);
+  const list = (value: unknown) => (Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : []);
+  return { names: list(body.data.names), packages: list(body.data.packages), hosts: list(body.data.hosts) };
 }

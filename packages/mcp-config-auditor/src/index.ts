@@ -15,7 +15,7 @@ export type { ConfigFinding, InventoryServer, InventoryTool, ParsedServer } from
 export { KNOWN_MCP_PACKAGES } from "./typosquat.js";
 export { parseSkillMarkdown, unrestrictedTool, findSkillShadowing, skillNameFromPath } from "./skills.js";
 export type { ParsedSkill, NamedSkill } from "./skills.js";
-export { buildInventory, uploadInventory, redactArgs, sanitizeUrl, DEFAULT_UPLOAD_URL } from "./inventory.js";
+export { allowlistUrlFor, buildInventory, fetchDashboardAllowlist, inventoryKey, uploadInventory, redactArgs, sanitizeUrl, DEFAULT_UPLOAD_URL } from "./inventory.js";
 export type { InventoryEntry, InventoryReport } from "./inventory.js";
 export { parseHostConfig, stripJsonc } from "./discover.js";
 export { registerTools } from "./server.js";

@@ -95,6 +95,8 @@ Walks well-known Cursor / Claude Desktop / Claude Code / Windsurf / VS Code / Ge
 
 **Inventory.** `--format=json` adds an `inventory`: for every server its client, config path, name, transport, command and arguments, npm/PyPI package with version and whether it is pinned, URL, the **names** of its env variables and headers, auto-approve, and the findings for it. It never holds a secret: env and header values are left out, argument values after `--token`/`--api-key`-style flags, `KEY=value` pairs, provider tokens and passwords in connection strings are `[redacted]`, and URLs lose their credentials and query values. `--format=text` prints the same list; `--format=sarif` the findings.
 
+**Fleet.** [FLEET.md](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/mcp-config-auditor/FLEET.md) has Jamf, Intune, systemd and CI recipes. `--allowlist-from-dashboard` checks against the organization allowlist admins manage in the dashboard (merged with `--allowlist` when both are given), and `--grades` adds MCP Index grades to the uploaded inventory.
+
 **Organisation-wide.** `--upload` sends the inventory to the GuardBee dashboard (`GUARDBEE_API_KEY`, a workspace key with the `gateway.write` scope), which keeps the latest inventory per machine; run it from your device-management tool or a login script. The machine's host name, OS and OS user name are included — `--no-user` leaves the user out.
 
 ```bash

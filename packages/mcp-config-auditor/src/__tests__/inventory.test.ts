@@ -1,10 +1,12 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { execFileSync } from "child_process";
+import { execFile, execFileSync } from "child_process";
+import http from "http";
+import { promisify } from "util";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { defaultHostConfigPaths, discoverShadowMcp, parseHostConfig, stripJsonc } from "../discover.js";
-import { buildInventory, redactArgs, sanitizeUrl, uploadInventory } from "../inventory.js";
+import { allowlistUrlFor, buildInventory, fetchDashboardAllowlist, inventoryKey, redactArgs, sanitizeUrl, uploadInventory } from "../inventory.js";
 
 let home: string;
 beforeEach(() => {
@@ -113,6 +115,30 @@ describe("inventory", () => {
   });
 });
 
+describe("organization allowlist and grades", () => {
+  it("reads the dashboard allowlist next to the upload endpoint", async () => {
+    expect(allowlistUrlFor()).toBe("https://app.guardbee.ai/api/v1/mcp/allowlist");
+    expect(allowlistUrlFor("https://guardbee.acme.internal/api/v1/mcp/inventory")).toBe("https://guardbee.acme.internal/api/v1/mcp/allowlist");
+    const fake = (async (_url: string, init: RequestInit) => {
+      expect((init.headers as Record<string, string>).authorization).toBe("Bearer gb_k");
+      return Response.json({ data: { names: ["internal"], packages: ["@modelcontextprotocol/server-github"], hosts: ["mcp.linear.app"], updatedAt: null } });
+    }) as unknown as typeof fetch;
+    expect(await fetchDashboardAllowlist({ apiKey: "gb_k", fetchImpl: fake })).toEqual({ names: ["internal"], packages: ["@modelcontextprotocol/server-github"], hosts: ["mcp.linear.app"] });
+    const refused = (async () => Response.json({ error: "API key needs the gateway.read or gateway.write scope" }, { status: 403 })) as unknown as typeof fetch;
+    await expect(fetchDashboardAllowlist({ apiKey: "gb_k", fetchImpl: refused })).rejects.toThrow(/HTTP 403 API key needs/);
+  });
+
+  it("puts MCP Index grades in the inventory when they were looked up", () => {
+    const path = join(home, ".cursor", "mcp.json");
+    write(path, { mcpServers: { github: { command: "npx", args: ["-y", "@modelcontextprotocol/server-github"] }, local: { command: "node", args: ["s.js"] } } });
+    const result = discoverShadowMcp({ home, paths: defaultHostConfigPaths(home, "linux") });
+    const grades = new Map([[inventoryKey(path, "github"), "B"], [inventoryKey(path, "local"), null]]);
+    const inventory = buildInventory(result, { includeUser: false, grades });
+    expect(inventory.servers.map((s) => [s.name, s.grade])).toEqual([["github", "B"], ["local", null]]);
+    expect(buildInventory(result, { includeUser: false }).servers[0]).not.toHaveProperty("grade");
+  });
+});
+
 describe("CLI discover", () => {
   const bin = join(__dirname, "..", "..", "dist", "cli.js");
   it.runIf(require("fs").existsSync(bin))("prints the inventory as JSON", () => {
@@ -120,5 +146,43 @@ describe("CLI discover", () => {
     const out = execFileSync(process.execPath, [bin, "discover", `--home=${home}`, "--format=json", "--fail-on=none", "--no-user"], { env: { ...process.env, GUARDBEE_TELEMETRY: "0" } }).toString();
     const parsed = JSON.parse(out) as { inventory: { servers: { client: string; name: string }[] } };
     expect(parsed.inventory.servers).toMatchObject([{ client: "gemini-cli", name: "fs" }]);
+  });
+
+  it.runIf(require("fs").existsSync(bin))("checks against the dashboard allowlist and uploads the result", async () => {
+    write(join(home, ".cursor", "mcp.json"), {
+      mcpServers: { github: { command: "npx", args: ["-y", "@modelcontextprotocol/server-github"] }, notes: { command: "npx", args: ["-y", "random-notes-mcp"] } },
+    });
+    const uploads: { servers: { name: string; findings: string[] }[] }[] = [];
+    const server = http.createServer((req, res) => {
+      if (req.headers.authorization !== "Bearer gb_fleet") return void res.writeHead(401).end();
+      if (req.url === "/api/v1/mcp/allowlist") return void res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ data: { names: [], packages: ["@modelcontextprotocol/server-github"], hosts: [] } }));
+      let body = "";
+      req.on("data", (c) => (body += c));
+      req.on("end", () => {
+        uploads.push(JSON.parse(body));
+        res.writeHead(200, { "content-type": "application/json" }).end('{"data":{"received":2}}');
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const port = (server.address() as import("net").AddressInfo).port;
+    try {
+      const run = promisify(execFile);
+      await run(process.execPath, [bin, "discover", `--home=${home}`, "--format=json", "--fail-on=none", "--no-user", "--allowlist-from-dashboard", `--upload-url=http://127.0.0.1:${port}/api/v1/mcp/inventory`], {
+        env: { ...process.env, GUARDBEE_TELEMETRY: "0", GUARDBEE_API_KEY: "gb_fleet" },
+      });
+      const servers = Object.fromEntries(uploads[0]!.servers.map((s) => [s.name, s.findings]));
+      expect(servers["github"]).not.toContain("shadow_mcp_server");
+      expect(servers["notes"]).toContain("shadow_mcp_server");
+    } finally {
+      server.close();
+    }
+  });
+
+  it.runIf(require("fs").existsSync(bin))("works offline: a local report with no key and no network", () => {
+    write(join(home, ".cursor", "mcp.json"), { mcpServers: { notes: { command: "npx", args: ["-y", "random-notes-mcp"] } } });
+    const env: NodeJS.ProcessEnv = { ...process.env, GUARDBEE_TELEMETRY: "0" };
+    delete env["GUARDBEE_API_KEY"];
+    const out = execFileSync(process.execPath, [bin, "discover", `--home=${home}`, "--format=json", "--fail-on=none", "--no-user"], { env }).toString();
+    expect((JSON.parse(out) as { inventory: { servers: unknown[] } }).inventory.servers).toHaveLength(1);
   });
 });
