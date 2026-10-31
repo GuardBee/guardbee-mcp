@@ -1,0 +1,46 @@
+# Each caller acts as themselves at the upstreams: token exchange for internal APIs,
+# per-user OAuth for third-party services. The caller's own token is never forwarded.
+# Run: GATEWAY_CLIENT_SECRET=… GITHUB_APP_SECRET=… GUARDBEE_TOKEN_KEY=$(openssl rand -base64 32) \
+#      npx -y @guardbee/mcp-security-proxy@^1 --config examples/proxy/upstream-identity.yaml
+version: 1
+
+listen:
+  transport: http
+  port: 8787
+  oidc:
+    issuer: https://sso.example/realms/acme
+    audience: [guardbee-gateway]
+    userClaim: preferred_username
+
+upstreamAuth:
+  publicUrl: https://gateway.example              # the consent page and https://gateway.example/oauth/callback
+  encryptionKeyEnv: GUARDBEE_TOKEN_KEY
+
+upstreams:
+  # Internal API behind the same Keycloak: RFC 8693 token exchange
+  files:
+    url: https://files.internal.example/mcp
+    auth:
+      mode: token-exchange
+      tokenEndpoint: https://sso.example/realms/acme/protocol/openid-connect/token
+      clientId: guardbee-gateway
+      clientSecretEnv: GATEWAY_CLIENT_SECRET
+      audience: files-api
+      scopes: [files:read]
+      toolScopes:
+        "delete_*": [files:write]                  # asked for only when such a tool is called
+
+  # Third-party service: each user connects their own account once
+  github:
+    url: https://api.githubcopilot.com/mcp/
+    auth:
+      mode: oauth-per-user
+      authorizationEndpoint: https://github.com/login/oauth/authorize
+      tokenEndpoint: https://github.com/login/oauth/access_token
+      clientId: Iv1.0123456789abcdef
+      clientSecretEnv: GITHUB_APP_SECRET
+      scopes: [repo]
+
+audit:
+  sink: file
+  filePath: ./guardbee-audit.jsonl

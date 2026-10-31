@@ -7,6 +7,8 @@ export interface Identity {
   /** The user claim of the token (default `sub`); absent for API keys. */
   user?: string;
   groups: string[];
+  /** The OIDC access token itself, kept in memory for token exchange (upstreams.<name>.auth); never logged. */
+  token?: string;
 }
 
 export interface OidcConfig {
@@ -94,7 +96,7 @@ export function createAuthenticator(
       const { payload } = await jwtVerify(presented, keys, { issuer: oidc.issuer, audience: oidc.audience });
       const user = claimText(payload, oidc.userClaim);
       if (!user) return null;
-      return { via: "oidc", user, groups: claimList(payload, oidc.groupsClaim) };
+      return { via: "oidc", user, groups: claimList(payload, oidc.groupsClaim), token: presented };
     } catch {
       return null;
     }

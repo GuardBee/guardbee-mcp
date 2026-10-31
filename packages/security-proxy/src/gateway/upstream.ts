@@ -13,7 +13,9 @@ import type {
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { classifyAddress, guardedFetch, normalizeHost, type EgressBlockedError, type EgressPolicy } from "@guardbee/guard-core";
+import { authenticatedUpstream } from "./authenticated-upstream.js";
 import { startEgressProxy, type EgressProxy } from "./egress.js";
+import type { UpstreamCredentials } from "./upstream-auth.js";
 import { egressListen, sandboxContext, sandboxLaunch } from "./sandbox.js";
 import { isHttpUpstream, type HttpUpstreamConfig, type McpServerConfig, type UpstreamConfig, type UpstreamProtocol } from "../types.js";
 
@@ -151,6 +153,8 @@ export interface ConnectOptions {
   sampling?: boolean;
   /** Called for every connection the upstream's network policy refuses (HTTP upstreams). */
   onEgressBlocked?: (error: EgressBlockedError) => void;
+  /** HTTP upstreams with upstreams.<name>.auth: where each caller's downstream token comes from. */
+  credentials?: UpstreamCredentials;
 }
 
 /**
@@ -176,12 +180,20 @@ export async function upstreamEgressPolicy(server: HttpUpstreamConfig, resolve =
   return { mode, allowHosts, blockPrivate: !onPrivateNetwork };
 }
 
-export async function connectHttpUpstream(name: string, server: HttpUpstreamConfig, options: ConnectOptions = {}): Promise<Upstream> {
-  const { client, toolListeners } = proxyClient(options.sampling ?? false, server.protocol);
+export async function connectHttpUpstream(name: string, server: HttpUpstreamConfig, options: ConnectOptions & { fetch?: (url: string | URL, init?: RequestInit) => Promise<Response> } = {}): Promise<Upstream> {
   const policy = await upstreamEgressPolicy(server);
+  const policyFetch = guardedFetch(policy, options.onEgressBlocked ? { onBlocked: options.onEgressBlocked } : {});
+  // Each caller's own credential: one connection per user, made on demand
+  if (options.credentials) {
+    return authenticatedUpstream(name, server, options.credentials, (n, s, o) => connectHttpUpstream(n, s, { ...o, ...(options.onEgressBlocked ? { onEgressBlocked: options.onEgressBlocked } : {}) }), {
+      policyFetch,
+      ...(options.sampling !== undefined ? { sampling: options.sampling } : {}),
+    });
+  }
+  const { client, toolListeners } = proxyClient(options.sampling ?? false, server.protocol);
   const transport = new StreamableHTTPClientTransport(new URL(server.url), {
     requestInit: server.headers ? { headers: server.headers } : undefined,
-    fetch: guardedFetch(policy, options.onEgressBlocked ? { onBlocked: options.onEgressBlocked } : {}),
+    fetch: options.fetch ?? policyFetch,
   });
   await client.connect(transport);
   return clientUpstream(name, client, { ...options, toolListeners });

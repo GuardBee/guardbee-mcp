@@ -2,6 +2,7 @@ import http from "http";
 import { randomUUID } from "crypto";
 import { createMcpHandler, isInitializeRequest, isLegacyRequest, type AuthInfo } from "@modelcontextprotocol/server";
 import { NodeStreamableHTTPServerTransport, toNodeHandler, toWebRequest } from "@modelcontextprotocol/node";
+import type { ConsentPages } from "./gateway/consent.js";
 import type { AuditLogger } from "./audit/logger.js";
 import { createAuthenticator, type Authenticate, type Identity } from "./auth.js";
 import type { GatewayConfig, ListenConfig } from "./gateway/config.js";
@@ -63,6 +64,24 @@ function jsonRpcError(res: http.ServerResponse, status: number, message: string,
   res.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32000, message }, id: null }));
 }
 
+function readText(req: http.IncomingMessage, max: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    req.on("data", (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > max) {
+        reject(new Error("request body too large"));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    req.on("error", reject);
+  });
+}
+
 function readJson(req: http.IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -97,7 +116,7 @@ export async function startHttpGateway(
   config: GatewayConfig,
   audit: AuditLogger,
   listen: HttpListen,
-  options: { authenticate?: Authenticate; fetchImpl?: typeof fetch; ldapClient?: ClientFactory; pinStore?: PinStore; counters?: CounterBackend } = {},
+  options: { authenticate?: Authenticate; fetchImpl?: typeof fetch; ldapClient?: ClientFactory; pinStore?: PinStore; counters?: CounterBackend; consent?: ConsentPages } = {},
 ): Promise<HttpGateway> {
   const sessions = new Map<string, Session>();
   // One set of quota counters for every session of this process (or of every replica, with state.backend: redis)
@@ -138,6 +157,9 @@ export async function startHttpGateway(
     return { "www-authenticate": `Bearer resource_metadata="${origin}${metadataPath}"` };
   };
 
+  const callerIdentity = (identity: Identity) =>
+    identity.user !== undefined ? { user: identity.user, groups: identity.groups, ...(identity.token ? { token: identity.token } : {}) } : undefined;
+
   const openSession = async (req: http.IncomingMessage, res: http.ServerResponse, body: unknown, identity: Identity): Promise<void> => {
     // Sessions and 2026-07-28 contexts share the cap
     if (sessions.size + contexts.size >= listen.maxSessions) {
@@ -150,7 +172,7 @@ export async function startHttpGateway(
       quotas,
       codec,
       ...(options.pinStore ? { pinStore: options.pinStore } : {}),
-      ...(identity.user ? { identity: { user: identity.user, groups: identity.groups } } : {}),
+      ...(identity.user ? { identity: callerIdentity(identity)! } : {}),
     });
     const transport = new NodeStreamableHTTPServerTransport({
       sessionIdGenerator: () => sessionId,
@@ -214,7 +236,7 @@ export async function startHttpGateway(
       contexts.set(key, context);
     }
     context.lastUsed = Date.now();
-    context.gateway.setIdentity(identity.user !== undefined ? { user: identity.user, groups: identity.groups } : undefined);
+    context.gateway.setIdentity(callerIdentity(identity));
     return context.gateway;
   };
 
@@ -259,6 +281,11 @@ export async function startHttpGateway(
       );
       return;
     }
+    // Consent pages of oauth-per-user upstreams: opened in a browser, outside the MCP bearer auth
+    if (options.consent && path.startsWith("/oauth/")) {
+      const url = new URL(req.url ?? "/", "http://gateway");
+      if (await options.consent.handle(req, res, url, () => readText(req, 64 * 1024))) return;
+    }
     if (llm && (await llm(req, res))) return;
     if (path !== listen.path || (upstreams.length === 0 && config.llm)) {
       jsonRpcError(res, 404, "Not found");
@@ -293,6 +320,8 @@ export async function startHttpGateway(
         jsonRpcError(res, 403, "This session belongs to another user");
         return;
       }
+      // The same user's token is renewed between requests: token exchange uses the current one
+      if (session.user !== undefined) session.gateway.setIdentity(callerIdentity(identity));
       await session.transport.handleRequest(req, res, body);
       return;
     }
