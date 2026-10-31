@@ -10,11 +10,13 @@ import type { LlmShape } from "./shapes.js";
  * - Images: OpenAI `image_url` parts and Responses `input_image` parts with a
  *   `data:image/...;base64,` URL, Anthropic `image` blocks with a base64
  *   source. An image given by URL or file id is not fetched.
+ * - Audio: OpenAI Chat Completions `input_audio` parts (base64 data and a
+ *   format). Responses and Anthropic take no audio input.
  */
 
 type Json = Record<string, unknown>;
 
-export type DocumentModality = "pdf" | "image";
+export type DocumentModality = "pdf" | "image" | "audio";
 
 const PDF_ONLY: ReadonlySet<DocumentModality> = new Set(["pdf"]);
 
@@ -24,6 +26,8 @@ export interface InlineDocument {
   label: string;
   /** Base64 bytes. */
   data: string;
+  /** The audio format the client named (`wav`, `mp3`). */
+  format?: string;
 }
 
 /** Returns the part to put in place of a document (`part` is the original), or undefined to keep it. */
@@ -48,8 +52,8 @@ export function mapDocuments(shape: LlmShape, body: Json, fn: DocumentMapper, mo
   let index = 0;
   const visit = (doc: Omit<InlineDocument, "label"> & { label?: unknown }, part: Json): Json | undefined => {
     if (!modalities.has(doc.modality)) return undefined;
-    const label = typeof doc.label === "string" && doc.label ? doc.label : `${doc.modality === "pdf" ? "file" : "image"} ${index + 1}`;
-    return fn({ modality: doc.modality, label, data: doc.data }, index++, part);
+    const label = typeof doc.label === "string" && doc.label ? doc.label : `${doc.modality === "pdf" ? "file" : doc.modality} ${index + 1}`;
+    return fn({ modality: doc.modality, label, data: doc.data, ...(doc.format !== undefined ? { format: doc.format } : {}) }, index++, part);
   };
 
   if (shape === "openai") {
@@ -57,6 +61,11 @@ export function mapDocuments(shape: LlmShape, body: Json, fn: DocumentMapper, mo
       Array.isArray(content)
         ? content.map((part) => {
             if (!isObject(part)) return part;
+            if (part["type"] === "input_audio" && isObject(part["input_audio"])) {
+              const audio = part["input_audio"];
+              if (typeof audio["data"] !== "string") return part;
+              return visit({ modality: "audio", data: audio["data"], format: typeof audio["format"] === "string" ? audio["format"] : "" }, part) ?? part;
+            }
             if (part["type"] === "image_url" && isObject(part["image_url"])) {
               const data = fromDataUrl(part["image_url"]["url"], IMAGE_DATA_URL);
               return data === null ? part : (visit({ modality: "image", data }, part) ?? part);

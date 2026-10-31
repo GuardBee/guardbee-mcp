@@ -423,12 +423,17 @@ llm:
   maskResponses: false           # also mask PII the model writes (prompts are always checked)
   timeoutSeconds: 120
   maxTextChars: 2000000          # longest single text the proxy masks; longer → 413
-  documents:                     # read inline PDFs and images instead of refusing PDFs (415) and passing images; off by default
+  documents:                     # read inline PDFs, images and audio instead of refusing PDFs/audio (415) and passing images; off by default
     pdf: true
     images: true                 # OCR inline images (needs tesseract.js)
     ocr: false                   # true: OCR PDF pages with no text layer (needs tesseract.js + @napi-rs/canvas)
     languages: [tur, eng]        # Tesseract languages
     # langPath: /opt/tessdata    # local <lang>.traineddata, so OCR never downloads language data
+    # audio:                     # transcribe input_audio with your own OpenAI-compatible speech-to-text service
+    #   url: http://127.0.0.1:8080/v1/audio/transcriptions
+    #   model: whisper-1         # sent as the form's model field
+    #   language: tr             # optional hint; unset: detected
+    #   apiKeyEnv: STT_API_KEY   # optional, sent as Authorization: Bearer
     maxBytes: 20971520           # per file; larger → 415
     maxPages: 50                 # a longer PDF → 415
     timeoutSeconds: 30           # reading time per file; over it → 415
@@ -455,13 +460,13 @@ What every request goes through, in order:
 5. **Sensitive routing** (`llm.sensitive`). When the prompt holds personal data (optionally only some `categories`) or one of the listed `topics`, the request goes to `sensitive.model` — an Ollama, vLLM or llama.cpp model you run — instead of the model asked for. The audit log gets a `warn` event with `ruleId: llm:route:sensitive` naming both models and why, so routed requests show up in the dashboard, and the usage event carries `llm.routedFrom`. If the local model has no route for the request's API (an Anthropic request with only an OpenAI-compatible local model), the request is refused rather than sent to the provider it was meant to avoid. Budgets count the routed model.
 6. **Budgets.** Requests, tokens and USD per user (or per key) or for the whole gateway, over fixed windows. A request is admitted while every matching budget has room; tokens and cost are known only after the answer, so the call that crosses a limit completes and the next one gets `429` with `Retry-After`.
 7. **PII** (`interceptors.piiMasking`) in message text, tool-call arguments and tool results is masked, or with `mode: tokenize` replaced by tokens the proxy turns back into real values in the answer — the provider never sees them, the user does. The text of Anthropic `document` blocks with a text or content source is masked too. Image data, ids and tool names are left alone; content the proxy cannot read is refused (see [Failure behavior](#failure-behavior)).
-8. **Audit.** A `tool_call` event (`tool: llm:<model>`, `upstream: <provider>`, `labels: [llm]`, `user`, `piiHits`, and `documents` for PDFs and images read — see below) and a `tool_response` event with `llm: { model, inputTokens, outputTokens, costUsd }`. Refusals are `blocked` events with `ruleId` `llm:injection`, `llm:credential` or the budget id.
+8. **Audit.** A `tool_call` event (`tool: llm:<model>`, `upstream: <provider>`, `labels: [llm]`, `user`, `piiHits`, and `documents` for PDFs, images and audio read — see below) and a `tool_response` event with `llm: { model, inputTokens, outputTokens, costUsd }`. Refusals are `blocked` events with `ruleId` `llm:injection`, `llm:credential` or the budget id.
 
 **Endpoints.** `POST /chat/completions`, `POST /responses` (OpenAI Responses API) and `POST /embeddings` go to providers with `api: openai`; `POST /messages` to `api: anthropic`; `GET /models` lists the literal (non-glob) routes the caller may use. Responses go through the same steps as chat: `instructions`, message items (`input_text`, earlier `output_text`), function and custom tool call arguments, tool call outputs and stored-prompt `variables` are masked; reasoning items, item references and the provider's own tool calls are passed back as they are; `input_file` and `input_audio` are refused (`415`). With `mode: tokenize`, tokens are put back in the answer, but a conversation continued with `previous_response_id` holds tokens from an earlier request that this request cannot put back — send the history in `input` if the answer must show real values.
 
 Streaming works for chat, Messages and Responses. A plain stream is relayed event by event; for OpenAI the proxy adds `stream_options.include_usage` to count tokens and drops that extra chunk if the client did not ask for it. When the answer has to be rewritten (PII tokens to put back, or `maskResponses`), it is rewritten as it streams: text — message content, tool-call arguments, Anthropic text, JSON and thinking deltas — is held only until a safe cut (a space with no digit on either side, so a grouped number such as an IBAN or a card is never split; a private key block until its END line; a line with an `Adres:` label until it ends) and rewritten together with the last 300 characters already sent, so a label like `Pasaport No:` still applies to a value in the next event. Whatever is still held goes out just before the choice's finish chunk or the block's stop event. For the Responses API, `output_text`, function-call argument and reasoning-summary deltas are held and rewritten the same way; each `.done` event, item, part and the final `response.completed` carry the same rewritten text, so the SDK's assembled answer matches the deltas. Provider errors are passed through unchanged, so SDK retries and error types keep working.
 
-### PDFs and images in requests
+### PDFs, images and audio in requests
 
 With `llm.documents.pdf: true`, an inline PDF is read instead of refused: OpenAI `file` parts and Responses `input_file` parts with a `data:application/pdf;base64,` URL, and Anthropic `document` blocks with a base64 PDF source, in messages, the system prompt and tool results. The proxy extracts the PDF's text layer with [`@guardbee/mcp-document-scanner`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/document-scanner) and puts that text through every step above, in the PDF's place: prompt injection, credentials, topic rules, sensitive routing and PII.
 
@@ -477,7 +482,14 @@ With `llm.documents.images: true`, inline images are read the same way, with OCR
 - **OCR reads printed text, not everything a model sees.** Handwriting, low-contrast or tiny text, text in photos and charts can be missed, and a model can still read what OCR did not. Treat `images: true` as a check that catches screenshots of documents, chats and forms, not as a guarantee that an image holds no personal data.
 - **Cost:** about 0.3 s per screenshot on a laptop CPU, on every request that carries one, more for large images; `timeoutSeconds` and `maxBytes` bound it.
 
-Not covered yet: PDFs given by file id or URL (still `415`), images given by URL or file id (forwarded unread: the proxy does not fetch them), person names found by the `ner:` model inside a PDF or image, and audio. Reading a PDF costs time on every request that carries one; `timeoutSeconds` and `maxPages` bound it.
+With `llm.documents.audio`, Chat Completions `input_audio` parts (`wav`, `mp3`) are transcribed by the speech-to-text service you name, and the transcript goes through every check with the same outcomes: clean audio is forwarded unchanged, audio in which personal data is spoken is refused with `403 pii:document`, and audio that cannot be transcribed (another format, data that is not that format, the service down, answering an error or slower than `timeoutSeconds`) is `415 guardbee_unmaskable_content` while masking applies. The audit placeholder is `[audio "audio <n>": <bytes> bytes, sha256 <hash>]`; the transcript itself is not logged.
+
+- **The service** is any endpoint that takes OpenAI's `POST /v1/audio/transcriptions` (multipart `file`, `model`, `response_format=json`, optional `language`) and answers `{ "text": … }`: [whisper.cpp](https://github.com/ggml-org/whisper.cpp)'s `whisper-server --inference-path /v1/audio/transcriptions`, faster-whisper-server / Speaches, vLLM, or a provider's API.
+- **The audio goes to that service as is**, before any check, so run it where the data may go: on your own machine or network. Pointing it at a public API sends every voice message there.
+- **Speech to text can mishear.** Numbers read aloud ("on bir, sıfır sıfır…") may come back as words or with mistakes, so treat this as a check that catches clear speech, not a guarantee.
+- **Cost:** one transcription per audio part, a few seconds per minute of speech on a CPU; `timeoutSeconds` and `maxBytes` bound it.
+
+Not covered yet: PDFs given by file id or URL (still `415`), images given by URL or file id (forwarded unread: the proxy does not fetch them), person names found by the `ner:` model inside a PDF, image or transcript, and audio in the Responses or Realtime API. Reading a PDF costs time on every request that carries one; `timeoutSeconds` and `maxPages` bound it.
 
 ### Embeddings
 
@@ -496,7 +508,7 @@ The gateway fails closed: when it cannot check or mask a request, the provider i
 | Status | Code | When | Audit `ruleId` |
 | --- | --- | --- | --- |
 | `502` | `guardbee_masking_failed` | A detector or scan threw, a block pattern ran over its time budget, or the name model (`ner:`) did not answer. Covers every check before the call: injection, credentials, topics, sensitive routing, masking. | `pii:masking-failed`, `pii:pattern-timeout`, `pii:ner-failed` |
-| `415` | `guardbee_unmaskable_content` | The request holds content the proxy cannot read: OpenAI `input_audio` or `file` parts, an Anthropic `document` with a PDF (base64, url or file) source, an unknown part or block type, or content that is not text or a list. With `llm.documents.pdf`, inline PDFs are read and only one that cannot be read in full is refused; with `llm.documents.images`, so is an inline image that cannot be read. The message names what was found. | `pii:unmaskable` |
+| `415` | `guardbee_unmaskable_content` | The request holds content the proxy cannot read: OpenAI `input_audio` or `file` parts, an Anthropic `document` with a PDF (base64, url or file) source, an unknown part or block type, or content that is not text or a list. With `llm.documents.pdf`, inline PDFs are read and only one that cannot be read in full is refused; with `llm.documents.images` and `llm.documents.audio`, so is an inline image or audio part that cannot be read. The message names what was found. | `pii:unmaskable` |
 | `413` | `guardbee_text_too_large` | A single text (message, part, tool result) is longer than `llm.maxTextChars` (default 2,000,000 characters). The limit is per text, not per request: split the text into several messages or parts. | `pii:text-too-large` |
 
 What is not refused: images (`image_url`, `input_image`, Anthropic `image`) are forwarded unchanged and, without `llm.documents.images`, are not inspected; in an assistant turn, blocks the provider itself produced (`thinking`, `redacted_thinking`, `server_tool_use`, `*_tool_result`) are passed back as they are. `415` and `413` apply only when the request is masked — with `piiMasking.enabled: false`, on a route with `masking: off`, or for a request routed in-house by `llm.sensitive` without `mask: true`, nothing is masked and nothing is refused for being unmaskable.

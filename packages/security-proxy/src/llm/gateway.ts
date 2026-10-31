@@ -26,7 +26,7 @@ import { orgPatternsFor, piiScopesFor } from "../gateway/pii-scope.js";
 import { PiiVault } from "../gateway/tokens.js";
 import type { AuditEvent } from "../types.js";
 import { BudgetStore, costOf, type LlmCaller, type LlmUsage } from "./budget.js";
-import { DEFAULT_MAX_TEXT_CHARS, MAX_BODY_BYTES, type LlmApi, type LlmConfig, type LlmDocuments, type LlmProvider } from "./config.js";
+import { DEFAULT_MAX_TEXT_CHARS, MAX_BODY_BYTES, type LlmApi, type LlmConfig, type LlmAudio, type LlmDocuments, type LlmProvider } from "./config.js";
 import { SseRelay, apiOf, errorBody, mapCompletion, mapPrompt, promptTexts, unmaskableParts, usageOf, type LlmShape } from "./shapes.js";
 import { SseRewriter, type RewritePrepare, type TextRewrite } from "./stream.js";
 import { base64Bytes, mapDocuments, textPart, type DocumentModality, type InlineDocument } from "./documents.js";
@@ -143,24 +143,53 @@ function documentModalities(config: LlmDocuments | undefined): Set<DocumentModal
   const out = new Set<DocumentModality>();
   if (config?.pdf) out.add("pdf");
   if (config?.images) out.add("image");
+  if (config?.audio) out.add("audio");
   return out;
 }
 
-/** `PDF "report.pdf"`, `image "image 2"`: how a document is named in reasons and warnings. */
-const describeDocument = (doc: Pick<ReadDocument, "modality" | "label">) => `${doc.modality === "pdf" ? "PDF" : "image"} "${doc.label}"`;
+/** `PDF "report.pdf"`, `image "image 2"`, `audio "audio 3"`: how a document is named in reasons and warnings. */
+const describeDocument = (doc: Pick<ReadDocument, "modality" | "label">) => `${doc.modality === "pdf" ? "PDF" : doc.modality} "${doc.label}"`;
+
+/** The audio formats OpenAI's `input_audio` takes, checked by their bytes. */
+function isAudio(format: string | undefined, data: Buffer): boolean {
+  if (format === "wav") return data.toString("latin1", 0, 4) === "RIFF" && data.toString("latin1", 8, 12) === "WAVE";
+  if (format === "mp3") return data.toString("latin1", 0, 3) === "ID3" || (data[0] === 0xff && ((data[1] ?? 0) & 0xe0) === 0xe0);
+  return false;
+}
+
+/** Speech to text with the configured OpenAI-compatible transcription endpoint. */
+async function transcribe(audio: LlmAudio, data: Buffer, format: string, signal: AbortSignal): Promise<string> {
+  const form = new FormData();
+  form.append("file", new Blob([new Uint8Array(data)], { type: format === "wav" ? "audio/wav" : "audio/mpeg" }), `audio.${format}`);
+  form.append("model", audio.model);
+  form.append("response_format", "json");
+  if (audio.language) form.append("language", audio.language);
+  let res: Response;
+  try {
+    res = await fetch(audio.url, { method: "POST", body: form, headers: audio.apiKey ? { authorization: `Bearer ${audio.apiKey}` } : {}, signal });
+  } catch (err) {
+    if (signal.aborted) throw err;
+    throw new Error("the transcription service could not be reached (llm.documents.audio)");
+  }
+  // The answer's body may quote the audio: only the status is reported
+  if (!res.ok) throw new Error(`the transcription service answered HTTP ${res.status} (llm.documents.audio)`);
+  const text = ((await res.json().catch(() => ({}))) as { text?: unknown }).text;
+  if (typeof text !== "string") throw new Error("the transcription service sent no text (llm.documents.audio)");
+  return text;
+}
 
 /**
- * The inline PDFs and images of a request, in mapDocuments order, read with
- * the document scanner. Anything short of all the text — too large, not what
+ * The inline PDFs, images and audio of a request, in mapDocuments order:
+ * PDFs and images read with the document scanner, audio transcribed by
+ * llm.documents.audio. Anything short of all the text — too large, not what
  * it claims to be, encrypted, over maxPages, a page without a text layer and
- * no OCR, OCR not installed, an error, the time limit — leaves `text` unset:
- * the document was not checked.
+ * no OCR, OCR not installed, the transcription service failing, the time
+ * limit — leaves `text` unset: the document was not checked.
  */
 async function readDocuments(shape: LlmShape, body: Json, config: LlmDocuments, modalities: ReadonlySet<DocumentModality>): Promise<ReadDocument[]> {
   const found: InlineDocument[] = [];
   mapDocuments(shape, body, (doc) => (found.push(doc), undefined), modalities);
   if (found.length === 0) return [];
-  const { detectKind, extractText } = await import("@guardbee/mcp-document-scanner");
   const out: ReadDocument[] = [];
   for (const doc of found) {
     const bytes = base64Bytes(doc.data);
@@ -171,6 +200,27 @@ async function readDocuments(shape: LlmShape, body: Json, config: LlmDocuments, 
     const data = Buffer.from(doc.data, "base64");
     const read: ReadDocument = { modality: doc.modality, label: doc.label, bytes: data.length, sha256: createHash("sha256").update(data).digest("hex"), pages: 0 };
     out.push(read);
+    if (doc.modality === "audio") {
+      if (!isAudio(doc.format, data)) {
+        read.unread = doc.format === "wav" || doc.format === "mp3" ? `the data is not ${doc.format} audio` : `audio format "${doc.format}" is not read (wav, mp3)`;
+        continue;
+      }
+      const abort = new AbortController();
+      const timer = setTimeout(() => abort.abort(), config.timeoutSeconds * 1000);
+      timer.unref();
+      try {
+        read.text = await transcribe(config.audio!, data, doc.format!, abort.signal);
+        read.pages = 1;
+      } catch (err) {
+        read.unread = abort.signal.aborted
+          ? `reading took over ${config.timeoutSeconds} s (llm.documents.timeoutSeconds)`
+          : err instanceof Error && err.message.includes("llm.documents") ? err.message : `could not be read (${err instanceof Error ? err.name : typeof err})`;
+      } finally {
+        clearTimeout(timer);
+      }
+      continue;
+    }
+    const { detectKind, extractText } = await import("@guardbee/mcp-document-scanner");
     const kind = detectKind(data.subarray(0, 16));
     if (doc.modality === "pdf" ? kind !== "pdf" : !IMAGE_KINDS.has(kind)) {
       read.unread = doc.modality === "pdf" ? "the data is not a PDF" : "the data is not an image";
@@ -368,7 +418,7 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
       refuse(403, `model "${model}" is not allowed for ${caller.user ? `user "${caller.user}"` : "this key"} (llm.access)`, "llm:access");
     }
 
-    // 0b. Inline PDFs and images (llm.documents): their text takes their place in
+    // 0b. Inline PDFs, images and audio (llm.documents): their text takes their place in
     //     `checked`, which every check below reads; the provider still gets the
     //     file itself. One that cannot be read in full stays in place, and so
     //     stays unmaskable.
@@ -484,7 +534,7 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     }
     const spans = masking ? await names() : undefined;
 
-    // 2e. PII in a PDF or image is counted like any other; with masking on it refuses
+    // 2e. PII in a PDF, image or audio is counted like any other; with masking on it refuses
     //     the request, since the proxy cannot rewrite the file and will not send it unmasked.
     const docHits: Record<string, number> = {};
     const readDocs = documents.filter((doc) => doc.text !== undefined);
@@ -505,7 +555,7 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
         );
       }
       if (masking && maskable.size > 0) {
-        refuse(403, `${readDocs.map(describeDocument).join(", ")} holds ${[...maskable].join(", ")}; the proxy cannot mask inside a PDF or an image, so the request was not sent`, "pii:document");
+        refuse(403, `${readDocs.map(describeDocument).join(", ")} holds ${[...maskable].join(", ")}; the proxy cannot mask inside a file, so the request was not sent`, "pii:document");
       }
     }
 
