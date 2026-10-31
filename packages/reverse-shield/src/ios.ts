@@ -7,6 +7,8 @@ import { walkFiles } from "./fsutil.js";
 import { analyzeNative, detectNativeFormat } from "./native.js";
 import { parsePlist, plistInside } from "./plist.js";
 import type { PlistValue } from "./plist.js";
+import { analyzeConfigFiles, binarySecrets, isConfigFile } from "./secrets.js";
+import type { SecretScanOptions } from "./secrets.js";
 import { analyzeWebFiles, isWebAsset } from "./web.js";
 import type { ArtifactFile } from "./web.js";
 import { extractZipEntry, readZipEntries } from "./zip.js";
@@ -69,6 +71,7 @@ export function analyzeIosBundle(files: BundleFile[], label: string): IosResult 
   const notes: string[] = [];
   const byKey = new Map(files.map((f) => [f.key, f]));
   let scannedFiles = 0;
+  const secrets: SecretScanOptions = { target: "ios", mobile: true };
 
   const info = dict(byKey.get("Info.plist")?.read() ? parsePlist(byKey.get("Info.plist")!.read()!) : null);
   const appName = label.split("/").pop()?.replace(/\.app$/, "") ?? "";
@@ -94,6 +97,7 @@ export function analyzeIosBundle(files: BundleFile[], label: string): IosResult 
     scannedFiles++;
     notes.push(...result.notes);
     const isMain = f.key === exe;
+    findings.push(...binarySecrets(buf, f.display, secrets));
     for (const nf of result.findings) {
       // Hardened Runtime is a macOS mechanism; iOS enforces code signing differently.
       if (nf.patternId === "native_no_hardened_runtime") continue;
@@ -121,18 +125,25 @@ export function analyzeIosBundle(files: BundleFile[], label: string): IosResult 
   const rn = byKey.get("main.jsbundle");
   if (rn) {
     const buf = rn.read();
-    if (buf && buf.subarray(0, 8).equals(HERMES_MAGIC)) notes.push("React Native bundle is Hermes bytecode");
-    else if (buf) {
+    if (buf && buf.subarray(0, 8).equals(HERMES_MAGIC)) {
+      notes.push("React Native bundle is Hermes bytecode");
+      findings.push(...binarySecrets(buf, rn.display, secrets));
+      scannedFiles++;
+    } else if (buf) {
       findings.push(finding("ios_js_bundle_plaintext", rn.display, { match: `${(buf.length / 1024).toFixed(0)} KiB of JavaScript` }));
-      findings.push(...analyzeWebFiles([{ ...rn, key: "main.jsbundle.js", read: () => buf }]));
+      findings.push(...analyzeWebFiles([{ ...rn, key: "main.jsbundle.js", read: () => buf }], { mobile: true }));
       scannedFiles++;
     }
   }
   const web = files.filter((f) => isWebAsset(f.key));
   if (web.length > 0) {
     scannedFiles += web.length;
-    findings.push(...analyzeWebFiles(web));
+    findings.push(...analyzeWebFiles(web, { mobile: true }));
   }
+  // Info.plist, GoogleService-Info.plist and the JSON/plist config apps bundle.
+  const config = files.filter((f) => isConfigFile(f.key));
+  scannedFiles += config.length;
+  findings.push(...analyzeConfigFiles(config, secrets));
 
   const engine = frameworkChecks(files);
   findings.push(...engine.findings);

@@ -3,6 +3,7 @@ import { assessDexObfuscation } from "./dex.js";
 import { finding } from "./finding.js";
 import type { Finding } from "./finding.js";
 import { assessDotnetNames, detectNativeFormat, readDotnetStringsHeap } from "./native.js";
+import { analyzeConfigFiles, isConfigFile } from "./secrets.js";
 import type { ArtifactFile } from "./web.js";
 import { extractZipEntry, readZipEntries } from "./zip.js";
 
@@ -132,6 +133,12 @@ export function analyzeJar(path: string): FrameworkResult & { scannedFiles: numb
   const fd = openSync(path, "r");
   try {
     const entries = readZipEntries(fd, size);
+    // application.properties / .yml in a Spring Boot JAR is where database passwords end up.
+    const config = entries.filter((e) => !e.name.endsWith("/") && !e.name.startsWith("META-INF/") && isConfigFile(e.name));
+    const secretFindings = analyzeConfigFiles(
+      config.map((e) => ({ key: e.name, display: `${path}!/${e.name}`, size: e.uncompressedSize, read: () => extractZipEntry(fd, e) })),
+      { target: "framework" },
+    );
     const mfEntry = entries.find((e) => e.name === "META-INF/MANIFEST.MF");
     const mf = mfEntry ? extractZipEntry(fd, mfEntry)?.toString("utf8") ?? "" : "";
     const main = manifestValue(mf, "Start-Class") ?? manifestValue(mf, "Main-Class");
@@ -139,14 +146,14 @@ export function analyzeJar(path: string): FrameworkResult & { scannedFiles: numb
       .filter((e) => e.name.endsWith(".class") && !e.name.startsWith("META-INF/"))
       .map((e) => e.name.replace(/^(BOOT-INF|WEB-INF)\/classes\//, ""));
     const notes: string[] = [];
-    if (classes.length === 0) return { findings: [], notes: [`${path}: no classes in the archive`], scannedFiles: 1 };
+    if (classes.length === 0) return { findings: secretFindings, notes: [`${path}: no classes in the archive`], scannedFiles: 1 };
     const pkg = main && main.includes(".") ? main.slice(0, main.lastIndexOf(".")) : null;
-    if (!pkg) return { findings: [], notes: [`${path}: ${classes.length} classes, no Main-Class/Start-Class to locate the application package`], scannedFiles: 1 };
+    if (!pkg) return { findings: secretFindings, notes: [`${path}: ${classes.length} classes, no Main-Class/Start-Class to locate the application package`], scannedFiles: 1 };
     const verdict = assessDexObfuscation(classes.map((c) => `L${c.slice(0, -".class".length)};`), pkg);
     notes.push(`${pkg}: ${verdict.appClasses} app classes, ${verdict.shortNamed} with 1–2 letter names`);
     const findings = verdict.obfuscated
-      ? []
-      : [finding("java_not_obfuscated", path, { match: `${verdict.appClasses} classes under ${pkg}, ${verdict.shortNamed} renamed; e.g. ${verdict.sample.join(", ")}` })];
+      ? [...secretFindings]
+      : [...secretFindings, finding("java_not_obfuscated", path, { match: `${verdict.appClasses} classes under ${pkg}, ${verdict.shortNamed} renamed; e.g. ${verdict.sample.join(", ")}` })];
     return { findings, notes, scannedFiles: 1 };
   } finally {
     closeSync(fd);

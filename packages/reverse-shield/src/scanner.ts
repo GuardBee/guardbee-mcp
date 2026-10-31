@@ -10,7 +10,8 @@ import type { Finding } from "./finding.js";
 import { readPrefix, walkFiles } from "./fsutil.js";
 import { analyzeNative, detectNativeFormat } from "./native.js";
 import type { TargetKind } from "./rules.js";
-import { analyzeWebFiles, isWebAsset } from "./web.js";
+import { analyzeConfigFiles, binarySecrets, isConfigFile } from "./secrets.js";
+import { analyzeWebFiles, collapseSecrets, isWebAsset } from "./web.js";
 import type { ArtifactFile } from "./web.js";
 
 export interface ScanOptions {
@@ -68,7 +69,9 @@ function analyzeNativeFile(path: string, c: Collector): boolean {
   if (!result) return false;
   c.scannedFiles++;
   c.notes.push(...result.notes);
-  c.add(result.findings, result.flavor === "dotnet" ? "dotnet" : "native");
+  const kind = result.flavor === "dotnet" ? "dotnet" : "native";
+  c.add(result.findings, kind);
+  c.add(binarySecrets(buf, path, { target: kind }));
   if (result.flavor !== "dotnet") {
     const py = pyinstallerCheck(buf, path);
     c.notes.push(...py.notes);
@@ -142,8 +145,9 @@ function scanFile(path: string, c: Collector): void {
       return;
     }
     const web = entries.filter((e) => isWebAsset(e.key));
-    c.scannedFiles += web.length;
-    c.add(analyzeWebFiles(web), "electron");
+    const config = entries.filter((e) => isConfigFile(e.key));
+    c.scannedFiles += web.length + config.length;
+    c.add([...analyzeWebFiles(web), ...analyzeConfigFiles(config, { target: "electron" })], "electron");
     return;
   }
   if (isWebAsset(basename(path))) {
@@ -161,6 +165,7 @@ function scanDir(root: string, c: Collector, options: ScanOptions, maxFiles: num
   }
 
   const web: ArtifactFile[] = [];
+  const config: ArtifactFile[] = [];
   const all: ArtifactFile[] = [];
   const { truncated } = walkFiles(
     root,
@@ -180,6 +185,8 @@ function scanDir(root: string, c: Collector, options: ScanOptions, maxFiles: num
       all.push({ key, display: full, size: statSync(full).size, read: () => readFileSync(full) });
       if (isWebAsset(key)) {
         web.push({ key, display: full, size: statSync(full).size, read: () => readFileSync(full) });
+      } else if (isConfigFile(key)) {
+        config.push({ key, display: full, size: statSync(full).size, read: () => readFileSync(full) });
       } else if (isApk(full) || isAab(full) || isIpa(full) || isJar(full) || /\.asar$/i.test(full)) {
         scanFile(full, c);
       } else {
@@ -192,6 +199,9 @@ function scanDir(root: string, c: Collector, options: ScanOptions, maxFiles: num
     c.scannedFiles += web.length;
     c.add(analyzeWebFiles(web), "web");
   }
+  // config.json, .env and friends copied into the build output ship with it.
+  c.scannedFiles += config.length;
+  c.add(analyzeConfigFiles(config));
   const engine = frameworkChecks(all);
   c.notes.push(...engine.notes);
   c.add(engine.findings);
@@ -217,7 +227,8 @@ export function scanPath(target: string, options: ScanOptions = {}): ScanResult 
   if (c.truncated) c.notes.push(`Stopped after ${maxFiles} files; raise maxFiles to scan the rest.`);
   // Unity's Assembly-CSharp.dll gets the engine-specific finding; drop the generic .NET one for the same file.
   const unityDlls = new Set(c.findings.filter((f) => f.patternId === "unity_mono_assemblies").map((f) => f.file));
-  const findings = c.findings.filter((f) => !(f.patternId === "dotnet_not_obfuscated" && unityDlls.has(f.file))).sort(bySeverity);
+  // One key found in several files (dex and resources, every ABI of a .so) is one problem.
+  const findings = collapseSecrets(c.findings.filter((f) => !(f.patternId === "dotnet_not_obfuscated" && unityDlls.has(f.file)))).sort(bySeverity);
   return {
     target,
     kinds: [...c.kinds],

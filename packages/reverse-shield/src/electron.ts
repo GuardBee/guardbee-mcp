@@ -4,6 +4,7 @@ import { readAsar } from "./asar.js";
 import { finding } from "./finding.js";
 import type { Finding } from "./finding.js";
 import { findInFile, readAt, walkFiles } from "./fsutil.js";
+import { analyzeConfigFiles, isConfigFile } from "./secrets.js";
 import { analyzeWebFiles, isWebAsset } from "./web.js";
 import type { ArtifactFile } from "./web.js";
 
@@ -141,13 +142,15 @@ export function analyzeElectron(layout: ElectronLayout, maxFiles: number): Elect
       match: existsSync(join(layout.resources, "app.asar")) ? "resources/app is loaded ahead of app.asar" : "no app.asar",
     }));
     const files: ArtifactFile[] = [];
+    const config: ArtifactFile[] = [];
     walkFiles(appDir, { maxFiles, skipDirs: new Set(["node_modules", ".git"]) }, (full) => {
       const key = relative(appDir, full).split(sep).join("/");
-      if (!isWebAsset(key)) return;
-      files.push({ key, display: full, size: statSync(full).size, read: () => readFileSync(full) });
+      const file = { key, display: full, size: statSync(full).size, read: () => readFileSync(full) };
+      if (isWebAsset(key)) files.push(file);
+      else if (isConfigFile(key)) config.push(file);
     });
-    scannedFiles += files.length;
-    findings.push(...analyzeWebFiles(files));
+    scannedFiles += files.length + config.length;
+    findings.push(...analyzeWebFiles(files), ...analyzeConfigFiles(config, { target: "electron" }));
   }
 
   const asarPath = join(layout.resources, "app.asar");
@@ -155,9 +158,10 @@ export function analyzeElectron(layout: ElectronLayout, maxFiles: number): Elect
     const entries = readAsar(asarPath);
     if (entries) {
       const web = entries.filter((e) => isWebAsset(e.key)).slice(0, maxFiles);
-      notes.push(`app.asar: ${entries.length} file(s), ${web.length} shipped JavaScript/source map file(s) checked`);
-      scannedFiles += web.length;
-      findings.push(...analyzeWebFiles(web));
+      const config = entries.filter((e) => isConfigFile(e.key)).slice(0, maxFiles);
+      notes.push(`app.asar: ${entries.length} file(s), ${web.length} shipped JavaScript/source map file(s) and ${config.length} config file(s) checked`);
+      scannedFiles += web.length + config.length;
+      findings.push(...analyzeWebFiles(web), ...analyzeConfigFiles(config, { target: "electron" }));
     } else {
       notes.push(`app.asar could not be parsed: ${asarPath}`);
     }

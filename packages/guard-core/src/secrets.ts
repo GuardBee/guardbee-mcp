@@ -185,7 +185,7 @@ export const SECRET_RULES: SecretRule[] = [
   {
     id: "db_url_postgres",
     name: "PostgreSQL Connection String with credentials",
-    pattern: /postgres(?:ql)?:\/\/[^:]+:[^@\s]+@[^\s"']+/gi,
+    pattern: /postgres(?:ql)?:\/\/[^:\s"'@/]+:[^@\s]+@[^\s"']+/gi,
     severity: "critical",
     allowlist: [/localhost/, /127\.0\.0\.1/, /\$\{/, /<[^<>]{1,80}>/],
     skipPlaceholderCheck: true,
@@ -193,7 +193,7 @@ export const SECRET_RULES: SecretRule[] = [
   {
     id: "db_url_mysql",
     name: "MySQL Connection String with credentials",
-    pattern: /mysql:\/\/[^:]+:[^@\s]+@[^\s"']+/gi,
+    pattern: /mysql:\/\/[^:\s"'@/]+:[^@\s]+@[^\s"']+/gi,
     severity: "critical",
     allowlist: [/localhost/, /127\.0\.0\.1/, /\$\{/, /<[^<>]{1,80}>/],
     skipPlaceholderCheck: true,
@@ -201,7 +201,7 @@ export const SECRET_RULES: SecretRule[] = [
   {
     id: "db_url_mongodb",
     name: "MongoDB Connection String with credentials",
-    pattern: /mongodb(?:\+srv)?:\/\/[^:]+:[^@\s]+@[^\s"']+/gi,
+    pattern: /mongodb(?:\+srv)?:\/\/[^:\s"'@/]+:[^@\s]+@[^\s"']+/gi,
     severity: "critical",
     allowlist: [/localhost/, /127\.0\.0\.1/, /\$\{/, /<[^<>]{1,80}>/],
     skipPlaceholderCheck: true,
@@ -209,7 +209,7 @@ export const SECRET_RULES: SecretRule[] = [
   {
     id: "db_url_redis",
     name: "Redis Connection String with credentials",
-    pattern: /redis:\/\/[^:]+:[^@\s]+@[^\s"']+/gi,
+    pattern: /redis:\/\/[^:\s"'@/]+:[^@\s]+@[^\s"']+/gi,
     severity: "high",
     allowlist: [/localhost/, /127\.0\.0\.1/, /\$\{/, /<[^<>]{1,80}>/],
     skipPlaceholderCheck: true,

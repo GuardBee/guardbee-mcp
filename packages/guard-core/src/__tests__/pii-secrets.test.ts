@@ -42,6 +42,12 @@ describe("maskPiiInText — secrets", () => {
     );
   });
 
+  it("does not stitch a connection string across lines or quotes", () => {
+    // Shape found in a real binary: a docs placeholder, then an npm URL several strings later.
+    const docs = 'env: { "DATABASE_URL": "postgresql://..." }\n}\n@guardbee/mcp-security-proxy\nhttps://www.npmjs.com/package/@guardbee/mcp-security-proxy';
+    expect(maskPiiInText(docs)).toBe(docs);
+  });
+
   it("honors the secret rule's allowlist (localhost connection strings)", () => {
     const local = "postgres://app:app@localhost:5432/dev";
     expect(maskPiiInText(local)).toBe(local);
