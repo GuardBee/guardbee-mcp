@@ -1,6 +1,7 @@
-import { SECRET_RULES } from "@guardbee/guard-core";
 import { finding } from "./finding.js";
 import type { Finding } from "./finding.js";
+import { findSecrets, lineCol } from "./secrets.js";
+import type { SecretScanOptions } from "./secrets.js";
 
 const MIN_BYTES_FOR_MINIFY_CHECK = 4096;
 
@@ -16,57 +17,6 @@ const DEV_BUILD_MARKERS: Array<{ framework: string; pattern: RegExp }> = [
 
 const INTERNAL_URL =
   /\bhttps?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:internal|local|corp|lan)|(?:[a-z0-9-]+\.)*(?:staging|stage|preprod|uat|qa|dev)(?:-[a-z0-9]+)?\.[a-z0-9-]+(?:\.[a-z0-9-]+)*)(?::\d+)?/gi;
-
-// Fixed-format credentials only: minified code is full of 40-character base64
-// runs and quoted strings next to the word "key", which the broad rules would
-// report by the hundred.
-const BUNDLE_SECRET_RULES = SECRET_RULES.filter((r) => !r.broad);
-
-// The private-key rules match the PEM header alone. Crypto libraries bundled
-// into an app carry those headers as string constants for their parsers, so a
-// bundle only holds a key when base64 key material follows the header.
-const PEM_HEADER_RULE = /private_key/;
-
-// Placeholder shapes that never occur in a real credential (same heuristic as
-// secret-scanner): a repeated or sequential run, or an "example" word.
-const PLACEHOLDER_WORDS = /example|placeholder|sample|dummy|fake[_-]?key|change[-_]?me|testkey|yourkey|redacted/i;
-
-function isPlaceholder(value: string): boolean {
-  if (/(.)\1{7,}/.test(value) || PLACEHOLDER_WORDS.test(value)) return true;
-  let run = 1;
-  for (let i = 1; i < value.length; i++) {
-    run = value.charCodeAt(i) === value.charCodeAt(i - 1) + 1 ? run + 1 : 1;
-    if (run >= 8) return true;
-  }
-  return false;
-}
-
-// Connection-string rules skip the generic check (a real URL can sit on an
-// example.com host), so judge the parts instead: UI hints and docs use a
-// literal "password" and a literal "host", which a deployed database never has.
-const CONNECTION_RULE = /^db_url_/;
-const PLACEHOLDER_PASSWORD = /^(?:password|passw(?:or)?d|pass|pwd|secret|sifre|şifre|parola|changeme|your[-_]?password|<[^>]*>|\*+|x+|\.{3})$/i;
-const PLACEHOLDER_HOST = /^(?:host|hostname|your[-_]?host|server|db-host)$/i;
-
-function isPlaceholderConnection(url: string): boolean {
-  const m = /^[a-z+]+:\/\/[^:/@]*:([^@]*)@([^:/?#]+)/i.exec(url);
-  return m !== null && (PLACEHOLDER_PASSWORD.test(m[1]) || PLACEHOLDER_HOST.test(m[2]));
-}
-const PEM_BODY = /^(?:\s|\\[rn]|["'`+,])*(?:[A-Za-z-]+:[^\n\\]*(?:\\n|\n)(?:\s|\\[rn])*)*[A-Za-z0-9+/]{60,}/;
-
-function lineCol(text: string, index: number): { line: number; column: number } {
-  let line = 1;
-  let last = -1;
-  for (let i = text.indexOf("\n"); i !== -1 && i < index; i = text.indexOf("\n", i + 1)) {
-    line++;
-    last = i;
-  }
-  return { line, column: index - last };
-}
-
-function mask(value: string): string {
-  return value.length <= 8 ? "****" : `${value.slice(0, 4)}…${value.slice(-2)} (${value.length} chars)`;
-}
 
 const MAPPING_KEY = "sourceMappingURL=";
 const isSpace = (ch: string) => ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\f" || ch === "\v";
@@ -151,6 +101,8 @@ export function looksUnminified(text: string): { unminified: boolean; avgLineLen
 export interface JsCheckOptions {
   /** Skip the minification check (e.g. for small inline snippets). */
   skipMinifyCheck?: boolean;
+  /** Passed to the credential check: target and mobile context of the bundle. */
+  secrets?: SecretScanOptions;
 }
 
 /**
@@ -193,22 +145,7 @@ export function analyzeJavaScript(text: string, file: string, options: JsCheckOp
     }
   }
 
-  for (const rule of BUNDLE_SECRET_RULES) {
-    rule.pattern.lastIndex = 0;
-    const re = new RegExp(rule.pattern.source, rule.pattern.flags.includes("g") ? rule.pattern.flags : `${rule.pattern.flags}g`);
-    for (const m of text.matchAll(re)) {
-      const value = m[0];
-      if (rule.allowlist?.some((a) => a.test(value))) continue;
-      if (CONNECTION_RULE.test(rule.id) ? isPlaceholderConnection(value) : !rule.skipPlaceholderCheck && isPlaceholder(value)) continue;
-      if (PEM_HEADER_RULE.test(rule.id) && !PEM_BODY.test(text.slice((m.index ?? 0) + value.length, (m.index ?? 0) + value.length + 160))) continue;
-      findings.push(finding("bundle_secret", file, {
-        severity: rule.severity === "low" ? "medium" : rule.severity,
-        match: `${rule.name}: ${mask(value)}`,
-        ...lineCol(text, m.index ?? 0),
-      }));
-      break; // one per rule per file is enough to act on
-    }
-  }
+  findings.push(...findSecrets(text, file, options.secrets));
 
   const hosts = new Set<string>();
   let firstHostIndex = -1;
@@ -254,7 +191,7 @@ function resolveKey(fromKey: string, ref: string): string {
  * bundle whose sourceMappingURL resolves to a map in the same set is reported
  * once, through the map, rather than again as a bare reference.
  */
-export function analyzeWebFiles(files: ArtifactFile[]): Finding[] {
+export function analyzeWebFiles(files: ArtifactFile[], secrets?: SecretScanOptions): Finding[] {
   const findings: Finding[] = [];
   const keys = new Set(files.map((f) => f.key));
 
@@ -272,7 +209,7 @@ export function analyzeWebFiles(files: ArtifactFile[]): Finding[] {
     const text = buf.toString("utf8");
     const mapUrl = sourceMappingUrl(text);
     const mapShipped = mapUrl !== null && !INLINE_MAP_PREFIX.test(mapUrl) && keys.has(resolveKey(file.key, mapUrl));
-    for (const f of analyzeJavaScript(text, file.display)) {
+    for (const f of analyzeJavaScript(text, file.display, { secrets })) {
       if (mapShipped && f.patternId === "sourcemap_reference") continue;
       findings.push(f);
     }
@@ -281,6 +218,11 @@ export function analyzeWebFiles(files: ArtifactFile[]): Finding[] {
 }
 
 const COLLAPSE_AFTER = 5;
+
+/** collapseRepeats for credentials only, across everything a scan found. */
+export function collapseSecrets(findings: Finding[]): Finding[] {
+  return [...findings.filter((f) => f.patternId !== "bundle_secret"), ...collapseRepeats(findings.filter((f) => f.patternId === "bundle_secret"))];
+}
 
 /**
  * A packaged app repeats the same key, host list or build setting across
@@ -295,9 +237,12 @@ export function collapseRepeats(findings: Finding[]): Finding[] {
 
   for (const f of findings) {
     if (f.patternId === "bundle_secret") {
-      const seen = secrets.get(f.match);
-      if (seen) seen.files++;
-      else secrets.set(f.match, { first: f, files: 1 });
+      // A finding collapsed earlier (per package) carries its count in the match.
+      const [base, extra] = f.match.split(" — also in ");
+      const files = 1 + (extra ? Number.parseInt(extra, 10) || 0 : 0);
+      const seen = secrets.get(base);
+      if (seen) seen.files += files;
+      else secrets.set(base, { first: { ...f, match: base }, files });
     } else if (f.patternId === "internal_endpoint") {
       hosts.push(f);
     } else if (f.patternId === "unminified_bundle" || f.patternId === "sourcemap_reference") {

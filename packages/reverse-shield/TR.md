@@ -17,6 +17,7 @@ Claude ──► reverse-shield ──► build artifact'ın / canlı site
               ├─ ios       IPA ve .app: Debug yapılandırmasıyla derlenmiş build, development profili, düz React Native bundle, executable
               ├─ motorlar  Unity (IL2CPP metadata, Mono assembly'leri), PyInstaller, Java/Spring Boot JAR, Flutter
               ├─ native    debug bilgisi, semboller, get-task-allow, hardened runtime, imza, PIE/NX/RELRO/canary (ELF, Mach-O, PE)
+              ├─ secret'lar yukarıdakilerin hepsinde anahtarlar: dex, resources.arsc, plist, config dosyaları, Hermes bytecode, .so ve executable'lar
               └─ .NET      obfuscation yok, gömülü PDB, sızan build yolları
 ```
 
@@ -29,7 +30,7 @@ Claude ──► reverse-shield ──► build artifact'ın / canlı site
 | `sourcemap_embeds_source` | critical | web | `sourcesContent` ile orijinal kaynak kodun tamamı |
 | `sourcemap_shipped` / `sourcemap_inline` / `sourcemap_publicly_reachable` | high | web | Orijinal dosya yolları ve yapı |
 | `eval_devtool_bundle` | high | web | Her modülün yoluyla birlikte dev bundle |
-| `bundle_secret` | anahtar türüne göre | web | İstemci kodunda çalışan bir kimlik bilgisi |
+| `bundle_secret` | anahtar türüne göre | hepsi | İstemci kodunda, bir uygulama paketinde ya da binary'de çalışan bir kimlik bilgisi |
 | `unminified_bundle` / `dev_build_framework` | medium | web | Okunabilir kod / framework'ün dev runtime'ı |
 | `sourcemap_reference` / `internal_endpoint` | low | web | Map'in yeri / localhost, özel IP'ler, staging host'ları |
 | `electron_fuse_run_as_node` / `electron_fuse_inspect_args` | high | electron | İmzalı uygulamanın içinde Node runtime'ı ya da debugger |
@@ -55,6 +56,7 @@ Claude ──► reverse-shield ──► build artifact'ın / canlı site
 - **R8/ProGuard**: her `classes*.dex`'ten sınıf tanımlayıcılarını okur ve application id altındaki (`.debug` gibi son ekler için manifest'te adı geçen bileşenlerin paketleri altındaki) sınıflara bakar. Neredeyse hiç bir-iki harfli isim olmadan onlarca açıklayıcı sınıf adı, R8'in çalışmadığı anlamına gelir.
 - **.NET obfuscation**: metadata `#Strings` heap'ini okur. Bilinen obfuscator işaretleri (ConfuserEx, Dotfuscator, SmartAssembly, …) doğrudan geçer; aksi halde tanımlayıcıların en az %10'u bir-iki harfli isim, sadece rakam ya da ASCII dışı çöp karakterse assembly geçer. Bir Obfuscar build'ine (%21, geçer) ve obfuscate edilmemiş 400 NuGet assembly'sine (383'ü işaretlendi; kalan 17'si karar verilemeyecek kadar az isim içeren kaynak assembly'leri) karşı doğrulandı.
 - **Private key'ler**: sadece PEM başlığından sonra base64 anahtar verisi geliyorsa raporlanır; uygulamalara gömülen kripto kütüphaneleri bu başlığı string sabiti olarak taşır.
+- **JavaScript dışındaki kimlik bilgileri**: Android dex string'leri, `resources.arsc` / `resources.pb` string havuzu (`strings.xml` ve google-services değerleri buraya düşer), `assets/` ve `res/raw/`; iOS plist'leri (`GoogleService-Info.plist`) ve executable; ASAR, JAR (Spring Boot `application.properties`) ya da build klasöründeki JSON/plist/`.env`/properties/YAML dosyaları; Hermes bytecode, `.so` kütüphaneleri ve native/.NET binary'ler yazdırılabilir string'leriyle. Bundle'larda olduğu gibi burada da sadece sabit formatlı anahtarlar eşleştirilir. Android veya iOS paketindeki Google/Firebase API anahtarı medium raporlanır: bunlar tasarım gereği pakete girer ve uygulamanın package name'ine ya da bundle id'sine kısıtlanmalıdır.
 - **Tekrarlar**: 30 chunk'taki aynı anahtar tek bulgudur ("also in 29 other files"); uzun minify edilmemiş dosya listeleri tek bulguda toplanır.
 - **iOS Debug build'leri**: Xcode 16, Debug build'in kodunu `<App>.debug.dylib` içine koyar ve yanına `__preview.dylib` ekler; paketteki ikisinden biri Debug yapılandırmasının yayınlandığını gösterir.
 - **Unity**: IL2CPP `global-metadata.dat` sadece standart başlığı bozulmamışsa işaretlenir (korumalı build'ler şifreler); Mono `Assembly-CSharp.dll` .NET isim kontrolünden geçer.
@@ -135,6 +137,7 @@ Repoda tarayan, SARIF yükleyen, job özeti yazan ve `grade` / `new-findings` ç
 
 - Obfuscation kontrol akışından değil isimlerden değerlendirilir: sadece yeniden adlandıran bir build geçer; string şifreleme ya da control-flow flattening ölçülmez.
 - Web kontrolleri gönderileni inceler; bir anahtarın herkese açık olmak üzere tasarlanıp tasarlanmadığını bilemez (Firebase web anahtarları gibi bazıları sunucu tarafında kısıtlanır). Döndür ya da kısıtla, sonra bir `ignore` girdisiyle kabul et (`bundle_secret:firebase-config.js`).
+- String'ler dex ve kaynak tablolarından yapılarına göre, diğer binary'lerden yazdırılabilir dizi olarak okunur; string sabitlerine bölünmüş, şifrelenmiş ya da çalışma anında birleştirilen bir anahtar bulunmaz (amaç da budur, ama tersine mühendisi yalnızca yavaşlatır).
 - Native sertleştirme kontrolleri (PIE/NX/RELRO/canary) tersine mühendislikten çok exploit önleme sinyalidir; bu yüzden low/medium raporlanır.
 - App Store IPA'ları dağıtımda FairPlay ile şifrelenir; tarayıcı senin dışa aktardığın IPA'yı okur (development, ad hoc ya da Apple şifrelemeden önceki App Store export'u), ki jailbreak'li bir cihazdan da aynısı elde edilir.
 - `suggest_fixes` her config'in yaygın biçimlerini düzenler; alışılmadık yapılar (hesaplanan webpack config'leri, Gradle convention plugin'leri) diff almaz, Forge ve Flutter için patch yerine talimat verilir. Uygulamadan önce mutlaka gözden geçir.

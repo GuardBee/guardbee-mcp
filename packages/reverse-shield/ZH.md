@@ -17,6 +17,7 @@ Claude ──► reverse-shield ──► 你的构建产物 / 线上站点
               ├─ ios       IPA 与 .app：以 Debug 配置构建、开发描述文件、明文 React Native 包、可执行文件
               ├─ 引擎      Unity（IL2CPP 元数据、Mono 程序集）、PyInstaller、Java/Spring Boot JAR、Flutter
               ├─ native    调试信息、符号、get-task-allow、hardened runtime、签名、PIE/NX/RELRO/canary（ELF、Mach-O、PE）
+              ├─ 密钥      以上所有产物中的密钥：dex、resources.arsc、plist、配置文件、Hermes 字节码、.so 与可执行文件
               └─ .NET      未混淆、内嵌 PDB、泄露的构建路径
 ```
 
@@ -58,6 +59,8 @@ npx @guardbee/mcp-reverse-shield suggest . --format=patch | git apply  # 应用�
 
 - 混淆仅根据名称判断，不分析控制流：只做重命名的构建会通过，字符串加密或控制流平坦化不在衡量范围内。
 - Web 检查只看发布出去的内容，无法判断某个密钥是否本就应当公开（例如 Firebase Web 密钥在服务端受限）。
+- dex 与资源表按结构读取字符串，其他二进制按可打印字符串读取；拆分到多个字符串常量、加密或在运行时拼接的密钥无法发现。
+- Android 或 iOS 包中的 Google/Firebase API 密钥按 medium 报告：它们本就会随应用发布，必须限制到应用的包名或 bundle id。
 - 原生加固检查（PIE/NX/RELRO/canary）更多是漏洞利用缓解信号，因此以 low/medium 报告。
 - `suggest_fixes` 只处理各配置的常见写法；非常规结构不会生成 diff，Forge 与 Flutter 给出说明而非补丁。应用前务必审阅。
 

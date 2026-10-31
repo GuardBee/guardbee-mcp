@@ -21,6 +21,7 @@ Claude ──► reverse-shield ──► your build artifact / live site
               ├─ ios       IPA and .app: Debug-configuration builds, development profiles, plain React Native bundle, the executable
               ├─ engines   Unity (IL2CPP metadata, Mono assemblies), PyInstaller, Java/Spring Boot JARs, Flutter
               ├─ native    debug info, symbols, get-task-allow, hardened runtime, signing, PIE/NX/RELRO/canary (ELF, Mach-O, PE)
+              ├─ secrets   keys in everything above: dex, resources.arsc, plists, config files, Hermes bytecode, .so and executables
               └─ .NET      obfuscation missing, embedded PDB, leaked build paths
 ```
 
@@ -33,7 +34,7 @@ Everything runs locally and offline (except `scan_url`), with its own parsers fo
 | `sourcemap_embeds_source` | critical | web | Full original source via `sourcesContent` |
 | `sourcemap_shipped` / `sourcemap_inline` / `sourcemap_publicly_reachable` | high | web | Original file paths and structure |
 | `eval_devtool_bundle` | high | web | Dev bundle with each module's path |
-| `bundle_secret` | per key type | web | A working credential in client code |
+| `bundle_secret` | per key type | all | A working credential in client code, an app package or a binary |
 | `unminified_bundle` / `dev_build_framework` | medium | web | Readable code / framework dev runtime |
 | `sourcemap_reference` / `internal_endpoint` | low | web | Where the map lives / localhost, private IPs, staging hosts |
 | `electron_fuse_run_as_node` / `electron_fuse_inspect_args` | high | electron | Node runtime or debugger inside the signed app |
@@ -59,6 +60,7 @@ Everything runs locally and offline (except `scan_url`), with its own parsers fo
 - **R8/ProGuard**: reads class descriptors from every `classes*.dex` and looks at classes under your application id (and under the packages of components your manifest names, for `.debug`-style ids). Dozens of descriptive class names with almost no one- or two-letter names means R8 did not run.
 - **.NET obfuscation**: reads the metadata `#Strings` heap. Known obfuscator markers (ConfuserEx, Dotfuscator, SmartAssembly, …) pass immediately; otherwise an assembly passes when at least 10% of its identifiers are one- or two-letter names, bare numbers or non-ASCII junk. Checked against an Obfuscar build (21%, passes) and 400 unobfuscated NuGet assemblies (383 flagged; the other 17 are resource-only assemblies with too few names to judge).
 - **Private keys**: only reported when base64 key material follows the PEM header — crypto libraries bundled into apps carry the header as a string constant.
+- **Credentials outside JavaScript**: Android dex strings, the `resources.arsc` / `resources.pb` string pool (where `strings.xml` and google-services values end up), `assets/` and `res/raw/`; iOS plists (`GoogleService-Info.plist`) and the executable; JSON/plist/`.env`/properties/YAML files in an ASAR, a JAR (Spring Boot `application.properties`) or a build folder; Hermes bytecode, `.so` libraries and native/.NET binaries by their printable strings. Only fixed-format keys are matched there, as in bundles. A Google/Firebase API key in an Android or iOS package is reported as medium: those ship by design and must be restricted to the app's package name or bundle id.
 - **Repeats**: one key in 30 chunks is one finding (“also in 29 other files”), and long lists of unminified files collapse into one.
 - **iOS Debug builds**: Xcode 16 puts a Debug build's code in `<App>.debug.dylib` next to `__preview.dylib`; either one in a bundle means the Debug configuration was shipped.
 - **Unity**: IL2CPP's `global-metadata.dat` is flagged only when its standard header is intact (protected builds encrypt it); a Mono `Assembly-CSharp.dll` goes through the .NET name check.
@@ -139,6 +141,7 @@ The repository ships a composite action that scans, uploads SARIF, writes a job 
 
 - Obfuscation is judged from names, not control flow: a build that only renames passes, and string encryption or control-flow flattening is not measured.
 - Web checks look at what is shipped; they cannot tell whether a key is meant to be public (some, like Firebase web keys, are restricted server-side). Rotate or restrict it, then accept it with an `ignore` entry (`bundle_secret:firebase-config.js`).
+- Strings are read from dex and resource tables by their structure, from other binaries as printable runs; a key split across string constants, encrypted or assembled at runtime is not found (that is the point of doing so, but it only slows a reverse engineer down).
 - Native hardening checks (PIE/NX/RELRO/canary) are exploit-mitigation signals rather than reverse-engineering ones; they are reported low/medium for that reason.
 - App Store IPAs are FairPlay-encrypted on distribution; the scanner reads the IPA you export (development, ad hoc or App Store export before Apple encrypts it), which is what a jailbroken device would also yield.
 - `suggest_fixes` edits the common shapes of each config; unusual layouts (computed webpack configs, Gradle convention plugins) get no diff, and Forge and Flutter get instructions rather than a patch. Always review before applying.

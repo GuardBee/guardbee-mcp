@@ -8,6 +8,8 @@ import { frameworkChecks } from "./frameworks.js";
 import type { Finding } from "./finding.js";
 import { readAt } from "./fsutil.js";
 import { analyzeNative } from "./native.js";
+import { analyzeConfigFiles, binarySecrets, findSecrets, isConfigFile, readProtoStrings } from "./secrets.js";
+import type { SecretScanOptions } from "./secrets.js";
 import { analyzeWebFiles } from "./web.js";
 import { extractZipEntry, locateCentralDirectory, readZipEntries } from "./zip.js";
 import type { ZipEntry } from "./zip.js";
@@ -43,6 +45,10 @@ interface Layout {
   lib: RegExp;
   jsBundle: RegExp;
   assets: RegExp;
+  /** Compiled resource table, where strings.xml values (and google-services keys) end up. */
+  resources: RegExp;
+  /** Files shipped as-is: assets/ and res/raw/. */
+  shipped: RegExp;
   signed: boolean;
 }
 
@@ -53,6 +59,8 @@ const APK: Layout = {
   lib: /^lib\/[^/]+\/[^/]+\.so$/,
   jsBundle: /^assets\/index\.android\.bundle$/,
   assets: /^assets\/.*\.(?:m?js|map)$/i,
+  resources: /^resources\.arsc$/,
+  shipped: /^(?:assets|res\/raw)\//,
   signed: true,
 };
 
@@ -63,6 +71,8 @@ const AAB: Layout = {
   lib: /^[^/]+\/lib\/[^/]+\/[^/]+\.so$/,
   jsBundle: /^base\/assets\/index\.android\.bundle$/,
   assets: /^[^/]+\/assets\/.*\.(?:m?js|map)$/i,
+  resources: /^[^/]+\/resources\.pb$/,
+  shipped: /^[^/]+\/(?:assets|res\/raw)\//,
   signed: false,
 };
 
@@ -109,9 +119,12 @@ function analyzeAndroidPackage(filePath: string, layout: Layout): ApkResult | nu
     // ── Code: R8/ProGuard ──
     const dexEntries = entries.filter((e) => layout.dex.test(e.name));
     const descriptors: string[] = [];
+    const secrets: SecretScanOptions = { target: "android", mobile: true };
     for (const e of dexEntries) {
       const buf = read(e);
-      if (buf) descriptors.push(...readTypeDescriptors(buf));
+      if (!buf) continue;
+      descriptors.push(...readTypeDescriptors(buf));
+      findings.push(...binarySecrets(buf, at(e.name), secrets));
     }
     scannedFiles += dexEntries.length;
     if (descriptors.length > 0) {
@@ -141,17 +154,31 @@ function analyzeAndroidPackage(filePath: string, layout: Layout): ApkResult | nu
       const buf = read(jsBundle);
       if (buf && buf.subarray(0, 8).equals(HERMES_MAGIC)) {
         notes.push("React Native bundle is Hermes bytecode");
+        findings.push(...binarySecrets(buf, at(jsBundle.name), secrets));
+        scannedFiles++;
       } else if (buf) {
         findings.push(finding("apk_js_bundle_plaintext", at(jsBundle.name), { match: `${(buf.length / 1024).toFixed(0)} KiB of JavaScript` }));
-        findings.push(...analyzeWebFiles([{ key: "index.android.bundle.js", display: at(jsBundle.name), size: buf.length, read: () => buf }]));
+        findings.push(...analyzeWebFiles([{ key: "index.android.bundle.js", display: at(jsBundle.name), size: buf.length, read: () => buf }], { mobile: true }));
         scannedFiles++;
       }
     }
     const webAssets = entries.filter((e) => layout.assets.test(e.name) && !e.name.includes("node_modules"));
     if (webAssets.length > 0) {
       scannedFiles += webAssets.length;
-      findings.push(...analyzeWebFiles(webAssets.map((e) => ({ key: e.name, display: at(e.name), size: e.uncompressedSize, read: () => read(e) }))));
+      findings.push(...analyzeWebFiles(webAssets.map((e) => ({ key: e.name, display: at(e.name), size: e.uncompressedSize, read: () => read(e) })), { mobile: true }));
     }
+
+    // ── Resources and shipped config files ──
+    for (const e of entries.filter((x) => layout.resources.test(x.name))) {
+      const buf = read(e);
+      if (!buf) continue;
+      scannedFiles++;
+      if (e.name.endsWith(".pb")) findings.push(...findSecrets(readProtoStrings(buf).join("\n"), at(e.name), { ...secrets, positions: false }));
+      else findings.push(...binarySecrets(buf, at(e.name), secrets));
+    }
+    const shipped = entries.filter((e) => layout.shipped.test(e.name) && !e.name.endsWith("/") && (isConfigFile(e.name) || /(?:^|\/)res\/raw\/[^/.]+$/.test(e.name)));
+    scannedFiles += shipped.length;
+    findings.push(...analyzeConfigFiles(shipped.map((e) => ({ key: e.name, display: at(e.name), size: e.uncompressedSize, read: () => read(e) })), secrets));
 
     // ── Native libraries ──
     const libs = entries.filter((e) => layout.lib.test(e.name)).slice(0, MAX_NATIVE_LIBS);
@@ -160,6 +187,8 @@ function analyzeAndroidPackage(filePath: string, layout: Layout): ApkResult | nu
       const buf = read(e);
       const result = buf ? analyzeNative(buf, at(e.name)) : null;
       scannedFiles++;
+      // Keys "hidden" in NDK code are a common pattern; the strings are there for anyone to read.
+      if (buf) findings.push(...binarySecrets(buf, at(e.name), secrets));
       for (const f of result?.findings ?? []) {
         // Same library for several ABIs: report each issue once per library name.
         const key = `${f.patternId}:${e.name.split("/").pop()}`;

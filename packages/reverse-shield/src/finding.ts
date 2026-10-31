@@ -20,13 +20,13 @@ export interface Finding {
 export function finding(
   id: string,
   file: string | undefined,
-  detail: { match?: string; context?: string; severity?: Severity; line?: number; column?: number } = {},
+  detail: { match?: string; context?: string; severity?: Severity; target?: TargetKind; line?: number; column?: number } = {},
 ): Finding {
   const rule = getRule(id);
   return {
     patternId: rule.id,
     patternName: rule.name,
-    target: rule.target,
+    target: detail.target ?? rule.target,
     category: rule.category,
     severity: detail.severity ?? rule.severity,
     recommendation: rule.recommendation,
