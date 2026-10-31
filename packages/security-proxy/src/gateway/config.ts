@@ -18,6 +18,8 @@ import type { TaintBasis, TaintMode } from "./taint.js";
 import type { ApprovalChannel } from "./approval.js";
 import type { NerConfig } from "./ner.js";
 import { llmSchema, resolveLlmConfig, type LlmConfig } from "../llm/config.js";
+import { a2aSchema, resolveA2aConfig } from "../a2a/config.js";
+import type { A2aConfig } from "../a2a/gateway.js";
 
 /** How the agent reaches the proxy. */
 export type ListenConfig =
@@ -86,6 +88,8 @@ export interface GatewayConfig {
   interceptors: NonNullable<ProxyConfig["interceptors"]>;
   /** OpenAI/Anthropic-compatible endpoints next to /mcp (HTTP mode only). */
   llm?: LlmConfig;
+  /** Agent2Agent (A2A) agents served through the gateway at <a2a.path>/<name> (HTTP mode only). */
+  a2a?: A2aConfig;
   /** The person-name model (@guardbee/ner) that masking asks before it runs; absent → names are not detected. */
   ner?: NerConfig;
   /** Where persistent tool pins live (interceptors.definitionDrift.persist); default ~/.guardbee/pins.json. */
@@ -422,6 +426,7 @@ const yamlSchema = z
       .default({ source: "local", refreshSeconds: 60 }),
     listen: listenSchema.default({ transport: "stdio", host: "127.0.0.1", port: 8787, path: "/mcp", apiKeys: [], maxSessions: 100, contextIdleSeconds: 1800 }),
     llm: llmSchema.optional(),
+    a2a: a2aSchema.optional(),
     ner: nerSchema.optional(),
     pins: z.object({ file: z.string().min(1).optional() }).strict().optional(),
     /** Where quota and budget counters live: this process (memory) or Redis, shared by replicas. */
@@ -500,8 +505,19 @@ const yamlSchema = z
         ctx.addIssue({ code: "custom", path: ["interceptors", "piiMasking", "upstreams", name], message: `no upstream or LLM provider named "${name}"` });
       }
     }
-    if (Object.keys(value.upstreams).length === 0 && !value.llm && !value.hooks) {
-      ctx.addIssue({ code: "custom", path: ["upstreams"], message: "at least one upstream is required (or an llm or hooks section)" });
+    if (Object.keys(value.upstreams).length === 0 && !value.llm && !value.hooks && !value.a2a) {
+      ctx.addIssue({ code: "custom", path: ["upstreams"], message: "at least one upstream is required (or an llm, a2a or hooks section)" });
+    }
+    if (value.a2a) {
+      if (value.listen.transport !== "http") ctx.addIssue({ code: "custom", path: ["a2a"], message: "the a2a endpoints need listen.transport: http" });
+      const a2aPath = value.a2a.path.replace(/\/$/, "");
+      for (const [other, where] of [[value.listen.path, "listen.path"], [value.llm?.path, "llm.path"]] as const) {
+        if (other && (other === a2aPath || other.startsWith(`${a2aPath}/`))) ctx.addIssue({ code: "custom", path: ["a2a", "path"], message: `a2a.path ${a2aPath} overlaps ${where} ${other}` });
+      }
+      // Callers must authenticate: A2A has no open loopback mode
+      if (value.listen.apiKeys.length === 0 && !value.listen.oidc) {
+        ctx.addIssue({ code: "custom", path: ["a2a"], message: "a2a needs listen.apiKeys or listen.oidc: unauthenticated agents are refused" });
+      }
     }
     const { listen, llm } = value;
     if (llm && listen.transport !== "http") {
@@ -656,6 +672,7 @@ export function parseGatewayYaml(source: string, fileLabel = "guardbee-proxy.yam
     audit: { ...cfg.audit, dashboard: resolveDashboard(cfg.audit.dashboard), exporters: cfg.audit.exporters.map(resolveExporter) },
     interceptors: cfg.interceptors,
     ...(cfg.llm ? { llm: resolveLlmConfig(cfg.llm) } : {}),
+    ...(cfg.a2a ? { a2a: resolveA2aConfig(cfg.a2a, interpolate) } : {}),
     ...(cfg.ner ? { ner: resolveNer(cfg.ner) } : {}),
     ...(cfg.pins ? { pins: cfg.pins } : {}),
     provenance: cfg.provenance ?? { mode: "warn", offline: false },
