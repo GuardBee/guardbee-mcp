@@ -225,6 +225,8 @@ export type AuditEvent = {
   upstreamIdentity?: string;
   /** The LLM judge's second opinion on a borderline finding (judge config): which model, what it said, how long it took. */
   judge?: { model: string; version?: string; verdict?: "malicious" | "suspicious" | "benign"; confidence?: number; latencyMs?: number; cached?: boolean; error?: string; outcome: "raised" | "cleared" | "kept" | "failed-open" | "failed-closed" };
+  /** The prompt-injection classifier's score (classifier config): which model, the score, how long it took, or why it failed. */
+  classifier?: { model: string; score?: number; latencyMs: number; error?: string };
   /** Hash chain: each event carries the previous event's hash. Set by AuditLogger. */
   prevHash?: string;
   hash?: string;

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { Judge, judgeFromEnv, scanForPromptInjection } from "@guardbee/guard-core";
+import { combineWithClassifier, DEFAULT_CLASSIFIER_THRESHOLDS, Judge, judgeFromEnv, scanForPromptInjection } from "@guardbee/guard-core";
 import type { Lang, Sample } from "./data.js";
 
 /** A detector under test: flags a text as an injection/jailbreak attempt or not. */
@@ -96,8 +96,44 @@ export async function protectAi(): Promise<System | undefined> {
   };
 }
 
+/**
+ * GuardBee with its classifier (@guardbee/injection-model), as the proxy runs it with the default thresholds:
+ * a rule's block, or a score >= blockAt, blocks. INJECTION_BENCH_CLASSIFIER = the model directory.
+ * Returns two systems: what the proxy blocks, and everything it blocks or warns about.
+ */
+export async function guardbeeClassifier(): Promise<System[]> {
+  const dir = process.env["INJECTION_BENCH_CLASSIFIER"];
+  if (!dir) return [];
+  const { InjectionModel } = (await import("@guardbee/injection-model" as string)) as {
+    InjectionModel: { load(o: { dir: string }): Promise<{ model: string; classify(t: string[]): Promise<number[]>; close(): Promise<void> }> };
+  };
+  const model = await InjectionModel.load({ dir });
+  const t = DEFAULT_CLASSIFIER_THRESHOLDS;
+  const decide = async (text: string) => combineWithClassifier(scanForPromptInjection(text, "block"), (await model.classify([text]))[0]!, t, "block", model.model);
+  let open = 2;
+  const close = async () => {
+    if (--open === 0) await model.close();
+  };
+  return [
+    {
+      name: "GuardBee rules + classifier (block)",
+      version: `${coreVersion()}, ${model.model}`,
+      settings: `rule block OR P(injection) >= ${t.blockAt}: what the proxy refuses with classifier: {} (defaults)`,
+      detect: async (text) => (await decide(text)).action === "block",
+      close,
+    },
+    {
+      name: "GuardBee rules + classifier (block or warn)",
+      version: `${coreVersion()}, ${model.model}`,
+      settings: `anything the rules flag OR P(injection) >= ${t.warnAt}`,
+      detect: async (text) => (await decide(text)).action !== "allow",
+      close,
+    },
+  ];
+}
+
 export async function allSystems(): Promise<System[]> {
-  return [guardbeeBlock(), guardbeeBlockOrWarn(), guardbeeWithJudge(), await protectAi()].filter((s): s is System => !!s);
+  return [guardbeeBlock(), guardbeeBlockOrWarn(), ...(await guardbeeClassifier()), guardbeeWithJudge(), await protectAi()].filter((s): s is System => !!s);
 }
 
 export type { Sample };

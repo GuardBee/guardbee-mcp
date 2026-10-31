@@ -16,6 +16,8 @@ export interface Finding {
   context: string;
   /** Set on findings made by the LLM judge (--judge): the model that judged, and how sure it was. */
   judge?: { model: string; version?: string; confidence: number };
+  /** Set on findings made by the local classifier (--classifier): the model, and its score. */
+  classifier?: { model: string; score: number };
 }
 
 export interface ScanResult {

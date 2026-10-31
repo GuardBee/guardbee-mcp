@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 import { startServer } from "./server.js";
 import { scanFile, scanDirectory } from "./scanner.js";
-import { Judge, judgeFromEnv, type JudgeConfig } from "@guardbee/guard-core";
+import { Judge, judgeFromEnv, type InjectionClassifier, type JudgeConfig } from "@guardbee/guard-core";
 import { judgeFiles } from "./judge.js";
+import { classifyFiles } from "./classifier.js";
 import type { Finding } from "./scanner.js";
 import { buildSarif } from "./sarif.js";
 import { loadConfig, configFilePath } from "./config.js";
@@ -150,6 +151,24 @@ async function runCli(rawArgs: string[]): Promise<void> {
     if (format === "text") process.stderr.write(`[guardbee] judge ${judgeConfig.model}: content checked${failures ? `, ${failures} chunk(s) failed` : ""}\n`);
   }
 
+  if (rawArgs.some((a) => a === "--classifier" || a.startsWith("--classifier="))) {
+    const dir = rawArgs.find((a) => a.startsWith("--classifier="))?.slice("--classifier=".length);
+    const threshold = Number(rawArgs.find((a) => a.startsWith("--classifier-threshold="))?.slice("--classifier-threshold=".length) ?? "0.9");
+    let model: InjectionClassifier & { close?: () => Promise<void> };
+    try {
+      const mod = (await import("@guardbee/injection-model" as string)) as { InjectionModel: { load(o: { dir?: string }): Promise<InjectionClassifier & { close(): Promise<void> }> } };
+      model = await mod.InjectionModel.load(dir ? { dir } : {});
+    } catch (err) {
+      console.error(`--classifier needs @guardbee/injection-model installed and its model downloaded (npx @guardbee/injection-model download): ${err instanceof Error ? err.message : String(err)}`);
+      process.exit(2);
+    }
+    const start = Date.now();
+    findings = [...findings, ...(await classifyFiles(paths, model, { threshold }))];
+    await model.close?.();
+    durationMs += Date.now() - start;
+    if (format === "text") process.stderr.write(`[guardbee] classifier ${model.model}: content checked\n`);
+  }
+
   if (format === "json") {
     console.log(JSON.stringify({ findings, scannedFiles, durationMs }, null, 2));
   } else if (format === "sarif") {
@@ -177,6 +196,8 @@ Options:
   --judge             Also ask an LLM judge for paraphrased or translated injections the patterns miss
                       (GUARDBEE_JUDGE_URL + GUARDBEE_JUDGE_MODEL, e.g. http://127.0.0.1:11434/v1 and qwen2.5:7b)
   --judge-url=<url> --judge-model=<m>   The same, as flags; a non-local URL also needs --judge-allow-remote
+  --classifier[=<dir>]  Also score content with the local classifier (@guardbee/injection-model, offline)
+  --classifier-threshold=<0-1>  Report at this score or above (default 0.9)
   --max-files=<n>     Max files to scan (default: 5000)
 
 Exit codes:

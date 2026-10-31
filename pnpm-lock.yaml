@@ -262,6 +262,21 @@ importers:
         specifier: workspace:^
         version: link:../guard-core
     devDependencies:
+      '@guardbee/injection-model':
+        specifier: workspace:^
+        version: link:../injection-model
+      '@huggingface/tokenizers':
+        specifier: ^0.2.0
+        version: 0.2.0
+      onnxruntime-node:
+        specifier: ^1.30.0
+        version: 1.30.0
+
+  packages/injection-model:
+    dependencies:
+      '@guardbee/guard-core':
+        specifier: workspace:^
+        version: link:../guard-core
       '@huggingface/tokenizers':
         specifier: ^0.2.0
         version: 0.2.0

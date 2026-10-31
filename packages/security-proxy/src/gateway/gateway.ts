@@ -39,6 +39,7 @@ import { AnomalyDetector, type AnomalyConfig } from "./anomaly.js";
 import { ApprovalRequired, approvalKey, type ApprovalRequest, type Approver, type DeferredApprovals } from "./approval.js";
 import type { GatewayConfig } from "./config.js";
 import { judgeFor, secondOpinion } from "./judge.js";
+import { classifierFor, classifyInjection } from "./classifier.js";
 import { callerStorage, currentCaller, type CallerScope } from "./caller-context.js";
 import { CONNECT_TOOL } from "./authenticated-upstream.js";
 import { maskFields } from "./fields.js";
@@ -680,14 +681,23 @@ export class Gateway {
     // 1. Prompt injection in the arguments
     if (this.interceptors.promptInjection?.enabled !== false) {
       const mode = this.interceptors.promptInjection?.action ?? "block";
-      const scan = scanForPromptInjection(args, mode);
+      let scan = scanForPromptInjection(args, mode);
       if (scan.action === "block") return block(scan.reason);
+      // The classifier (when configured): a fast first pass over what the rules let through
+      const classifier = classifierFor(this.config.classifier, "arguments");
+      let classified: AuditEvent["classifier"];
+      if (classifier) {
+        const result = await classifyInjection(this.config.classifier!, classifier, args, scan, mode);
+        if (result.audit) classified = result.audit;
+        scan = result.scan;
+        if (scan.action === "block") return block(scan.reason, { ruleId: "classifier:injection", ...(classified ? { classifier: classified } : {}) });
+      }
       if (scan.action === "warn") {
         // Borderline: the judge (when configured) gives a second opinion
         const judge = judgeFor(this.config.judge);
         const second = judge ? await secondOpinion(this.config.judge!, judge, args, "tool argument", scan.reason, mode) : undefined;
-        if (second?.action === "block") return block(second.reason, { ruleId: "judge:injection", judge: second.judge });
-        this.log({ ...base, type: "warn", input: args, reason: second?.reason ?? scan.reason, ...(second ? { judge: second.judge } : {}) });
+        if (second?.action === "block") return block(second.reason, { ruleId: "judge:injection", judge: second.judge, ...(classified ? { classifier: classified } : {}) });
+        this.log({ ...base, type: "warn", input: args, reason: second?.reason ?? scan.reason, ...(second ? { judge: second.judge } : {}), ...(classified ? { classifier: classified } : {}) });
       }
     }
 
@@ -830,6 +840,13 @@ export class Gateway {
     if (this.interceptors.toolResultInjection?.enabled !== false) {
       let scan = scanToolResult([content, result.structuredContent ?? null], this.resultAction);
       let judged: AuditEvent["judge"];
+      let classified: AuditEvent["classifier"];
+      const classifier = scan.action !== "block" ? classifierFor(this.config.classifier, "results") : undefined;
+      if (classifier) {
+        const c = await classifyInjection(this.config.classifier!, classifier, [content, result.structuredContent ?? null], scan, this.resultAction);
+        classified = c.audit;
+        scan = c.scan;
+      }
       // Borderline (the rules warned), or with judge.scope: results every result the rules let through
       const judge = scan.action === "warn" || (scan.action === "allow" && this.config.judge?.scope === "results") ? judgeFor(this.config.judge) : undefined;
       if (judge && scan.action !== "block") {
@@ -841,7 +858,7 @@ export class Gateway {
         scan = second.action === "allow" ? { action: "allow" } : { action: second.action, reason: second.reason };
       }
       if (scan.action === "block") {
-        this.log({ ...base, type: "blocked", output: content, reason: scan.reason, ...(judged ? { ruleId: "judge:injection", judge: judged } : {}) });
+        this.log({ ...base, type: "blocked", output: content, reason: scan.reason, ...(judged ? { ruleId: "judge:injection", judge: judged } : classified ? { ruleId: "classifier:injection" } : {}), ...(classified ? { classifier: classified } : {}) });
         countRefusal();
         void recordEvent({
           server: "security-proxy",
@@ -854,7 +871,7 @@ export class Gateway {
         return errorResult(`Tool result blocked: ${scan.reason}`);
       }
       if (scan.action === "warn") {
-        this.log({ ...base, type: "warn", output: content, reason: scan.reason, ...(judged ? { judge: judged } : {}) });
+        this.log({ ...base, type: "warn", output: content, reason: scan.reason, ...(judged ? { judge: judged } : {}), ...(classified ? { classifier: classified } : {}) });
         content = [{ type: "text", text: `${PREFIX} Warning: ${scan.reason}` }, ...content];
       }
     }
@@ -1033,12 +1050,20 @@ export class Gateway {
     const source = `resource:${uri}`;
 
     if (this.interceptors.toolResultInjection?.enabled !== false) {
-      const scan = scanToolResult(texts, this.resultAction);
+      let scan = scanToolResult(texts, this.resultAction);
+      let classified: AuditEvent["classifier"];
+      const classifier = scan.action !== "block" ? classifierFor(this.config.classifier, "resources") : undefined;
+      if (classifier) {
+        const c = await classifyInjection(this.config.classifier!, classifier, texts, scan, this.resultAction);
+        classified = c.audit;
+        scan = c.scan;
+      }
+      const extra = classified ? { classifier: classified } : {};
       if (scan.action === "block") {
-        this.log({ type: "blocked", tool: source, upstream: upstream.name, reason: scan.reason });
+        this.log({ type: "blocked", tool: source, upstream: upstream.name, reason: scan.reason, ...extra });
         throw new Error(`${PREFIX} Resource blocked: ${scan.reason}`);
       }
-      if (scan.action === "warn") this.log({ type: "warn", tool: source, upstream: upstream.name, reason: scan.reason });
+      if (scan.action === "warn") this.log({ type: "warn", tool: source, upstream: upstream.name, reason: scan.reason, ...extra });
     }
 
     const topical = await this.topicsAfter(source, upstream, texts, ["untrusted"], {}, undefined, options.deferred);

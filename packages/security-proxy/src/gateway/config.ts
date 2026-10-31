@@ -17,6 +17,7 @@ import type { QuotaRule } from "./quota.js";
 import type { TaintBasis, TaintMode } from "./taint.js";
 import type { ApprovalChannel } from "./approval.js";
 import type { NerConfig } from "./ner.js";
+import type { GatewayClassifierConfig } from "./classifier.js";
 import { llmSchema, resolveLlmConfig, type LlmConfig } from "../llm/config.js";
 import { a2aSchema, resolveA2aConfig } from "../a2a/config.js";
 import type { A2aConfig } from "../a2a/gateway.js";
@@ -100,6 +101,8 @@ export interface GatewayConfig {
   state?: StateConfig;
   /** LLM judge for borderline injection findings; absent → off. */
   judge?: GatewayJudgeConfig;
+  /** The prompt-injection classifier (@guardbee/injection-model, in this process or as a sidecar). */
+  classifier?: GatewayClassifierConfig;
   /** Consent page and token store for upstreams.<name>.auth (oauth-per-user). */
   upstreamAuth?: { publicUrl: string; encryptionKey: Buffer; tokenFile: string };
 }
@@ -335,6 +338,17 @@ function resolveNer(ner: z.infer<typeof nerSchema>): NerConfig {
   return { url: ner.url, ...(token ? { token } : {}), timeoutMs: ner.timeoutMs };
 }
 
+function resolveClassifier(c: { url?: string | undefined; tokenEnv?: string | undefined; modelDir?: string | undefined; timeoutMs: number; onError: "open" | "closed"; warnAt: number; blockAt: number; apply: GatewayClassifierConfig["apply"] }): GatewayClassifierConfig {
+  const common = { timeoutMs: c.timeoutMs, onError: c.onError, warnAt: c.warnAt, blockAt: c.blockAt, apply: c.apply };
+  if (!c.url) return { ...common, ...(c.modelDir ? { modelDir: c.modelDir } : {}) };
+  let token: string | undefined;
+  if (c.tokenEnv) {
+    token = process.env[c.tokenEnv];
+    if (!token) throw new Error(`Environment variable ${c.tokenEnv} (classifier.tokenEnv) is not set`);
+  }
+  return { ...common, url: c.url, ...(token ? { token } : {}) };
+}
+
 const listenSchema = z
   .object({
     transport: z.enum(["stdio", "http"]).default("stdio"),
@@ -492,6 +506,32 @@ const yamlSchema = z
       .superRefine((judge, ctx) => {
         const issue = judgeConfigIssue({ endpoint: judge.endpoint, model: judge.model, allowRemote: judge.allowRemote });
         if (issue) ctx.addIssue({ code: "custom", path: ["endpoint"], message: issue });
+      })
+      .optional(),
+    /**
+     * The prompt-injection classifier: @guardbee/injection-model in this process
+     * (modelDir, or its cache) or its sidecar (url). A fast first pass after the
+     * rules; off unless configured.
+     */
+    classifier: z
+      .object({
+        url: httpUrl.optional(),
+        tokenEnv: envVar.optional(),
+        modelDir: z.string().min(1).optional(),
+        timeoutMs: z.number().int().positive().max(60_000).default(1000),
+        onError: z.enum(["open", "closed"]).default("open"),
+        warnAt: z.number().min(0).max(1).default(0.5),
+        blockAt: z.number().min(0).max(1).default(0.9),
+        apply: z.array(z.enum(["arguments", "results", "resources", "llm"])).min(1).default(["arguments", "results", "resources", "llm"]),
+      })
+      .strict()
+      .superRefine((c, ctx) => {
+        if (c.url && c.modelDir) ctx.addIssue({ code: "custom", message: "use url (a sidecar) or modelDir (in this process), not both" });
+        if (c.tokenEnv && !c.url) ctx.addIssue({ code: "custom", path: ["tokenEnv"], message: "tokenEnv is for a sidecar (url)" });
+        if (c.warnAt > c.blockAt) ctx.addIssue({ code: "custom", path: ["warnAt"], message: "warnAt must not be above blockAt" });
+        if (c.url?.startsWith("http://") && !LOOPBACK.has(new URL(c.url).hostname.replace(/^\[|\]$/g, ""))) {
+          ctx.addIssue({ code: "custom", path: ["url"], message: "the texts would cross the network in the clear: use https:// for a sidecar on another host" });
+        }
       })
       .optional(),
   })
@@ -678,6 +718,7 @@ export function parseGatewayYaml(source: string, fileLabel = "guardbee-proxy.yam
     provenance: cfg.provenance ?? { mode: "warn", offline: false },
     ...(cfg.state && cfg.state.backend === "redis" ? { state: { ...cfg.state, url: interpolate(cfg.state.url!, "state.url") } } : {}),
     ...(cfg.upstreamAuth ? { upstreamAuth: resolveUpstreamAuthConfig(cfg.upstreamAuth) } : {}),
+    ...(cfg.classifier ? { classifier: resolveClassifier(cfg.classifier) } : {}),
     ...(cfg.judge ? { judge: { ...cfg.judge, ...(cfg.judge.apiKey ? { apiKey: interpolate(cfg.judge.apiKey, "judge.apiKey") } : {}) } } : {}),
   };
 }

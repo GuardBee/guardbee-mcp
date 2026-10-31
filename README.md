@@ -70,10 +70,11 @@ GuardBee's rules alone trail mcp-guardian on tool poisoning: no Turkish patterns
 | F1 (test split) | Turkish | English |
 |---|---|---|
 | GuardBee rules (what the proxy blocks) | 28.6 (0% false positives) | 20.4 (0%) |
-| GuardBee rules + local LLM judge (qwen2.5:7b) | **89.6** | **90.8** |
+| GuardBee rules + local LLM judge (qwen2.5:7b, ~1 s) | 89.6 | 90.8 |
 | ProtectAI DeBERTa-v3 prompt-injection v2 | 70.2 | 89.1 |
+| **GuardBee rules + local classifier** ([`@guardbee/injection-model`](packages/injection-model), ~8 ms) | **93.7** | **91.6** |
 
-The rules are precise but catch only 11–19% of attacks, and the English-trained classifier loses 19 F1 points in Turkish. The [README](packages/injection-bench/README.md) explains both.
+The rules are precise but catch only 11–19% of attacks. GuardBee's optional classifier closes most of that gap in both languages. The English-trained ProtectAI model loses 19 F1 points in Turkish. The [README](packages/injection-bench/README.md) explains both.
 
 ## Examples
 

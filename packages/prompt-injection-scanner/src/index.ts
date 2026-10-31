@@ -5,3 +5,5 @@ export type { InjectionPattern, InjectionCategory } from "./patterns.js";
 export { registerTools } from "./server.js";
 export { judgeFiles, judgeText } from "./judge.js";
 export type { JudgeScanOptions } from "./judge.js";
+export { classifyFiles, classifyText } from "./classifier.js";
+export type { ClassifierScanOptions } from "./classifier.js";
