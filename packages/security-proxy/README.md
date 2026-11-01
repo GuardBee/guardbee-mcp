@@ -286,6 +286,30 @@ Tokens are stored per user and upstream, encrypted with AES-256-GCM (`upstreamAu
 
 **Audit.** Each tool response from such an upstream records `user`, the caller at the gateway, and `upstreamIdentity`, whom the upstream saw (the downstream token's `preferred_username`, `upn`, `email` or `sub`). Tokens are never logged.
 
+## Prompt-Injection Classifier (optional)
+
+The rules catch phrases they know: 11–19% of the attacks on GuardBee's [Turkish + English benchmark](../injection-bench). The optional classifier [`@guardbee/injection-model`](../injection-model) is a small multilingual model that runs offline on CPU. It covers paraphrases, translations, Turkish suffix forms and jailbreak personas, at about 8 ms per text. It is off unless configured.
+
+```bash
+npm i -g @guardbee/injection-model && guardbee-injection-model download   # ~135 MB, hash-checked; the only network access
+```
+
+```yaml
+classifier:
+  # modelDir: /opt/guardbee/injection-model   # default: ~/.cache/guardbee/injection-model
+  # url: http://127.0.0.1:8766                # or the sidecar (guardbee-injection-model serve); tokenEnv for its bearer token
+  warnAt: 0.5          # at or above: warn
+  blockAt: 0.9         # at or above: the interceptor's action (block, or warn in warn mode)
+  timeoutMs: 1000
+  onError: open        # open: keep the rules' decision; closed: block when the classifier fails
+  apply: [arguments, results, resources, llm]   # tool arguments, tool results, resources, LLM gateway prompts
+```
+
+- **The rules stay authoritative.** The classifier only sees what the rules did not block. It can add a warning or a block, and never clears a rule's finding. What is still a warning afterwards goes to the [judge](#llm-judge-optional) when one is configured, so the classifier is the fast first pass and the judge the second opinion.
+- **On record.** Every audit event the classifier touched carries `classifier: { model, score, latencyMs }`, or `error` when it failed. Its blocks have `ruleId: classifier:injection` (`llm:injection-classifier` in the LLM gateway). The CLI scanner takes `--classifier` and reports `classifierModel` and `classifierScore` in SARIF.
+- **Numbers.** On the benchmark's held-out split, rules + classifier score F1 93.7 in Turkish and 91.6 in English, with 2.1% false positives overall, at 8 ms mean / 30 ms p95 per text on a laptop CPU. The rules alone score 28.6 and 20.4; the [model card](../injection-model/README.md) has the full table, the training data and the limits.
+- **Rolling out.** Start with `blockAt: 1` (warnings only) and read the warnings on your own traffic before blocking.
+
 ## LLM Judge (optional)
 
 The injection rules are fast and explainable but match phrases they know. An optional **judge** gives a second opinion from a model: a paraphrased, indirect or translated instruction, or an article that only *quotes* one. It is off unless configured, and runs best on a local model (Ollama, llama.cpp, vLLM, LM Studio: any OpenAI-compatible endpoint), so nothing leaves the machine.

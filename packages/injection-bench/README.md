@@ -75,7 +75,7 @@ Not included:
 - [Llama Prompt Guard 2](https://huggingface.co/meta-llama/Llama-Prompt-Guard-2-86M) needs a gated download under the Llama license; an adapter like `protectAi()` works for it.
 - Hosted APIs (Lakera, Azure Prompt Shields, Bedrock Guardrails) can't run offline on this data.
 
-GuardBee's optional classifier (#231) will be added here when it ships.
+GuardBee's optional classifier ([`@guardbee/injection-model`](../injection-model)) runs with `INJECTION_BENCH_CLASSIFIER=<model dir>`. It was trained without this set's test split, but with its dev split and the same public sources, so read its numbers with that in mind.
 
 ## Running it
 
@@ -104,11 +104,12 @@ GUARDBEE_JUDGE_URL=http://127.0.0.1:11434/v1 GUARDBEE_JUDGE_MODEL=qwen2.5:7b \
 | GuardBee rules (block or warn) | 31.5 (18.8% / 0.4%) | 38.7 (24.8% / 4.0%) |
 | **GuardBee rules + local judge (qwen2.5:7b)** | **89.6** (85.4% / 5.3%) | **90.8** (87.7% / 6.0%) |
 | ProtectAI DeBERTa-v3 v2 | 70.2 (60.4% / 12.0%) | 89.1 (81.3% / 1.3%) |
+| **GuardBee rules + classifier** ([`@guardbee/injection-model`](../injection-model), block at 0.9) | **93.7** (90.6% / 2.8%) | **91.6** (85.6% / 1.3%) |
 
 Intervals, per-technique recall and latency are in the [leaderboard](results/LEADERBOARD.test.md). Latency per sample: rules 0.03 ms, ProtectAI 66 ms mean / 306 ms p95 on CPU, judge about 1 s mean / 2 s p95.
 
 What this shows:
-- **GuardBee's rules alone are precise, never wrong on the benign set when blocking, but catch only 11–19% of attacks.** They are written for well-known phrases; paraphrases, Gandalf-style tricks and long jailbreaks pass. This is the gap the classifier in #231 is for.
+- **GuardBee's rules alone are precise, never wrong on the benign set when blocking, but catch only 11–19% of attacks.** They are written for well-known phrases; paraphrases, Gandalf-style tricks and long jailbreaks pass. The classifier ([`@guardbee/injection-model`](../injection-model)) closes this gap at about 8 ms per sample: F1 93.7 in Turkish and 91.6 in English, with 2.1% false positives overall.
 - **The local judge raises recall to ~86%** in both languages at 5–6% false positives, but at about 1 s per sample, it is a second opinion, not a first pass.
 - **The English-trained ProtectAI model drops from F1 89 in English to 70 in Turkish.** It catches 18% of the Turkish jailbreaks and flags 17% of ordinary Turkish questions. A Turkish-capable fast classifier is missing in the open ecosystem.
 

@@ -1,0 +1,65 @@
+{
+  "name": "@guardbee/injection-model",
+  "version": "0.0.0",
+  "description": "Optional local prompt-injection and jailbreak classifier for GuardBee: a multilingual DeBERTa-v3 model fine-tuned on Turkish and English (ONNX, int8, offline, CPU), in-process or as a sidecar HTTP service",
+  "type": "module",
+  "bin": {
+    "guardbee-injection-model": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "!dist/**/*.map",
+    "!dist/**/__tests__"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@guardbee/guard-core": "workspace:^",
+    "@huggingface/tokenizers": "^0.2.0",
+    "onnxruntime-node": "^1.30.0"
+  },
+  "keywords": [
+    "guardbee",
+    "prompt-injection",
+    "jailbreak",
+    "classifier",
+    "turkish",
+    "onnx",
+    "deberta",
+    "llm-security",
+    "mcp",
+    "security"
+  ],
+  "author": "GuardBee <hello@guardbee.ai>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git",
+    "directory": "packages/injection-model"
+  },
+  "homepage": "https://github.com/GuardBee/guardbee-mcp/tree/main/packages/injection-model#readme",
+  "bugs": {
+    "url": "https://github.com/GuardBee/guardbee-mcp/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

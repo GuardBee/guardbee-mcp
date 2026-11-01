@@ -26,6 +26,7 @@ import { orgPatternsFor, piiScopesFor } from "../gateway/pii-scope.js";
 import { PiiVault } from "../gateway/tokens.js";
 import type { AuditEvent } from "../types.js";
 import { BudgetStore, costOf, type LlmCaller, type LlmUsage } from "./budget.js";
+import { classifierFor, classifyInjection } from "../gateway/classifier.js";
 import { DEFAULT_MAX_TEXT_CHARS, MAX_BODY_BYTES, type LlmApi, type LlmConfig, type LlmAudio, type LlmDocuments, type LlmProvider } from "./config.js";
 import { SseRelay, apiOf, errorBody, mapCompletion, mapPrompt, promptTexts, unmaskableParts, usageOf, type LlmShape } from "./shapes.js";
 import { SseRewriter, type RewritePrepare, type TextRewrite } from "./stream.js";
@@ -439,9 +440,23 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     // 1. Prompt injection in what people and tools wrote. Text sent for embedding is
     //    not run by a model, and a document about injection must still be indexable.
     if (shape !== "embeddings" && interceptors.promptInjection?.enabled !== false) {
-      const scan = inspect(() => scanForPromptInjection(promptTexts(shape, checked, UNTRUSTED_ROLES), interceptors.promptInjection?.action ?? "block"));
+      const mode = interceptors.promptInjection?.action ?? "block";
+      const untrusted = promptTexts(shape, checked, UNTRUSTED_ROLES);
+      let scan = inspect(() => scanForPromptInjection(untrusted, mode));
       if (scan.action === "block") refuse(403, scan.reason, "llm:injection");
-      if (scan.action === "warn") log({ ...base, type: "warn", ruleId: "llm:injection", reason: scan.reason });
+      // The classifier (when configured), over the same text
+      let classified: AuditEvent["classifier"];
+      const classifier = classifierFor(options.config.classifier, "llm");
+      if (classifier) {
+        const result = await classifyInjection(options.config.classifier!, classifier, untrusted, scan, mode);
+        classified = result.audit;
+        scan = result.scan;
+        if (scan.action === "block") {
+          log({ ...base, type: "blocked", ruleId: "llm:injection-classifier", reason: scan.reason, ...(classified ? { classifier: classified } : {}) });
+          throw new HttpError(403, `[GuardBee] ${scan.reason}`, {});
+        }
+      }
+      if (scan.action === "warn") log({ ...base, type: "warn", ruleId: "llm:injection", reason: scan.reason, ...(classified ? { classifier: classified } : {}) });
     }
 
     // 2. Credentials on their way to the provider

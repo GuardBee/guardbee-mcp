@@ -25,6 +25,8 @@ export {
   scanToolResult,
 } from "./injection.js";
 export type { ScanResult, InjectionRule, InjectionCategory, InjectionFinding } from "./injection.js";
+export { combineWithClassifier, DEFAULT_CLASSIFIER_THRESHOLDS } from "./injection-classifier.js";
+export type { ClassifierThresholds, InjectionClassifier } from "./injection-classifier.js";
 export { CAPABILITY_RULES, classifyTool, textOf } from "./classify.js";
 export type { Capability, FlowCategory, ToolRecord } from "./classify.js";
 export { POLICY_LABELS, POLICY_ACTIONS, policyRuleSchema, quotaRuleSchema, topicSchema, policyShape, gatewayPolicySchema, validatePolicy, checkTopicReferences } from "./policy.js";
