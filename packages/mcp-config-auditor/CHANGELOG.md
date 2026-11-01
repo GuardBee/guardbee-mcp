@@ -1,5 +1,27 @@
 # @guardbee/mcp-config-auditor
 
+## 0.9.0
+
+### Minor Changes
+
+- [#268](https://github.com/GuardBee/guardbee-mcp/pull/268) [`53949c6`](https://github.com/GuardBee/guardbee-mcp/commit/53949c627192b2eb3c6eee8cc28341a6eacb7058) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Fleet-wide shadow MCP inventory:
+  
+  - `discover --allowlist-from-dashboard` checks every machine against the organization allowlist managed in the GuardBee dashboard (merged with `--allowlist`).
+  - `--grades` adds MCP Index grades to the uploaded inventory.
+  - `fetchDashboardAllowlist`, `allowlistUrlFor` and `inventoryKey` are exported.
+  - FLEET.md has Jamf, Intune, systemd and CI recipes.
+
+- [#264](https://github.com/GuardBee/guardbee-mcp/pull/264) [`fb81d57`](https://github.com/GuardBee/guardbee-mcp/commit/fb81d57371b9e06a3ff6c05a8877717276e51a89) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - GuardBee MCP Index: A–F trust grades for the servers in the official MCP Registry, rebuilt weekly from their published packages (static scan with the GuardBee scanners, OSV vulnerabilities and malware, Sigstore build provenance, maintenance; rubric in packages/mcp-index/RUBRIC.md).
+  
+  - guard-core: `loadMcpIndex` (downloads the whole index, cached for a day, so lookups send no names), `lookupMcpGrade` (by what a command launches: npm, PyPI, image), `gradeBelow`, `isMcpGrade`, index types.
+  - mcp-config-auditor: `--grades` on `scan <file>` and `discover` shows each server's grade; `--min-grade=<A-F>` reports servers below it (`mcp_index_grade_below_minimum`, MCP04); `--index-url`, `--offline`.
+  - security-proxy: `guardbee-proxy init --grades` shows the grades; `--min-grade <A-F>` leaves servers below it out of both the gateway and the client config (they stay in the backup).
+
+### Patch Changes
+
+- Updated dependencies [[`2b600e1`](https://github.com/GuardBee/guardbee-mcp/commit/2b600e19a04dd645100937dd713685b01bd8ecba), [`ca17dea`](https://github.com/GuardBee/guardbee-mcp/commit/ca17dea9e1167efcbe36ac0c8b73b3fe3ca941ae), [`fb81d57`](https://github.com/GuardBee/guardbee-mcp/commit/fb81d57371b9e06a3ff6c05a8877717276e51a89)]:
+  - @guardbee/guard-core@1.5.0
+
 ## 0.8.1
 
 ### Patch Changes
