@@ -88,6 +88,15 @@ export function analyzeIosBundle(files: BundleFile[], label: string): IosResult 
     }));
   }
 
+  // ── Debug symbols copied into the bundle ──
+  const dsyms = [...new Set(files.map((f) => /^(?:.*\/)?([^/]+\.dSYM)\//.exec(f.key)?.[1]).filter((n): n is string => n !== undefined))];
+  if (dsyms.length > 0) {
+    const first = files.find((f) => f.key.includes(`${dsyms[0]}/`))!;
+    findings.push(finding("ios_dsym_shipped", first.display.slice(0, first.display.indexOf(`${dsyms[0]}/`) + dsyms[0].length), {
+      match: dsyms.length > 3 ? `${dsyms.slice(0, 3).join(", ")} and ${dsyms.length - 3} more` : dsyms.join(", "),
+    }));
+  }
+
   // ── Executables ──
   const nativeTargets = [byKey.get(exe), debugDylib].filter((f): f is BundleFile => f !== undefined);
   for (const f of nativeTargets) {

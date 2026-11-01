@@ -3,7 +3,7 @@ import { assessDexObfuscation } from "./dex.js";
 import { finding } from "./finding.js";
 import type { Finding } from "./finding.js";
 import { assessDotnetNames, detectNativeFormat, readDotnetStringsHeap } from "./native.js";
-import { analyzeConfigFiles, isConfigFile } from "./secrets.js";
+import { analyzeConfigFiles, isConfigFile, printableStrings } from "./secrets.js";
 import type { ArtifactFile } from "./web.js";
 import { extractZipEntry, readZipEntries } from "./zip.js";
 
@@ -75,16 +75,40 @@ function unity(files: ArtifactFile[]): FrameworkResult {
 
 // ── Flutter ─────────────────────────────────────────────────────────────────
 
+// Dart identifiers as the AOT snapshot stores them: `Name`, `_private@1234567`
+// (library-private names carry the library key), `Class.method`.
+const DART_IDENTIFIER = /^_?[A-Za-z$][A-Za-z0-9$]*(?:@\d+)?$/;
+const DART_MIN_IDENTIFIERS = 200;
+const DART_OBFUSCATED_SHORT_RATIO = 0.1;
+
+/**
+ * --obfuscate renames every class, method and field the program defines (the
+ * Flutter framework included) to two- or three-letter names; the Dart VM's
+ * own names (_TwoByteString, LocalVarDescriptors, ...) are kept. Checked
+ * against stripped AOT snapshots of one program built both ways: 1% of
+ * identifiers are that short without the flag and 37% with it (31% unstripped).
+ */
+export function assessDartNames(buf: Buffer): { identifiers: number; short: number; obfuscated: boolean } | null {
+  const ids = printableStrings(buf, 6, false).split("\n").filter((s) => DART_IDENTIFIER.test(s));
+  if (ids.length < DART_MIN_IDENTIFIERS) return null;
+  const short = ids.filter((s) => s.replace(/^_/, "").replace(/@\d+$/, "").length <= 3).length;
+  return { identifiers: ids.length, short, obfuscated: short / ids.length >= DART_OBFUSCATED_SHORT_RATIO };
+}
+
 function flutter(files: ArtifactFile[]): FrameworkResult {
   const engine = files.some((f) => /(^|\/)libflutter\.so$/.test(f.key) || /(^|\/)Flutter\.framework\/Flutter$/.test(f.key));
-  const app = files.find((f) => /(^|\/)libapp\.so$/.test(f.key) || /(^|\/)App\.framework\/App$/.test(f.key));
-  if (!engine || !app) return { findings: [], notes: [] };
-  return {
-    findings: [],
-    notes: [
-      `Flutter app (${app.key}): Dart code ships as an AOT snapshot. reverse-shield does not measure Dart obfuscation; build releases with --obfuscate --split-debug-info=<dir>.`,
-    ],
-  };
+  const apps = files.filter((f) => /(^|\/)libapp\.so$/.test(f.key) || /(^|\/)App\.framework\/App$/.test(f.key));
+  if (!engine || apps.length === 0) return { findings: [], notes: [] };
+  // One snapshot per ABI in an APK: they are built with the same flags, so judging one is enough.
+  const app = apps[0];
+  const buf = app.read();
+  const verdict = buf ? assessDartNames(buf) : null;
+  if (!verdict) {
+    return { findings: [], notes: [`Flutter app (${app.key}): too few Dart names in the snapshot to judge obfuscation; build releases with --obfuscate --split-debug-info=<dir>.`] };
+  }
+  const summary = `${verdict.identifiers} Dart identifiers, ${((100 * verdict.short) / verdict.identifiers).toFixed(0)}% with 1–3 letter names`;
+  if (verdict.obfuscated) return { findings: [], notes: [`Flutter app (${app.key}): Dart code is obfuscated (${summary})`] };
+  return { findings: [finding("flutter_not_obfuscated", app.display, { match: summary })], notes: [] };
 }
 
 export function frameworkChecks(files: ArtifactFile[]): FrameworkResult {

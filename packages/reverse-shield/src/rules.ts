@@ -120,6 +120,24 @@ export const RULES: Rule[] = [
     recommendation: "Inject environment-specific URLs at build time and make sure production builds only contain production endpoints.",
   },
 
+  {
+    id: "wasm_debug_info",
+    name: "WebAssembly module ships DWARF debug info",
+    target: "web",
+    category: "source-exposure",
+    severity: "high",
+    exposes: "Source file names, line tables, types and local variable names (.debug_* sections); browser devtools and wasm decompilers show the original functions next to the code.",
+    recommendation: "Build release modules without debug info (Emscripten: no -g, or -gseparate-dwarf; Rust: debug = false for the release profile) or strip it: wasm-opt --strip-debug / wasm-strip.",
+  },
+  {
+    id: "wasm_name_section",
+    name: "WebAssembly module keeps its function names",
+    target: "web",
+    category: "obfuscation",
+    severity: "medium",
+    exposes: "The `name` section maps every function to its source name, so a decompiled module (wasm2c, Ghidra, devtools) reads like the original instead of func123.",
+    recommendation: "Strip the name section in release builds: wasm-opt --strip-debug (or --strip-producers), wasm-strip, Rust strip = true / wasm-bindgen --remove-name-section, Emscripten without --profiling-funcs.",
+  },
   // ── Electron ──────────────────────────────────────────────────────────────
   {
     id: "electron_app_unpacked",
@@ -270,6 +288,15 @@ export const RULES: Rule[] = [
     recommendation: "Export with an App Store, Ad Hoc or Enterprise distribution profile; development profiles are for local testing.",
   },
 
+  {
+    id: "ios_dsym_shipped",
+    name: "Debug symbols (.dSYM) shipped inside the app bundle",
+    target: "ios",
+    category: "source-exposure",
+    severity: "high",
+    exposes: "Full DWARF debug info for the executable: function names, source file paths and line numbers, the same as an unstripped Debug build.",
+    recommendation: "Keep .dSYM bundles out of the app: upload them to your crash reporter from the archive, and remove any Copy Files / script phase that copies them into the bundle.",
+  },
   // ── Native binaries (ELF, Mach-O, PE) ──────────────────────────────────────
   {
     id: "native_debug_info",
@@ -418,6 +445,15 @@ export const RULES: Rule[] = [
     recommendation: "Run ProGuard (or another obfuscator) in the release build and keep -keep rules to what reflection and frameworks need.",
   },
 
+  {
+    id: "flutter_not_obfuscated",
+    name: "Flutter app built without Dart obfuscation",
+    target: "framework",
+    category: "obfuscation",
+    severity: "high",
+    exposes: "Class, method and library names of the Dart code in the AOT snapshot (libapp.so / App.framework); blutter and reFlutter rebuild the app's structure and hook points from them.",
+    recommendation: "Build releases with flutter build apk|appbundle|ipa --obfuscate --split-debug-info=<dir>, and keep <dir> private for symbolicating crashes.",
+  },
   // ── .NET ──────────────────────────────────────────────────────────────────
   {
     id: "dotnet_not_obfuscated",
