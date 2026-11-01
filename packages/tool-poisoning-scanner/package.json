@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-tool-poisoning-scanner",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "mcpName": "io.github.GuardBee/tool-poisoning-scanner",
   "description": "MCP tool poisoning scanner: finds hidden instructions in tool descriptions and schemas, and tools whose handler does more than their description promises",
   "type": "module",

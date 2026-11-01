@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-reverse-shield",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "mcpName": "io.github.GuardBee/reverse-shield",
   "description": "MCP server that audits shipped apps for how easily they can be reverse engineered \u2014 exposed source maps, missing minification/R8/.NET obfuscation, debug info and unstripped symbols, debuggable flags, Electron fuses, unsigned binaries and embedded secrets across web bundles, Electron, Android APK/AAB, iOS IPA, Unity, PyInstaller, Java and native/.NET binaries \u2014 with baselines for CI and build-config fix suggestions",
   "type": "module",

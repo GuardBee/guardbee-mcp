@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/injection-model",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Optional local prompt-injection and jailbreak classifier for GuardBee: a multilingual DeBERTa-v3 model fine-tuned on Turkish and English (ONNX, int8, offline, CPU), in-process or as a sidecar HTTP service",
   "type": "module",
   "bin": {
