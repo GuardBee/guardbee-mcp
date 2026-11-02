@@ -72,6 +72,22 @@ describe("browser-facing secrets", () => {
     expect(service.map((f) => f.patternId)).toEqual(["bundle_secret"]);
   });
 
+  it("skips signed media URL tokens and expired tokens, keeps live ones", () => {
+    const hour = Math.floor(Date.now() / 1000) + 3600;
+    const media = jwt({ video_id: "adb084_88227", iss: "app:vod", sub: "user:vod", exp: hour });
+    // Wix video player state: escaped JSON with a signed HLS playlist URL.
+    const playlist = `"url":"https:\\/\\/repackager.wixmp.com\\/video.wixstatic.com\\/video\\/adb084\\/,480p,\\/mp4\\/file.mp4.urlset\\/master.m3u8?token=${media}"`;
+    expect(findSecrets(playlist, "index.html")).toEqual([]);
+    expect(findSecrets(`<img src="https://cdn.example/a.jpg?w=400&amp;token=${media}">`, "index.html")).toEqual([]);
+
+    const expired = jwt({ sub: "user:1", iat: 1000, exp: 2000 });
+    expect(findSecrets(`const t="${expired}"`, "app.js")).toEqual([]);
+
+    const live = jwt({ sub: "admin", exp: hour });
+    expect(findSecrets(`fetch("/api/orders?token=${live}")`, "app.js").map((f) => f.patternId)).toEqual(["bundle_secret"]);
+    expect(findSecrets(`const t="${live}"`, "app.js").map((f) => f.patternId)).toEqual(["bundle_secret"]);
+  });
+
   it("reports a Google browser key in a web page as medium with referrer guidance", () => {
     const key = "AIzaSyB3x9Qm2Lk7PzR4tVw8nYc1dEf6GhJkLmN";
     const [web] = findSecrets(`maps("${key}")`, "index.html", { target: "web", browser: true });

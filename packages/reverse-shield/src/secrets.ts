@@ -61,13 +61,34 @@ const BROWSER_GOOGLE_KEY_CONTEXT =
 // security does the protecting); the service_role key bypasses RLS.
 const JWT_RULE = "jwt";
 
-function isSupabaseAnonKey(token: string): boolean {
+function jwtPayload(token: string): Record<string, unknown> | null {
   try {
-    const payload = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString("utf8")) as { iss?: unknown; role?: unknown };
-    return payload.iss === "supabase" && payload.role === "anon";
+    const payload: unknown = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString("utf8"));
+    return payload && typeof payload === "object" ? (payload as Record<string, unknown>) : null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+function isSupabaseAnonKey(token: string): boolean {
+  const payload = jwtPayload(token);
+  return payload?.iss === "supabase" && payload.role === "anon";
+}
+
+// An expired token grants nothing; fixtures and cached page data carry them.
+function isExpired(token: string, now = Date.now()): boolean {
+  const exp = jwtPayload(token)?.exp;
+  return typeof exp === "number" && exp * 1000 < now;
+}
+
+// Video and image CDNs sign each URL with a short-lived token
+// (master.m3u8?token=eyJ…); it is handed to every visitor and only opens that
+// one file. Escaped JSON writes the slashes as "\/".
+const SIGNED_MEDIA_URL =
+  /\.(?:m3u8|mpd|mp4|m4s|m4a|ts|webm|mp3|aac|jpe?g|png|webp|avif|gif)(?:[\\/][^\s"'<>?]*)?\?(?:[^\s"'<>]*?&(?:amp;)?)?(?:token|jwt|hdnts|auth|sig|signature|policy)=$/i;
+
+function isSignedMediaToken(text: string, index: number): boolean {
+  return SIGNED_MEDIA_URL.test(text.slice(Math.max(0, index - 300), index));
 }
 
 export function lineCol(text: string, index: number): { line: number; column: number } {
@@ -107,7 +128,7 @@ export function findSecrets(text: string, file: string, options: SecretScanOptio
       if (rule.allowlist?.some((a) => a.test(value))) continue;
       if (CONNECTION_RULE.test(rule.id) ? isPlaceholderConnection(value) : !rule.skipPlaceholderCheck && isPlaceholder(value)) continue;
       if (PEM_HEADER_RULE.test(rule.id) && !PEM_BODY.test(text.slice(index + value.length, index + value.length + 160))) continue;
-      if (rule.id === JWT_RULE && isSupabaseAnonKey(value)) continue;
+      if (rule.id === JWT_RULE && (isSupabaseAnonKey(value) || isExpired(value) || isSignedMediaToken(text, index))) continue;
       const mobileKey = options.mobile === true && rule.id === MOBILE_GOOGLE_KEY;
       const browserKey = !mobileKey && options.browser === true && rule.id === MOBILE_GOOGLE_KEY;
       findings.push(finding("bundle_secret", file, {
