@@ -1,5 +1,11 @@
 # @guardbee/mcp-reverse-shield
 
+## 0.6.1
+
+### Patch Changes
+
+- [#283](https://github.com/GuardBee/guardbee-mcp/pull/283) [`45faf64`](https://github.com/GuardBee/guardbee-mcp/commit/45faf6444cf56151f73c2f56773a2f882950effd) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Web scans no longer report a JWT as a leaked credential when it is the signed token of a media URL (`master.m3u8?token=eyJ…`, `image.jpg?token=…`) handed to every visitor, or when its `exp` has already passed. Live tokens elsewhere in a bundle are still reported.
+
 ## 0.6.0
 
 ### Minor Changes
