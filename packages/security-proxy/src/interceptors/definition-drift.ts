@@ -1,4 +1,4 @@
-import { createHash } from "crypto";
+import { hashToolDefinition as hashDefinition, type ToolDefinition } from "@guardbee/guard-core";
 
 export interface PinFinding {
   kind: "added" | "changed" | "removed";
@@ -20,17 +20,13 @@ export function stable(value: unknown): string {
   return JSON.stringify(value) ?? "null";
 }
 
+/**
+ * The same hash as the persistent pin store and rug-pull-detector baselines
+ * (name, description, input/output schema, annotations), so a server cannot
+ * swap a tool's output schema mid-session either.
+ */
 export function hashToolDefinition(tool: ToolRecord): string {
-  return createHash("sha256")
-    .update(
-      stable({
-        name: tool.name,
-        description: tool.description,
-        inputSchema: tool.inputSchema,
-        annotations: tool.annotations,
-      })
-    )
-    .digest("hex");
+  return hashDefinition(tool as unknown as ToolDefinition);
 }
 
 /**
@@ -69,7 +65,7 @@ export class ToolDefinitionPin {
         findings.push({
           kind: "changed",
           toolName: tool.name,
-          reason: `Tool "${tool.name}" changed its description or schema during this session (MCP03:2025).`,
+          reason: `Tool "${tool.name}" changed its description, schemas or annotations during this session (MCP03:2025).`,
         });
         advertised.push(action === "block" ? previous.tool : tool);
         continue;
