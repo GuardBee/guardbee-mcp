@@ -55,7 +55,11 @@ export interface SourceMapInfo {
   sources: number;
   embedded: number;
   samplePaths: string[];
+  /** Every source is a dependency (node_modules, bundler polyfills): the map reveals no first-party code. */
+  dependenciesOnly: boolean;
 }
+
+const DEPENDENCY_SOURCE = /node_modules|\/polyfills?\//;
 
 /** Returns null when the text is not a source map (version + mappings). */
 export function parseSourceMap(text: string): SourceMapInfo | null {
@@ -70,8 +74,13 @@ export function parseSourceMap(text: string): SourceMapInfo | null {
   if (m.version === undefined || (typeof m.mappings !== "string" && !Array.isArray(m.sections))) return null;
   const sources = Array.isArray(m.sources) ? m.sources.filter((s): s is string => typeof s === "string") : [];
   const embedded = Array.isArray(m.sourcesContent) ? m.sourcesContent.filter((c) => typeof c === "string" && c.length > 0).length : 0;
-  const own = sources.filter((s) => !s.includes("node_modules"));
-  return { sources: sources.length, embedded, samplePaths: (own.length > 0 ? own : sources).slice(0, 3) };
+  const own = sources.filter((s) => !DEPENDENCY_SOURCE.test(s));
+  return {
+    sources: sources.length,
+    embedded,
+    samplePaths: (own.length > 0 ? own : sources).slice(0, 3),
+    dependenciesOnly: sources.length > 0 && own.length === 0,
+  };
 }
 
 export function sourceMapFinding(info: SourceMapInfo, file: string, id: "sourcemap_shipped" | "sourcemap_inline" | "sourcemap_publicly_reachable"): Finding {
@@ -104,6 +113,33 @@ export interface JsCheckOptions {
   skipMinifyCheck?: boolean;
   /** Passed to the credential check: target and mobile context of the bundle. */
   secrets?: SecretScanOptions;
+  /**
+   * Host of the live page the script was loaded for. Internal-host checks then
+   * keep only what points into that site's infrastructure (private IPs,
+   * internal TLDs, its own staging hosts) and drop the localhost and vendor
+   * dev URLs that frameworks and SDKs ship in every build.
+   */
+  siteHost?: string;
+}
+
+const LOOPBACK_HOST = /^(?:localhost|127\.0\.0\.1|0\.0\.0\.0)$/i;
+const INTERNAL_TLD_OR_IP = /^(?:10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.)|\.(?:internal|local|corp|lan)$/i;
+
+/** Same site: the host itself or another host under the same last two labels. */
+export function sameSiteHost(a: string, b: string): boolean {
+  const root = (h: string) => h.toLowerCase().split(".").slice(-2).join(".");
+  return a.toLowerCase() === b.toLowerCase() || root(a) === root(b);
+}
+
+function isSiteInternalHost(url: string, siteHost: string): boolean {
+  let host: string;
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    return false;
+  }
+  if (LOOPBACK_HOST.test(host)) return false;
+  return INTERNAL_TLD_OR_IP.test(host) || sameSiteHost(host, siteHost);
 }
 
 /**
@@ -151,6 +187,7 @@ export function analyzeJavaScript(text: string, file: string, options: JsCheckOp
   const hosts = new Set<string>();
   let firstHostIndex = -1;
   for (const m of text.matchAll(INTERNAL_URL)) {
+    if (options.siteHost && !isSiteInternalHost(m[0], options.siteHost)) continue;
     hosts.add(m[0]);
     if (firstHostIndex === -1) firstHostIndex = m.index ?? 0;
     if (hosts.size >= 5) break;

@@ -25,7 +25,7 @@ describe("parseSourceMap", () => {
       sources: ["webpack://app/node_modules/react/index.js", "webpack://app/src/billing/LicenseValidator.ts"],
       sourcesContent: ["module.exports = 1", "export class LicenseValidator {}"],
     }));
-    expect(info).toEqual({ sources: 2, embedded: 2, samplePaths: ["webpack://app/src/billing/LicenseValidator.ts"] });
+    expect(info).toEqual({ sources: 2, embedded: 2, samplePaths: ["webpack://app/src/billing/LicenseValidator.ts"], dependenciesOnly: false });
   });
 
   it("rejects JSON that is not a source map", () => {

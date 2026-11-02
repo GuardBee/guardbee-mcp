@@ -52,6 +52,24 @@ const MOBILE_GOOGLE_KEY = "google_api_key";
 const MOBILE_GOOGLE_KEY_CONTEXT =
   "A Google/Firebase API key. Apps that use Firebase ship one by design; anyone can lift it, so it must be restricted to this app's package name or bundle id (and to the APIs it needs) in Google Cloud Console.";
 
+// Web pages call Google Maps/Firebase straight from the browser, so the key is
+// in the page by design; what protects it is an HTTP referrer restriction.
+const BROWSER_GOOGLE_KEY_CONTEXT =
+  "A Google/Firebase browser API key. Sites that call Google Maps or Firebase from the browser ship one by design; anyone can lift it, so it must be restricted to this site's HTTP referrers (and to the APIs it needs) in Google Cloud Console.";
+
+// Supabase's anon key is a JWT the browser is meant to hold (row level
+// security does the protecting); the service_role key bypasses RLS.
+const JWT_RULE = "jwt";
+
+function isSupabaseAnonKey(token: string): boolean {
+  try {
+    const payload = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString("utf8")) as { iss?: unknown; role?: unknown };
+    return payload.iss === "supabase" && payload.role === "anon";
+  } catch {
+    return false;
+  }
+}
+
 export function lineCol(text: string, index: number): { line: number; column: number } {
   let line = 1;
   let last = -1;
@@ -73,6 +91,8 @@ export interface SecretScanOptions {
   positions?: boolean;
   /** Android or iOS package: Firebase/Google API keys are expected there and reported as medium. */
   mobile?: boolean;
+  /** Script served to browsers: Google browser keys are expected there and reported as medium. */
+  browser?: boolean;
 }
 
 /** Fixed-format credentials in a piece of text, one finding per rule. */
@@ -87,12 +107,15 @@ export function findSecrets(text: string, file: string, options: SecretScanOptio
       if (rule.allowlist?.some((a) => a.test(value))) continue;
       if (CONNECTION_RULE.test(rule.id) ? isPlaceholderConnection(value) : !rule.skipPlaceholderCheck && isPlaceholder(value)) continue;
       if (PEM_HEADER_RULE.test(rule.id) && !PEM_BODY.test(text.slice(index + value.length, index + value.length + 160))) continue;
+      if (rule.id === JWT_RULE && isSupabaseAnonKey(value)) continue;
       const mobileKey = options.mobile === true && rule.id === MOBILE_GOOGLE_KEY;
+      const browserKey = !mobileKey && options.browser === true && rule.id === MOBILE_GOOGLE_KEY;
       findings.push(finding("bundle_secret", file, {
-        severity: mobileKey ? "medium" : rule.severity === "low" ? "medium" : rule.severity,
+        severity: mobileKey || browserKey ? "medium" : rule.severity === "low" ? "medium" : rule.severity,
         match: `${rule.name}: ${mask(value)}`,
         target: options.target,
         ...(mobileKey ? { context: MOBILE_GOOGLE_KEY_CONTEXT } : {}),
+        ...(browserKey ? { context: BROWSER_GOOGLE_KEY_CONTEXT } : {}),
         ...(positions ? lineCol(text, index) : {}),
       }));
       break; // one per rule per file is enough to act on

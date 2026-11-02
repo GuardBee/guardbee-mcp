@@ -69,6 +69,7 @@ Everything runs locally and offline (except `scan_url`), with its own parsers fo
 - **PyInstaller**: the CArchive cookie is searched across the whole file (on macOS the archive sits in its own section before the code signature); PyArmor and Nuitka builds are noted, not flagged.
 - **Flutter**: reads the identifiers in the AOT snapshot (`libapp.so`, `App.framework/App`). `--obfuscate` renames everything the program defines to two- or three-letter names while the Dart VM's own names stay, so a snapshot passes when at least 10% of its identifiers are that short. Checked against one program built both ways with the Dart SDK's `gen_snapshot`: 1% without the flag, 31% (unstripped) and 37% (stripped) with it. Fewer than 200 identifiers is a note, not a verdict.
 - **WebAssembly**: custom sections only — `.debug_*` (DWARF), `name` (function names) and `sourceMappingURL`; the code itself is not judged.
+- **Live URLs**: only the site's own scripts are read. Platform-served code (HubSpot `/hs/hsstatic/`, WordPress `/wp-includes/`) and open-source libraries (jQuery, Bootstrap, polyfills, vendor bundles) are skipped, and a reachable map whose sources are all dependencies is not reported. Internal hosts count only when they point into the site (private IPs, `.internal`/`.corp`/`.lan`, its own staging hosts); the `localhost` URLs frameworks ship are ignored. A Google browser key is reported as medium (restrict it to the site's referrers), and a Supabase `anon` key is not reported, since the browser is meant to hold it (a `service_role` key still is).
 - **React Native with Hermes**: noted, not flagged. Hermes bytecode disassembles (hermes-dec, hbctool), but how much it gives away depends on whether the bundle was minified first, which is not measured yet.
 
 ## Quick start
@@ -139,6 +140,17 @@ The repository ships a composite action that scans, uploads SARIF, writes a job 
     target: dist
     fail-on: high
     baseline: .reverse-shield-baseline.json
+```
+
+## Library use
+
+`@guardbee/mcp-reverse-shield/scan` exports the scanners (`scanUrl`, `scanPath`, `analyzeJavaScript`, …) without the MCP server, for tools that embed reverse-shield:
+
+```ts
+import { scanUrl } from "@guardbee/mcp-reverse-shield/scan";
+
+const result = await scanUrl("https://example.com/", { maxScripts: 15, timeoutMs: 8_000 });
+console.log(result.grade, result.findings);
 ```
 
 ## Limits
