@@ -1,5 +1,11 @@
 # @guardbee/mcp-security-proxy
 
+## 1.37.1
+
+### Patch Changes
+
+- [#281](https://github.com/GuardBee/guardbee-mcp/pull/281) [`3ae9d75`](https://github.com/GuardBee/guardbee-mcp/commit/3ae9d750fd8db6b55e74f5f8f22653daea5954a2) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - The in-session tool pin now hashes tool definitions with guard-core's `hashToolDefinition`, the same hash the persistent pin store and rug-pull-detector baselines use. A server that changes only a tool's `outputSchema` during a session is now reported (and blocked in `block` mode) like any other definition change.
+
 ## 1.37.0
 
 ### Minor Changes
