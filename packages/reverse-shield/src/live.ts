@@ -1,7 +1,7 @@
 import { bySeverity, grade } from "./finding.js";
 import type { Finding } from "./finding.js";
 import type { ScanResult } from "./scanner.js";
-import { analyzeJavaScript, parseSourceMap, sourceMapFinding, sourceMappingUrl } from "./web.js";
+import { analyzeJavaScript, parseSourceMap, sameSiteHost, sourceMapFinding, sourceMappingUrl } from "./web.js";
 
 export interface UrlScanOptions {
   maxScripts?: number;
@@ -50,15 +50,25 @@ async function fetchText(url: string, limit: number, options: Required<Pick<UrlS
 
 /** Same site: the page's host or another host under the same last two labels (cdn.example.com for www.example.com). */
 function sameSite(a: URL, b: URL): boolean {
-  const root = (h: string) => h.split(".").slice(-2).join(".");
-  return a.hostname === b.hostname || root(a.hostname) === root(b.hostname);
+  return sameSiteHost(a.hostname, b.hostname);
+}
+
+/** Served from the site's host but owned by its platform (HubSpot CMS, WordPress core). */
+const PLATFORM_ASSET = /\/hs\/hsstatic\/|\/_hcms\/|\/wp-includes\//i;
+
+/** Open-source libraries: their maps and readable builds say nothing about the site. */
+const LIBRARY_FILE =
+  /(?:^|[/._-])(?:jquery|bootstrap|popper|swiper|slick|lightslider|owl\.carousel|gsap|lodash|moment|select2|aos|polyfills?|vendors?|easypiechart|lightbox)[^/]*\.m?js$/i;
+
+export function isPlatformOrLibraryScript(url: URL): boolean {
+  return PLATFORM_ASSET.test(url.pathname) || LIBRARY_FILE.test(url.pathname);
 }
 
 async function probeMap(mapUrl: string, scriptUrl: string, referenced: boolean, opts: { timeoutMs: number; fetchImpl: typeof fetch }): Promise<Finding | null> {
   const res = await fetchText(mapUrl, MAX_MAP_BYTES, opts);
   if (!res || res.status !== 200) return null;
   const info = parseSourceMap(res.text);
-  if (!info) return null;
+  if (!info || info.dependenciesOnly) return null;
   const f = sourceMapFinding(info, scriptUrl, "sourcemap_publicly_reachable");
   f.match = `${mapUrl}${referenced ? "" : " (not referenced by the bundle, but served)"} — ${f.match}`;
   return f;
@@ -86,6 +96,7 @@ export async function scanUrl(pageUrl: string, options: UrlScanOptions = {}): Pr
 
   const scripts: string[] = [];
   let thirdParty = 0;
+  let platform = 0;
   for (const re of [SCRIPT_SRC, MODULE_PRELOAD]) {
     for (const m of html.matchAll(re)) {
       let u: URL;
@@ -98,17 +109,23 @@ export async function scanUrl(pageUrl: string, options: UrlScanOptions = {}): Pr
         thirdParty++;
         continue;
       }
+      if (isPlatformOrLibraryScript(u)) {
+        platform++;
+        continue;
+      }
       if (!scripts.includes(u.href)) scripts.push(u.href);
     }
   }
   if (thirdParty > 0) notes.push(`${thirdParty} third-party script(s) not checked`);
+  if (platform > 0) notes.push(`${platform} platform or open-source library script(s) not checked`);
+  const jsOptions = { secrets: { target: "web" as const, browser: true }, siteHost: page.hostname };
   if (scripts.length > maxScripts) notes.push(`Checked the first ${maxScripts} of ${scripts.length} same-site scripts`);
 
   let inline = 0;
   for (const m of html.matchAll(INLINE_SCRIPT)) {
     if (m[1].trim().length === 0) continue;
     inline++;
-    findings.push(...analyzeJavaScript(m[1], `${page.href} (inline script ${inline})`, { skipMinifyCheck: true }));
+    findings.push(...analyzeJavaScript(m[1], `${page.href} (inline script ${inline})`, { ...jsOptions, skipMinifyCheck: true }));
   }
 
   let scanned = 0;
@@ -124,7 +141,7 @@ export async function scanUrl(pageUrl: string, options: UrlScanOptions = {}): Pr
     const mapUrl = external ? new URL(ref, scriptUrl).href : `${scriptUrl.split(/[?#]/)[0]}.map`;
     const exposed = await probeMap(mapUrl, scriptUrl, external, opts);
 
-    for (const f of analyzeJavaScript(script.text, scriptUrl)) {
+    for (const f of analyzeJavaScript(script.text, scriptUrl, jsOptions)) {
       if (exposed && f.patternId === "sourcemap_reference") continue;
       findings.push(f);
     }
