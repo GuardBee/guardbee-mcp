@@ -1,0 +1,53 @@
+{
+  "name": "@guardbee/mcp-security-engineer",
+  "version": "0.0.0",
+  "mcpName": "io.github.GuardBee/security-engineer",
+  "description": "MCP server that lets your coding agent (Claude Code, Cursor) fix GuardBee AI Security Engineer findings in your own repository and verify the fixes",
+  "type": "module",
+  "bin": {
+    "guardbee-security-engineer": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "!dist/**/*.map",
+    "!dist/**/__tests__"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@guardbee/mcp-telemetry": "workspace:^",
+    "@modelcontextprotocol/server": "catalog:",
+    "zod": "catalog:"
+  },
+  "keywords": ["mcp", "security", "remediation", "claude-code", "cursor", "security-headers", "nginx", "nextjs", "guardbee", "devtools"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git",
+    "directory": "packages/security-engineer"
+  },
+  "homepage": "https://guardbee.ai",
+  "bugs": {
+    "url": "https://github.com/GuardBee/guardbee-mcp/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
