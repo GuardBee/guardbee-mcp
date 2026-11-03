@@ -1,0 +1,22 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.GuardBee/security-engineer",
+  "description": "Fix GuardBee AI Security Engineer findings in your repo with your coding agent, then verify",
+  "repository": {
+    "url": "https://github.com/GuardBee/guardbee-mcp",
+    "source": "github",
+    "subfolder": "packages/security-engineer"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@guardbee/mcp-security-engineer",
+      "version": "0.1.0",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        { "name": "GUARDBEE_API_KEY", "description": "GuardBee API key with remediations.read and remediations.write scopes", "isRequired": true, "isSecret": true }
+      ]
+    }
+  ]
+}
