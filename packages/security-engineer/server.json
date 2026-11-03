@@ -7,12 +7,12 @@
     "source": "github",
     "subfolder": "packages/security-engineer"
   },
-  "version": "0.1.0",
+  "version": "0.0.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@guardbee/mcp-security-engineer",
-      "version": "0.1.0",
+      "version": "0.0.0",
       "transport": { "type": "stdio" },
       "environmentVariables": [
         { "name": "GUARDBEE_API_KEY", "description": "GuardBee API key with remediations.read and remediations.write scopes", "isRequired": true, "isSecret": true }
