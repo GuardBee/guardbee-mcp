@@ -13,9 +13,16 @@
       "registryType": "npm",
       "identifier": "@guardbee/mcp-security-engineer",
       "version": "0.0.0",
-      "transport": { "type": "stdio" },
+      "transport": {
+        "type": "stdio"
+      },
       "environmentVariables": [
-        { "name": "GUARDBEE_API_KEY", "description": "GuardBee API key with remediations.read and remediations.write scopes", "isRequired": true, "isSecret": true }
+        {
+          "name": "GUARDBEE_API_KEY",
+          "description": "GuardBee API key with remediations.read and remediations.write scopes",
+          "isRequired": true,
+          "isSecret": true
+        }
       ]
     }
   ]
