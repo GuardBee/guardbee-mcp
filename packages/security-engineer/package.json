@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-security-engineer",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "mcpName": "io.github.GuardBee/security-engineer",
   "description": "MCP server that lets your coding agent (Claude Code, Cursor) fix GuardBee AI Security Engineer findings in your own repository and verify the fixes",
   "type": "module",
