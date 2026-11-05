@@ -35,7 +35,7 @@
     "@guardbee/guard-core": "workspace:^",
     "@guardbee/mcp-telemetry": "workspace:^",
     "@modelcontextprotocol/server": "catalog:",
-    "unpdf": "^1.8.1",
+    "unpdf": "^2.1.0",
     "zod": "catalog:"
   },
   "peerDependencies": {
