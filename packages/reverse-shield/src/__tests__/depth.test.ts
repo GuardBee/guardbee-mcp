@@ -1,10 +1,11 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { dirname, join } from "path";
 import { afterEach, describe, expect, it } from "vitest";
 import { analyzeApk } from "../apk.js";
 import { ATTR } from "../axml.js";
 import { assessDartNames, frameworkChecks } from "../frameworks.js";
+import { analyzeHermes, assessHermesNames, parseHermes } from "../hermes.js";
 import { analyzeIpa } from "../ios.js";
 import { scanPath } from "../scanner.js";
 import { analyzeWasm, wasmCustomSections } from "../wasm.js";
@@ -117,6 +118,56 @@ describe("Flutter", () => {
     const r = frameworkChecks(mem({ "lib/x86_64/libflutter.so": Buffer.alloc(8), "lib/x86_64/libapp.so": snapshot(["main"]) }));
     expect(r.findings).toEqual([]);
     expect(r.notes[0]).toContain("too few Dart names");
+  });
+});
+
+// ── Hermes ──────────────────────────────────────────────────────────────────
+
+// Built from fixtures/hermes/app.js with esbuild (± --minify) and hermesc -O
+// from the hermes-compiler npm package (bytecode version 98).
+const hbc = (name: string) => readFileSync(new URL(`./fixtures/hermes/${name}.hbc`, import.meta.url));
+
+describe("Hermes", () => {
+  it("reads the string table and function names of real hermesc output", () => {
+    const bc = parseHermes(hbc("readable"))!;
+    expect(bc.version).toBe(98);
+    expect(bc.functionNames).toEqual(expect.arrayContaining(["global", "loadUserProfile", "fetchProductList"]));
+    expect(bc.strings).toContain("validateCouponCode");
+    expect(assessHermesNames(bc)).toMatchObject({ named: 64, short: 0, minified: false });
+    expect(assessHermesNames(parseHermes(hbc("minified"))!)).toMatchObject({ named: 64, short: 64, minified: true });
+  });
+
+  it("flags a bundle that keeps its names on Android and notes a minified one on iOS", () => {
+    const manifest = buildAxml([
+      { name: "manifest", attrs: [{ name: "package", string: "com.example.shop" }] },
+      { name: "application", attrs: [{ name: "allowBackup", resourceId: ATTR.allowBackup, bool: false }] },
+    ]);
+    const dir = write({
+      "app.apk": buildZip(
+        [
+          { name: "AndroidManifest.xml", data: manifest },
+          { name: "assets/index.android.bundle", data: hbc("readable") },
+        ],
+        apkSigningBlock(),
+      ),
+      "Shop.ipa": buildZip([{ name: "Payload/Shop.app/main.jsbundle", data: hbc("minified") }]),
+    });
+    const f = analyzeApk(join(dir, "app.apk"))!.findings.find((x) => x.patternId === "hermes_names_not_minified")!;
+    expect(f.file).toContain("!/assets/index.android.bundle");
+    expect(f.match).toMatch(/^64 named functions, 0% with 1–2 letter names; e\.g\. loadUserProfile, /);
+
+    const ios = analyzeIpa(join(dir, "Shop.ipa"))!;
+    expect(ios.findings.map((x) => x.patternId)).not.toContain("hermes_names_not_minified");
+    expect(ios.notes).toContain("React Native bundle is Hermes bytecode (version 98, 65 functions); names are minified (64 named functions, 100% with 1–2 letter names)");
+  });
+
+  it("only notes bytecode it cannot judge", () => {
+    const other = Buffer.from(hbc("readable"));
+    other.writeUInt32LE(96, 8); // a version whose function header layout was not checked
+    expect(analyzeHermes(other, "b").findings).toEqual([]);
+    expect(analyzeHermes(other, "b").notes[0]).toMatch(/version 96, 65 functions\); function names not judged/);
+    expect(parseHermes(hbc("readable").subarray(0, 200))).toBeNull();
+    expect(analyzeHermes(Buffer.concat([hbc("readable").subarray(0, 8), Buffer.alloc(32)]), "b")).toEqual({ findings: [], notes: ["React Native bundle is Hermes bytecode"] });
   });
 });
 

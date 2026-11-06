@@ -454,6 +454,15 @@ export const RULES: Rule[] = [
     exposes: "Class, method and library names of the Dart code in the AOT snapshot (libapp.so / App.framework); blutter and reFlutter rebuild the app's structure and hook points from them.",
     recommendation: "Build releases with flutter build apk|appbundle|ipa --obfuscate --split-debug-info=<dir>, and keep <dir> private for symbolicating crashes.",
   },
+  {
+    id: "hermes_names_not_minified",
+    name: "React Native Hermes bundle keeps its function names",
+    target: "framework",
+    category: "obfuscation",
+    severity: "medium",
+    exposes: "The original names of the app's JavaScript functions in the Hermes bytecode; hermes-dec and hbctool print them back with the decompiled code.",
+    recommendation: "Let Metro minify the bundle before hermesc compiles it (React Native's release build may pass --minify false when Hermes is on), and keep the source map private.",
+  },
   // ── .NET ──────────────────────────────────────────────────────────────────
   {
     id: "dotnet_not_obfuscated",
