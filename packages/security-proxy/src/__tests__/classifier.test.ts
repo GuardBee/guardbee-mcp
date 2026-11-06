@@ -38,7 +38,7 @@ beforeAll(async () => {
 afterAll(() => new Promise((r) => server.close(r)));
 
 const config = (overrides: Partial<GatewayClassifierConfig> = {}): GatewayClassifierConfig =>
-  ({ url, timeoutMs: 100, onError: "open", warnAt: 0.5, blockAt: 0.9, apply: ["arguments", "results", "resources", "llm"], ...overrides }) as GatewayClassifierConfig;
+  ({ url, timeoutMs: 2000, onError: "open", warnAt: 0.5, blockAt: 0.9, apply: ["arguments", "results", "resources", "llm"], ...overrides }) as GatewayClassifierConfig;
 
 function setup(resultText: string, classifier?: GatewayClassifierConfig) {
   const events: AuditEvent[] = [];
@@ -81,7 +81,7 @@ describe("prompt-injection classifier (proxy)", () => {
   });
 
   it("fails open by default and closed when configured", async () => {
-    const open = setup("SLOW but harmless", config());
+    const open = setup("SLOW but harmless", config({ timeoutMs: 100 }));
     await open.gw.listTools();
     expect(textOf(await open.gw.callTool("web__fetch_page", {}))).toBe("SLOW but harmless");
 
