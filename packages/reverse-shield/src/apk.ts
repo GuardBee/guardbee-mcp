@@ -4,6 +4,7 @@ import type { AxmlElement } from "./axml.js";
 import { parseProtoXml } from "./protoxml.js";
 import { assessDexObfuscation, readTypeDescriptors } from "./dex.js";
 import { finding } from "./finding.js";
+import { analyzeHermes, isHermes } from "./hermes.js";
 import { frameworkChecks } from "./frameworks.js";
 import type { Finding } from "./finding.js";
 import { readAt } from "./fsutil.js";
@@ -15,7 +16,6 @@ import { extractZipEntry, locateCentralDirectory, readZipEntries } from "./zip.j
 import type { ZipEntry } from "./zip.js";
 
 const APK_SIG_BLOCK_MAGIC = "APK Sig Block 42";
-const HERMES_MAGIC = Buffer.from([0xc6, 0x1f, 0xbc, 0x03, 0xc1, 0x03, 0x19, 0x1f]);
 const MAX_ENTRY_BYTES = 64 * 1024 * 1024;
 const MAX_NATIVE_LIBS = 40;
 
@@ -152,8 +152,10 @@ function analyzeAndroidPackage(filePath: string, layout: Layout): ApkResult | nu
     const jsBundle = entries.find((e) => layout.jsBundle.test(e.name));
     if (jsBundle) {
       const buf = read(jsBundle);
-      if (buf && buf.subarray(0, 8).equals(HERMES_MAGIC)) {
-        notes.push("React Native bundle is Hermes bytecode");
+      if (buf && isHermes(buf)) {
+        const hermes = analyzeHermes(buf, at(jsBundle.name));
+        findings.push(...hermes.findings);
+        notes.push(...hermes.notes);
         findings.push(...binarySecrets(buf, at(jsBundle.name), secrets));
         scannedFiles++;
       } else if (buf) {

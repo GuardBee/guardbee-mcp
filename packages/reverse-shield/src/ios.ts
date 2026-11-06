@@ -1,6 +1,7 @@
 import { closeSync, existsSync, openSync, readFileSync, statSync } from "fs";
 import { join, relative, sep } from "path";
 import { finding } from "./finding.js";
+import { analyzeHermes, isHermes } from "./hermes.js";
 import { frameworkChecks } from "./frameworks.js";
 import type { Finding } from "./finding.js";
 import { walkFiles } from "./fsutil.js";
@@ -13,7 +14,6 @@ import { analyzeWebFiles, isWebAsset } from "./web.js";
 import type { ArtifactFile } from "./web.js";
 import { extractZipEntry, readZipEntries } from "./zip.js";
 
-const HERMES_MAGIC = Buffer.from([0xc6, 0x1f, 0xbc, 0x03, 0xc1, 0x03, 0x19, 0x1f]);
 const MAX_ENTRY_BYTES = 256 * 1024 * 1024;
 const LC_ENCRYPTION_INFO = 0x21;
 const LC_ENCRYPTION_INFO_64 = 0x2c;
@@ -134,8 +134,10 @@ export function analyzeIosBundle(files: BundleFile[], label: string): IosResult 
   const rn = byKey.get("main.jsbundle");
   if (rn) {
     const buf = rn.read();
-    if (buf && buf.subarray(0, 8).equals(HERMES_MAGIC)) {
-      notes.push("React Native bundle is Hermes bytecode");
+    if (buf && isHermes(buf)) {
+      const hermes = analyzeHermes(buf, rn.display);
+      findings.push(...hermes.findings);
+      notes.push(...hermes.notes);
       findings.push(...binarySecrets(buf, rn.display, secrets));
       scannedFiles++;
     } else if (buf) {

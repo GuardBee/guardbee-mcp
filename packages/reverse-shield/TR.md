@@ -48,6 +48,7 @@ Claude ──► reverse-shield ──► build artifact'ın / canlı site
 | `ios_development_profile` | medium | ios | Kayıtlı cihazlarda debugger bağlama |
 | `unity_il2cpp_metadata` / `unity_mono_assemblies` | high | motorlar | Oyunun tüm sınıf, metot ve string'leri / dnSpy ile C# script'leri |
 | `flutter_not_obfuscated` | high | motorlar | blutter / reFlutter için Dart sınıf ve metot isimleri |
+| `hermes_names_not_minified` | medium | motorlar | hermes-dec / hbctool için Hermes bytecode'undaki React Native fonksiyon isimleri |
 | `python_pyinstaller_bundle` / `java_not_obfuscated` | high | motorlar | Decompile edilebilir `.pyc` dosyaları / orijinal isimleriyle Java sınıfları |
 | `dotnet_not_obfuscated` / `dotnet_embedded_pdb` | high | .NET | Orijinal kaynağa çok yakın ILSpy/dnSpy çıktısı |
 
@@ -65,7 +66,7 @@ Claude ──► reverse-shield ──► build artifact'ın / canlı site
 - **PyInstaller**: CArchive işaretçisi dosyanın tamamında aranır (macOS'te arşiv kod imzasından önce kendi bölümündedir); PyArmor ve Nuitka build'leri işaretlenmez, not düşülür.
 - **Flutter**: AOT snapshot'taki (`libapp.so`, `App.framework/App`) tanımlayıcıları okur. `--obfuscate` programın tanımladığı her şeyi iki-üç harfli isimlere çevirir, Dart VM'in kendi isimleri kalır; tanımlayıcıların en az %10'u bu kadar kısaysa snapshot geçer. Dart SDK'nın `gen_snapshot`'ıyla iki şekilde derlenmiş bir programla doğrulandı: bayraksız %1, bayrakla %31 (strip edilmemiş) ve %37 (strip edilmiş). 200'den az tanımlayıcı karar değil, nottur.
 - **WebAssembly**: sadece custom section'lar — `.debug_*` (DWARF), `name` (fonksiyon isimleri) ve `sourceMappingURL`; kodun kendisi değerlendirilmez.
-- **Hermes'li React Native**: işaretlenmez, not düşülür. Hermes bytecode disassemble edilebilir (hermes-dec, hbctool), ama ne kadar bilgi verdiği bundle'ın önce minify edilip edilmediğine bağlı ve bu henüz ölçülmüyor.
+- **Hermes'li React Native**: bytecode'un string tablosu ve fonksiyon başlıkları okunur. Metro'nun minifier'ı fonksiyonları bir-iki harfli isimlere çevirir; o olmadan hermes-dec ve hbctool kaynaktaki isimleri geri verir. İsimli fonksiyonların en az %15'i bu kadar kısaysa bundle geçer. Aynı bundle (lodash + zod + uygulama kodu) hermesc `-O` ile iki şekilde derlenerek ölçüldü: minify'sız %1, minify'lı %57. Fonksiyon isimleri yalnızca doğrulanan düzen olan bytecode sürüm 98'de (npm'deki hermes-compiler) okunur; diğer sürümler ve 50'den az isimli fonksiyonu olan bundle'lar karar değil not olarak raporlanır.
 
 ## Hızlı başlangıç
 

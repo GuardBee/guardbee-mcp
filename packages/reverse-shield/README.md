@@ -52,6 +52,7 @@ Everything runs locally and offline (except `scan_url`), with its own parsers fo
 | `ios_development_profile` | medium | ios | Debugger attach on registered devices |
 | `unity_il2cpp_metadata` / `unity_mono_assemblies` | high | engines | Every class, method and string of the game / C# scripts via dnSpy |
 | `flutter_not_obfuscated` | high | engines | Dart class and method names for blutter / reFlutter |
+| `hermes_names_not_minified` | medium | engines | React Native function names in Hermes bytecode for hermes-dec / hbctool |
 | `python_pyinstaller_bundle` / `java_not_obfuscated` | high | engines | Decompilable `.pyc` files / Java classes with original names |
 | `dotnet_not_obfuscated` / `dotnet_embedded_pdb` | high | .NET | ILSpy/dnSpy output close to the original source |
 
@@ -70,7 +71,7 @@ Everything runs locally and offline (except `scan_url`), with its own parsers fo
 - **Flutter**: reads the identifiers in the AOT snapshot (`libapp.so`, `App.framework/App`). `--obfuscate` renames everything the program defines to two- or three-letter names while the Dart VM's own names stay, so a snapshot passes when at least 10% of its identifiers are that short. Checked against one program built both ways with the Dart SDK's `gen_snapshot`: 1% without the flag, 31% (unstripped) and 37% (stripped) with it. Fewer than 200 identifiers is a note, not a verdict.
 - **WebAssembly**: custom sections only — `.debug_*` (DWARF), `name` (function names) and `sourceMappingURL`; the code itself is not judged.
 - **Live URLs**: only the site's own scripts are read. Platform-served code (HubSpot `/hs/hsstatic/`, WordPress `/wp-includes/`) and open-source libraries (jQuery, Bootstrap, polyfills, vendor bundles) are skipped, and a reachable map whose sources are all dependencies is not reported. Internal hosts count only when they point into the site (private IPs, `.internal`/`.corp`/`.lan`, its own staging hosts); the `localhost` URLs frameworks ship are ignored. A Google browser key is reported as medium (restrict it to the site's referrers), and a Supabase `anon` key is not reported, since the browser is meant to hold it (a `service_role` key still is).
-- **React Native with Hermes**: noted, not flagged. Hermes bytecode disassembles (hermes-dec, hbctool), but how much it gives away depends on whether the bundle was minified first, which is not measured yet.
+- **React Native with Hermes**: reads the bytecode's string table and function headers. Metro's minifier renames functions to one- or two-letter names; without it hermes-dec and hbctool print the source's names back. A bundle passes when at least 15% of its named functions have names that short. Checked against one bundle (lodash + zod + app code) compiled with hermesc `-O` both ways: 1% unminified, 57% minified. Function names are read only for bytecode version 98 (hermes-compiler on npm), the layout that was checked; other versions, and bundles with fewer than 50 named functions, are a note, not a verdict.
 
 ## Quick start
 
