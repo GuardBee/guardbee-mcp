@@ -1,8 +1,16 @@
 # @guardbee/mcp-security-engineer
 
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/security-engineer/TR.md)
+
+[![npm version](https://img.shields.io/npm/v/@guardbee/mcp-security-engineer.svg)](https://www.npmjs.com/package/@guardbee/mcp-security-engineer)
+[![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-security-engineer.svg)](https://www.npmjs.com/package/@guardbee/mcp-security-engineer)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/security-engineer/LICENSE)
+
 Fix **GuardBee AI Security Engineer** findings in your own repository with your coding agent (Claude Code, Cursor, VS Code), then verify the fix on the live site.
 
 GuardBee finds and explains the issue and proposes a fix for your platform. Your coding agent makes the change in your repository, and you approve it. GuardBee never edits your code or servers.
+
+> Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/telemetry/README.md).
 
 ## Tools
 
@@ -58,6 +66,7 @@ The agent:
 |---|---|
 | `GUARDBEE_API_KEY` | required |
 | `GUARDBEE_BASE_URL` | `https://app.guardbee.ai` |
+| `GUARDBEE_TELEMETRY` | off; `1` turns on anonymous usage telemetry |
 
 ## Security
 

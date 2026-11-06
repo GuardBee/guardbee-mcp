@@ -1,8 +1,12 @@
 # @guardbee/mcp-security-engineer
 
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe**
+
 **GuardBee AI Güvenlik Mühendisi**'nin bulgularını kendi kodlama ajanınla (Claude Code, Cursor, VS Code) kendi deponda düzelt, ardından düzeltmeyi canlı sitede doğrula.
 
 GuardBee sorunu bulur, açıklar ve platformuna uygun bir düzeltme önerir. Değişikliği deponda kodlama ajanın yapar, sen onaylarsın. GuardBee kodunda veya sunucularında hiçbir değişiklik yapmaz.
+
+> Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
 ## Araçlar
 
@@ -52,8 +56,20 @@ Ajan:
 4. Onaylayıp commit'ledikten sonra commit SHA'sıyla `report_applied` çağırır.
 5. Deploy ettikten sonra `verify_fix` çağırır; GuardBee sorunun çözüldüğünü doğrular.
 
+## Yapılandırma
+
+| Değişken | Varsayılan |
+|---|---|
+| `GUARDBEE_API_KEY` | zorunlu |
+| `GUARDBEE_BASE_URL` | `https://app.guardbee.ai` |
+| `GUARDBEE_TELEMETRY` | kapalı; `1` anonim kullanım telemetrisini açar |
+
 ## Güvenlik
 
 - Sunucu yalnızca proje kökü içindeki dosyaları ve yalnızca senin belirttiğin yapılandırma dosyasını okur; kök dışındaki yollar reddedilir.
 - Dosya düzenlemelerini kendi ajanın yapar; onayı da orada sen verirsin.
 - Tüm işlemler GuardBee etkinlik kaydında, MCP istemcisinden geldiği belirtilerek tutulur.
+
+## Lisans
+
+MIT
