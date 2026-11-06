@@ -1,5 +1,13 @@
 # @guardbee/security-suite
 
+## 0.7.4
+
+### Patch Changes
+
+- [#291](https://github.com/GuardBee/guardbee-mcp/pull/291) [`39b5cf1`](https://github.com/GuardBee/guardbee-mcp/commit/39b5cf101cd07347003018f23f098e2ba3049ee0) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - reverse-shield: `hermes_names_not_minified` (medium). A React Native bundle compiled to Hermes bytecode is now read (string table and function headers, bytecode version 98) and flagged when its functions keep their source names, which hermes-dec and hbctool print back. Other bytecode versions are noted as before.
+- Updated dependencies [[`39b5cf1`](https://github.com/GuardBee/guardbee-mcp/commit/39b5cf101cd07347003018f23f098e2ba3049ee0)]:
+  - @guardbee/mcp-reverse-shield@0.7.0
+
 ## 0.7.3
 
 ### Patch Changes
