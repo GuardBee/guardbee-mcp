@@ -67,7 +67,7 @@ export const ANALYSIS_DEPTH: Record<SourceLanguage, AnalysisDepth> = {
   javascript: "full",
   python: "full",
   go: "full",
-  rust: "patterns",
+  rust: "full",
   java: "patterns",
   kotlin: "patterns",
   csharp: "patterns",
@@ -624,10 +624,81 @@ export function extractGoTools(text: string): SourceTool[] {
   return [...goOfficialTools(text), ...goMark3labsTools(text)].sort((a, b) => a.index - b.index);
 }
 
-/** Tool definitions of a Python or Go source file; [] for other languages. */
+// ── Rust (rmcp) ─────────────────────────────────────────────────────────────
+
+const RUST_READ_ONLY = /\bread_only_hint\s*=\s*true\b/;
+
+/** Input names from an rmcp handler signature and body (`Parameters(T { a, b })` or `params: Parameters<T>`). */
+function rustInputs(signature: string, body: string): string[] {
+  const inputs = new Set<string>();
+  const dest = /Parameters\s*\(\s*[A-Za-z_]\w*\s*\{\s*([^}]*)\}/.exec(signature);
+  if (dest) {
+    for (const field of dest[1]!.split(",")) {
+      const name = field.trim().replace(/^mut\s+/, "").split(/\s*[:}]/)[0]?.trim();
+      if (name && /^[A-Za-z_]\w*$/.test(name)) inputs.add(name);
+    }
+  }
+  const named = /\b([A-Za-z_]\w*)\s*:\s*Parameters\s*</.exec(signature);
+  if (named) {
+    inputs.add(named[1]!);
+    inputs.add(`${named[1]}.0`);
+  }
+  // let x = params.0.field / params.0.field.clone()
+  const reads = /\blet\s+(?:mut\s+)?([A-Za-z_]\w*)\s*=\s*[A-Za-z_]\w*(?:\.0)?\.[A-Za-z_]\w*/g;
+  let m: RegExpExecArray | null;
+  while ((m = reads.exec(body)) !== null) inputs.add(m[1]!);
+  return [...inputs];
+}
+
+/**
+ * Official Rust SDK (rmcp): `#[tool(name = "…", description = "…")]` on an
+ * inherent method inside `#[tool_router]`. Uses Go lexing for brackets/strings
+ * (Rust `//` comments and `"…"` literals match closely enough for attributes).
+ */
+export function extractRustTools(text: string): SourceTool[] {
+  const tools: SourceTool[] = [];
+  const re = /#\[\s*(?:[\w:]+::)*tool\s*\(/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const open = m.index + m[0].length - 1;
+    const close = closingBracket(text, open, "go");
+    const attrs = text.slice(open, close);
+    const nameAttr = stringField(text, open, close, /\bname\s*=\s*/, "go");
+    const description = stringField(text, open, close, /\bdescription\s*=\s*/, "go");
+    // Attribute ends `)]` or `)]` with whitespace; skip the closing `]` of `#[…]`
+    const after = text.slice(close, close + 400);
+    const fn = /^\s*\]\s*(?:pub\s+)?(?:async\s+)?fn\s+([A-Za-z_]\w*)\s*(?:<[^>]*>)?\s*\(/.exec(after);
+    if (!fn) continue;
+    const fnName = fn[1]!;
+    const name = nameAttr?.text ?? fnName;
+    const sigStart = close + fn.index!;
+    const paren = text.indexOf("(", sigStart + fn[0].length - 1);
+    if (paren < 0) continue;
+    const sigEnd = closingBracket(text, paren, "go");
+    const signature = text.slice(sigStart, sigEnd);
+    const brace = text.indexOf("{", sigEnd);
+    if (brace < 0) continue;
+    const bodyEnd = closingBracket(text, brace, "go");
+    const body = text.slice(brace, bodyEnd);
+    tools.push({
+      name,
+      index: m.index,
+      description,
+      schemaStrings: [],
+      readOnlyHint: RUST_READ_ONLY.test(attrs),
+      inputs: rustInputs(signature, body),
+      handler: [[brace, bodyEnd]],
+    });
+    re.lastIndex = bodyEnd;
+  }
+  return tools.sort((a, b) => a.index - b.index);
+}
+
+/** Tool definitions of a Python, Go or Rust source file; [] for other languages. */
 export function extractSourceTools(text: string, language: SourceLanguage | undefined): SourceTool[] {
   if (language === "python") return extractPythonTools(text);
   if (language === "go") return extractGoTools(text);
+  if (language === "rust") return extractRustTools(text);
   return [];
 }
 
@@ -635,10 +706,11 @@ export function extractSourceTools(text: string, language: SourceLanguage | unde
  * The text of a call starting at `index` (the callee) through its closing
  * parenthesis, for checking which values flow into it.
  */
-export function callSpan(text: string, index: number, language: "python" | "go"): string {
+export function callSpan(text: string, index: number, language: "python" | "go" | "rust"): string {
   const open = text.indexOf("(", index);
   if (open < 0) return "";
-  return text.slice(index, closingBracket(text, open, language));
+  const lex = language === "python" ? "python" : "go";
+  return text.slice(index, closingBracket(text, open, lex));
 }
 
 /** True when one of `inputs` (a name or dotted prefix) appears in `code` as a whole word. */

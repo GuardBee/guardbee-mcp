@@ -52,9 +52,9 @@ MCP sunucusu olarak (Claude Desktop, Cursor, VS Code):
 | MCP01 | Token / kimlik bilgisi sızıntısı | secret-scanner, mcp-server-auditor |
 | MCP02 | Yetki / aşırı yetkili ajan | mcp-server-auditor |
 | MCP03 | Tool poisoning / rug pull yüzeyi | tool-poisoning-scanner (`scan`, `live`, `catalog`) |
-| MCP04 | Tedarik zinciri | Bu taramada yok: ağ gerektiren [`mcp-dependency-auditor`](../dependency-auditor) ve [`mcp-slopsquat-scanner`](../slopsquat-scanner) kullanın |
+| MCP04 | Tedarik zinciri | İsteğe bağlı: `--with-supply-chain` / `withSupplyChain` ile [`mcp-dependency-auditor`](../dependency-auditor) (OSV) ve [`mcp-slopsquat-scanner`](../slopsquat-scanner) (ağ gerekir). Kapalıyken `notRun` içinde |
 | MCP05 | Tool'lar üzerinden komut / kod enjeksiyonu | mcp-server-auditor |
-| MCP06 | Prompt / bağlam enjeksiyonu | Bu taramada yok: ajanın okuduğu içerik için [`mcp-prompt-injection-scanner`](../prompt-injection-scanner) kullanın |
+| MCP06 | Prompt / bağlam enjeksiyonu | İsteğe bağlı: `--with-content` / `withContent` ile [`mcp-prompt-injection-scanner`](../prompt-injection-scanner). Kapalıyken `notRun` içinde |
 | MCP07 | Auth / OAuth yanlış yapılandırması | oauth-auditor |
 | MCP08 | Denetim ve telemetri eksikliği | audit-gap-auditor |
 | MCP09 | Gölge MCP sunucuları | mcp-config-auditor (`--discover-shadow`) |

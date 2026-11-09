@@ -52,6 +52,7 @@ export const PACKAGES: SuitePackage[] = [
   { id: "llm-redteam", pkg: "@guardbee/mcp-llm-redteam", prefix: "redteam", summary: "Jailbreak and extraction probes against an LLM endpoint you control", groups: ["network"] },
   { id: "vulnerability-scanner", pkg: "@guardbee/mcp-vulnerability-scanner", prefix: "vuln", summary: "GuardBee platform security scans and their findings", groups: ["platform"] },
   { id: "compliance-checker", pkg: "@guardbee/mcp-compliance-checker", prefix: "compliance", summary: "KVKK, GDPR and CCPA compliance of a website via the GuardBee API", groups: ["platform"] },
+  { id: "security-engineer", pkg: "@guardbee/mcp-security-engineer", prefix: "engineer", summary: "Fix GuardBee AI Security Engineer findings in your repo and verify the fixes", groups: ["platform"] },
 ];
 
 /** The packages a `--tools` value names: ids and group names, comma-separated; `all` for every package. */

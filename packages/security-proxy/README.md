@@ -597,7 +597,7 @@ With `llm.documents.audio`, Chat Completions `input_audio` parts (`wav`, `mp3`) 
 - **Speech to text can mishear.** Numbers read aloud ("on bir, sıfır sıfır…") may come back as words or with mistakes, so treat this as a check that catches clear speech, not a guarantee.
 - **Cost:** one transcription per audio part, a few seconds per minute of speech on a CPU; `timeoutSeconds` and `maxBytes` bound it.
 
-Not covered yet: PDFs given by file id or URL (still `415`), images given by URL or file id (forwarded unread: the proxy does not fetch them), person names found by the `ner:` model inside a PDF, image or transcript, and audio in the Responses or Realtime API. Reading a PDF costs time on every request that carries one; `timeoutSeconds` and `maxPages` bound it.
+http(s) PDF and image URLs are fetched under the same `maxBytes` / `timeoutSeconds` caps (private, loopback and cloud-metadata addresses are refused) and then read like inline data. Provider `file_id` values still stay `415` while masking applies. With `ner:` set, person names inside extracted PDF, OCR and transcript text are masked the same way as prompt text. Not covered yet: audio in the Responses or Realtime API. Reading a PDF costs time on every request that carries one; `timeoutSeconds` and `maxPages` bound it.
 
 ### Embeddings
 

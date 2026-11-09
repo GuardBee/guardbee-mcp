@@ -32,6 +32,14 @@ describe("package selection", () => {
   it("puts every package in at least one group", () => {
     for (const p of PACKAGES) expect(p.groups.every((g) => g in GROUPS) && p.groups.length > 0).toBe(true);
   });
+
+  it("puts security-engineer in the platform group with the other API tools", () => {
+    expect(selectPackages("platform").map((p) => p.id)).toEqual([
+      "vulnerability-scanner",
+      "compliance-checker",
+      "security-engineer",
+    ]);
+  });
 });
 
 describe("tool names", () => {
@@ -53,7 +61,7 @@ describe("the combined server", () => {
     expect(new Set(names).size).toBe(names.length);
     for (const name of names) expect(name).toMatch(/^[a-zA-Z0-9_-]{1,64}$/);
     expect(names.length).toBeGreaterThan(100);
-  }, 30_000); // imports all 30 packages: well under a second locally, over 5 s on a cold CI runner
+  }, 30_000); // imports every suite package: well under a second locally, over 5 s on a cold CI runner
 
   it("keeps the default small enough for clients with a tool limit", async () => {
     const { tools } = await listTools("recommended");

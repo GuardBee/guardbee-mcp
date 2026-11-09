@@ -35,7 +35,7 @@ npx @guardbee/mcp-owasp-scan catalog ./tools.json --format=json
 
 ## 覆盖范围说明
 
-- **MCP04**（供应链）和 **MCP06**（RAG prompt 注入）仍在各自的专用包中（`dependency-auditor` / `slopsquat-scanner`、`prompt-injection-scanner`）——它们需要网络或内容语料，本元扫描默认不会拉取。
+- **MCP04**（供应链）与 **MCP06**（内容 prompt 注入）默认不跑，写入报告的 `notRun`。用 `--with-supply-chain` / `withSupplyChain`（OSV + slopsquat，需网络）和 `--with-content` / `withContent`（`prompt-injection-scanner`）开启。
 - **A–F** 评级遵循 toxic-flow 语义（lethal trifecta → F）。
 
 ## 反馈

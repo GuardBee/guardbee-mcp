@@ -31,6 +31,7 @@ import { DEFAULT_MAX_TEXT_CHARS, MAX_BODY_BYTES, type LlmApi, type LlmConfig, ty
 import { SseRelay, apiOf, errorBody, mapCompletion, mapPrompt, promptTexts, unmaskableParts, usageOf, type LlmShape } from "./shapes.js";
 import { SseRewriter, type RewritePrepare, type TextRewrite } from "./stream.js";
 import { base64Bytes, mapDocuments, textPart, type DocumentModality, type InlineDocument } from "./documents.js";
+import { hydrateRemoteDocuments } from "./remote-documents.js";
 
 type Json = Record<string, unknown>;
 
@@ -395,15 +396,18 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
       return `<${category}_${seen.get(match)}>`;
     };
 
-    // Person names (ner:): one model call over every prompt text, made the first time
+    // Person names (ner:): one model call over every prompt text (including PDF /
+    // image / transcript text once documents are inlined), made the first time
     // routing or masking needs it. No answer, no request: a name no regex knows may be in it.
     let nameScan: Promise<SpanLookup> | undefined;
+    let documentTexts: string[] = [];
     const names = async (): Promise<SpanLookup | undefined> => {
       const ner = options.config.ner;
       if (!ner) return undefined;
       if (!nameScan) {
         const texts: string[] = [];
         mapPrompt(shape, checked, (text) => (texts.push(text), text));
+        for (const text of documentTexts) if (!texts.includes(text)) texts.push(text);
         nameScan = scanNames(nerDetectorFor(ner), texts);
       }
       try {
@@ -422,8 +426,11 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     // 0b. Inline PDFs, images and audio (llm.documents): their text takes their place in
     //     `checked`, which every check below reads; the provider still gets the
     //     file itself. One that cannot be read in full stays in place, and so
-    //     stays unmaskable.
+    //     stays unmaskable. http(s) URLs are fetched first (SSRF-safe) into data URLs.
     const modalities = documentModalities(llm.documents);
+    if (llm.documents && modalities.size > 0 && shape !== "embeddings") {
+      body = await hydrateRemoteDocuments(shape, body, modalities, llm.documents);
+    }
     const documents = llm.documents && modalities.size > 0 && shape !== "embeddings" ? await readDocuments(shape, body, llm.documents, modalities) : [];
     const documentChecks = [
       ...(shape !== "embeddings" && interceptors.promptInjection?.enabled !== false ? ["injection"] : []),
@@ -436,6 +443,9 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
       if (doc.unread) log({ ...base, type: "warn", ruleId: "documents:unread", reason: `${describeDocument(doc)} not read: ${doc.unread}` });
     }
     checked = documents.length > 0 ? mapDocuments(shape, body, (_doc, i, part) => (documents[i]?.text !== undefined ? textPart(shape, documents[i]!.text!, part) : undefined), modalities) : body;
+    documentTexts = documents.filter((doc) => doc.text !== undefined).map((doc) => doc.text!);
+    // Document text was not in `checked` when this closure was written; rebuild NER over the inlined texts.
+    nameScan = undefined;
 
     // 1. Prompt injection in what people and tools wrote. Text sent for embedding is
     //    not run by a model, and a document about injection must still be indexable.

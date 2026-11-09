@@ -1,8 +1,9 @@
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { scanPath } from "../orchestrator.js";
+import type { OwaspReport } from "../types.js";
 
 const dir = mkdtempSync(join(tmpdir(), "owasp-coverage-"));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
@@ -46,13 +47,17 @@ writeFileSync(join(dir, "README.md"), "# x\n");
 writeFileSync(join(dir, "node_modules/dep.js"), "module.exports = 1;\n");
 
 describe("language coverage", () => {
-  const report = scanPath(dir);
+  let report: OwaspReport;
+
+  beforeAll(async () => {
+    report = await scanPath(dir);
+  });
 
   it("lists every source file with its language, depth and tool count", () => {
     expect(report.coverage!.files).toEqual([
       { file: "go/main.go", language: "go", analysis: "full", tools: 1 },
       { file: "index.ts", language: "typescript", analysis: "full", tools: 1 },
-      { file: "lib.rs", language: "rust", analysis: "patterns", tools: 0 },
+      { file: "lib.rs", language: "rust", analysis: "full", tools: 0 },
       { file: "py/server.py", language: "python", analysis: "full", tools: 2 },
     ]);
   });
@@ -61,7 +66,7 @@ describe("language coverage", () => {
     expect(report.coverage!.languages.map((l) => `${l.language}:${l.files}:${l.tools}:${l.analysis}`)).toEqual([
       "go:1:1:full",
       "python:1:2:full",
-      "rust:1:0:patterns",
+      "rust:1:0:full",
       "typescript:1:1:full",
     ]);
   });
@@ -71,8 +76,8 @@ describe("language coverage", () => {
     expect(mcp05).toEqual(expect.arrayContaining(["python_shell_from_tool_input /py/server.py", "go_shell_from_tool_input /go/main.go"]));
   });
 
-  it("covers a single file scan", () => {
-    const single = scanPath(join(dir, "py/server.py"));
+  it("covers a single file scan", async () => {
+    const single = await scanPath(join(dir, "py/server.py"));
     expect(single.coverage!.files).toEqual([{ file: join(dir, "py/server.py"), language: "python", analysis: "full", tools: 2 }]);
   });
 });

@@ -6,8 +6,8 @@ import type { FileCoverage, LanguageCoverage, ScanCoverage } from "./types.js";
 
 /**
  * Which source files a path scan understood, and how deeply: TypeScript,
- * JavaScript, Python and Go get tool definitions, handler sinks and OAuth
- * rules ("full"); other languages only the language-neutral patterns
+ * JavaScript, Python, Go and Rust get tool definitions, handler sinks and
+ * OAuth rules ("full"); other languages only the language-neutral patterns
  * (secrets, URLs, config). Files that are not code (docs, JSON, YAML) are
  * scanned by the same rules but not listed.
  */
@@ -26,7 +26,9 @@ function toolCount(path: string): number {
   } catch {
     return 0;
   }
-  return language === "python" || language === "go" ? extractSourceTools(text, language).length : extractToolBlocks(text).length;
+  return language === "python" || language === "go" || language === "rust"
+    ? extractSourceTools(text, language).length
+    : extractToolBlocks(text).length;
 }
 
 export function fileCoverage(path: string, label = path): FileCoverage | undefined {

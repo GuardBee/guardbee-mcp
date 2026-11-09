@@ -45,7 +45,7 @@ As an MCP server (Claude Desktop, Cursor, VS Code):
 | `live` | `--url=<streamable HTTP URL>` or `--stdio=<command>` with `--arg=…` | Connects, calls `tools/list`, then toxic-flow-auditor and tool-poisoning-scanner |
 | `catalog <tools.json>` | A `tools/list` dump (`{ "tools": [...] }` or a bare array) | Same checks as `live`, offline |
 
-`scan` reads TypeScript/JavaScript, Python (FastMCP, official SDK, low-level server) and Go (official go-sdk, mark3labs/mcp-go) MCP servers in full: tool definitions, handler sinks and OAuth rules. Other languages (Rust, Java, Kotlin, C#, Ruby, PHP, Swift) get the language-neutral rules only (secrets, URLs, config). The report's `coverage` lists every source file with its language, that depth (`full` or `patterns`) and the number of tool definitions found, plus a per-language summary (`languages:` in text output), so a file the scan could not read deeply is visible rather than silently passing.
+`scan` reads TypeScript/JavaScript, Python (FastMCP, official SDK, low-level server), Go (official go-sdk, mark3labs/mcp-go) and Rust (rmcp `#[tool]` / `#[tool_router]`) MCP servers in full: tool definitions, handler sinks and OAuth rules. Other languages (Java, Kotlin, C#, Ruby, PHP, Swift) get the language-neutral rules only (secrets, URLs, config). The report's `coverage` lists every source file with its language, that depth (`full` or `patterns`) and the number of tool definitions found, plus a per-language summary (`languages:` in text output), so a file the scan could not read deeply is visible rather than silently passing.
 
 `--discover-shadow` adds an **MCP09** check to `scan`: it inventories the MCP servers configured on this machine (Cursor, Claude Desktop, Windsurf, VS Code) through `mcp-config-auditor`, and `--allowlist=<path>` marks the approved ones.
 
@@ -56,9 +56,9 @@ As an MCP server (Claude Desktop, Cursor, VS Code):
 | MCP01 | Token / credential exposure | secret-scanner, mcp-server-auditor |
 | MCP02 | Privilege / excessive agency | mcp-server-auditor |
 | MCP03 | Tool poisoning / rug pull surface | tool-poisoning-scanner (`scan`, `live`, `catalog`) |
-| MCP04 | Supply chain | Not in this meta-scan: use [`mcp-dependency-auditor`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/dependency-auditor) and [`mcp-slopsquat-scanner`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/slopsquat-scanner), which need the network |
+| MCP04 | Supply chain | Opt-in: `--with-supply-chain` / `withSupplyChain` runs [`mcp-dependency-auditor`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/dependency-auditor) (OSV) and [`mcp-slopsquat-scanner`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/slopsquat-scanner) (needs the network). Listed in `notRun` when off |
 | MCP05 | Command / code injection via tools | mcp-server-auditor |
-| MCP06 | Prompt / context injection | Not in this meta-scan: use [`mcp-prompt-injection-scanner`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/prompt-injection-scanner) on the content an agent reads |
+| MCP06 | Prompt / context injection | Opt-in: `--with-content` / `withContent` runs [`mcp-prompt-injection-scanner`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/prompt-injection-scanner) on content under the path. Listed in `notRun` when off |
 | MCP07 | Auth / OAuth misconfiguration | oauth-auditor |
 | MCP08 | Lack of audit and telemetry | audit-gap-auditor |
 | MCP09 | Shadow MCP servers | mcp-config-auditor (`--discover-shadow`) |
@@ -82,6 +82,8 @@ As an MCP server (Claude Desktop, Cursor, VS Code):
 | `--fail-on=any\|critical\|high\|medium\|none` | `any` | Exit 1 when a finding at or above this severity exists |
 | `--max-files=<n>` | `5000` | Stop a path scan after this many files |
 | `--discover-shadow` | off | Add the MCP09 host inventory to `scan` |
+| `--with-supply-chain` | off | Add MCP04 (OSV dependency audit + slopsquat; needs network) |
+| `--with-content` | off | Add MCP06 (prompt injection on docs/content under the path) |
 | `--allowlist=<path>` | – | Approved servers for `--discover-shadow` |
 
 Exit codes: `0` clean (or below `--fail-on`), `1` findings at or above `--fail-on`, `2` usage error.

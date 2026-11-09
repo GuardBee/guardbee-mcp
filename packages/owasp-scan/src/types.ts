@@ -70,6 +70,12 @@ export interface OwaspReport {
   findings: NormalizedFinding[];
   durationMs: number;
   label: string;
+  /**
+   * Top 10 ids that were not run in this pass (e.g. MCP04 without
+   * `--with-supply-chain`, MCP06 without `--with-content`). Empty when every
+   * category the path scan can cover was attempted.
+   */
+  notRun?: OwaspId[];
 }
 
 export type ConnectionTarget =
