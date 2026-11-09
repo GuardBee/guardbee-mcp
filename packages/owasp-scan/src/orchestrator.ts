@@ -10,6 +10,9 @@ import {
   parseToolsJson,
 } from "@guardbee/mcp-toxic-flow-auditor";
 import { scanDirectory as scanPoisonDir, scanFile as poisonScanFile, scanToolCatalog } from "@guardbee/mcp-tool-poisoning-scanner";
+import { auditDirectory, vulnsAsFindings } from "@guardbee/mcp-dependency-auditor";
+import { scanNpm as scanSlopsquatNpm, scanPip as scanSlopsquatPip } from "@guardbee/mcp-slopsquat-scanner";
+import { scanDirectory as scanInjectionDir, scanFile as injectionScanFile } from "@guardbee/mcp-prompt-injection-scanner";
 import { directoryCoverage, fileCoverage, summarize } from "./coverage.js";
 import { discoverShadowMcp, loadAllowlistFile, type Allowlist } from "@guardbee/mcp-config-auditor";
 import { statSync, readFileSync } from "fs";
@@ -93,6 +96,16 @@ export interface PathScanOptions {
   allowlistPath?: string;
   /** Also walk host MCP client configs for Shadow MCP (MCP09). Default false. */
   discoverShadow?: boolean;
+  /**
+   * Also run MCP04 supply-chain checks (dependency-auditor OSV + slopsquat registry).
+   * Needs the network. Default false.
+   */
+  withSupplyChain?: boolean;
+  /**
+   * Also run MCP06 prompt-injection over content under the path (md/txt/docs).
+   * Default false.
+   */
+  withContent?: boolean;
 }
 
 function pushNormalized(findings: NormalizedFinding[], items: Array<Parameters<typeof normalize>[0]>, source: string) {
@@ -102,12 +115,13 @@ function pushNormalized(findings: NormalizedFinding[], items: Array<Parameters<t
   }
 }
 
-export function scanPath(targetPath: string, options: PathScanOptions = {}): OwaspReport {
+export async function scanPath(targetPath: string, options: PathScanOptions = {}): Promise<OwaspReport> {
   const start = Date.now();
   const maxFiles = options.maxFiles ?? 5000;
   const exclude = options.exclude;
   const findings: NormalizedFinding[] = [];
   let scannedFiles = 0;
+  const notRun: OwaspId[] = [];
 
   const stat = statSync(targetPath);
   if (!stat.isDirectory() && !stat.isFile()) {
@@ -116,14 +130,37 @@ export function scanPath(targetPath: string, options: PathScanOptions = {}): Owa
 
   if (stat.isFile()) {
     const report = scanSingleFile(targetPath, start);
+    if (options.withContent) {
+      const extra: NormalizedFinding[] = [];
+      pushNormalized(
+        extra,
+        injectionScanFile(targetPath).findings.map((f) => ({
+          patternId: f.patternId,
+          patternName: f.patternName,
+          severity: f.severity,
+          recommendation: f.recommendation,
+          file: f.file,
+          line: f.line,
+          column: f.column,
+          match: f.match,
+        })),
+        "prompt-injection"
+      );
+      report.findings.push(...extra);
+    } else {
+      notRun.push("MCP06:2025");
+    }
+    // Supply-chain needs a project root with manifests; a single file cannot run MCP04.
+    notRun.push("MCP04:2025");
     if (options.discoverShadow) {
       report.findings.push(...runDiscover(options.allowlistPath));
-      report.totalFindings = report.findings.length;
-      report.byOwasp = bucketize(report.findings);
-      const graded = gradeFromFindings(report.findings);
-      report.grade = graded.grade;
-      report.score = graded.score;
     }
+    report.totalFindings = report.findings.length;
+    report.byOwasp = bucketize(report.findings);
+    const graded = gradeFromFindings(report.findings);
+    report.grade = graded.grade;
+    report.score = graded.score;
+    report.notRun = notRun;
     return report;
   }
 
@@ -255,7 +292,91 @@ export function scanPath(targetPath: string, options: PathScanOptions = {}): Owa
     findings.push(...runDiscover(options.allowlistPath));
   }
 
-  return buildReport("path", targetPath, findings, start, { scannedFiles, coverage: directoryCoverage(targetPath, { maxFiles, exclude }) });
+  if (options.withSupplyChain) {
+    await runSupplyChain(targetPath, findings);
+  } else {
+    notRun.push("MCP04:2025");
+  }
+
+  if (options.withContent) {
+    const injection = scanInjectionDir(targetPath, dirOpts);
+    scannedFiles = Math.max(scannedFiles, injection.scannedFiles);
+    pushNormalized(
+      findings,
+      injection.findings.map((f) => ({
+        patternId: f.patternId,
+        patternName: f.patternName,
+        severity: f.severity,
+        recommendation: f.recommendation,
+        file: f.file,
+        line: f.line,
+        column: f.column,
+        match: f.match,
+      })),
+      "prompt-injection"
+    );
+  } else {
+    notRun.push("MCP06:2025");
+  }
+
+  return buildReport("path", targetPath, findings, start, {
+    scannedFiles,
+    coverage: directoryCoverage(targetPath, { maxFiles, exclude }),
+    notRun,
+  });
+}
+
+async function runSupplyChain(targetPath: string, findings: NormalizedFinding[]): Promise<void> {
+  try {
+    const audited = await auditDirectory(targetPath);
+    pushNormalized(findings, vulnsAsFindings(audited), "dependency-auditor");
+  } catch (err) {
+    // Manifest parse / OSV failures should not abort the rest of the meta-scan
+    pushNormalized(
+      findings,
+      [
+        {
+          patternId: "dependency_audit_failed",
+          patternName: "Supply-chain audit could not finish",
+          severity: "low",
+          recommendation: err instanceof Error ? err.message : String(err),
+          match: "dependency-auditor",
+        },
+      ],
+      "dependency-auditor"
+    );
+  }
+
+  try {
+    const [npm, pip] = await Promise.all([scanSlopsquatNpm(targetPath), scanSlopsquatPip(targetPath)]);
+    for (const result of [npm, pip]) {
+      pushNormalized(
+        findings,
+        result.findings.map((f) => ({
+          patternId: f.patternId,
+          patternName: f.patternName,
+          severity: f.severity,
+          recommendation: f.recommendation,
+          match: f.packageName,
+        })),
+        "slopsquat-scanner"
+      );
+    }
+  } catch (err) {
+    pushNormalized(
+      findings,
+      [
+        {
+          patternId: "slopsquat_scan_failed",
+          patternName: "Slopsquat scan could not finish",
+          severity: "low",
+          recommendation: err instanceof Error ? err.message : String(err),
+          match: "slopsquat-scanner",
+        },
+      ],
+      "slopsquat-scanner"
+    );
+  }
 }
 
 function scanSingleFile(filePath: string, start: number): OwaspReport {

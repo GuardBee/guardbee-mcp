@@ -7,3 +7,6 @@ export { parsePipRequirements } from "./parsers/pip.js";
 export { planUpgrade, isAffected } from "./fix.js";
 export type { UpgradePlan } from "./fix.js";
 export { compareVersions } from "./version.js";
+export { auditDirectory, vulnsAsFindings } from "./project.js";
+export type { ProjectAuditOptions } from "./project.js";
+export { auditDependencies } from "./audit.js";

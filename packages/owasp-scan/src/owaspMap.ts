@@ -23,6 +23,8 @@ export function resolveOwasp(
 
   if (source === "secret-scanner") return "MCP01:2025";
   if (source === "tool-poisoning") return "MCP03:2025";
+  if (source === "dependency-auditor" || source === "slopsquat-scanner") return "MCP04:2025";
+  if (source === "prompt-injection") return "MCP06:2025";
   if (source === "oauth-auditor") return "MCP07:2025";
   if (source === "audit-gap") return "MCP08:2025";
   if (source === "config-discover") return "MCP09:2025";

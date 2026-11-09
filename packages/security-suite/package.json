@@ -45,6 +45,7 @@
     "@guardbee/mcp-reverse-shield": "workspace:^",
     "@guardbee/mcp-rug-pull-detector": "workspace:^",
     "@guardbee/mcp-secret-scanner": "workspace:^",
+    "@guardbee/mcp-security-engineer": "workspace:^",
     "@guardbee/mcp-server-auditor": "workspace:^",
     "@guardbee/mcp-slopsquat-scanner": "workspace:^",
     "@guardbee/mcp-ssl-inspector": "workspace:^",

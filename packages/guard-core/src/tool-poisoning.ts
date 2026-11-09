@@ -180,9 +180,27 @@ export const GO_SINK_RULES: MismatchSinkRule[] = [
   sink("credentials_exposure", /\bos\.Environ\s*\(\s*\)/, "credentials-exposure", "critical"),
 ];
 
-/** Sink rules for a source language: Python and Go have their own, everything else gets the JavaScript/TypeScript set. */
+/** The same sinks in Rust (rmcp) handlers: std::process::Command, fs writes, env::vars. */
+export const RUST_SINK_RULES: MismatchSinkRule[] = [
+  sink(
+    "process_execution",
+    /\b(?:std::)?process::Command(?:::new|\s*\()|\bCommand::new\s*\(|\btokio::process::Command::new\s*\(/,
+    "process-execution",
+    "critical",
+  ),
+  sink(
+    "filesystem_write",
+    /\b(?:std::)?fs::(?:write|remove_file|remove_dir(?:_all)?|rename|copy|create(?:_dir(?:_all)?)?)\s*\(|\bOpenOptions::new\s*\(/,
+    "filesystem-write",
+    "high",
+  ),
+  sink("credentials_exposure", /\b(?:std::)?env::vars(?:_os)?\s*\(\s*\)/, "credentials-exposure", "critical"),
+];
+
+/** Sink rules for a source language: Python, Go and Rust have their own, everything else gets the JavaScript/TypeScript set. */
 export function sinkRulesFor(language: string | undefined): MismatchSinkRule[] {
   if (language === "python") return PYTHON_SINK_RULES;
   if (language === "go") return GO_SINK_RULES;
+  if (language === "rust") return RUST_SINK_RULES;
   return MISMATCH_SINK_RULES;
 }

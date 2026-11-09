@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { callSpan, extractGoTools, extractPythonTools, languageOf, mentionsInput, sinkRulesFor, type SourceTool } from "../index.js";
+import { callSpan, extractGoTools, extractPythonTools, extractRustTools, languageOf, mentionsInput, sinkRulesFor, type SourceTool } from "../index.js";
 
 const handlerCode = (text: string, tool: SourceTool) => tool.handler.map(([a, b]) => text.slice(a, b)).join("\n");
 
@@ -227,11 +227,52 @@ func Get(t translations.TranslationHelperFunc) inventory.ServerTool {
   });
 });
 
+describe("extractRustTools", () => {
+  it("reads rmcp #[tool] methods with Parameters destructuring and process sinks", () => {
+    const src = `
+use rmcp::{tool, tool_router, handler::server::wrapper::Parameters};
+use std::process::Command;
+
+#[derive(serde::Deserialize, schemars::JsonSchema)]
+struct StatusInput {
+    service: String,
+}
+
+#[tool_router]
+impl Ops {
+    #[tool(name = "get_status", description = "Get the status of a service", annotations(read_only_hint = true))]
+    fn status(&self, Parameters(StatusInput { service }): Parameters<StatusInput>) -> String {
+        let out = Command::new("sh").arg("-c").arg(format!("systemctl status {service}")).output();
+        String::from_utf8_lossy(&out.unwrap().stdout).into_owned()
+    }
+
+    #[tool(description = "Say hello")]
+    async fn hello(&self) -> String {
+        "hi".into()
+    }
+}
+`;
+    const tools = extractRustTools(src);
+    expect(tools.map((t) => t.name)).toEqual(["get_status", "hello"]);
+    const [status, hello] = tools as [SourceTool, SourceTool];
+    expect(status.description?.text).toBe("Get the status of a service");
+    expect(status.readOnlyHint).toBe(true);
+    expect(status.inputs).toContain("service");
+    const body = handlerCode(src, status);
+    expect(body).toContain("Command::new");
+    expect(mentionsInput(body, status.inputs)).toBe("service");
+    expect(sinkRulesFor("rust").find((r) => r.id === "process_execution")!.pattern.test(body)).toBe(true);
+    expect(hello.description?.text).toBe("Say hello");
+    expect(hello.readOnlyHint).toBe(false);
+  });
+});
+
 describe("sinkRulesFor", () => {
   it("matches each language's process sinks", () => {
     const process = (lang: string) => sinkRulesFor(lang).find((r) => r.id === "process_execution")!.pattern;
     expect(process("python").test("subprocess.run(cmd, shell=True)")).toBe(true);
     expect(process("go").test('exec.CommandContext(ctx, "ls")')).toBe(true);
+    expect(process("rust").test('Command::new("sh")')).toBe(true);
     expect(process("typescript").test("execSync(cmd)")).toBe(true);
     const env = sinkRulesFor("python").find((r) => r.id === "credentials_exposure")!.pattern;
     expect(env.test("return dict(os.environ)")).toBe(true);

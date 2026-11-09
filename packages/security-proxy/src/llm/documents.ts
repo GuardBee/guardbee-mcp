@@ -1,15 +1,15 @@
 import type { LlmShape } from "./shapes.js";
 
 /**
- * PDFs and images sent inline in a request.
+ * PDFs and images sent inline in a request (after remote URLs are hydrated).
  *
  * - PDFs: OpenAI `file` parts and Responses `input_file` parts with a
  *   `data:application/pdf;base64,` URL, Anthropic `document` blocks with a
- *   base64 PDF source. A file id or URL is not inline: the proxy cannot read
- *   it and it stays unmaskable.
+ *   base64 PDF source. Provider `file_id` values stay unmaskable. http(s) URLs
+ *   are fetched first by `hydrateRemoteDocuments` into data URLs.
  * - Images: OpenAI `image_url` parts and Responses `input_image` parts with a
- *   `data:image/...;base64,` URL, Anthropic `image` blocks with a base64
- *   source. An image given by URL or file id is not fetched.
+ *   `data:image/...;base64,` URL (or an http(s) URL hydrated the same way),
+ *   Anthropic `image` blocks with a base64 (or hydrated url) source.
  * - Audio: OpenAI Chat Completions `input_audio` parts (base64 data and a
  *   format). Responses and Anthropic take no audio input.
  */

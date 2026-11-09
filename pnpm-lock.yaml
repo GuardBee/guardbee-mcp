@@ -431,15 +431,24 @@ importers:
       '@guardbee/mcp-context-oversharing-auditor':
         specifier: workspace:^
         version: link:../context-oversharing-auditor
+      '@guardbee/mcp-dependency-auditor':
+        specifier: workspace:^
+        version: link:../dependency-auditor
       '@guardbee/mcp-oauth-auditor':
         specifier: workspace:^
         version: link:../oauth-auditor
+      '@guardbee/mcp-prompt-injection-scanner':
+        specifier: workspace:^
+        version: link:../prompt-injection-scanner
       '@guardbee/mcp-secret-scanner':
         specifier: workspace:^
         version: link:../secret-scanner
       '@guardbee/mcp-server-auditor':
         specifier: workspace:^
         version: link:../mcp-server-auditor
+      '@guardbee/mcp-slopsquat-scanner':
+        specifier: workspace:^
+        version: link:../slopsquat-scanner
       '@guardbee/mcp-telemetry':
         specifier: workspace:^
         version: link:../telemetry
@@ -709,6 +718,9 @@ importers:
       '@guardbee/mcp-secret-scanner':
         specifier: workspace:^
         version: link:../secret-scanner
+      '@guardbee/mcp-security-engineer':
+        specifier: workspace:^
+        version: link:../security-engineer
       '@guardbee/mcp-server-auditor':
         specifier: workspace:^
         version: link:../mcp-server-auditor

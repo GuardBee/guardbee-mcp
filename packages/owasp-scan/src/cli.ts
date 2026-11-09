@@ -34,6 +34,8 @@ Options:
   --max-files=<n>
   --discover-shadow              Also run MCP09 host discover
   --allowlist=<path>             Allowlist for Shadow MCP discover
+  --with-supply-chain            Also run MCP04 (OSV + slopsquat; needs network)
+  --with-content                 Also run MCP06 (prompt injection on content)
 `);
 }
 
@@ -47,6 +49,8 @@ function parseArgs(args: string[]) {
   let stdio: string | undefined;
   let discoverShadow = false;
   let allowlist: string | undefined;
+  let withSupplyChain = false;
+  let withContent = false;
 
   for (const arg of args) {
     if (arg.startsWith("--format=")) format = arg.split("=")[1] ?? "text";
@@ -57,9 +61,11 @@ function parseArgs(args: string[]) {
     else if (arg.startsWith("--arg=")) stdioArgs.push(arg.slice("--arg=".length));
     else if (arg === "--discover-shadow") discoverShadow = true;
     else if (arg.startsWith("--allowlist=")) allowlist = arg.slice("--allowlist=".length);
+    else if (arg === "--with-supply-chain") withSupplyChain = true;
+    else if (arg === "--with-content") withContent = true;
     else if (!arg.startsWith("--")) positionals.push(arg);
   }
-  return { positionals, format, failOn, maxFiles, url, stdio, stdioArgs, discoverShadow, allowlist };
+  return { positionals, format, failOn, maxFiles, url, stdio, stdioArgs, discoverShadow, allowlist, withSupplyChain, withContent };
 }
 
 function shouldFail(findings: { severity: string }[], failOn: string): boolean {
@@ -84,6 +90,7 @@ function emit(report: OwaspReport, format: string, failOn: string, fallbackUri?:
       console.log(`  languages: ${langs.join("; ")}`);
     }
     if (report.toolCount !== undefined) console.log(`  tools: ${report.toolCount}`);
+    if (report.notRun?.length) console.log(`  notRun: ${report.notRun.join(", ")}`);
     console.log("");
     for (const bucket of report.byOwasp) {
       if (bucket.findingCount === 0) continue;
@@ -120,10 +127,12 @@ async function main(): Promise<void> {
       console.error("Usage: guardbee-owasp-scan scan <path>");
       process.exit(2);
     }
-    const report = scanPath(path, {
+    const report = await scanPath(path, {
       maxFiles: opts.maxFiles,
       discoverShadow: opts.discoverShadow,
       allowlistPath: opts.allowlist,
+      withSupplyChain: opts.withSupplyChain,
+      withContent: opts.withContent,
     });
     emit(report, opts.format, opts.failOn, path);
     return;

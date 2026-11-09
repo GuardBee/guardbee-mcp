@@ -76,6 +76,7 @@ That serves the **recommended** set (31 tools): a one-pass OWASP MCP Top 10 scan
 | `llm-redteam` | `redteam_` | Jailbreak and extraction probes against an LLM endpoint you control | network |
 | `vulnerability-scanner` | `vuln_` | GuardBee platform security scans and their findings | platform |
 | `compliance-checker` | `compliance_` | KVKK, GDPR and CCPA compliance of a website via the GuardBee API | platform |
+| `security-engineer` | `engineer_` | Fix GuardBee AI Security Engineer findings in your repo and verify the fixes (`GUARDBEE_API_KEY`) | platform |
 
 `guardbee list` prints this table. The proxy ([`mcp-security-proxy`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/security-proxy)) and the database gateway ([`mcp-db-gateway`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/db-gateway)) are not in the suite: they sit in front of other servers rather than answering tool calls.
 

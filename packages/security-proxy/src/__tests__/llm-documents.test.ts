@@ -328,12 +328,17 @@ describe("llm.documents.images: images in requests", () => {
     expect((await chatWithImage(base, png("NO-OCR"), "local-llama")).status).toBe(200);
   });
 
-  it("does not fetch an image given by URL", async () => {
+  it("fetches an image given by URL and fails closed when the fetch is refused", async () => {
     const provider = await fakeProvider();
     const { base, events } = await startLlm(provider.url, { documents: IMAGES });
-    const res = await post(base, "/chat/completions", { model: "gpt-4o", messages: [{ role: "user", content: [{ type: "image_url", image_url: { url: "https://example.com/a.png" } }] }] });
-    expect(res.status).toBe(200);
-    expect(events.find((e) => e.type === "tool_call")?.documents).toBeUndefined();
+    // Loopback is blocked (SSRF): hydrate leaves an unreadable placeholder → 415 while masking applies
+    const res = await post(base, "/chat/completions", {
+      model: "gpt-4o",
+      messages: [{ role: "user", content: [{ type: "image_url", image_url: { url: "http://127.0.0.1/a.png" } }] }],
+    });
+    expect(res.status).toBe(415);
+    expect(provider.seen).toHaveLength(0);
+    expect(events).toContainEqual(expect.objectContaining({ type: "warn", ruleId: "documents:unread" }));
   });
 
   it("reads PDFs and images together, keeping their order", async () => {
