@@ -1,5 +1,18 @@
 # @guardbee/mcp-owasp-scan
 
+## 0.6.0
+
+### Minor Changes
+
+- [#296](https://github.com/GuardBee/guardbee-mcp/pull/296) [`a94c0b3`](https://github.com/GuardBee/guardbee-mcp/commit/a94c0b3ec8e83542137b69fc8cc0c4a139ea2159) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - OWASP path scan can now cover MCP04 and MCP06 in one pass: `--with-supply-chain` / `withSupplyChain` runs dependency-auditor (OSV) and slopsquat-scanner; `--with-content` / `withContent` runs prompt-injection-scanner. Categories left off appear in the report's `notRun` field. dependency-auditor exports `auditDirectory` / `vulnsAsFindings` for meta-scanners.
+
+### Patch Changes
+
+- [#296](https://github.com/GuardBee/guardbee-mcp/pull/296) [`a94c0b3`](https://github.com/GuardBee/guardbee-mcp/commit/a94c0b3ec8e83542137b69fc8cc0c4a139ea2159) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Rust MCP servers (rmcp `#[tool]` / `#[tool_router]`) are analyzed in full: `extractRustTools`, `RUST_SINK_RULES` (process, filesystem, env::vars), and `ANALYSIS_DEPTH.rust = "full"`. owasp-scan coverage reports Rust as full and counts rmcp tools.
+- Updated dependencies [[`a94c0b3`](https://github.com/GuardBee/guardbee-mcp/commit/a94c0b3ec8e83542137b69fc8cc0c4a139ea2159), [`a94c0b3`](https://github.com/GuardBee/guardbee-mcp/commit/a94c0b3ec8e83542137b69fc8cc0c4a139ea2159)]:
+  - @guardbee/guard-core@1.6.0
+  - @guardbee/mcp-dependency-auditor@0.8.2
+
 ## 0.5.2
 
 ### Patch Changes

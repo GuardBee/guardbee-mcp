@@ -1,5 +1,11 @@
 # @guardbee/mcp-dependency-auditor
 
+## 0.8.2
+
+### Patch Changes
+
+- [#296](https://github.com/GuardBee/guardbee-mcp/pull/296) [`a94c0b3`](https://github.com/GuardBee/guardbee-mcp/commit/a94c0b3ec8e83542137b69fc8cc0c4a139ea2159) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - OWASP path scan can now cover MCP04 and MCP06 in one pass: `--with-supply-chain` / `withSupplyChain` runs dependency-auditor (OSV) and slopsquat-scanner; `--with-content` / `withContent` runs prompt-injection-scanner. Categories left off appear in the report's `notRun` field. dependency-auditor exports `auditDirectory` / `vulnsAsFindings` for meta-scanners.
+
 ## 0.8.1
 
 ### Patch Changes

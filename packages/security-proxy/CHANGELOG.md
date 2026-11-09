@@ -1,5 +1,16 @@
 # @guardbee/mcp-security-proxy
 
+## 1.38.0
+
+### Minor Changes
+
+- [#296](https://github.com/GuardBee/guardbee-mcp/pull/296) [`a94c0b3`](https://github.com/GuardBee/guardbee-mcp/commit/a94c0b3ec8e83542137b69fc8cc0c4a139ea2159) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - LLM gateway `llm.documents` now fetches http(s) PDF and image URLs under the same size/time caps (private, loopback and cloud-metadata addresses refused) before reading them like inline data. With `ner:` configured, person names inside extracted PDF, OCR and transcript text are included in the name scan. Provider `file_id` values stay unmaskable.
+
+### Patch Changes
+
+- Updated dependencies [[`a94c0b3`](https://github.com/GuardBee/guardbee-mcp/commit/a94c0b3ec8e83542137b69fc8cc0c4a139ea2159)]:
+  - @guardbee/guard-core@1.6.0
+
 ## 1.37.1
 
 ### Patch Changes
