@@ -657,7 +657,8 @@ function rustInputs(signature: string, body: string): string[] {
  */
 export function extractRustTools(text: string): SourceTool[] {
   const tools: SourceTool[] = [];
-  const re = /#\[\s*(?:[\w:]+::)*tool\s*\(/g;
+  // `\w+::` (not `[\w:]+::`) so CodeQL does not flag nested quantifier backtracking
+  const re = /#\[\s*(?:\w+::)*tool\s*\(/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
     const open = m.index + m[0].length - 1;
