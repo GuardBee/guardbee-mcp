@@ -1,5 +1,17 @@
 # @guardbee/security-suite
 
+## 0.8.0
+
+### Minor Changes
+
+- [#296](https://github.com/GuardBee/guardbee-mcp/pull/296) [`a94c0b3`](https://github.com/GuardBee/guardbee-mcp/commit/a94c0b3ec8e83542137b69fc8cc0c4a139ea2159) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - `guardbee serve --tools=platform` (and `all`) now includes `@guardbee/mcp-security-engineer` so an agent can fix GuardBee AI Security Engineer findings and verify them from the same suite process (`GUARDBEE_API_KEY`).
+
+### Patch Changes
+
+- Updated dependencies [[`a94c0b3`](https://github.com/GuardBee/guardbee-mcp/commit/a94c0b3ec8e83542137b69fc8cc0c4a139ea2159), [`a94c0b3`](https://github.com/GuardBee/guardbee-mcp/commit/a94c0b3ec8e83542137b69fc8cc0c4a139ea2159)]:
+  - @guardbee/mcp-owasp-scan@0.6.0
+  - @guardbee/mcp-dependency-auditor@0.8.2
+
 ## 0.7.4
 
 ### Patch Changes
