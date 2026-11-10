@@ -1,5 +1,11 @@
 # @guardbee/mcp-security-proxy
 
+## 1.39.0
+
+### Minor Changes
+
+- [#298](https://github.com/GuardBee/guardbee-mcp/pull/298) [`21d5acd`](https://github.com/GuardBee/guardbee-mcp/commit/21d5acdf9a3088cca9dbe87348f14139d0d99c27) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - LLM gateway: OpenAI-compatible `file_id` PDFs are downloaded from the routed provider Files API when `llm.documents.pdf` is on; Responses `input_audio` is transcribed like Chat Completions when `llm.documents.audio` is set. Realtime WebSocket audio stays out of scope.
+
 ## 1.38.0
 
 ### Minor Changes

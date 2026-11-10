@@ -1,5 +1,11 @@
 # @guardbee/mcp-security-engineer
 
+## 0.2.0
+
+### Minor Changes
+
+- [#298](https://github.com/GuardBee/guardbee-mcp/pull/298) [`21d5acd`](https://github.com/GuardBee/guardbee-mcp/commit/21d5acdf9a3088cca9dbe87348f14139d0d99c27) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - `detect_stack` also recognizes `vercel.json`, `netlify.toml`, `public/_headers`, Cloudflare worker deps, and Dockerfiles that reference nginx; Fly.io and Firebase Hosting show up as notes. The MCP server version now follows `package.json`.
+
 ## 0.1.1
 
 ### Patch Changes
