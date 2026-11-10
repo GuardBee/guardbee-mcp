@@ -20,6 +20,12 @@ npx -y @guardbee/mcp-security-proxy@^1 init --client claude-desktop   # or curso
 npx -y @guardbee/mcp-owasp-scan scan . --fail-on=high
 ```
 
+### First 5 minutes
+
+1. **Protect your agent** — `npx -y @guardbee/mcp-security-proxy@^1 init --client cursor` (or `claude-desktop` / `claude-code`). Restarts the client with GuardBee in front of your MCP servers.
+2. **Scan the repo** — `npx -y @guardbee/mcp-owasp-scan scan . --fail-on=high` for OWASP MCP Top 10; `npx -y @guardbee/mcp-secret-scanner scan . --history` for leaked keys (no MCP client required).
+3. **Pick the next tool** — see [Which package should I use?](#which-package-should-i-use). Full install paths (container, Helm, hooks, CI): [INSTALL.md](INSTALL.md).
+
 ![An agent calls a CRM through GuardBee: personal data is masked, a prompt injection is blocked, and sending data out after reading untrusted and sensitive content is refused](docs/demo.gif)
 
 <sub>Run it yourself: [`examples/demo`](examples/demo) (`npm install && npm start`).</sub>

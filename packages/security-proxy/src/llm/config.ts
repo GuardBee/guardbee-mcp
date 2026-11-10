@@ -121,7 +121,7 @@ export interface LlmDocuments {
   languages: string[];
   /** A local folder with `<lang>.traineddata`, so OCR never downloads language data. */
   langPath?: string;
-  /** Transcribe OpenAI `input_audio` parts with this speech-to-text service. Unset: audio stays unmaskable (415). */
+  /** Transcribe OpenAI Chat Completions and Responses `input_audio` parts with this speech-to-text service. Unset: audio stays unmaskable (415). */
   audio?: LlmAudio;
   maxBytes: number;
   maxPages: number;

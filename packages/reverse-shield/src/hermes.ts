@@ -4,18 +4,24 @@ import type { Finding } from "./finding.js";
 // Hermes bytecode (React Native): the header, string table and function names.
 //
 // Layout checked against hermesc from the hermes-compiler npm package
-// (bytecode version 98), which uses 12-byte function headers. Other versions
-// may lay them out differently: the string table is still found by trying 12-
-// and 16-byte headers, but function names are only read for versions whose
-// layout was checked.
+// (bytecode version 98), which uses 12-byte function headers. The string table
+// is found by trying 12- and 16-byte headers. Function names are read for
+// versions that share the same 12-byte small-header name encoding as v98
+// (React Native's common hermesc range); others stay notes-only.
 
 export const HERMES_MAGIC = Buffer.from([0xc6, 0x1f, 0xbc, 0x03, 0xc1, 0x03, 0x19, 0x1f]);
 
 const HEADER_SIZE = 128;
-const NAME_LAYOUT_VERSIONS = new Set([98]);
+/** Inclusive range of bytecode versions whose 12-byte small function headers match the v98 name layout. */
+export const NAME_LAYOUT_VERSION_MIN = 84;
+export const NAME_LAYOUT_VERSION_MAX = 100;
 const OVERFLOWED = 1 << 29; // third word of a 12-byte small function header
 const MIN_NAMED_FUNCTIONS = 50;
 const MINIFIED_SHORT_RATIO = 0.15;
+
+export function hermesNameLayoutSupported(version: number, headerSize: number): boolean {
+  return headerSize === 12 && version >= NAME_LAYOUT_VERSION_MIN && version <= NAME_LAYOUT_VERSION_MAX;
+}
 
 export interface HermesBytecode {
   version: number;
@@ -89,7 +95,7 @@ export function parseHermes(buf: Buffer): HermesBytecode | null {
   }
 
   let functionNames: string[] | null = null;
-  if (headerSize === 12 && NAME_LAYOUT_VERSIONS.has(version)) {
+  if (hermesNameLayoutSupported(version, headerSize)) {
     functionNames = [];
     for (let i = 0; i < functionCount; i++) {
       const at = HEADER_SIZE + i * 12;

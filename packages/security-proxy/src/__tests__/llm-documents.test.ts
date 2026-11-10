@@ -60,18 +60,31 @@ afterEach(async () => {
 
 type Seen = { url: string; body: Record<string, unknown> };
 
-async function fakeProvider(): Promise<{ url: string; seen: Seen[] }> {
+async function fakeProvider(options: { files?: Record<string, Buffer> } = {}): Promise<{ url: string; seen: Seen[] }> {
   const seen: Seen[] = [];
   const server = http.createServer(async (req, res) => {
+    const path = req.url ?? "";
+    const fileMatch = /\/files\/([^/]+)\/content$/.exec(path);
+    if (fileMatch) {
+      const file = options.files?.[decodeURIComponent(fileMatch[1]!)];
+      if (!file) {
+        res.writeHead(404).end();
+        return;
+      }
+      res.writeHead(200, { "content-type": "application/pdf" });
+      res.end(file);
+      return;
+    }
     const chunks: Buffer[] = [];
     for await (const chunk of req) chunks.push(chunk as Buffer);
-    seen.push({ url: req.url ?? "", body: JSON.parse(Buffer.concat(chunks).toString("utf8")) });
+    const raw = Buffer.concat(chunks).toString("utf8");
+    seen.push({ url: path, body: raw ? JSON.parse(raw) : {} });
     res.writeHead(200, { "content-type": "application/json" });
     res.end(
       JSON.stringify(
-        req.url?.endsWith("/messages")
+        path.endsWith("/messages")
           ? { id: "m", type: "message", role: "assistant", content: [{ type: "text", text: "ok" }], usage: { input_tokens: 1, output_tokens: 1 } }
-          : req.url?.endsWith("/responses")
+          : path.endsWith("/responses")
             ? { id: "r", object: "response", output: [{ type: "message", role: "assistant", content: [{ type: "output_text", text: "ok" }] }] }
             : { id: "c", object: "chat.completion", choices: [{ index: 0, message: { role: "assistant", content: "ok" }, finish_reason: "stop" }] },
       ),
@@ -237,11 +250,14 @@ describe("llm.documents: PDFs in requests", () => {
     }
   });
 
-  it("leaves a PDF given by file id unmaskable", async () => {
+  it("fails closed when a file_id cannot be downloaded from the provider", async () => {
     const provider = await fakeProvider();
-    const { base } = await startLlm(provider.url);
+    const { base, events } = await startLlm(provider.url);
+    // fakeProvider has no /files API: hydrate leaves an unreadable placeholder → 415
     const res = await post(base, "/chat/completions", { model: "gpt-4o", messages: [{ role: "user", content: [{ type: "file", file: { file_id: "file-abc" } }] }] });
     expect(res.status).toBe(415);
+    expect(provider.seen).toHaveLength(0);
+    expect(events).toContainEqual(expect.objectContaining({ type: "warn", ruleId: "documents:unread" }));
   });
 });
 
@@ -413,6 +429,20 @@ describe("llm.documents.audio: audio in requests", () => {
     expect((await res.json()).error.message).toMatch(/audio "audio 1" holds tc_kimlik/);
     expect(provider.seen).toHaveLength(0);
     expect(events).toContainEqual(expect.objectContaining({ ruleId: "pii:document" }));
+  });
+
+  it("transcribes Responses input_audio the same way as Chat Completions", async () => {
+    const provider = await fakeProvider();
+    const stt = await fakeTranscriber();
+    const { base, events } = await startLlm(provider.url, withAudio(stt.url));
+    const data = wav("Toplantı yarın.");
+    const res = await post(base, "/responses", {
+      model: "gpt-4o",
+      input: [{ type: "message", role: "user", content: [inputAudio(data)] }],
+    });
+    expect(res.status).toBe(200);
+    expect(JSON.stringify(provider.seen[0]!.body)).toContain(data);
+    expect(events.find((e) => e.type === "tool_call")?.documents).toEqual([expect.objectContaining({ modality: "audio", pages: 1 })]);
   });
 
   it("refuses spoken prompt injection", async () => {

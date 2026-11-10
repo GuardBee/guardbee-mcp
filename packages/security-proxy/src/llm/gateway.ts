@@ -32,6 +32,7 @@ import { SseRelay, apiOf, errorBody, mapCompletion, mapPrompt, promptTexts, unma
 import { SseRewriter, type RewritePrepare, type TextRewrite } from "./stream.js";
 import { base64Bytes, mapDocuments, textPart, type DocumentModality, type InlineDocument } from "./documents.js";
 import { hydrateRemoteDocuments } from "./remote-documents.js";
+import { hydrateProviderFiles } from "./provider-files.js";
 
 type Json = Record<string, unknown>;
 
@@ -426,10 +427,19 @@ export function createLlmHandler(options: LlmGatewayOptions): LlmHandler {
     // 0b. Inline PDFs, images and audio (llm.documents): their text takes their place in
     //     `checked`, which every check below reads; the provider still gets the
     //     file itself. One that cannot be read in full stays in place, and so
-    //     stays unmaskable. http(s) URLs are fetched first (SSRF-safe) into data URLs.
+    //     stays unmaskable. http(s) URLs are fetched first (SSRF-safe) into data URLs;
+    //     OpenAI-compatible file_id values are downloaded from the routed provider.
     const modalities = documentModalities(llm.documents);
     if (llm.documents && modalities.size > 0 && shape !== "embeddings") {
       body = await hydrateRemoteDocuments(shape, body, modalities, llm.documents);
+      if (modalities.has("pdf") && provider.api === "openai" && provider.apiKey) {
+        body = await hydrateProviderFiles(shape, body, modalities, {
+          baseUrl: provider.baseUrl,
+          apiKey: provider.apiKey,
+          maxBytes: llm.documents.maxBytes,
+          timeoutSeconds: llm.documents.timeoutSeconds,
+        });
+      }
     }
     const documents = llm.documents && modalities.size > 0 && shape !== "embeddings" ? await readDocuments(shape, body, llm.documents, modalities) : [];
     const documentChecks = [

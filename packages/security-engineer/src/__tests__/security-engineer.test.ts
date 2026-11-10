@@ -46,15 +46,48 @@ describe("detectStack (local repository)", () => {
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
   it("finds the framework and web server config, skipping node_modules", async () => {
-    expect(await detectStack(dir)).toEqual([
-      { platform: "nextjs", evidence: "package.json depends on next@15.5.0" },
-      { platform: "nginx", evidence: "deploy/nginx.conf found", configFile: "deploy/nginx.conf" },
-    ]);
+    expect(await detectStack(dir)).toEqual({
+      signals: [
+        { platform: "nextjs", evidence: "package.json depends on next@15.5.0" },
+        { platform: "nginx", evidence: "deploy/nginx.conf found", configFile: "deploy/nginx.conf" },
+      ],
+      notes: [],
+    });
   });
 
   it("reads config files only inside the project root", async () => {
     expect(await readProjectFile(dir, "deploy/nginx.conf")).toContain("listen 443");
     await expect(readProjectFile(dir, "../../etc/passwd")).rejects.toThrow(/outside the project root/);
+  });
+
+  it("detects vercel.json, netlify.toml, _headers, Dockerfile nginx, and notes for fly/firebase", async () => {
+    const extra = mkdtempSync(join(tmpdir(), "gb-stack-extra-"));
+    try {
+      writeFileSync(join(extra, "vercel.json"), "{}");
+      writeFileSync(join(extra, "netlify.toml"), "[build]\n");
+      mkdirSync(join(extra, "public"));
+      writeFileSync(join(extra, "public", "_headers"), "/*\n  X-Frame-Options: DENY\n");
+      writeFileSync(join(extra, "Dockerfile"), "FROM nginx:alpine\nCOPY . /usr/share/nginx/html\n");
+      writeFileSync(join(extra, "fly.toml"), "app = 'demo'\n");
+      writeFileSync(join(extra, "firebase.json"), "{}\n");
+      const { signals, notes } = await detectStack(extra);
+      expect(signals).toEqual(
+        expect.arrayContaining([
+          { platform: "nextjs", evidence: "vercel.json found" },
+          { platform: "cloudflare", evidence: "netlify.toml found" },
+          { platform: "cloudflare", evidence: "public/_headers found", configFile: "public/_headers" },
+          { platform: "nginx", evidence: "Dockerfile references nginx" },
+        ])
+      );
+      expect(notes).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining("fly.toml"),
+          expect.stringContaining("firebase.json"),
+        ])
+      );
+    } finally {
+      rmSync(extra, { recursive: true, force: true });
+    }
   });
 });
 

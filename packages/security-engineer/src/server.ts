@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/server";
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { instrumentServer } from "@guardbee/mcp-telemetry";
@@ -8,6 +11,14 @@ import { detectStack, readProjectFile } from "./stack.js";
 
 const PLATFORM = z.enum(["nginx", "apache", "express", "nextjs", "cloudflare"]);
 
+function packageVersion(): string {
+  try {
+    return (JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../package.json"), "utf8")) as { version: string }).version;
+  } catch {
+    return "0.0.0";
+  }
+}
+
 type Text = { content: { type: "text"; text: string }[]; isError?: boolean };
 const ok = (text: string): Text => ({ content: [{ type: "text", text }] });
 const fail = (error: unknown): Text => ({
@@ -17,7 +28,7 @@ const fail = (error: unknown): Text => ({
 
 export async function startServer() {
   serveStdio(() => {
-    const server = new McpServer({ name: "guardbee-security-engineer", version: "0.1.0" });
+    const server = new McpServer({ name: "guardbee-security-engineer", version: packageVersion() });
     instrumentServer(server, "security-engineer");
     registerTools(server);
     return server;
@@ -65,7 +76,8 @@ export function registerTools(server: McpServer, makeClient: () => GuardBeeClien
     async ({ projectPath }) => {
       try {
         const root = projectPath ?? process.cwd();
-        return ok(formatStack(await detectStack(root), root));
+        const { signals, notes } = await detectStack(root);
+        return ok(formatStack(signals, root, notes));
       } catch (error) {
         return fail(error);
       }

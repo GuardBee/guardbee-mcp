@@ -31,6 +31,16 @@ An MCP server that scans your source files, directories, and environment configs
 
 ## Quick Start
 
+Scan without an MCP client (CI or local):
+
+```bash
+npx -y @guardbee/mcp-secret-scanner scan . --history
+```
+
+Choosing among GuardBee tools: [root README — Which package should I use?](../../README.md#which-package-should-i-use).
+
+Or install and wire it as an MCP server:
+
 ```bash
 npm install -g @guardbee/mcp-secret-scanner
 ```

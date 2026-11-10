@@ -25,9 +25,17 @@ export function formatAssessment(a: Assessment): string {
   return lines.filter((l, i) => l !== "" || i > 0).join("\n");
 }
 
-export function formatStack(signals: StackSignal[], root: string): string {
-  if (signals.length === 0) return `No Next.js, Express, Nginx, Apache or Cloudflare signals found in ${root}. Pass platform explicitly to get_fix.`;
-  return [`Stack detected in ${root}:`, ...signals.map((s) => `- ${s.platform}: ${s.evidence}${s.configFile ? ` (config: ${s.configFile})` : ""}`)].join("\n");
+export function formatStack(signals: StackSignal[], root: string, notes: string[] = []): string {
+  if (signals.length === 0 && notes.length === 0) {
+    return `No Next.js, Express, Nginx, Apache or Cloudflare signals found in ${root}. Pass platform explicitly to get_fix.`;
+  }
+  const lines = [`Stack detected in ${root}:`, ...signals.map((s) => `- ${s.platform}: ${s.evidence}${s.configFile ? ` (config: ${s.configFile})` : ""}`)];
+  if (notes.length > 0) {
+    if (signals.length === 0) lines[0] = `No fix-platform signals in ${root}; hosting hints:`;
+    else lines.push("", "Also found:");
+    lines.push(...notes.map((n) => `- ${n}`));
+  }
+  return lines.join("\n");
 }
 
 /** Instructions for the coding agent: GuardBee proposes, the agent edits, the user approves. */
