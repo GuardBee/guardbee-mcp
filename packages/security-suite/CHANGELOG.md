@@ -1,5 +1,13 @@
 # @guardbee/security-suite
 
+## 0.8.1
+
+### Patch Changes
+
+- Updated dependencies [[`21d5acd`](https://github.com/GuardBee/guardbee-mcp/commit/21d5acdf9a3088cca9dbe87348f14139d0d99c27), [`21d5acd`](https://github.com/GuardBee/guardbee-mcp/commit/21d5acdf9a3088cca9dbe87348f14139d0d99c27)]:
+  - @guardbee/mcp-reverse-shield@0.8.0
+  - @guardbee/mcp-security-engineer@0.2.0
+
 ## 0.8.0
 
 ### Minor Changes
