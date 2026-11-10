@@ -18,7 +18,7 @@ GuardBee finds and explains the issue and proposes a fix for your platform. Your
 |---|---|
 | `list_assessments` | Recent AI Security Engineer assessments of your workspace |
 | `get_assessment` | Actionable findings, highest priority first, with the platforms each can be fixed on |
-| `detect_stack` | Detects Next.js, Express, Nginx, Apache or Cloudflare **from your repository's files**, and finds config files to diff against |
+| `detect_stack` | Detects Next.js, Express, Nginx, Apache or Cloudflare **from your repository's files** (including `vercel.json`, `netlify.toml`, `public/_headers`, and Dockerfiles that reference nginx), notes Fly/Firebase hosting when present, and finds config files to diff against |
 | `get_fix` | A reviewable fix for a finding. If you pass your Nginx or Apache config, you get an exact diff. |
 | `report_applied` | Records that the fix was applied, with the commit SHA or PR URL as a reference |
 | `verify_fix` | After you deploy, re-runs the check that reported the finding against the live site |

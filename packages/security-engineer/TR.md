@@ -14,7 +14,7 @@ GuardBee sorunu bulur, açıklar ve platformuna uygun bir düzeltme önerir. De�
 |---|---|
 | `list_assessments` | Çalışma alanının son AI Güvenlik Mühendisi değerlendirmeleri |
 | `get_assessment` | Aksiyon gerektiren bulgular (en yüksek öncelik önce) ve her birinin düzeltilebileceği platformlar |
-| `detect_stack` | Next.js, Express, Nginx, Apache veya Cloudflare'i **deponun kendi dosyalarından** tespit eder ve diff alınabilecek yapılandırma dosyalarını bulur |
+| `detect_stack` | Next.js, Express, Nginx, Apache veya Cloudflare'i **deponun kendi dosyalarından** tespit eder (`vercel.json`, `netlify.toml`, `public/_headers`, nginx içeren Dockerfile dahil); Fly/Firebase için not düşer ve diff alınabilecek yapılandırma dosyalarını bulur |
 | `get_fix` | Bulgu için incelenebilir bir düzeltme getirir. Nginx veya Apache yapılandırmanı verirsen birebir diff üretir. |
 | `report_applied` | Düzeltmenin uygulandığını commit SHA veya PR URL'siyle kaydeder |
 | `verify_fix` | Deploy sonrası bulguyu üreten kontrolü canlı sitede yeniden çalıştırır |

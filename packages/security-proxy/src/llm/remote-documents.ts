@@ -86,8 +86,8 @@ async function asDataUrl(url: string, modality: "pdf" | "image", options: Remote
 /**
  * Replace http(s) PDF and image URLs in a request with `data:` URLs so the
  * existing inline document pipeline can read them. Provider `file_id` values
- * are left alone (still unmaskable). Fetch failures leave the URL in place so
- * readDocuments / unmaskableParts refuse the request when masking applies.
+ * are hydrated separately by `hydrateProviderFiles`. Fetch failures become an
+ * unreadable placeholder so masking stays fail-closed (415).
  */
 export async function hydrateRemoteDocuments(
   shape: LlmShape,

@@ -161,11 +161,20 @@ describe("Hermes", () => {
     expect(ios.notes).toContain("React Native bundle is Hermes bytecode (version 98, 65 functions); names are minified (64 named functions, 100% with 1–2 letter names)");
   });
 
+  it("judges names for other bytecode versions that share the v98 12-byte header layout", () => {
+    const v96 = Buffer.from(hbc("readable"));
+    v96.writeUInt32LE(96, 8);
+    const bc = parseHermes(v96)!;
+    expect(bc.version).toBe(96);
+    expect(bc.functionNames).toEqual(expect.arrayContaining(["loadUserProfile"]));
+    expect(analyzeHermes(v96, "b").findings.map((f) => f.patternId)).toEqual(["hermes_names_not_minified"]);
+  });
+
   it("only notes bytecode it cannot judge", () => {
     const other = Buffer.from(hbc("readable"));
-    other.writeUInt32LE(96, 8); // a version whose function header layout was not checked
+    other.writeUInt32LE(50, 8); // outside the checked name-layout range
     expect(analyzeHermes(other, "b").findings).toEqual([]);
-    expect(analyzeHermes(other, "b").notes[0]).toMatch(/version 96, 65 functions\); function names not judged/);
+    expect(analyzeHermes(other, "b").notes[0]).toMatch(/version 50, 65 functions\); function names not judged/);
     expect(parseHermes(hbc("readable").subarray(0, 200))).toBeNull();
     expect(analyzeHermes(Buffer.concat([hbc("readable").subarray(0, 8), Buffer.alloc(32)]), "b")).toEqual({ findings: [], notes: ["React Native bundle is Hermes bytecode"] });
   });

@@ -10,8 +10,9 @@ import type { LlmShape } from "./shapes.js";
  * - Images: OpenAI `image_url` parts and Responses `input_image` parts with a
  *   `data:image/...;base64,` URL (or an http(s) URL hydrated the same way),
  *   Anthropic `image` blocks with a base64 (or hydrated url) source.
- * - Audio: OpenAI Chat Completions `input_audio` parts (base64 data and a
- *   format). Responses and Anthropic take no audio input.
+ * - Audio: OpenAI Chat Completions and Responses `input_audio` parts (base64
+ *   data and a format). Anthropic takes no audio input. Realtime WebSocket
+ *   audio is not handled here.
  */
 
 type Json = Record<string, unknown>;
@@ -110,6 +111,11 @@ export function mapDocuments(shape: LlmShape, body: Json, fn: DocumentMapper, mo
       Array.isArray(content)
         ? content.map((part) => {
             if (!isObject(part)) return part;
+            if (part["type"] === "input_audio" && isObject(part["input_audio"])) {
+              const audio = part["input_audio"];
+              if (typeof audio["data"] !== "string") return part;
+              return visit({ modality: "audio", data: audio["data"], format: typeof audio["format"] === "string" ? audio["format"] : "" }, part) ?? part;
+            }
             if (part["type"] === "input_image") {
               const data = fromDataUrl(part["image_url"], IMAGE_DATA_URL);
               return data === null ? part : (visit({ modality: "image", data }, part) ?? part);
