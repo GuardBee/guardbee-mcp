@@ -74,6 +74,7 @@ describe("runInit", () => {
     expect(fs.readFileSync(result.backupPath!, "utf8")).toBe(original);
     expect(result.backupPath).toContain("guardbee-backup-2026-09-30T12-00-00-000Z");
     expect(fs.statSync(yaml).mode & 0o777).toBe(0o600);
+    expect(fs.statSync(result.backupPath!).mode & 0o777).toBe(0o600);
     expect(parseYaml(fs.readFileSync(yaml, "utf8")).upstreams.github.command).toBe("npx");
     expect(JSON.parse(fs.readFileSync(client, "utf8")).mcpServers.guardbee.args).toContain(yaml);
   });

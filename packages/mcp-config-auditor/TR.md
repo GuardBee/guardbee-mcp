@@ -33,6 +33,7 @@ Bir ajanın hangi MCP sunucularını çalıştıracağına karar veren istemci c
 | `skill_name_shadow` | high | MCP03:2025 | İki `SKILL.md` aynı adı kullanıyor |
 | `skill_confusable_name` | critical | MCP03:2025 | İki skill adı yalnızca benzeyen bir karakterle ayrılıyor |
 | `shadow_mcp_server` | high | MCP09:2025 | `discover` — host'ta kurulu ama org allowlist'te olmayan sunucu |
+| `proxy_bypass` | high | MCP09:2025 | Aynı config'de GuardBee gateway'in arkasında değil yanında çalışan sunucu: çağrıları politikayı ve audit log'u atlar |
 | `allowlist_not_configured` | medium | MCP09:2025 | Allowlist olmadan discover |
 | `unreviewed_mcp_server` | low | MCP09:2025 | Allowlist yokken bulunan sunucu |
 | `mcp_server_drift_across_clients` | medium | MCP09:2025 | Aynı sunucu anahtarı iki istemcide farklı paket/URL |

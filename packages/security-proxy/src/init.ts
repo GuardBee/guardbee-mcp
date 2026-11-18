@@ -5,6 +5,7 @@ import { stringify as toYaml } from "yaml";
 import { gradeBelow, lookupMcpGrade, parseLaunch, type McpGrade, type McpIndex } from "@guardbee/guard-core";
 import type { UpstreamConfig } from "./types.js";
 import type { SandboxConfig, SandboxRuntime } from "./gateway/sandbox.js";
+import { appendAuditEventsSync } from "./audit/logger.js";
 
 export type ClientName = "claude-desktop" | "cursor" | "claude-code";
 
@@ -224,6 +225,24 @@ export interface InitResult extends InitPlan {
   backupPath?: string;
 }
 
+/**
+ * What this run left outside the proxy, in the audit log the proxy will write
+ * to: `guardbee-proxy report` lists the servers of the latest run, so a server
+ * that bypasses the policy shows up in the report and not only in a terminal.
+ */
+function recordInventory(auditPath: string, plan: InitPlan, now: Date): void {
+  const ts = now.toISOString();
+  const run = `init-${ts}`;
+  const outside = [
+    ...plan.kept.filter((entry) => entry.reason !== "already the GuardBee proxy"),
+    ...plan.blocked.map((entry) => ({ name: entry.name, reason: `left out by --min-grade: ${entry.reason}` })),
+  ];
+  appendAuditEventsSync(auditPath, [
+    { ts, type: "warn", ruleId: "init:inventory", sessionId: run, reason: `init moved ${Object.keys(plan.migrated).length} servers behind the proxy; ${outside.length} left outside it` },
+    ...outside.map((entry) => ({ ts, type: "warn" as const, ruleId: "bypass:unprotected", sessionId: run, server: entry.name, reason: entry.reason })),
+  ]);
+}
+
 /** Write the YAML (mode 0600, it may hold tokens), back up the client config, then rewrite it. */
 export function runInit(options: InitOptions): InitResult {
   const clientPath = path.resolve(options.clientConfigPath);
@@ -244,6 +263,9 @@ export function runInit(options: InitOptions): InitResult {
   fs.chmodSync(yamlPath, 0o600); // `mode` only applies when the file is created; --force may overwrite a wider one
 
   fs.copyFileSync(clientPath, backupPath);
+  // The backup keeps every server's env and headers (tokens included): readable by its owner only
+  fs.chmodSync(backupPath, 0o600);
   fs.writeFileSync(clientPath, plan.clientConfig);
+  recordInventory(auditPath, plan, options.now ?? new Date());
   return { ...plan, backupPath };
 }

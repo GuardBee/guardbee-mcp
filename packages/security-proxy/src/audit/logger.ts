@@ -1,5 +1,6 @@
 import fs from "fs";
 import { createHash } from "crypto";
+import { maskPiiInValue, MODEL_PII, PERSONAL_DATA_CATEGORIES, PII_PATTERNS, SPECIAL_CATEGORIES } from "@guardbee/guard-core";
 import type { AuditConfig, AuditEvent } from "../types.js";
 import { stable } from "../interceptors/definition-drift.js";
 import { DashboardSink } from "./dashboard-sink.js";
@@ -42,6 +43,21 @@ function lastHashIn(filePath: string): string {
   } catch {
     return GENESIS;
   }
+}
+
+/**
+ * Append events to a JSONL audit log at once, continuing its hash chain: for
+ * one-off writers such as `init`, which runs before any proxy does. Events
+ * carry no payloads, so nothing is redacted.
+ */
+export function appendAuditEventsSync(filePath: string, events: Omit<AuditEvent, "hash" | "prevHash">[]): void {
+  let prev = lastHashIn(filePath);
+  const lines = events.map((event) => {
+    const unhashed: Omit<AuditEvent, "hash"> = { ...event, prevHash: prev };
+    prev = chainHash(unhashed);
+    return JSON.stringify({ ...unhashed, hash: prev }) + "\n";
+  });
+  fs.appendFileSync(filePath, lines.join(""), { mode: 0o600 });
 }
 
 export class AuditLogger {
@@ -87,10 +103,26 @@ export class AuditLogger {
   }
 
   private redact(event: AuditEvent): AuditEvent {
-    if (this.config.includePayloads !== false) return event;
+    if (this.config.includePayloads !== false) {
+      // Payloads are logged as they were, personal data included, but never a credential
+      const { input, output } = event;
+      return {
+        ...event,
+        ...(input !== undefined ? { input: maskCredentials(input) } : {}),
+        ...(output !== undefined ? { output: maskCredentials(output) } : {}),
+      };
+    }
     const { input, output: _output, ...rest } = event;
     return input === undefined ? rest : { ...rest, inputHash: sha256(stable(input)) };
   }
+}
+
+const PERSONAL = new Set<string>([...PERSONAL_DATA_CATEGORIES, ...MODEL_PII, ...SPECIAL_CATEGORIES]);
+const CREDENTIAL_PLACEHOLDER = new Map(PII_PATTERNS.map((p) => [p.name, p.replacement] as const));
+
+/** Provider keys, private keys, tokens and passwords in URLs replaced; personal data left for the log's owner. */
+function maskCredentials<T>(value: T): T {
+  return maskPiiInValue(value, (name, match) => (PERSONAL.has(name) ? match : (CREDENTIAL_PLACEHOLDER.get(name) ?? "[REDACTED]"))) as T;
 }
 
 export type ChainVerification =

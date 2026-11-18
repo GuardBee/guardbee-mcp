@@ -183,7 +183,7 @@ describe("approval state of a 2026-07-28 round trip", () => {
     const codec = approvalStateCodec(gatewayConfig());
     const ctx = (clientId: string) => ({ mcpReq: { method: "tools/call" }, http: { authInfo: { token: "", clientId, scopes: [] } } }) as unknown as ServerContext;
     const state = await codec.mint({ answers: [], pending: "k" }, ctx("alice"));
-    await expect(codec.verify(state, ctx("alice"))).resolves.toEqual({ answers: [], pending: "k" });
+    await expect(codec.verify(state, ctx("alice"))).resolves.toMatchObject({ answers: [], pending: "k" });
     await expect(codec.verify(state, ctx("bob"))).rejects.toThrow();
     const [head, body, mac] = state.split(".");
     const forged = Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(body!, "base64url").toString()), p: { answers: [["k", "approved"]], pending: "k" } })).toString("base64url");

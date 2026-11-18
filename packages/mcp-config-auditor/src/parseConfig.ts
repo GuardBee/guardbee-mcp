@@ -40,6 +40,7 @@ function parseServer(name: string, value: unknown): ParsedServer | null {
     url,
     headers: stringRecord(rec.headers),
     autoApprove: rec.autoApprove !== undefined ? rec.autoApprove : rec.alwaysAllow,
+    ...(rec.disabled === true ? { disabled: true } : {}),
   };
 }
 
