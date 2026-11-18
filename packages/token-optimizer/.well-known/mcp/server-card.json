@@ -1,0 +1,102 @@
+{
+  "serverInfo": {
+    "name": "@guardbee/mcp-token-optimizer",
+    "version": "0.1.0",
+    "description": "Finds what burns Claude Code tokens and stops it: idle sessions, unused or chatty MCP servers, oversized contexts and file reads, with dry-run-first actions"
+  },
+  "tools": [
+    {
+      "name": "optimize_report",
+      "description": "Ranked recommendations to cut Claude Code token use.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "hours": {
+            "type": "number"
+          },
+          "contextThreshold": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_sessions",
+      "description": "Running Claude Code sessions with context size and recent spend.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "hours": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    {
+      "name": "stop_sessions",
+      "description": "Stop Claude Code sessions by pid or idle time (dry run by default).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "pids": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "idleHours": {
+            "type": "number"
+          },
+          "dryRun": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "name": "audit_mcp_servers",
+      "description": "Configured MCP servers with call counts and output volume.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string"
+          },
+          "hours": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    {
+      "name": "disable_mcp_servers",
+      "description": "Turn MCP servers off for new sessions, reversibly (dry run by default).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "servers": {
+            "type": "array"
+          },
+          "dryRun": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "name": "restore_mcp_servers",
+      "description": "Turn back on servers disabled by disable_mcp_servers (dry run by default).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "servers": {
+            "type": "array"
+          },
+          "dryRun": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "serverInfo": {
+    "name": "@guardbee/mcp-claude-usage-guard",
+    "version": "0.1.0",
+    "description": "Detects Claude plan usage that did not come from your own Claude Code: plan meter vs local transcripts, account switches, SDK/script use of your login, remote logins"
+  },
+  "tools": [
+    {
+      "name": "detect_foreign_usage",
+      "description": "Check whether the account's plan usage all comes from Claude Code on this machine.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "minUnexplainedPct": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    {
+      "name": "usage_report",
+      "description": "Claude Code token usage on this machine, grouped by session, day, project, entrypoint or model.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "hours": {
+            "type": "number"
+          },
+          "groupBy": {
+            "type": "string",
+            "enum": [
+              "session",
+              "day",
+              "project",
+              "entrypoint",
+              "model"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "account_status",
+      "description": "Signed-in Claude account and its last fetched 5-hour / 7-day plan meters.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ]
+}

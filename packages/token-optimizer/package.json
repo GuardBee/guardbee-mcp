@@ -1,0 +1,64 @@
+{
+  "name": "@guardbee/mcp-token-optimizer",
+  "version": "0.1.0",
+  "mcpName": "io.github.GuardBee/mcp-token-optimizer",
+  "description": "Finds what burns Claude Code tokens and stops it: idle sessions, unused or chatty MCP servers, oversized contexts and file reads, with dry-run-first stop/disable actions",
+  "type": "module",
+  "bin": {
+    "guardbee-token-optimizer": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "TR.md",
+    "LICENSE",
+    "!dist/**/*.map",
+    "!dist/**/__tests__"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@guardbee/mcp-telemetry": "workspace:^",
+    "@modelcontextprotocol/server": "catalog:",
+    "zod": "catalog:",
+    "@guardbee/mcp-claude-usage-guard": "workspace:^"
+  },
+  "keywords": [
+    "mcp",
+    "claude",
+    "claude-code",
+    "tokens",
+    "token-optimization",
+    "cost",
+    "context-window",
+    "mcp-servers",
+    "guardbee"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git",
+    "directory": "packages/token-optimizer"
+  },
+  "homepage": "https://github.com/GuardBee/guardbee-mcp/tree/main/packages/token-optimizer#readme",
+  "bugs": {
+    "url": "https://github.com/GuardBee/guardbee-mcp/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -39,6 +39,8 @@ GuardBee의 MCP 서버 모음입니다. AI 에이전트와 애플리케이션 �
 - [`@guardbee/mcp-tool-poisoning-scanner`](packages/tool-poisoning-scanner/KO.md) — 다른 MCP 서버의 도구 정의에서 도구 포이즈닝(호출하는 LLM이 신뢰하고 읽는 설명에 숨긴 지시)과, 읽기 전용이라면서 셸이나 파일 쓰기를 하는 '혼동된 대리인' 불일치를 찾습니다.
 - [`@guardbee/mcp-toxic-flow-auditor`](packages/toxic-flow-auditor/KO.md) — MCP 도구 카탈로그 전체에서 유해 데이터 흐름(lethal trifecta)을 찾습니다: 신뢰할 수 없는 콘텐츠, 민감한 데이터, 외부 전송이나 파괴적 작업이 같은 서버에 함께 있는 조합.
 - [`@guardbee/mcp-unbounded-consumption-auditor`](packages/unbounded-consumption-auditor/KO.md) — LLM/에이전트 코드에서 OWASP LLM Top 10 2025의 LLM10 '무제한 소비(denial of wallet)' 패턴을 찾습니다: 출력 토큰 제한 누락, 직접 만든 LLM HTTP 호출의 타임아웃 누락, 무제한 도구 호출·재시도 루프, 비활성화된 안전 한도, 속도 제한 없는 MCP 도구.
+- [`@guardbee/mcp-claude-usage-guard`](packages/claude-usage-guard/README.md) — Claude 플랜 사용량이 모두 본인 것인가? 계정 전체 플랜 미터를 이 머신의 Claude Code 트랜스크립트와 시간에 따라 비교해 로컬에서 설명되지 않는 사용, 계정 전환, 로그인을 쓰는 SDK/스크립트, 원격 로그인을 표시.
+- [`@guardbee/mcp-token-optimizer`](packages/token-optimizer/README.md) — Claude Code 토큰을 소모하는 원인을 찾아 중지: 과도한 컨텍스트, 컨텍스트를 채우는 파일 읽기와 MCP 도구, 사용하지 않는 MCP 서버, 유휴 세션. 중지/비활성화는 기본적으로 드라이런이며 되돌릴 수 있음.
 - [`@guardbee/mcp-vector-store-scanner`](packages/vector-store-scanner/KO.md) — 벡터 데이터베이스 엔드포인트(Weaviate, Qdrant, Chroma, Elasticsearch/OpenSearch, Redis, Postgres/pgvector)를 점검해 임베딩과 RAG 데이터가 인증 없이 노출되어 있는지 확인합니다.
 - [`@guardbee/mcp-vulnerability-scanner`](packages/vulnerability-scanner/KO.md) — GuardBee 보안 스캔을 실행하고 결과를 조회하며, AI 기반 수정 가이드를 제공합니다.
 
