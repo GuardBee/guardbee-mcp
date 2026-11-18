@@ -19,8 +19,8 @@
   "files": [
     "dist",
     "README.md",
-    "TR.md",
     "LICENSE",
+    "CHANGELOG.md",
     "!dist/**/*.map",
     "!dist/**/__tests__"
   ],

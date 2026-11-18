@@ -1,6 +1,6 @@
 # @guardbee/mcp-claude-usage-guard
 
-**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/claude-usage-guard/TR.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/claude-usage-guard/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/claude-usage-guard/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/claude-usage-guard/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/claude-usage-guard/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/claude-usage-guard/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/claude-usage-guard/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/claude-usage-guard/DE.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-claude-usage-guard.svg)](https://www.npmjs.com/package/@guardbee/mcp-claude-usage-guard)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/claude-usage-guard/LICENSE)

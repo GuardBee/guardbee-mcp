@@ -1,6 +1,6 @@
 # @guardbee/mcp-claude-usage-guard
 
-[🇬🇧 English](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/claude-usage-guard/README.md) | **🇹🇷 Türkçe**
+[🇬🇧 English](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/claude-usage-guard/README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/claude-usage-guard/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/claude-usage-guard/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/claude-usage-guard/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/claude-usage-guard/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/claude-usage-guard/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/claude-usage-guard/DE.md)
 
 Tek bir soruyu yanıtlayan MCP sunucusu: **Claude plan kullanımımın hepsi benden mi geliyor?**
 
