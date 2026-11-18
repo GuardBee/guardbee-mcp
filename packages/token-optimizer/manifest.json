@@ -1,0 +1,47 @@
+{
+  "manifest_version": "0.3",
+  "name": "@guardbee/mcp-token-optimizer",
+  "display_name": "GuardBee Token Optimizer",
+  "version": "0.1.0",
+  "description": "Finds what burns Claude Code tokens and stops it: idle sessions, unused or chatty MCP servers, oversized contexts and file reads, with dry-run-first actions",
+  "author": {
+    "name": "GuardBee",
+    "email": "hello@guardbee.ai",
+    "url": "https://guardbee.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git"
+  },
+  "homepage": "https://guardbee.ai",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "claude",
+    "claude-code",
+    "tokens",
+    "token-optimization",
+    "cost"
+  ],
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "linux"
+    ],
+    "runtimes": {
+      "node": ">=18"
+    }
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/dist/cli.js"
+      ]
+    }
+  },
+  "user_config": {},
+  "tools_generated": true
+}

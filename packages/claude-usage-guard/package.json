@@ -1,0 +1,63 @@
+{
+  "name": "@guardbee/mcp-claude-usage-guard",
+  "version": "0.1.0",
+  "mcpName": "io.github.GuardBee/mcp-claude-usage-guard",
+  "description": "Detects Claude plan usage that did not come from your own Claude Code: compares the account's plan meter with local transcripts, and flags account switches, SDK/script use of your login and remote logins",
+  "type": "module",
+  "bin": {
+    "guardbee-claude-usage-guard": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "TR.md",
+    "LICENSE",
+    "!dist/**/*.map",
+    "!dist/**/__tests__"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@guardbee/mcp-telemetry": "workspace:^",
+    "@modelcontextprotocol/server": "catalog:",
+    "zod": "catalog:"
+  },
+  "keywords": [
+    "mcp",
+    "claude",
+    "claude-code",
+    "usage",
+    "token-usage",
+    "account-security",
+    "shared-account",
+    "ai-security",
+    "guardbee"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git",
+    "directory": "packages/claude-usage-guard"
+  },
+  "homepage": "https://github.com/GuardBee/guardbee-mcp/tree/main/packages/claude-usage-guard#readme",
+  "bugs": {
+    "url": "https://github.com/GuardBee/guardbee-mcp/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

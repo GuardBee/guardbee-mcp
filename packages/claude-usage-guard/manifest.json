@@ -1,0 +1,48 @@
+{
+  "manifest_version": "0.3",
+  "name": "@guardbee/mcp-claude-usage-guard",
+  "display_name": "GuardBee Claude Usage Guard",
+  "version": "0.1.0",
+  "description": "Detects Claude plan usage that did not come from your own Claude Code: plan meter vs local transcripts, account switches, SDK/script use of your login, remote logins",
+  "author": {
+    "name": "GuardBee",
+    "email": "hello@guardbee.ai",
+    "url": "https://guardbee.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GuardBee/guardbee-mcp.git"
+  },
+  "homepage": "https://guardbee.ai",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "claude",
+    "claude-code",
+    "usage",
+    "token-usage",
+    "account-security"
+  ],
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ],
+    "runtimes": {
+      "node": ">=18"
+    }
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/dist/cli.js"
+      ]
+    }
+  },
+  "user_config": {},
+  "tools_generated": true
+}
