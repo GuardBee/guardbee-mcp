@@ -43,6 +43,12 @@ export interface SecurityReport {
   personalData: Record<string, number>;
   topRules: { ruleId: string; count: number }[];
   topTools: { tool: string; blocked: number }[];
+  /**
+   * MCP servers the latest `guardbee-proxy init` before the period's end left
+   * outside the proxy (SSE, disabled, below --min-grade): calls to them bypass
+   * the policy and are not in this log. Absent when there are none.
+   */
+  unprotected?: { server: string; reason: string; since: string }[];
   /** With `--framework`: the period's findings and the gateway's controls as evidence for that framework's requirements. */
   compliance?: ComplianceSection;
 }
@@ -119,12 +125,15 @@ const top = (map: Map<string, number>, n: number) => [...map].sort((a, b) => b[1
 export function buildReport(jsonl: string, options: { from: Date; to: Date; file: string; now?: Date; framework?: ComplianceFrameworkId }): SecurityReport {
   const chain = verifyAuditChain(jsonl);
   const events: AuditEvent[] = [];
+  /** init runs up to the period's end: the latest one says what is outside the proxy now */
+  const inventory: AuditEvent[] = [];
   for (const line of jsonl.split("\n")) {
     if (line.trim() === "") continue;
     try {
       const event = JSON.parse(line) as AuditEvent;
       const at = Date.parse(event.ts);
       if (at >= options.from.getTime() && at < options.to.getTime()) events.push(event);
+      if (at < options.to.getTime() && (event.ruleId === "init:inventory" || event.ruleId === "bypass:unprotected")) inventory.push(event);
     } catch {
       // The chain check above reports a broken line
     }
@@ -161,6 +170,10 @@ export function buildReport(jsonl: string, options: { from: Date; to: Date; file
   totals.users = users.size;
 
   const lastHash = [...events].reverse().find((event) => event.hash)?.hash ?? null;
+  const latestRun = [...inventory].reverse().find((event) => event.ruleId === "init:inventory")?.sessionId;
+  const unprotected = latestRun
+    ? inventory.filter((event) => event.ruleId === "bypass:unprotected" && event.sessionId === latestRun).map((event) => ({ server: event.server ?? "?", reason: (event.reason ?? "").slice(0, 200), since: event.ts }))
+    : [];
   return {
     schema: "guardbee.security-report/1",
     generatedAt: (options.now ?? new Date()).toISOString(),
@@ -177,6 +190,7 @@ export function buildReport(jsonl: string, options: { from: Date; to: Date; file
     personalData: Object.fromEntries(top(pii, 50)),
     topRules: top(rules, 10).map(([ruleId, n]) => ({ ruleId, count: n })),
     topTools: top(tools, 10).map(([tool, n]) => ({ tool, blocked: n })),
+    ...(unprotected.length > 0 ? { unprotected } : {}),
     ...(options.framework ? { compliance: complianceSection(options.framework, byCategory, capabilitiesSeen(events, chain.ok)) } : {}),
   };
 }

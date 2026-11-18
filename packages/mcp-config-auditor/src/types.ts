@@ -23,6 +23,8 @@ export interface ParsedServer {
   url?: string;
   headers: Record<string, string>;
   autoApprove: unknown;
+  /** `"disabled": true`: listed, but the client does not start it. */
+  disabled?: boolean;
 }
 
 export interface InventoryTool {

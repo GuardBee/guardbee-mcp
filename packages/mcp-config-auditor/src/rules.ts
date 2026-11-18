@@ -237,7 +237,43 @@ export function auditServers(servers: ParsedServer[], text: string, file?: strin
     }
   }
 
+  findings.push(...findProxyBypass(servers, text, file));
   return findings;
+}
+
+/** The GuardBee gateway, however it is launched (npx, a global install, the container image). */
+function isGuardBeeProxy(server: ParsedServer): boolean {
+  const launch = [server.command ?? "", ...server.args].join(" ");
+  return /@guardbee\/mcp-security-proxy\b|(?:^|[/\\\s])guardbee-proxy(?:\.cmd|\.exe)?(?:\s|$)|ghcr\.io\/guardbee\/mcp-security-proxy\b/.test(launch);
+}
+
+/**
+ * A config that runs the GuardBee gateway and other servers next to it: those
+ * servers reach the agent directly, so the gateway's policy, masking and audit
+ * log never see their calls (OWASP MCP09). Disabled entries are not started.
+ */
+function findProxyBypass(servers: ParsedServer[], text: string, file?: string): ConfigFinding[] {
+  if (!servers.some(isGuardBeeProxy)) return [];
+  return servers
+    .filter((server) => !isGuardBeeProxy(server) && !server.disabled)
+    .map((server) =>
+      finding(
+        {
+          patternId: "proxy_bypass",
+          patternName: "MCP server runs next to the GuardBee gateway instead of behind it",
+          category: "shadow",
+          severity: "high",
+          owasp: "MCP09:2025",
+          recommendation:
+            "Move this server into guardbee-proxy.yaml (`guardbee-proxy init` does it) so its calls go through the policy and the audit log. A legacy SSE server cannot be proxied: switch it to its Streamable HTTP endpoint (often /mcp) or remove it.",
+          server: server.name,
+          file,
+          match: server.url ?? [server.command, ...server.args].filter(Boolean).join(" ").slice(0, 200),
+        },
+        text,
+        `"${server.name}"`
+      )
+    );
 }
 
 const DESTRUCTIVE_REDIRECT = /\b(?:always|instead|must)\b/i;

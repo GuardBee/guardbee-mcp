@@ -43,6 +43,7 @@ Claude ──► mcp-config-auditor ──► mcp.json  (or host-wide discover)
 | `skill_name_shadow` | high | MCP03:2025 | 两个 `SKILL.md` 文件使用相同名称 |
 | `skill_confusable_name` | critical | MCP03:2025 | 两个 skill 名仅差一个外形相似字符 |
 | `shadow_mcp_server` | high | MCP09:2025 | `discover` — 主机上已安装但不在组织允许列表中的服务器 |
+| `proxy_bypass` | high | MCP09:2025 | 同一配置中与 GuardBee 网关并列运行而非位于其后的服务器：其调用绕过策略和审计日志 |
 | `allowlist_not_configured` | medium | MCP09:2025 | 在无允许列表的情况下运行了 `discover` |
 | `unreviewed_mcp_server` | low | MCP09:2025 | discover 期间看到的服务器尚无允许列表 |
 | `mcp_server_drift_across_clients` | medium | MCP09:2025 | 同一服务器键在两个客户端中映射到不同的包/URL |

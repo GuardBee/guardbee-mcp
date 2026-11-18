@@ -50,6 +50,7 @@ Claude ──► mcp-config-auditor ──► mcp.json  (or host-wide discover)
 | `skill_name_shadow` | high | MCP03:2025 | Two `SKILL.md` files use the same name |
 | `skill_confusable_name` | critical | MCP03:2025 | Two skill names differ only by a lookalike character |
 | `shadow_mcp_server` | high | MCP09:2025 | `discover` — server installed on the host but not on the org allowlist |
+| `proxy_bypass` | high | MCP09:2025 | A server runs next to the GuardBee gateway in the same config instead of behind it, so its calls skip the policy and the audit log |
 | `allowlist_not_configured` | medium | MCP09:2025 | `discover` ran without an allowlist |
 | `unreviewed_mcp_server` | low | MCP09:2025 | Server seen during discover with no allowlist yet |
 | `mcp_server_drift_across_clients` | medium | MCP09:2025 | Same server key maps to different packages/URLs in two clients |

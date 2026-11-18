@@ -72,6 +72,17 @@ export interface CallerIdentity {
 /** Pattern names that are personal data; every other PII pattern is a credential and counts as "secret". */
 const PERSONAL_DATA = new Set<string>([...PERSONAL_DATA_CATEGORIES, ...MODEL_PII, ...SPECIAL_CATEGORIES]);
 
+/** The error with personal data and credentials masked in its message (and stack); same object and class, so codes survive. */
+function maskErrorMessage(err: unknown): unknown {
+  if (!(err instanceof Error)) return typeof err === "string" ? maskPiiInValue(err) : err;
+  const message = maskPiiInValue(err.message) as string;
+  if (message !== err.message) {
+    if (err.stack) err.stack = err.stack.split(err.message).join(message);
+    err.message = message;
+  }
+  return err;
+}
+
 /** Base64 bytes in a content item: an image, an embedded resource or a resource's blob. */
 function blobOf(item: { type?: string }): { data: string; label: string } | null {
   const record = item as Record<string, unknown>;
@@ -829,8 +840,10 @@ export class Gateway {
       result = await upstream.callTool(route.name, forwardArgs, this.samplingFor(upstream, name, deferred));
       if (result.isError) upstreamSpan.setAttribute("error.type", "tool_error");
     } catch (err) {
-      upstreamSpan.setStatus({ code: SpanStatusCode.ERROR, message: err instanceof Error ? err.message : String(err) });
-      throw err;
+      // An upstream error can quote what it was given (a key, a record): masked like a result before it reaches the agent or a trace
+      const masked = maskErrorMessage(err);
+      upstreamSpan.setStatus({ code: SpanStatusCode.ERROR, message: masked instanceof Error ? masked.message : String(masked) });
+      throw masked;
     } finally {
       upstreamSpan.end();
     }

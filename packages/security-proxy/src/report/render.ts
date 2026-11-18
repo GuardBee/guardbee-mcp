@@ -38,6 +38,10 @@ const TEXT = {
     evidence: "Evidence in this period",
     noEvidence: "none in this period",
     mapping: "Mapping",
+    unprotected: "MCP servers outside the proxy",
+    unprotectedNote: "Left out by the latest guardbee-proxy init: calls to these bypass the policy and are not in this log.",
+    server: "Server",
+    reason: "Why",
   },
   tr: {
     title: "GuardBee güvenlik raporu",
@@ -74,6 +78,10 @@ const TEXT = {
     evidence: "Bu dönemdeki kanıt",
     noEvidence: "bu dönemde yok",
     mapping: "Eşleme",
+    unprotected: "Proxy dışındaki MCP sunucuları",
+    unprotectedNote: "Son guardbee-proxy init dışarıda bıraktı: bunlara giden çağrılar politikayı atlar ve bu log'da yoktur.",
+    server: "Sunucu",
+    reason: "Neden",
   },
 } as const;
 
@@ -120,6 +128,9 @@ export function renderMarkdown(signed: SignedReport, lang: Lang = "en"): string 
       lines.push(`| **${control.id}** ${control.name} (${control.citation}) | ${mdCell(evidence)} | ${control.findings} | ${control.blocked} |`);
     }
     lines.push("", `_${c.disclaimer}_`, "");
+  }
+  if (r.unprotected?.length) {
+    lines.push(`## ⚠️ ${t.unprotected}`, "", t.unprotectedNote, "", `| ${t.server} | ${t.reason} |`, "|---|---|", ...r.unprotected.map((u) => `| \`${mdCell(u.server)}\` | ${mdCell(u.reason)} |`), "");
   }
   if (Object.keys(r.personalData).length > 0) {
     lines.push(`## ${t.pii}`, "", ...Object.entries(r.personalData).map(([k, v]) => `- \`${k}\`: ${v}`), "");
@@ -176,6 +187,7 @@ ${esc(t.source)}: <code>${esc(r.source.file)}</code> · ${esc(t.chain)}: <span c
 <div class="stats">${stat(t.events, r.totals.events)}${stat(t.toolCalls, r.totals.toolCalls)}${stat(t.blocked, r.totals.blocked)}${stat(t.warnings, r.totals.warnings)}${stat(t.toxicFlows, r.totals.toxicFlows)}${stat(t.approvals, r.totals.approvals)}${stat(t.sessions, r.totals.sessions)}${stat(t.users, r.totals.users)}</div>
 <h2>${esc(t.findings)}</h2>
 ${r.categories.length ? `<table><thead><tr><th>${esc(t.category)}</th><th>${esc(t.owasp)}</th><th>${esc(t.atlas)}</th><th class="n">${esc(t.events)}</th><th class="n">${esc(t.blocked)}</th></tr></thead><tbody>${rows}</tbody></table>` : `<p>${esc(t.none)}</p>`}
+${r.unprotected?.length ? `<h2 class="bad">${esc(t.unprotected)}</h2><p class="meta">${esc(t.unprotectedNote)}</p><table><thead><tr><th>${esc(t.server)}</th><th>${esc(t.reason)}</th></tr></thead><tbody>${r.unprotected.map((u) => `<tr><td><code>${esc(u.server)}</code></td><td>${esc(u.reason)}</td></tr>`).join("")}</tbody></table>` : ""}
 ${r.compliance ? complianceHtml(r.compliance, t) : ""}
 ${Object.keys(r.personalData).length ? `<h2>${esc(t.pii)}</h2>${list(Object.entries(r.personalData))}` : ""}
 ${r.topRules.length ? `<h2>${esc(t.rules)}</h2>${list(r.topRules.map((x) => [x.ruleId, x.count]))}` : ""}

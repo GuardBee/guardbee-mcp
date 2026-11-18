@@ -1,4 +1,4 @@
-import { randomBytes } from "crypto";
+import { createHash, randomBytes } from "crypto";
 import {
   CLIENT_CAPABILITIES_META_KEY,
   createRequestStateCodec,
@@ -34,7 +34,7 @@ import { ProvenanceCache, checkUpstreamProvenance, defaultProvenanceCache, sigst
 import { PolicySync } from "./gateway/policy-sync.js";
 import { QuotaStore } from "./gateway/quota.js";
 import { RedisClient } from "./state/redis.js";
-import { RedisCounters, ResilientCounters, type CounterBackend } from "./state/counters.js";
+import { MemoryCounters, RedisCounters, ResilientCounters, type CounterBackend } from "./state/counters.js";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { startTracing } from "./tracing.js";
@@ -50,6 +50,8 @@ export const MODERN_PROTOCOL = "2026-07-28";
 export interface ApprovalState {
   answers: [string, ApprovalOutcome][];
   pending: string;
+  /** Random per state, so two states minted for the same call differ and each can be spent once. */
+  nonce?: string;
 }
 
 /**
@@ -58,12 +60,26 @@ export interface ApprovalState {
  * The state is bound to the caller (`authInfo.clientId`, set from the user and
  * context in HTTP mode) so one user's state does not answer another's call.
  */
-export function approvalStateCodec(config: GatewayConfig, key?: string): RequestStateCodec<ApprovalState> {
-  return createRequestStateCodec<ApprovalState>({
+export function approvalStateCodec(config: GatewayConfig, key?: string, shared?: CounterBackend): RequestStateCodec<ApprovalState> {
+  const ttlSeconds = Math.max(60, config.approval.timeoutSeconds);
+  const codec = createRequestStateCodec<ApprovalState>({
     key: key ?? randomBytes(32),
-    ttlSeconds: Math.max(60, config.approval.timeoutSeconds),
+    ttlSeconds,
     bind: (ctx) => `${ctx.mcpReq.method}\0${ctx.http?.authInfo?.clientId ?? ""}`,
   });
+  // A signed state stays valid until it expires, so the same state and answer
+  // could run an approved call again (replay). Each one is accepted once: in
+  // this process always, and across replicas when the counters are shared.
+  const spent = new MemoryCounters();
+  return {
+    mint: (payload, ctx) => codec.mint({ ...payload, nonce: randomBytes(12).toString("base64url") }, ctx),
+    verify: async (state, ctx) => {
+      const payload = await codec.verify(state, ctx);
+      const once = [{ key: `approval-state:${createHash("sha256").update(state).digest("hex")}`, limit: 1, ttlMs: (ttlSeconds + 60) * 1000 }];
+      if ((await spent.take(once)) !== -1 || (shared && (await shared.take(once)) !== -1)) throw new Error("replayed");
+      return payload;
+    },
+  };
 }
 
 /** Served on 2026-07-28 or later: per-request envelope, no server→client requests. */

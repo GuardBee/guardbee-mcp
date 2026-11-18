@@ -193,7 +193,7 @@ export async function startHttpGateway(
   };
 
   // ── 2026-07-28: no sessions; one Gateway per user and context, a server per request ──
-  const codec = approvalStateCodec(config, listen.stateKey);
+  const codec = approvalStateCodec(config, listen.stateKey, options.counters);
   const contexts = new Map<string, Context>();
   const newGateway = (user: string | undefined) =>
     new Gateway(upstreams, config, audit, gatewayApprover(config, () => undefined), {

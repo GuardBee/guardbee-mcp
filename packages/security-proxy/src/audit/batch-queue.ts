@@ -24,6 +24,8 @@ export class BatchQueue {
   private inFlight: Promise<void> | null = null;
   private readonly timer: ReturnType<typeof setInterval>;
   private warned = new Set<string>();
+  /** Overflow was reported for the current outage; cleared by the next successful send. */
+  private overflowWarned = false;
   /** Events lost to overflow or a refused batch since the last successful send. */
   dropped = 0;
 
@@ -45,6 +47,10 @@ export class BatchQueue {
       const overflow = this.queue.length - MAX_QUEUE;
       this.queue.splice(0, overflow);
       this.dropped += overflow;
+      if (!this.overflowWarned) {
+        this.overflowWarned = true;
+        process.stderr.write(`[guardbee-proxy] ${this.options.name} unreachable and ${MAX_QUEUE} audit events queued: the oldest are being dropped from its queue; they stay only in the local audit log\n`);
+      }
     }
     if (this.queue.length >= this.batchSize) void this.flush();
   }
@@ -69,6 +75,10 @@ export class BatchQueue {
       if ("retry" in outcome) return;
       this.queue.splice(0, batch.length);
       if ("ok" in outcome) {
+        if (this.overflowWarned && this.dropped > 0) {
+          process.stderr.write(`[guardbee-proxy] ${this.options.name} reachable again; ${this.dropped} audit events were dropped from its queue meanwhile\n`);
+        }
+        this.overflowWarned = false;
         this.dropped = 0;
         continue;
       }

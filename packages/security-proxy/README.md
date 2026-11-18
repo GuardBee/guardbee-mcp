@@ -111,6 +111,35 @@ profile: strict
 - write-once storage for the file or the SIEM's archive: S3 Object Lock in compliance mode, Azure immutable blob storage, or GCS bucket lock, with a retention period your policy sets;
 - `verify-audit` on a schedule, and signed reports (`guardbee-proxy report --key`) for what you hand to an auditor.
 
+## Bypass and Resilience
+
+The gateway only protects calls that go through it. These are the ways around it, how each one shows up and how to close it; each is covered by a test (`approval-replay`, `bypass-visibility`, `isolation`, `secret-leakage`, `batch-queue`, `redis-counters`).
+
+**Ways around the gateway**
+
+| Bypass | How it shows up | How to close it |
+|---|---|---|
+| A server left in the client config by `init` (legacy SSE, disabled) | `init` writes it to the audit log (`ruleId: bypass:unprotected`); `guardbee-proxy report` lists the latest run's servers under *MCP servers outside the proxy* until an `init` run leaves nothing out | move the server to its Streamable HTTP endpoint (often `/mcp`) and run `init --force` again, or remove it |
+| A server added next to the gateway later, by hand or by a tool's installer | `npx @guardbee/mcp-config-auditor scan <client config>` reports `proxy_bypass` (high, MCP09); `discover --allowlist` across machines ([FLEET.md](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/mcp-config-auditor/FLEET.md)) | run the scan in CI or from MDM; keep the allowlist to the gateway entry only |
+| Someone calls a remote upstream directly, without the gateway | nothing the gateway can see | give the upstream credential only to the gateway: `upstreams.<name>.auth` token exchange or per-user OAuth (the caller's own token is never forwarded; tested), or a static header kept in `guardbee-proxy.yaml` (mode 0600), not in client configs; reach the upstream only from the gateway's network (firewall, Kubernetes NetworkPolicy, the upstream's IP allowlist) |
+| A stdio server reaches the network itself | `network:*` audit events with `network: allowlist` | `sandbox.network: none` or `allowlist` |
+| A coding agent's own shell, file and web tools | not MCP calls | `guardbee-hook install` (`--fail-closed` to refuse when the hook cannot run) |
+
+**Approvals.** An answer counts only for the call it was asked for: same tool, server, reason and arguments. Over 2026-07-28 the answer comes back in a signed `requestState` bound to the user and context; each state is accepted **once** (a replayed state and answer are refused with `-32602`), in the process always and across replicas when `state.backend: redis` is shared, so set `listen.stateKeyEnv` on every replica. With Redis down and `state.onError: fail-closed`, approval rounds are refused too; with `local` or `fail-open`, each replica still refuses a state it has seen.
+
+**Users and contexts.** Over HTTP each user and `X-GuardBee-Context` value has its own taint, PII tokens, pins and anomaly counters: two users using the same context name get two contexts. Tokens for another audience or issuer, expired ones and another user's token on an existing session are refused.
+
+**When a dependency is down**
+
+| Down | Calls | Audit | Setting |
+|---|---|---|---|
+| Redis (`state`) | `local`: counted per replica; `fail-open`: uncounted; `fail-closed`: calls with a quota or budget refused | `state:unavailable`, `state:recovered` | `state.onError` |
+| SIEM exporter or the dashboard | never wait for it | events queue (up to 10,000 per destination, oldest dropped first); a warning on stderr when the queue overflows and, on recovery, how many were dropped; the local log keeps everything | `audit.exporters`, `audit.dashboard` |
+| OIDC provider (JWKS) or LDAP | refused: a token that cannot be checked is not accepted; LDAP `onError: deny` (default) | – | `listen.oidc`, `listen.ldap.onError` |
+| Classifier or judge | `open`: the rules' verdict stands; `closed`: the classifier refuses the text, the judge refuses what the rules warned about | the reason says *classifier unavailable* or *judge unavailable* | `classifier.onError`, `judge.onError` |
+
+**Secrets.** Credentials do not leave through the gateway's own outputs: tool results and upstream error messages are masked before the agent or a trace sees them; the audit log stores a hash of the arguments by default, and with `includePayloads: true` it keeps personal data but masks credentials; `init` writes `guardbee-proxy.yaml` and the client config backup with mode 0600 and takes the tokens out of the client config. Signed approval state is readable by the client (signed, not encrypted) and holds only hashes and answers, never arguments.
+
 ## Gateway Mode: Several Servers, One Policy
 
 Put every MCP server behind one proxy with a `guardbee-proxy.yaml`. `init` does the move for you:
