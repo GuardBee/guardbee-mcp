@@ -38,7 +38,7 @@ GuardBee の MCP サーバー群です。AI エージェントとアプリケー
 - [`@guardbee/mcp-threat-rules`](packages/threat-rules/JA.md) — Agent Threat Rules（ATR）への GuardBee MCP ブリッジです。プロンプトインジェクション、ツールポイズニング、コンテキスト持ち出し、MCP 攻撃のためのオープンな Sigma 風検出標準でエージェント/MCP のイベントを評価します。
 - [`@guardbee/mcp-tool-poisoning-scanner`](packages/tool-poisoning-scanner/JA.md) — 他の MCP サーバーのツール定義で、ツールポイズニング（呼び出し側 LLM が信頼して読む説明文に隠された指示）と、読み取り専用をうたいながらシェルやファイル書き込みを行う「混乱した代理人」の不一致を検出します。
 - [`@guardbee/mcp-toxic-flow-auditor`](packages/toxic-flow-auditor/JA.md) — MCP ツールカタログ全体で有害なデータフロー（lethal trifecta）を検出します：信頼できないコンテンツ、機密データ、外部送信や破壊的操作が同じサーバーにそろう組み合わせ。
-- [`@guardbee/mcp-unbounded-consumption-auditor`](packages/unbounded-consumption-auditor/JA.md) — LLM/エージェントのコードで、OWASP LLM Top 10 2026 の 6 位「無制限な消費（denial of wallet）」のパターンを検出します：出力トークン上限の欠如、自前の LLM HTTP 呼び出しのタイムアウト欠如、無制限のツール呼び出しやリトライ、無効化された安全上限、レート制限のない MCP ツール。
+- [`@guardbee/mcp-unbounded-consumption-auditor`](packages/unbounded-consumption-auditor/JA.md) — LLM/エージェントのコードで、OWASP LLM Top 10 2025 の LLM10「無制限な消費（denial of wallet）」のパターンを検出します：出力トークン上限の欠如、自前の LLM HTTP 呼び出しのタイムアウト欠如、無制限のツール呼び出しやリトライ、無効化された安全上限、レート制限のない MCP ツール。
 - [`@guardbee/mcp-vector-store-scanner`](packages/vector-store-scanner/JA.md) — ベクトルデータベースのエンドポイント（Weaviate、Qdrant、Chroma、Elasticsearch/OpenSearch、Redis、Postgres/pgvector）を調べ、埋め込みや RAG データが認証なしで公開されていないかを確認します。
 - [`@guardbee/mcp-vulnerability-scanner`](packages/vulnerability-scanner/JA.md) — GuardBee のセキュリティスキャンを起動して結果を照会し、AI による修正ガイダンスを提供します。
 

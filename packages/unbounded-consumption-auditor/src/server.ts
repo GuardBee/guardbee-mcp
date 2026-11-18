@@ -49,7 +49,7 @@ export function registerTools(server: McpServer): void {
   server.registerTool(
     "scan_text",
     {
-      description: "Scan LLM/agent application code for Unbounded Consumption (\"denial of wallet\") anti-patterns from OWASP LLM Top 10 2026's #6 category: LLM calls with no output token limit, hand-rolled HTTP calls to an LLM endpoint with no timeout, agent tool-calling or retry loops with no iteration cap, framework safety limits (LangChain max_iterations, openai-agents max_turns) explicitly disabled, and MCP tool handlers that make billable calls with no visible rate limiting.",
+      description: "Scan LLM/agent application code for Unbounded Consumption (\"denial of wallet\") anti-patterns from OWASP LLM Top 10 2025's LLM10 category: LLM calls with no output token limit, hand-rolled HTTP calls to an LLM endpoint with no timeout, agent tool-calling or retry loops with no iteration cap, framework safety limits (LangChain max_iterations, openai-agents max_turns) explicitly disabled, and MCP tool handlers that make billable calls with no visible rate limiting.",
       inputSchema: z.object({
         content: z.string().describe("The code content to scan"),
         label: z.string().optional().describe("Optional label shown in findings (e.g. filename)"),
@@ -99,7 +99,7 @@ export function registerTools(server: McpServer): void {
       description: "List every Unbounded Consumption / denial-of-wallet pattern this auditor detects, grouped by category",
     },
     async () => {
-      const lines = ["Supported Unbounded Consumption (OWASP LLM Top 10 2026 #6) patterns:\n"];
+      const lines = ["Supported Unbounded Consumption (OWASP LLM Top 10 2025, LLM10) patterns:\n"];
       const byCategory = new Map<string, typeof UNBOUNDED_CONSUMPTION_PATTERNS>();
       for (const p of UNBOUNDED_CONSUMPTION_PATTERNS) {
         const list = byCategory.get(p.category) ?? [];

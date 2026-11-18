@@ -6,7 +6,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-unbounded-consumption-auditor.svg)](https://www.npmjs.com/package/@guardbee/mcp-unbounded-consumption-auditor)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/unbounded-consumption-auditor/LICENSE)
 
-An MCP (Model Context Protocol) server that scans LLM/agent application code for **Unbounded Consumption** — OWASP LLM Top 10 2026's #6 category, also known as "denial of wallet": nothing stops the application from making unlimited billable calls.
+An MCP (Model Context Protocol) server that scans LLM/agent application code for **Unbounded Consumption** — OWASP LLM Top 10 2025's LLM10 category, also known as "denial of wallet": nothing stops the application from making unlimited billable calls.
 
 > Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/telemetry/README.md).
 
