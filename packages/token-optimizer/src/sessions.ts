@@ -49,9 +49,19 @@ export function parseElapsed(etime: string): number {
 export function parsePs(output: string): ProcessInfo[] {
   const rows: ProcessInfo[] = [];
   for (const line of output.split("\n")) {
-    const m = line.trim().match(/^(\d+)\s+(\d+)\s+(\S+)\s+([\d.]+)\s+(\S+)\s+(.+)$/);
-    if (!m) continue;
-    rows.push({ pid: +m[1], ppid: +m[2], elapsed: m[3], elapsedSeconds: parseElapsed(m[3]), cpu: +m[4], tty: m[5], command: m[6] });
+    // Five fixed columns, then the command with its own spaces; split by hand rather than with a backtracking regex
+    const fields: string[] = [];
+    let rest = line.trim();
+    while (fields.length < 5 && rest) {
+      const space = rest.indexOf(" ");
+      if (space === -1) break;
+      fields.push(rest.slice(0, space));
+      rest = rest.slice(space + 1).trimStart();
+    }
+    if (fields.length < 5 || !rest) continue;
+    const [pid, ppid, elapsed, cpu, tty] = fields;
+    if (!/^\d+$/.test(pid) || !/^\d+$/.test(ppid) || !/^\d+(\.\d+)?$/.test(cpu)) continue;
+    rows.push({ pid: +pid, ppid: +ppid, elapsed, elapsedSeconds: parseElapsed(elapsed), cpu: +cpu, tty, command: rest });
   }
   return rows;
 }

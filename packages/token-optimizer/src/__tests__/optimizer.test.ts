@@ -50,6 +50,15 @@ describe("process parsing", () => {
     expect(isClaudeCommand("vim claude-notes.md")).toBe(false);
   });
 
+  it("parses ps rows with spaces in the command, and stays linear on pathological input", () => {
+    expect(parsePs("  42   1   01:02  3.5 ttys001 node /a b/cli.js --x")).toEqual([
+      { pid: 42, ppid: 1, elapsed: "01:02", elapsedSeconds: 62, cpu: 3.5, tty: "ttys001", command: "node /a b/cli.js --x" },
+    ]);
+    const start = Date.now();
+    expect(parsePs(`0 0 ! . ! ${" ".repeat(200_000)}x`)).toEqual([]);
+    expect(Date.now() - start).toBeLessThan(500);
+  });
+
   it("walks the parent chain", () => {
     const ps = parsePs(["  1     0  9-00:00:00  0.0 ??  launchd", " 50     1  01:00  0.0 ttys1 claude", " 60    50  00:10  0.0 ttys1 node server.js"].join("\n"));
     expect([...ancestorPids(ps, 60)]).toEqual([60, 50]);

@@ -3,6 +3,7 @@ import { resolvePaths, type ClaudePaths } from "./paths.js";
 
 export interface AccountInfo {
   accountUuid?: string;
+  /** Masked: first two characters and the domain */
   email?: string;
   displayName?: string;
   organizationName?: string;
@@ -37,15 +38,29 @@ export function readClaudeJson(paths?: Partial<ClaudePaths>): Record<string, unk
   }
 }
 
+/**
+ * Reports end up in chat transcripts and shared screenshots, so the address is shortened to
+ * enough to tell accounts apart: "someone@example.com" → "so***@example.com".
+ */
+export function maskEmail(email: string): string {
+  const at = email.lastIndexOf("@");
+  if (at < 1) return "***";
+  return `${email.slice(0, Math.min(2, at))}***${email.slice(at)}`;
+}
+
 export function readAccount(paths?: Partial<ClaudePaths>): AccountInfo | undefined {
   const account = readClaudeJson(paths)?.oauthAccount as Record<string, unknown> | undefined;
   if (!account || typeof account !== "object") return undefined;
   const str = (k: string) => (typeof account[k] === "string" ? (account[k] as string) : undefined);
+  const email = str("emailAddress");
+  const masked = email ? maskEmail(email) : undefined;
+  // Personal organizations are named after the address ("me@x.com's Organization")
+  const organizationName = email && masked ? str("organizationName")?.split(email).join(masked) : str("organizationName");
   return {
     accountUuid: str("accountUuid"),
-    email: str("emailAddress"),
+    email: masked,
     displayName: str("displayName"),
-    organizationName: str("organizationName"),
+    organizationName,
     organizationRole: str("organizationRole"),
     billingType: str("billingType"),
     rateLimitTier: str("userRateLimitTier") ?? str("organizationRateLimitTier"),

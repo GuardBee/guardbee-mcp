@@ -2,7 +2,7 @@ export { defaultClaudePaths, resolvePaths } from "./paths.js";
 export type { ClaudePaths } from "./paths.js";
 export { scanTranscripts, summarize, weightedTokens, contextSize, modelFactor, mcpServerOf } from "./transcripts.js";
 export type { UsageRecord, ToolCallRecord, TranscriptScan, ScanOptions, GroupBy, UsageGroup } from "./transcripts.js";
-export { readAccount, readClaudeJson, readPlanUtilization } from "./account.js";
+export { maskEmail, readAccount, readClaudeJson, readPlanUtilization } from "./account.js";
 export type { AccountInfo, PlanUtilization, PlanWindow } from "./account.js";
 export { readSnapshots, recordSnapshot, snapshotFile, toSnapshot } from "./snapshots.js";
 export type { UsageSnapshot } from "./snapshots.js";

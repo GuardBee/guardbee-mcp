@@ -71,13 +71,18 @@ export function listLiveSessions(paths?: Partial<ClaudePaths>, alive: (pid: numb
 /** Lines of `who` that carry a remote host in parentheses: someone logged in over SSH or similar. */
 export function parseWho(output: string): RemoteLogin[] {
   const logins: RemoteLogin[] = [];
-  for (const line of output.split("\n")) {
-    const m = line.match(/^(\S+)\s+(\S+)\s+(.+?)\s+\(([^)]+)\)\s*$/);
-    if (!m) continue;
-    const host = m[4];
+  for (const raw of output.split("\n")) {
+    // Split by hand: a backtracking regex over `who` output is polynomial on long runs of spaces
+    const line = raw.trimEnd();
+    if (!line.endsWith(")")) continue;
+    const open = line.lastIndexOf(" (");
+    if (open === -1) continue;
+    const host = line.slice(open + 2, -1);
+    const fields = line.slice(0, open).split(/\s+/).filter(Boolean);
+    if (fields.length < 3 || !host) continue;
     // tmux/screen record a local pane (":0", "tmux(1234).%0") here, not a remote host
     if (/^:\d|^tmux|^screen|^localhost$|^127\.0\.0\.1$|^::1$/.test(host)) continue;
-    logins.push({ user: m[1], tty: m[2], since: m[3].trim(), host });
+    logins.push({ user: fields[0], tty: fields[1], since: fields.slice(2).join(" "), host });
   }
   return logins;
 }

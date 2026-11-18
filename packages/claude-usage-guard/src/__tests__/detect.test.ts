@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readAccount, readPlanUtilization } from "../account.js";
+import { maskEmail, readAccount, readPlanUtilization } from "../account.js";
 import { analyseIntervals, buildIntervals, detectForeignUsage, type UsageInterval } from "../detect.js";
 import { parseWho } from "../signals.js";
 import { readSnapshots, recordSnapshot, type UsageSnapshot } from "../snapshots.js";
@@ -16,7 +16,7 @@ describe("account and plan readers", () => {
   it("reads the signed-in account and the cached plan meters", () => {
     const paths = tempClaude();
     writeClaudeJson(paths, { oauthAccount: { accountUuid: "acct-1", emailAddress: "a@b.c", userRateLimitTier: "max" }, cachedUsageUtilization: planCache(T0, 25, 40) });
-    expect(readAccount(paths)).toMatchObject({ accountUuid: "acct-1", email: "a@b.c", rateLimitTier: "max" });
+    expect(readAccount(paths)).toMatchObject({ accountUuid: "acct-1", email: "a***@b.c", rateLimitTier: "max" });
     expect(readPlanUtilization(paths)).toMatchObject({ fetchedAt: T0, fiveHour: { utilization: 25 }, sevenDay: { utilization: 40 } });
   });
 
@@ -25,6 +25,15 @@ describe("account and plan readers", () => {
     expect(readPlanUtilization(paths)).toBeUndefined();
     writeClaudeJson(paths, { cachedUsageUtilization: { fetchedAtMs: T0, utilization: { five_hour: { pct: 3 } } } });
     expect(readPlanUtilization(paths)).toBeUndefined();
+  });
+});
+
+describe("maskEmail", () => {
+  it("keeps two characters and the domain, also inside a personal organization name", () => {
+    const paths = tempClaude();
+    writeClaudeJson(paths, { oauthAccount: { emailAddress: "someone@example.com", organizationName: "someone@example.com's Organization" } });
+    expect(readAccount(paths)).toMatchObject({ email: "so***@example.com", organizationName: "so***@example.com's Organization" });
+    expect(maskEmail("nobody")).toBe("***");
   });
 });
 
@@ -124,5 +133,11 @@ describe("parseWho", () => {
   it("keeps remote hosts and drops local panes", () => {
     const out = ["me  console  Nov  1 14:47", "me  ttys000  Nov 17 19:02", "me  ttys003  Nov 18 09:00  (203.0.113.7)", "me  ttys004  Nov 18 09:00  (tmux(123).%0)", "me  pts/1  2026-11-18 09:00 (:0)"].join("\n");
     expect(parseWho(out)).toEqual([{ user: "me", tty: "ttys003", since: "Nov 18 09:00", host: "203.0.113.7" }]);
+  });
+
+  it("stays linear on pathological input", () => {
+    const start = Date.now();
+    parseWho(`! ! ${" ".repeat(200_000)}(${"( ((".repeat(20_000)}`);
+    expect(Date.now() - start).toBeLessThan(500);
   });
 });
