@@ -6,7 +6,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-security-proxy.svg)](https://www.npmjs.com/package/@guardbee/mcp-security-proxy)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Herhangi bir MCP sunucusunun önüne oturan şeffaf güvenlik katmanı. Prompt injection saldırılarını engeller, yanıtlardaki PII'yi maskeler ve her isteği değiştirilemez audit log'a yazar.
+Herhangi bir MCP sunucusunun önüne oturan şeffaf güvenlik katmanı. Prompt injection saldırılarını engeller, yanıtlardaki PII'yi maskeler ve her isteği hash zincirli, kurcalandığında belli olan bir audit log'a yazar.
 
 > Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 
@@ -63,6 +63,51 @@ npm install -g @guardbee/mcp-security-proxy
 
 ---
 
+## Varsayılan Güvenlik Profili
+
+Varsayılanlar, kuralların emin olduğu şeyi engeller ve bir bağımlılık çöktüğünde çalışmaya devam eder. Bunlara güvenmeden önce ne anlama geldiğini bilin; transport, işletim sistemi ve dile göre tam kapsam [yetenek matrisinde](https://github.com/GuardBee/guardbee-mcp/blob/main/docs/capability-matrix.md).
+
+**Injection modlarının yakaladıkları** ([`injection-bench`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/injection-bench) test bölümünde F1, Türkçe / İngilizce):
+
+| Mod | Nasıl açılır | F1 TR / EN | Yanlış pozitif TR / EN | Eklenen gecikme |
+|---|---|---|---|---|
+| Yalnızca kurallar (varsayılan) | hiçbir şey | 28,6 / 20,4 (recall %17 / %11) | %0,0 / %0,0 | ~0,03 ms |
+| Kurallar + sınıflandırıcı | `classifier: {}`, proxy'nin yanında `@guardbee/injection-model` kurulu ve bir kez `guardbee-injection-model download` | 93,7 / 91,6 | %2,8 / %1,3 | CPU'da ~8 ms |
+| Kurallar + LLM hakem | kendi çalıştırdığınız bir modelle `judge:` | 89,6 / 90,8 (`qwen2.5:7b`) | %5,3 / %6,0 | ortalama ~1 sn, p95 ~2 sn, artı modelin maliyeti |
+
+Kurallar tek başına isabetlidir ama başka kelimelerle yazılmış saldırıların çoğunu kaçırır: güvenilmeyen içerik okuyan her kurulumda sınıflandırıcıyı açın.
+
+**Güvenlik açısından kritik varsayılanlar** ve her birinin sertleştirilmesi:
+
+| Ayar | Varsayılan | Neden | Sertleştirilmiş |
+|---|---|---|---|
+| Derleme kaynağı (provenance) | `provenance.mode: warn`: imzasız paket başlar, loglanır | birçok sunucu provenance olmadan yayınlanır | `require` (`profile: strict`) ve sürüm sabitleme |
+| Prompt injection tespiti | yalnızca kurallar | indirilecek model yok | `classifier:` (yukarıda) |
+| Sınıflandırıcı / hakem ulaşılamaz veya yavaş | `onError: open`: kuralların kararı geçerli | eksik bir sidecar yüzünden çağrı reddedilmez | `onError: closed` (`profile: strict`) |
+| Redis çöktü (`state.backend: redis`) | `onError: local`: her replika kendi sayar | kotalar replika başına çalışmaya devam eder | `fail-closed` (`profile: strict`) kotası veya bütçesi olan çağrıları reddeder |
+| Coding-agent hook hatası (bozuk config, çökme) | fail-open: ajanın tool'u çalışır | bozuk bir hook ajanı durdurmaz | `guardbee-hook install --fail-closed` |
+| Hiçbir kuralın adlandırmadığı tool'lar | `defaults.action: allow` | kurallar neyin durdurulacağını listeler | salt okunur tool'lar için `allow` kurallarıyla `approve` veya `block` |
+| Tool tanımı değişti | kalıcı pin'ler, `onChange: approve` (kişi karar verir) | güncelleme çoğu zaman meşrudur | `onChange: block`, `pins approve` ile yeniden onay |
+| Eski SSE sunucuları | istemci config'inde kalır, `init` raporlar | proxy yalnızca Streamable HTTP konuşur | `/mcp`'ye taşıyın ya da kaldırın |
+| Sandbox | kapalı; sandbox açılınca `network: open` | sunucuların alışık oldukları dosyalara ihtiyacı var | `init --sandbox`, `network: none` veya `allowlist` |
+| HTTP dinleyici | `127.0.0.1`; başka her host API anahtarı veya OIDC ister (zorunlu) | – | gruplarla OIDC, load balancer'da TLS |
+| Audit içeriği | argümanların hash'i, sonuç yok | log verinin bir kopyasına dönüşmemeli | `includePayloads: false` olarak bırakın |
+
+Maskeleme, injection kuralları, tool poisoning ve dışarı çıkan kimlik bilgisi kontrolleri ile lethal trifecta engeli (`taint.mode: strict`) varsayılan olarak açık ve engelleme modunda.
+
+**`profile: strict`** yukarıda işaretli sertleştirilmiş değerleri tek satırda ayarlar: `provenance.mode: require` ve bu bölümler varsa `state`, `classifier` ve `judge` için kapalı `onError`. Yalnızca dosyanın boş bıraktığını doldurur, yazdığınız bir değer her zaman kazanır. Hook'un hata modu hook komutundaki bir bayraktır, çünkü config okunamadığında da geçerli olmalıdır. [`examples/proxy/strict.yaml`](https://github.com/GuardBee/guardbee-mcp/blob/main/examples/proxy/strict.yaml) buna varsayılan onay, engellenen tanım değişikliği ve sınıflandırıcıyı ekler.
+
+```yaml
+version: 1
+profile: strict
+```
+
+**Audit log saklama.** Log hash zincirlidir: `guardbee-proxy verify-audit` değiştirilen, silinen veya yeri değiştirilen her satırı gösterir. Bu kurcalamayı görünür kılar, engellemez: dosyaya yazabilen biri dosyanın tamamını yeniden yazabilir. Dayanıklı kanıt için olayları oluştukları anda makineden çıkarın ve yeniden yazılamayacakları yerde tutun:
+
+- bir `audit.exporters` hedefi (Splunk, Elasticsearch, TLS üzerinden syslog) ya da `audit.dashboard`, böylece bir kopya saniyeler içinde makineden çıkar;
+- dosya veya SIEM arşivi için bir kez yazılabilen depolama: compliance modunda S3 Object Lock, Azure immutable blob storage ya da GCS bucket lock, saklama süresi politikanızca belirlenir;
+- düzenli aralıklarla `verify-audit` ve denetçiye verdikleriniz için imzalı raporlar (`guardbee-proxy report --key`).
+
 ## Gateway Modu: Birden Fazla Sunucu, Tek Politika
 
 Tüm MCP sunucularını bir `guardbee-proxy.yaml` ile tek proxy'nin arkasına koyun. `init` taşımayı sizin için yapar:
@@ -71,7 +116,7 @@ Tüm MCP sunucularını bir `guardbee-proxy.yaml` ile tek proxy'nin arkasına ko
 npx -y @guardbee/mcp-security-proxy@^1 init --client claude-desktop   # veya cursor, claude-code, --file ./mcp.json
 ```
 
-Her stdio sunucusunu `~/.guardbee/guardbee-proxy.yaml` dosyasına (izin 0600) taşır, istemci config'inin yedeğini alır ve config'i proxy'ye yönlendirir. HTTP sunucuları olduğu gibi kalır ve raporlanır, çünkü politikayı atlarlar. `--dry-run` iki dosyayı da yazmadan gösterir. Elle yapmak için:
+Her stdio sunucusunu `~/.guardbee/guardbee-proxy.yaml` dosyasına (izin 0600) taşır, istemci config'inin yedeğini alır ve config'i proxy'ye yönlendirir. Streamable HTTP sunucuları (`url` ve `headers` ile) da taşınır; eski SSE sunucuları istemci config'inde kalır ve raporlanır, çünkü proxy SSE konuşmaz ve bu sunucular politikayı atlar. `--dry-run` iki dosyayı da yazmadan gösterir. Elle yapmak için:
 
 ```json
 {
@@ -289,12 +334,11 @@ audit:
 - **Dashboard:** `audit.dashboard` her audit olayını toplu halde, `apiKeyEnv`'den alınan workspace API key'iyle GuardBee dashboard'una gönderir; key dosyada durmaz. Dashboard'a ulaşılamazsa olaylar bellekte bekler (en fazla 10.000) ve sonra gönderilir. Reddedilen key stderr'e bir kez raporlanır. Tool çağrıları dashboard'u asla beklemez.
 - `init` artık Streamable HTTP server'ları (`url` + `headers`) da proxy'nin arkasına taşır. Eski SSE server'lar istemci config'inde kalır ve raporlanır.
 
-Docker:
+Docker (yayınlanan imaj imzalıdır; doğrulama ve Helm chart için [INSTALL.md](https://github.com/GuardBee/guardbee-mcp/blob/main/INSTALL.md)):
 
 ```bash
-docker build -t guardbee/mcp-security-proxy packages/security-proxy
 docker run -p 8787:8787 -e GUARDBEE_PROXY_KEY=... -e GUARDBEE_API_KEY=... \
-  -v "$PWD/guardbee-proxy.yaml:/etc/guardbee/guardbee-proxy.yaml:ro" guardbee/mcp-security-proxy
+  -v "$PWD/guardbee-proxy.yaml:/etc/guardbee/guardbee-proxy.yaml:ro" ghcr.io/guardbee/mcp-security-proxy:1
 ```
 
 ---

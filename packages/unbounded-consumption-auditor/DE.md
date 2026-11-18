@@ -4,7 +4,7 @@
 
 > Dies ist eine kurze Zusammenfassung. Die vollständige Dokumentation (Englisch) steht in [README.md](README.md).
 
-Findet im Code von LLM-/Agent-Anwendungen Muster für unbegrenzten Verbrauch („Denial of Wallet“, Platz 6 der OWASP LLM Top 10 2026): fehlende Ausgabe-Token-Limits, LLM-HTTP-Aufrufe ohne Timeout, unbegrenzte Tool- oder Retry-Schleifen, abgeschaltete Sicherheitslimits und MCP-Tools ohne Rate Limiting.
+Findet im Code von LLM-/Agent-Anwendungen Muster für unbegrenzten Verbrauch („Denial of Wallet“, LLM10 der OWASP LLM Top 10 2025): fehlende Ausgabe-Token-Limits, LLM-HTTP-Aufrufe ohne Timeout, unbegrenzte Tool- oder Retry-Schleifen, abgeschaltete Sicherheitslimits und MCP-Tools ohne Rate Limiting.
 
 ## Installation
 

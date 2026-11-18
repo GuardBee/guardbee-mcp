@@ -92,7 +92,7 @@ function checkMissingMaxTokens(text: string, filePath?: string): Finding[] {
         patternName: "OpenAI chat completion call has no output token limit",
         category: "missing-token-limit",
         severity: "medium",
-        recommendation: "Neither max_tokens nor max_completion_tokens is set on this call — without one, the model can generate up to its own maximum output length on every request, and a single verbose or looping response can multiply your bill (this is the 'unbounded output' half of OWASP LLM Top 10 2026's Unbounded Consumption category). Set max_tokens (or max_completion_tokens for o1+ reasoning models) to the smallest value your use case needs.",
+        recommendation: "Neither max_tokens nor max_completion_tokens is set on this call — without one, the model can generate up to its own maximum output length on every request, and a single verbose or looping response can multiply your bill (this is the 'unbounded output' half of OWASP LLM Top 10 2025's Unbounded Consumption category, LLM10). Set max_tokens (or max_completion_tokens for o1+ reasoning models) to the smallest value your use case needs.",
         file: filePath,
         line,
         column,

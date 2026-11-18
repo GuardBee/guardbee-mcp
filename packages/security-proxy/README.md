@@ -6,7 +6,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-security-proxy.svg)](https://www.npmjs.com/package/@guardbee/mcp-security-proxy)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/security-proxy/LICENSE)
 
-A transparent security layer that sits in front of any MCP server. Blocks prompt injection attacks, masks PII in responses, and writes every request to an immutable audit log.
+A transparent security layer that sits in front of any MCP server. Blocks prompt injection attacks, masks PII in responses, and writes every request to a hash-chained, tamper-evident audit log.
 
 > Telemetry is **off** by default. With `GUARDBEE_TELEMETRY=1` it sends the server, tool, success, duration and short parameter values such as a file path; longer strings and fields like `content`, `token` or `password` are replaced with a placeholder. See [`@guardbee/mcp-telemetry`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/telemetry/README.md).
 
@@ -66,6 +66,51 @@ Add to `claude_desktop_config.json`:
 
 ---
 
+## Default Security Profile
+
+The defaults block what the rules are sure about and keep working when a dependency is down. Know what that means before you rely on them; the full coverage, by transport, OS and language, is in the [capability matrix](https://github.com/GuardBee/guardbee-mcp/blob/main/docs/capability-matrix.md).
+
+**What each injection mode catches** (F1 on the held-out split of [`injection-bench`](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/injection-bench), Turkish / English):
+
+| Mode | Turn on with | F1 TR / EN | False positives TR / EN | Added latency |
+|---|---|---|---|---|
+| Rules only (default) | nothing | 28.6 / 20.4 (recall 17% / 11%) | 0.0% / 0.0% | ~0.03 ms |
+| Rules + classifier | `classifier: {}`, with `@guardbee/injection-model` installed next to the proxy and `guardbee-injection-model download` run once | 93.7 / 91.6 | 2.8% / 1.3% | ~8 ms on CPU |
+| Rules + LLM judge | `judge:` with a model you run | 89.6 / 90.8 (`qwen2.5:7b`) | 5.3% / 6.0% | ~1 s mean, ~2 s p95, plus the model's cost |
+
+Rules alone are precise but miss most paraphrased attacks: turn the classifier on for anything that reads untrusted content.
+
+**Security-critical defaults** and how to harden each:
+
+| Setting | Default | Why | Hardened |
+|---|---|---|---|
+| Build provenance | `provenance.mode: warn`: unsigned packages start, logged | many servers publish without provenance | `require` (`profile: strict`), and pin versions |
+| Prompt-injection detection | rules only | no model to download | `classifier:` (see above) |
+| Classifier / judge unreachable or slow | `onError: open`: the rules' verdict stands | a call is never refused for a missing sidecar | `onError: closed` (`profile: strict`) |
+| Redis down (`state.backend: redis`) | `onError: local`: each replica counts alone | quotas keep working, per replica | `fail-closed` (`profile: strict`) refuses calls that have a quota or budget |
+| Coding-agent hook error (bad config, crash) | fail-open: the agent's tool runs | a broken hook never stops the agent | `guardbee-hook install --fail-closed` |
+| Tools no rule names | `defaults.action: allow` | rules list what to stop | `approve` or `block` with `allow` rules for read-only tools |
+| Tool definition changed | persisted pins, `onChange: approve` (the person decides) | an update is often legitimate | `onChange: block`, re-approve with `pins approve` |
+| Legacy SSE servers | left in the client config, reported by `init` | the proxy speaks Streamable HTTP only | move them to `/mcp`, or remove them |
+| Sandbox | off; `network: open` once a sandbox is set | servers need their usual files | `init --sandbox`, `network: none` or `allowlist` |
+| HTTP listener | `127.0.0.1`; any other host needs API keys or OIDC (enforced) | – | OIDC with groups, TLS at the load balancer |
+| Audit payloads | hashes of arguments, no results | the log should not become a copy of the data | keep `includePayloads: false` |
+
+Masking, the injection rules, tool-poisoning and credential-egress checks, and the lethal-trifecta block (`taint.mode: strict`) are on and blocking by default.
+
+**`profile: strict`** sets the hardened values marked above in one line: `provenance.mode: require`, and `onError` closed for `state`, `classifier` and `judge` when those sections are present. It only fills what the file leaves out, so a value you write still wins. The hook's fail mode is a flag on the hook command, because it has to hold when the config cannot be read. [`examples/proxy/strict.yaml`](https://github.com/GuardBee/guardbee-mcp/blob/main/examples/proxy/strict.yaml) adds approval by default, blocked definition drift and the classifier.
+
+```yaml
+version: 1
+profile: strict
+```
+
+**Audit log storage.** The log is hash-chained: `guardbee-proxy verify-audit` shows any line that was changed, removed or reordered. That makes tampering visible; it does not prevent it, since whoever can write the file can rewrite all of it. For evidence that holds up, send the events off the host as they happen and keep them where they cannot be rewritten:
+
+- an `audit.exporters` destination (Splunk, Elasticsearch, syslog over TLS) or `audit.dashboard`, so a copy leaves the machine within seconds;
+- write-once storage for the file or the SIEM's archive: S3 Object Lock in compliance mode, Azure immutable blob storage, or GCS bucket lock, with a retention period your policy sets;
+- `verify-audit` on a schedule, and signed reports (`guardbee-proxy report --key`) for what you hand to an auditor.
+
 ## Gateway Mode: Several Servers, One Policy
 
 Put every MCP server behind one proxy with a `guardbee-proxy.yaml`. `init` does the move for you:
@@ -74,7 +119,7 @@ Put every MCP server behind one proxy with a `guardbee-proxy.yaml`. `init` does 
 npx -y @guardbee/mcp-security-proxy@^1 init --client claude-desktop   # or cursor, claude-code, --file ./mcp.json
 ```
 
-It moves each stdio server into `~/.guardbee/guardbee-proxy.yaml` (mode 0600), backs up the client config and points it at the proxy. HTTP servers stay as they are and are reported, because they would bypass the policy. `--dry-run` prints both files without writing. Or by hand:
+It moves each stdio server into `~/.guardbee/guardbee-proxy.yaml` (mode 0600), backs up the client config and points it at the proxy. Streamable HTTP servers (`url`, with their `headers`) move too; legacy SSE servers stay in the client config and are reported, because the proxy does not speak SSE and they would bypass the policy. `--dry-run` prints both files without writing. Or by hand:
 
 ```json
 {
@@ -456,12 +501,11 @@ audit:
 - **Dashboard:** `audit.dashboard` sends every audit event, batched, to the GuardBee dashboard with a workspace API key taken from `apiKeyEnv`. The key never sits in the file. If the dashboard is unreachable, events wait in memory (up to 10,000) and go out later. A rejected key is reported once on stderr. Tool calls never wait for the dashboard.
 - `init` now also moves Streamable HTTP servers (`url` + `headers`) behind the proxy. Legacy SSE servers stay in the client config and are reported.
 
-Docker:
+Docker (the published image is signed; [INSTALL.md](https://github.com/GuardBee/guardbee-mcp/blob/main/INSTALL.md) shows how to verify it and the Helm chart):
 
 ```bash
-docker build -t guardbee/mcp-security-proxy packages/security-proxy
 docker run -p 8787:8787 -e GUARDBEE_PROXY_KEY=... -e GUARDBEE_API_KEY=... \
-  -v "$PWD/guardbee-proxy.yaml:/etc/guardbee/guardbee-proxy.yaml:ro" guardbee/mcp-security-proxy
+  -v "$PWD/guardbee-proxy.yaml:/etc/guardbee/guardbee-proxy.yaml:ro" ghcr.io/guardbee/mcp-security-proxy:1
 ```
 
 ---

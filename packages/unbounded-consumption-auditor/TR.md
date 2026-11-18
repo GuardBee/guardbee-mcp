@@ -2,7 +2,7 @@
 
 [🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
-LLM/agent uygulama kodunu **Unbounded Consumption** ("sınırsız tüketim") için tarayan bir MCP (Model Context Protocol) sunucusu — OWASP LLM Top 10 2026'nın #6 kategorisi, "denial of wallet" (cüzdan hizmet reddi) olarak da bilinir: uygulamanın sınırsız sayıda faturalanabilir çağrı yapmasını hiçbir şey durdurmuyor.
+LLM/agent uygulama kodunu **Unbounded Consumption** ("sınırsız tüketim") için tarayan bir MCP (Model Context Protocol) sunucusu — OWASP LLM Top 10 2025'in LLM10 kategorisi, "denial of wallet" (cüzdan hizmet reddi) olarak da bilinir: uygulamanın sınırsız sayıda faturalanabilir çağrı yapmasını hiçbir şey durdurmuyor.
 
 > Telemetri varsayılan olarak **kapalıdır**. `GUARDBEE_TELEMETRY=1` ile açılırsa sunucu, tool, başarı, süre ve dosya yolu gibi kısa parametre değerleri gönderilir; daha uzun metinler ve `content`, `token`, `password` gibi alanlar yer tutucuyla değiştirilir. Bkz. [`@guardbee/mcp-telemetry`](../telemetry/TR.md).
 

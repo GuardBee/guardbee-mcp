@@ -4,7 +4,7 @@
 
 > Este es un resumen breve. La documentación completa (en inglés) está en [README.md](README.md).
 
-Busca en el código de aplicaciones LLM/agentes los patrones de consumo ilimitado ('denial of wallet', puesto 6 del OWASP LLM Top 10 2026): sin límite de tokens de salida, llamadas HTTP a LLM sin timeout, bucles de herramientas o reintentos sin límite, límites de seguridad desactivados y herramientas MCP sin rate limit.
+Busca en el código de aplicaciones LLM/agentes los patrones de consumo ilimitado ('denial of wallet', LLM10 del OWASP LLM Top 10 2025): sin límite de tokens de salida, llamadas HTTP a LLM sin timeout, bucles de herramientas o reintentos sin límite, límites de seguridad desactivados y herramientas MCP sin rate limit.
 
 ## Instalación
 

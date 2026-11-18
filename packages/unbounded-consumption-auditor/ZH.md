@@ -2,7 +2,7 @@
 
 [🇬🇧 English](README.md) | [🇹🇷 Türkçe](TR.md) | **🇨🇳 中文** | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
-一个 MCP（Model Context Protocol）服务器，用于扫描 LLM/agent 应用代码中的 **Unbounded Consumption（无界消耗）**——OWASP LLM Top 10 2026 的第 6 类，也称为“denial of wallet”：没有任何东西阻止应用发起无限次可计费调用。
+一个 MCP（Model Context Protocol）服务器，用于扫描 LLM/agent 应用代码中的 **Unbounded Consumption（无界消耗）**——OWASP LLM Top 10 2025 的 LLM10 类别，也称为“denial of wallet”：没有任何东西阻止应用发起无限次可计费调用。
 
 > 遥测默认**关闭**。设置 `GUARDBEE_TELEMETRY=1` 后会发送服务器、工具、成功与否、耗时以及文件路径等简短参数值；更长的字符串和 `content`、`token`、`password` 等字段会被占位符替换。参见 [`@guardbee/mcp-telemetry`](../telemetry/ZH.md)。
 

@@ -18,6 +18,7 @@ import type { TaintBasis, TaintMode } from "./taint.js";
 import type { ApprovalChannel } from "./approval.js";
 import type { NerConfig } from "./ner.js";
 import type { GatewayClassifierConfig } from "./classifier.js";
+import { applyProfile, PROFILES } from "./profile.js";
 import { llmSchema, resolveLlmConfig, type LlmConfig } from "../llm/config.js";
 import { a2aSchema, resolveA2aConfig } from "../a2a/config.js";
 import type { A2aConfig } from "../a2a/gateway.js";
@@ -397,6 +398,8 @@ const listenSchema = z
 const yamlSchema = z
   .object({
     version: z.literal(1),
+    /** strict: unverified packages do not start and checks that cannot run refuse (see profile.ts). */
+    profile: z.enum(PROFILES).optional(),
     upstreams: z.record(z.string(), upstreamSchema).default({}).superRefine((upstreams, ctx) => {
       const names = Object.keys(upstreams);
       for (const name of names) {
@@ -671,7 +674,7 @@ function resolveDashboard(
 }
 
 export function parseGatewayYaml(source: string, fileLabel = "guardbee-proxy.yaml"): GatewayConfig {
-  const parsed = yamlSchema.safeParse(parseYaml(source));
+  const parsed = yamlSchema.safeParse(applyProfile(parseYaml(source)));
   if (!parsed.success) {
     const issues = parsed.error.issues.map((issue) => `  - ${issue.path.join(".") || "(root)"}: ${issue.message}`);
     throw new Error(`Invalid ${fileLabel}:\n${issues.join("\n")}`);

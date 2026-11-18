@@ -6,7 +6,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-security-proxy.svg)](https://www.npmjs.com/package/@guardbee/mcp-security-proxy)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-一个透明的安全层，放在任何 MCP 服务器前面。它拦截 prompt 注入攻击，对响应中的 PII 进行脱敏，并把每个请求写入不可篡改的审计日志。
+一个透明的安全层，放在任何 MCP 服务器前面。它拦截 prompt 注入攻击，对响应中的 PII 进行脱敏，并把每个请求写入哈希链式、篡改可被发现的审计日志。
 
 > 遥测默认**关闭**。设置 `GUARDBEE_TELEMETRY=1` 后会发送服务器、工具、成功与否、耗时以及文件路径等简短参数值；更长的字符串和 `content`、`token`、`password` 等字段会被占位符替换。参见 [`@guardbee/mcp-telemetry`](../telemetry/ZH.md)。
 
@@ -71,7 +71,7 @@ npm install -g @guardbee/mcp-security-proxy
 npx -y @guardbee/mcp-security-proxy@^1 init --client claude-desktop   # 或 cursor、claude-code、--file ./mcp.json
 ```
 
-它会把每个 stdio 服务器移入 `~/.guardbee/guardbee-proxy.yaml`（权限 0600），备份客户端配置，并把配置指向代理。HTTP 服务器保持不变并会被报告出来，因为它们会绕过策略。`--dry-run` 只打印两个文件而不写入。也可以手动配置：
+它会把每个 stdio 服务器移入 `~/.guardbee/guardbee-proxy.yaml`（权限 0600），备份客户端配置，并把配置指向代理。Streamable HTTP 服务器（`url` 及其 `headers`）也会被迁移；旧的 SSE 服务器保留在客户端配置中并会被报告，因为代理不支持 SSE，它们会绕过策略。`--dry-run` 只打印两个文件而不写入。也可以手动配置：
 
 ```json
 {
@@ -207,12 +207,11 @@ audit:
 - **仪表盘：** `audit.dashboard` 会用从 `apiKeyEnv` 读取的工作区 API 密钥，把每个审计事件批量发送到 GuardBee 仪表盘；密钥不写在文件中。仪表盘不可达时，事件会在内存中等待（最多 10,000 条）并稍后发送。被拒绝的密钥只会在 stderr 报告一次。工具调用从不等待仪表盘。
 - `init` 现在也会把 Streamable HTTP 服务器（`url` + `headers`）移到代理之后。旧的 SSE 服务器保留在客户端配置中并会被报告。
 
-Docker：
+Docker（发布的镜像已签名；验证方法和 Helm chart 见 [INSTALL.md](https://github.com/GuardBee/guardbee-mcp/blob/main/INSTALL.md)）：
 
 ```bash
-docker build -t guardbee/mcp-security-proxy packages/security-proxy
 docker run -p 8787:8787 -e GUARDBEE_PROXY_KEY=... -e GUARDBEE_API_KEY=... \
-  -v "$PWD/guardbee-proxy.yaml:/etc/guardbee/guardbee-proxy.yaml:ro" guardbee/mcp-security-proxy
+  -v "$PWD/guardbee-proxy.yaml:/etc/guardbee/guardbee-proxy.yaml:ro" ghcr.io/guardbee/mcp-security-proxy:1
 ```
 
 ---

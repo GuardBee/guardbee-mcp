@@ -1,0 +1,38 @@
+# The hardened profile: unverified packages do not start, and a check that
+# cannot run (Redis, the classifier, the judge) refuses the call instead of
+# letting it through. Settings written below still win over the profile.
+# Pair it with `guardbee-hook install --claude-code --fail-closed` for the
+# agent's own tools, and ship the audit log to storage that cannot be rewritten.
+version: 1
+profile: strict
+
+upstreams:
+  github:
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-github@2025.4.8"]   # pinned, so provenance checks one known version
+    env: { GITHUB_PERSONAL_ACCESS_TOKEN: "${GITHUB_TOKEN}" }
+  linear:
+    url: https://mcp.linear.app/mcp
+    headers: { Authorization: "Bearer ${LINEAR_API_KEY}" }
+    network: { mode: allowlist, allowHosts: ["mcp.linear.app"] }
+
+defaults:
+  action: approve              # a tool no rule names asks the person first
+
+rules:
+  - match: { tool: "*__get_*" }
+    action: allow
+  - match: { tool: "*__list_*" }
+    action: allow
+  - match: { tool: "*__search_*" }
+    action: allow
+
+interceptors:
+  definitionDrift: { enabled: true, action: block, onChange: block }   # no in-session re-approval of a changed tool
+
+classifier: {}                 # @guardbee/injection-model in this process (guardbee-injection-model download)
+
+audit:
+  sink: file
+  filePath: /var/log/guardbee/guardbee-audit.jsonl
+  includePayloads: false
