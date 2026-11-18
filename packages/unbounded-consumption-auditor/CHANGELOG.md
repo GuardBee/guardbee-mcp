@@ -1,5 +1,13 @@
 # @guardbee/mcp-unbounded-consumption-auditor
 
+## 0.3.2
+
+### Patch Changes
+
+- [#313](https://github.com/GuardBee/guardbee-mcp/pull/313) [`d07c5b7`](https://github.com/GuardBee/guardbee-mcp/commit/d07c5b779ff47e923a392f9adbe4ac2135c98b87) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - security-proxy: `profile: strict` in `guardbee-proxy.yaml` hardens the availability-first defaults: provenance is required, and Redis (`state`), the classifier and the judge refuse calls when they cannot answer (`onError` closed). Values written in the file still win. The README documents the default security profile (what rules-only, classifier and judge catch, every security-critical default and how to harden it, durable audit storage) and links a new capability matrix; `init`'s handling of Streamable HTTP servers is described consistently.
+  
+  unbounded-consumption-auditor: Unbounded Consumption is referenced as OWASP LLM10:2025, the official id, instead of "LLM Top 10 2026 [#6](https://github.com/GuardBee/guardbee-mcp/issues/6)".
+
 ## 0.3.1
 
 ### Patch Changes
