@@ -1,6 +1,6 @@
 # @guardbee/mcp-token-optimizer
 
-[🇬🇧 English](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/token-optimizer/README.md) | **🇹🇷 Türkçe**
+[🇬🇧 English](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/token-optimizer/README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/token-optimizer/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/token-optimizer/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/token-optimizer/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/token-optimizer/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/token-optimizer/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/token-optimizer/DE.md)
 
 Bu makinede Claude Code token'larını neyin yaktığını bulan ve durduran MCP sunucusu.
 
