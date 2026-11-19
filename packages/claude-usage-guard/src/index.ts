@@ -12,4 +12,10 @@ export { analyseIntervals, buildIntervals, detectForeignUsage, formatReport } fr
 export type { DetectionReport, DetectOptions, Signal, UsageInterval, Verdict } from "./detect.js";
 export { compact, formatUsageReport, usageReport } from "./report.js";
 export type { UsageReport } from "./report.js";
+export { calibrate, forecastWindow, formatForecast, planForecast, toPlanPct } from "./forecast.js";
+export type { Calibration, PlanForecast, WindowForecast } from "./forecast.js";
+export { backupFile, formatHookResult, installHooks, listTaggedHooks, readHookInput, selfCommand, taggedCommand, uninstallHooks, writeJsonAtomic } from "./hooks.js";
+export type { HookChange, HookInstallResult, HookSpec } from "./hooks.js";
+export { HOOK_TAG, installUsageGuardHooks } from "./install.js";
+export { packageVersion } from "./version.js";
 export { registerTools } from "./server.js";

@@ -21,6 +21,8 @@ The usual culprit is not a chatty prompt but context size: every message re-send
 | `audit_mcp_servers` | Every MCP server Claude Code loads (user, local, `.mcp.json`, plugins, plus claude.ai connectors and built-ins seen in transcripts) with calls and output volume. | No |
 | `disable_mcp_servers` | Turn servers off for new sessions without losing their config. | **Dry run by default** |
 | `restore_mcp_servers` | Undo `disable_mcp_servers`; with no arguments, lists what is parked. | **Dry run by default** |
+| `measure_mcp_definitions` | Start each configured MCP server, list its tools, and measure the tokens their names, descriptions and schemas take. Results feed `optimize_report`. | Runs the servers |
+| `install_hooks` / `uninstall_hooks` | A hook that warns **you** when a session's context passes a threshold. | **Dry run by default** |
 
 ### Safety
 
@@ -28,6 +30,31 @@ The usual culprit is not a chatty prompt but context size: every message re-send
 - **Disabling** uses Claude Code's own switches where they exist: `disabledMcpjsonServers` for `.mcp.json` servers, `enabledPlugins: false` for plugins. User and local servers have no switch, so their entry is moved to `~/.guardbee/token-optimizer/parked.json` and put back by `restore`. Every write backs up the original file to `~/.guardbee/token-optimizer/backups/` first and is atomic.
 - claude.ai connectors and built-in integrations are reported but not touched; they are switched off where they were added.
 - Changes apply to sessions started afterwards. A running session may write its own copy of `~/.claude.json` back when it exits, so re-check with `audit_mcp_servers` after closing it.
+
+## Context budget warning
+
+The expensive mistake is a session that keeps growing. The hook checks the session's context before every prompt and, past the threshold (default 200k), shows you a warning; then again at every further 100k, not on every prompt. After `/compact` it re-arms.
+
+```
+⚠️ This session's context is 314k tokens (threshold 200k). Every new message re-reads all of it: ~1.8% of the 5-hour limit per message. Run /compact when this task is done, or /clear for a new topic.
+```
+
+The plan share appears once [`claude-usage-guard`](https://github.com/GuardBee/guardbee-mcp/tree/main/packages/claude-usage-guard) has calibrated. The hook reads only the tail of the transcript (about 0.25 s), prints nothing below the threshold, and never blocks the prompt.
+
+```bash
+npx @guardbee/mcp-token-optimizer install-hooks --threshold 150000 --lang tr --apply
+```
+
+## Tool-definition cost
+
+`measure_mcp_definitions` starts every enabled server the way Claude Code would (stdio, or HTTP including SSE responses; `${VAR}` and `${VAR:-default}` expanded) and lists its tools:
+
+```
+  1k  token-optimizer (user) — 9 tools; largest: disable_mcp_servers ~210, …
+✗ remote-x (local, ~/code/app): needs authorization (HTTP 401); sign in from Claude Code's /mcp
+```
+
+The figure is the cost when tools are loaded up front. Claude Code defers MCP tools behind tool search when there are many, and then only names cost context until a tool is used.
 
 ## Install
 
@@ -44,6 +71,8 @@ npx @guardbee/mcp-token-optimizer stop --idle-hours 6 --apply
 npx @guardbee/mcp-token-optimizer mcp
 npx @guardbee/mcp-token-optimizer disable local my-server --project ~/code/app --apply
 npx @guardbee/mcp-token-optimizer restore local my-server --project ~/code/app --apply
+npx @guardbee/mcp-token-optimizer measure-mcp
+npx @guardbee/mcp-token-optimizer install-hooks --apply
 ```
 
 ## Example report
@@ -61,7 +90,7 @@ npx @guardbee/mcp-token-optimizer restore local my-server --project ~/code/app -
 ## Limitations
 
 - Tool output is measured in characters (about four per token); images count as ~1,600 tokens each.
-- The cost of an MCP server's tool definitions is not measured; Claude Code loads many of them on demand.
+- `measure_mcp_definitions` runs the configured server commands; servers that need OAuth are reported, not measured.
 - Process listing uses `ps`, so `list_sessions` and `stop_sessions` do nothing on Windows.
 
 ## Related

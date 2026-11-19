@@ -30,7 +30,7 @@ Claude Desktop:
 
 ## Herramientas MCP
 
-`detect_foreign_usage`, `usage_report`, `account_status`
+`detect_foreign_usage`, `usage_report`, `account_status`, `plan_forecast`, `install_hooks`, `uninstall_hooks`
 
 Los detalles de cada herramienta están en [README.md](README.md).
 

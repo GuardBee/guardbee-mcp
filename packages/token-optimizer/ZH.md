@@ -14,7 +14,7 @@ claude mcp add token-optimizer -- npx -y @guardbee/mcp-token-optimizer
 
 ## MCP 工具
 
-`optimize_report`, `list_sessions`, `stop_sessions`, `audit_mcp_servers`, `disable_mcp_servers`, `restore_mcp_servers`
+`optimize_report`, `list_sessions`, `stop_sessions`, `audit_mcp_servers`, `disable_mcp_servers`, `restore_mcp_servers`, `measure_mcp_definitions`, `install_hooks`, `uninstall_hooks`
 
 各工具的详细说明见 [README.md](README.md)。
 

@@ -5,3 +5,8 @@ export type { McpAuditOptions, McpScope, McpServerEntry, ToggleRequest, ToggleRe
 export { formatRecommendations, optimizationReport } from "./optimize.js";
 export type { OptimizeOptions, Recommendation } from "./optimize.js";
 export { formatMcpAudit, formatSessions, formatStop, formatToggle, registerTools } from "./server.js";
+export { CONTEXT_HOOK_TAG, DEFAULT_STEP, DEFAULT_THRESHOLD, contextHook, installContextHooks, lastMainCall, planPctFromCalibration, warningLevel, warningMessage } from "./context-hook.js";
+export type { ContextHookOptions, LastCall, Lang } from "./context-hook.js";
+export { configuredServers, expandVars, formatDefinitionCosts, listToolsHttp, listToolsStdio, measureDefinitions, readDefinitionCosts, saveDefinitionCosts } from "./mcp-defs.js";
+export type { ConfiguredServer, DefinitionCost, ServerConfig } from "./mcp-defs.js";
+export { pluginHasMcp, pluginInstallPaths } from "./mcp.js";

@@ -1,22 +1,15 @@
 #!/usr/bin/env node
-import { readFileSync } from "fs";
-import { dirname, resolve } from "path";
-import { fileURLToPath } from "url";
 import { readPlanUtilization } from "./account.js";
+import { packageVersion } from "./version.js";
 import { detectForeignUsage, formatReport } from "./detect.js";
+import { formatForecast, planForecast } from "./forecast.js";
+import { formatHookResult, readHookInput, uninstallHooks } from "./hooks.js";
+import { HOOK_TAG, installUsageGuardHooks } from "./install.js";
 import { formatUsageReport, usageReport } from "./report.js";
 import { recordSnapshot, toSnapshot } from "./snapshots.js";
 import type { GroupBy } from "./transcripts.js";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
-function getVersion(): string {
-  try {
-    return (JSON.parse(readFileSync(resolve(__dirname, "../package.json"), "utf8")) as { version: string }).version;
-  } catch {
-    return "0.0.0";
-  }
-}
+const getVersion = packageVersion;
 
 const HELP = `guardbee-claude-usage-guard ${getVersion()}
 
@@ -24,7 +17,13 @@ Usage:
   guardbee-claude-usage-guard                 Start the MCP server (stdio)
   guardbee-claude-usage-guard detect [--json] Is all plan usage coming from this machine?
   guardbee-claude-usage-guard report [--hours N] [--by session|day|project|entrypoint|model] [--json]
-  guardbee-claude-usage-guard snapshot        Store the current plan reading (schedule it, e.g. hourly cron)
+  guardbee-claude-usage-guard forecast        Plan meters, current pace, and when the limit would be hit
+  guardbee-claude-usage-guard snapshot        Store the current plan reading
+  guardbee-claude-usage-guard install-hooks [--apply]    Record plan readings automatically from Claude Code hooks
+  guardbee-claude-usage-guard uninstall-hooks [--apply]
+  guardbee-claude-usage-guard hook            (run by the hooks) record a reading, print nothing
+
+install-hooks and uninstall-hooks are dry runs unless --apply is given.
 `;
 
 function flag(args: string[], name: string): string | undefined {
@@ -53,6 +52,26 @@ async function main(): Promise<void> {
       console.log(json ? JSON.stringify(report, null, 2) : formatUsageReport(report));
       return;
     }
+    case "forecast":
+      console.log(formatForecast(planForecast()));
+      return;
+    case "hook": {
+      // Runs inside Claude Code on every session start and turn end: stay silent and never fail
+      await readHookInput();
+      try {
+        const plan = readPlanUtilization();
+        if (plan) recordSnapshot(toSnapshot(plan));
+      } catch {
+        // a hook must not disturb the session
+      }
+      return;
+    }
+    case "install-hooks":
+      console.log(formatHookResult(installUsageGuardHooks({ apply: args.includes("--apply"), scriptPath: process.argv[1], version: getVersion() })));
+      return;
+    case "uninstall-hooks":
+      console.log(formatHookResult(uninstallHooks(HOOK_TAG, { apply: args.includes("--apply") })));
+      return;
     case "snapshot": {
       const plan = readPlanUtilization();
       if (!plan) {

@@ -30,7 +30,7 @@ Claude Desktop:
 
 ## Herramientas MCP
 
-`optimize_report`, `list_sessions`, `stop_sessions`, `audit_mcp_servers`, `disable_mcp_servers`, `restore_mcp_servers`
+`optimize_report`, `list_sessions`, `stop_sessions`, `audit_mcp_servers`, `disable_mcp_servers`, `restore_mcp_servers`, `measure_mcp_definitions`, `install_hooks`, `uninstall_hooks`
 
 Los detalles de cada herramienta están en [README.md](README.md).
 

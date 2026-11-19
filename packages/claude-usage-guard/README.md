@@ -30,6 +30,8 @@ plan meter (whole account, from Claude Code's /usage cache)
 | `detect_foreign_usage` | Records a plan reading, compares the meter's movement between readings with this machine's usage, and reports a verdict: `insufficient-data`, `no-evidence`, `suspicious` or `likely-other-usage`. |
 | `usage_report` | This machine's Claude Code usage from local transcripts, by session, day, project, entrypoint or model, with each session's peak context size. |
 | `account_status` | Which account Claude Code is signed in to, and the 5-hour / 7-day meters it last fetched. |
+| `plan_forecast` | Current 5-hour / 7-day meters, the pace (from the plan meter across all devices, or this machine's usage once calibrated), and whether the limit is hit before it resets. |
+| `install_hooks` / `uninstall_hooks` | Add or remove the Claude Code hooks that record plan readings automatically. Dry run by default. |
 
 ## How detection works
 
@@ -43,14 +45,23 @@ plan meter (whole account, from Claude Code's /usage cache)
 
 "Usage from somewhere else" is not necessarily another person: your own claude.ai, desktop or mobile chats share the same limits. The report says so.
 
-### Getting enough readings
+### Getting enough readings: hooks
 
-Claude Code refreshes the cached meters when it fetches `/usage`. One reading is not enough; run `detect` a few times over a working day, or schedule the snapshot command:
+One reading is not enough. Install the hooks once and every Claude Code session start and turn end records the current reading (deduplicated by fetch time, silent, never blocks the session):
 
 ```bash
-# every 30 minutes
-*/30 * * * * npx -y @guardbee/mcp-claude-usage-guard snapshot
+npx @guardbee/mcp-claude-usage-guard install-hooks          # shows the change
+npx @guardbee/mcp-claude-usage-guard install-hooks --apply  # writes ~/.claude/settings.json (backed up first)
+npx @guardbee/mcp-claude-usage-guard uninstall-hooks --apply
 ```
+
+Your other hooks are left alone: ours are found by a `# guardbee:claude-usage-guard` tag on the command. Claude Code refreshes its cached meters when it starts and when `/usage` is opened, so readings arrive per session rather than per minute; a session that starts after another device spent the plan shows up as an idle-interval rise.
+
+## Plan forecast and plan share
+
+`plan_forecast` projects each window: `5-hour: 62%, 18.0 pt/hour (from the plan meter, all devices) ⚠️ at this pace the limit is reached 14:20 UTC, before the reset`. A reading from before the window's last reset is reported as stale instead of projected.
+
+Once calibrated, `usage_report` adds a **5h plan** column: what share of a full 5-hour limit each session (or day, project, model) cost.
 
 ## Install
 
@@ -63,7 +74,8 @@ CLI:
 ```bash
 npx @guardbee/mcp-claude-usage-guard detect            # verdict + signals (exit 2 on likely-other-usage)
 npx @guardbee/mcp-claude-usage-guard report --hours 168 --by entrypoint
-npx @guardbee/mcp-claude-usage-guard snapshot
+npx @guardbee/mcp-claude-usage-guard forecast
+npx @guardbee/mcp-claude-usage-guard install-hooks --apply
 ```
 
 `CLAUDE_CONFIG_DIR` is honoured. `GUARDBEE_USAGE_GUARD_DIR` moves the snapshot store.

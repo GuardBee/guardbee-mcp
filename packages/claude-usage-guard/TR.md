@@ -15,6 +15,8 @@ Planın 5 saatlik ve 7 günlük limitleri hesaba bağlı her şey tarafından pa
 | `detect_foreign_usage` | Bir plan okuması kaydeder, okumalar arasındaki sayaç artışını bu makinenin kullanımıyla karşılaştırır; sonuç: `insufficient-data`, `no-evidence`, `suspicious` veya `likely-other-usage`. |
 | `usage_report` | Yerel transcript'lerden bu makinenin Claude Code kullanımı; oturum, gün, proje, giriş noktası veya modele göre, her oturumun en büyük bağlamıyla. |
 | `account_status` | Claude Code'un hangi hesapla oturum açtığı ve son çektiği 5 saatlik / 7 günlük sayaçlar. |
+| `plan_forecast` | Güncel 5 saatlik / 7 günlük sayaçlar, harcama hızı (tüm cihazları kapsayan plan sayacından ya da kalibrasyondan sonra bu makinenin kullanımından) ve limitin sıfırlanmadan önce dolup dolmayacağı. |
+| `install_hooks` / `uninstall_hooks` | Plan okumalarını otomatik kaydeden Claude Code hook'larını ekler/kaldırır. Varsayılan dry run. |
 
 ## Tespit nasıl çalışır
 
@@ -28,13 +30,23 @@ Planın 5 saatlik ve 7 günlük limitleri hesaba bağlı her şey tarafından pa
 
 "Başka yerden gelen kullanım" mutlaka başka bir kişi demek değildir: kendi claude.ai, masaüstü veya mobil sohbetlerin de aynı limitleri kullanır. Rapor bunu belirtir.
 
-### Yeterli okuma toplamak
+### Yeterli okuma toplamak: hook'lar
 
-Tek okuma yetmez. Gün içinde `detect`'i birkaç kez çalıştır ya da snapshot komutunu zamanla:
+Tek okuma yetmez. Hook'ları bir kez kur; her Claude Code oturum başlangıcı ve tur sonu güncel okumayı kaydeder (fetch zamanına göre tekilleştirilir, sessizdir, oturumu asla engellemez):
 
 ```bash
-*/30 * * * * npx -y @guardbee/mcp-claude-usage-guard snapshot
+npx @guardbee/mcp-claude-usage-guard install-hooks          # değişikliği gösterir
+npx @guardbee/mcp-claude-usage-guard install-hooks --apply  # ~/.claude/settings.json'a yazar (önce yedekler)
+npx @guardbee/mcp-claude-usage-guard uninstall-hooks --apply
 ```
+
+Diğer hook'larına dokunulmaz; bizimkiler komuttaki `# guardbee:claude-usage-guard` etiketiyle bulunur. Claude Code önbellekteki sayaçları açılışta ve `/usage` açıldığında yeniler; okumalar dakikalık değil oturum başına gelir.
+
+## Plan tahmini ve plan payı
+
+`plan_forecast` her pencereyi ileriye taşır: `5-hour: 62%, 18.0 pt/hour ⚠️ bu hızla limit 14:20 UTC'de, sıfırlanmadan önce dolar`. Pencere sıfırlandıktan sonra kalan bayat okuma tahmin edilmez, bayat olarak raporlanır.
+
+Kalibrasyondan sonra `usage_report` bir **5h plan** sütunu ekler: her oturumun (gün, proje, model) tam bir 5 saatlik limitin ne kadarını harcadığı.
 
 ## Kurulum
 

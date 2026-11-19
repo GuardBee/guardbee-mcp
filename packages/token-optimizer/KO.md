@@ -30,7 +30,7 @@ Claude Desktop:
 
 ## MCP 도구
 
-`optimize_report`, `list_sessions`, `stop_sessions`, `audit_mcp_servers`, `disable_mcp_servers`, `restore_mcp_servers`
+`optimize_report`, `list_sessions`, `stop_sessions`, `audit_mcp_servers`, `disable_mcp_servers`, `restore_mcp_servers`, `measure_mcp_definitions`, `install_hooks`, `uninstall_hooks`
 
 각 도구의 자세한 설명은 [README.md](README.md)에 있습니다.
 

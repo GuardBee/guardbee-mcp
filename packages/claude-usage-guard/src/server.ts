@@ -4,14 +4,20 @@ import { instrumentServer } from "@guardbee/mcp-telemetry";
 import { z } from "zod";
 import { readAccount, readPlanUtilization } from "./account.js";
 import { detectForeignUsage, formatReport } from "./detect.js";
+import { formatForecast, planForecast } from "./forecast.js";
+import { formatHookResult, listTaggedHooks, uninstallHooks } from "./hooks.js";
+import { HOOK_TAG, installUsageGuardHooks } from "./install.js";
+import { packageVersion } from "./version.js";
 import { formatUsageReport, usageReport } from "./report.js";
 import { recordSnapshot, toSnapshot } from "./snapshots.js";
 
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }] });
 
+const VERSION = packageVersion();
+
 export async function startServer() {
   serveStdio(() => {
-    const server = new McpServer({ name: "guardbee-claude-usage-guard", version: "0.1.0" });
+    const server = new McpServer({ name: "guardbee-claude-usage-guard", version: VERSION });
     instrumentServer(server, "claude-usage-guard");
     registerTools(server);
     return server;
@@ -43,6 +49,39 @@ export function registerTools(server: McpServer): void {
       }),
     },
     async ({ hours, groupBy }) => text(formatUsageReport(usageReport({ hours, groupBy })))
+  );
+
+  server.registerTool(
+    "plan_forecast",
+    {
+      description:
+        "The 5-hour and 7-day plan meters, the current pace (from the plan meter across all devices, or this machine's usage once calibrated), and whether the limit will be hit before it resets.",
+      inputSchema: z.object({}),
+    },
+    async () => text(formatForecast(planForecast()))
+  );
+
+  server.registerTool(
+    "install_hooks",
+    {
+      description:
+        "Add Claude Code hooks (SessionStart and Stop in ~/.claude/settings.json) that record a plan reading automatically, so detect_foreign_usage and plan_forecast have history. Leaves other hooks untouched; backs up settings.json. Dry run by default.",
+      inputSchema: z.object({ dryRun: z.boolean().optional().describe("Default true") }),
+    },
+    async ({ dryRun }) => text(formatHookResult(installUsageGuardHooks({ apply: dryRun === false, scriptPath: process.argv[1], version: VERSION })))
+  );
+
+  server.registerTool(
+    "uninstall_hooks",
+    {
+      description: "Remove the hooks install_hooks added, and nothing else. Dry run by default. With no changes to make, lists what is installed.",
+      inputSchema: z.object({ dryRun: z.boolean().optional().describe("Default true") }),
+    },
+    async ({ dryRun }) => {
+      const installed = listTaggedHooks(HOOK_TAG);
+      if (!installed.length) return text("No claude-usage-guard hooks installed.");
+      return text(formatHookResult(uninstallHooks(HOOK_TAG, { apply: dryRun === false })));
+    }
   );
 
   server.registerTool(

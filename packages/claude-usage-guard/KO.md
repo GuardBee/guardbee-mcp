@@ -30,7 +30,7 @@ Claude Desktop:
 
 ## MCP 도구
 
-`detect_foreign_usage`, `usage_report`, `account_status`
+`detect_foreign_usage`, `usage_report`, `account_status`, `plan_forecast`, `install_hooks`, `uninstall_hooks`
 
 각 도구의 자세한 설명은 [README.md](README.md)에 있습니다.
 

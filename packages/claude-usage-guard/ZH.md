@@ -14,7 +14,7 @@ claude mcp add claude-usage-guard -- npx -y @guardbee/mcp-claude-usage-guard
 
 ## MCP 工具
 
-`detect_foreign_usage`, `usage_report`, `account_status`
+`detect_foreign_usage`, `usage_report`, `account_status`, `plan_forecast`, `install_hooks`, `uninstall_hooks`
 
 各工具的详细说明见 [README.md](README.md)。
 
