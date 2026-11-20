@@ -1,6 +1,6 @@
 {
   "name": "@guardbee/mcp-token-optimizer",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "mcpName": "io.github.GuardBee/mcp-token-optimizer",
   "description": "Finds what burns Claude Code tokens and stops it: idle sessions, unused or chatty MCP servers, oversized contexts and file reads, with dry-run-first stop/disable actions",
   "type": "module",
