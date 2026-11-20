@@ -38,6 +38,8 @@ export interface HookInstallResult {
   changes: HookChange[];
   applied: boolean;
   backup?: string;
+  /** Someone else's setting that was left in place */
+  conflict?: string;
 }
 
 interface HookGroup {
@@ -131,6 +133,40 @@ function commit(
   return { settingsPath, changes, applied: true, backup };
 }
 
+export interface StatusLineSpec {
+  command: string;
+  padding?: number;
+}
+
+/**
+ * Sets Claude Code's status line. There is only one, so a status line this tag did not install is
+ * kept and reported as a conflict unless `force` (settings.json is backed up either way).
+ */
+export function installStatusLine(
+  spec: StatusLineSpec,
+  tag: string,
+  options: { paths?: Partial<ClaudePaths>; apply?: boolean; force?: boolean; backupDir?: string } = {}
+): HookInstallResult {
+  const settingsPath = settingsPathOf(options.paths);
+  const settings = readSettings(settingsPath);
+  const existing = settings.statusLine as { command?: string } | undefined;
+  const ours = !existing || existing.command?.includes(`# ${tag}`);
+  if (!ours && !options.force) return { settingsPath, changes: [], applied: false, conflict: existing?.command ?? JSON.stringify(existing) };
+  const command = taggedCommand(spec.command, tag);
+  settings.statusLine = { type: "command", command, ...(spec.padding !== undefined ? { padding: spec.padding } : {}) };
+  return commit(settingsPath, settings, [{ event: "statusLine", action: existing ? "replace" : "add", command }], options);
+}
+
+/** Removes the status line only if this tag installed it. */
+export function uninstallStatusLine(tag: string, options: { paths?: Partial<ClaudePaths>; apply?: boolean; backupDir?: string } = {}): HookInstallResult {
+  const settingsPath = settingsPathOf(options.paths);
+  const settings = readSettings(settingsPath);
+  const existing = settings.statusLine as { command?: string } | undefined;
+  if (!existing?.command?.includes(`# ${tag}`)) return { settingsPath, changes: [], applied: false };
+  delete settings.statusLine;
+  return commit(settingsPath, settings, [{ event: "statusLine", action: "remove", command: existing.command }], options);
+}
+
 export function listTaggedHooks(tag: string, paths?: Partial<ClaudePaths>): HookChange[] {
   let settings: Record<string, unknown>;
   try {
@@ -157,7 +193,10 @@ export function selfCommand(scriptPath: string | undefined, pkg: string, version
 }
 
 export function formatHookResult(result: HookInstallResult): string {
-  if (result.changes.length === 0) return `No changes to ${result.settingsPath}.`;
+  if (result.changes.length === 0) {
+    if (result.conflict) return `${result.settingsPath} already has a status line that is not ours, left as is: ${result.conflict}\nPass force to replace it (settings.json is backed up first).`;
+    return `No changes to ${result.settingsPath}.`;
+  }
   const lines = result.changes.map((c) => `${c.action.padEnd(7)} ${c.event}: ${c.command}`);
   lines.unshift(`${result.applied ? "Updated" : "Would update"} ${result.settingsPath}:`);
   if (result.backup) lines.push(`Backup: ${result.backup}`);

@@ -31,7 +31,7 @@ plan meter (whole account, from Claude Code's /usage cache)
 | `usage_report` | This machine's Claude Code usage from local transcripts, by session, day, project, entrypoint or model, with each session's peak context size. |
 | `account_status` | Which account Claude Code is signed in to, and the 5-hour / 7-day meters it last fetched. |
 | `plan_forecast` | Current 5-hour / 7-day meters, the pace (from the plan meter across all devices, or this machine's usage once calibrated), and whether the limit is hit before it resets. |
-| `install_hooks` / `uninstall_hooks` | Add or remove the Claude Code hooks that record plan readings automatically. Dry run by default. |
+| `install_hooks` / `uninstall_hooks` | Add or remove the Claude Code hooks that record plan readings automatically and raise the foreign-usage alarm (optionally as a desktop notification). Dry run by default. |
 
 ## How detection works
 
@@ -55,7 +55,23 @@ npx @guardbee/mcp-claude-usage-guard install-hooks --apply  # writes ~/.claude/s
 npx @guardbee/mcp-claude-usage-guard uninstall-hooks --apply
 ```
 
-Your other hooks are left alone: ours are found by a `# guardbee:claude-usage-guard` tag on the command. Claude Code refreshes its cached meters when it starts and when `/usage` is opened, so readings arrive per session rather than per minute; a session that starts after another device spent the plan shows up as an idle-interval rise.
+Your other hooks are left alone: ours are found by a `# guardbee:claude-usage-guard` tag on the command. Claude Code refreshes its cached meters when it starts and when `/usage` is opened, so from the hooks alone readings arrive per session rather than per minute.
+
+**Readings with every message.** Claude Code also passes the live meters of the latest response to its status line. The [`token-optimizer` status line](https://github.com/GuardBee/guardbee-mcp/tree/main/packages/token-optimizer#status-line) stores them here (only after a fresh response, and only when the meter moved or ten minutes passed), which turns per-session readings into per-message ones.
+
+### Foreign-usage alarm
+
+With the hooks installed, every new reading is checked right away. The first time a stretch of usage this machine does not explain shows up, the session gets a message (and, with `--notify`, a macOS or Linux desktop notification):
+
+```
+🚨 GuardBee: the plan meter rose 8.0 pt between 20 Nov, 09:10 and 20 Nov, 11:00; Claude Code on this machine was idle then. That usage came from elsewhere: another device or person, or your own claude.ai web/desktop/mobile chats (they share the limit). …
+```
+
+Each stretch alarms once; a check without new readings costs nothing, one with new readings about 0.2 s. A login switch on this machine alarms too.
+
+```bash
+npx @guardbee/mcp-claude-usage-guard install-hooks --lang tr --notify --apply
+```
 
 ## Plan forecast and plan share
 
@@ -75,7 +91,7 @@ CLI:
 npx @guardbee/mcp-claude-usage-guard detect            # verdict + signals (exit 2 on likely-other-usage)
 npx @guardbee/mcp-claude-usage-guard report --hours 168 --by entrypoint
 npx @guardbee/mcp-claude-usage-guard forecast
-npx @guardbee/mcp-claude-usage-guard install-hooks --apply
+npx @guardbee/mcp-claude-usage-guard install-hooks --notify --apply
 ```
 
 `CLAUDE_CONFIG_DIR` is honoured. `GUARDBEE_USAGE_GUARD_DIR` moves the snapshot store.

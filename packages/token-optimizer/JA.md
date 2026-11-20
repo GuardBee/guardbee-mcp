@@ -30,7 +30,9 @@ Claude Desktop:
 
 ## MCP ツール
 
-`optimize_report`, `list_sessions`, `stop_sessions`, `audit_mcp_servers`, `disable_mcp_servers`, `restore_mcp_servers`, `measure_mcp_definitions`, `install_hooks`, `uninstall_hooks`
+`optimize_report`, `list_sessions`, `stop_sessions`, `audit_mcp_servers`, `disable_mcp_servers`, `restore_mcp_servers`, `measure_mcp_definitions`, `install_hooks`, `uninstall_hooks`, `install_statusline`, `uninstall_statusline`
+
+新機能: ツール出力が大きすぎるときの警告（PostToolUse フック）と、コンテキストサイズ・プランメーター・リセットまでの時間・外部利用アラームを表示するステータスライン（`install-statusline`）。
 
 各ツールの詳細は [README.md](README.md) を参照してください。
 

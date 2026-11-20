@@ -32,6 +32,8 @@ Claude Desktop:
 
 `detect_foreign_usage`, `usage_report`, `account_status`, `plan_forecast`, `install_hooks`, `uninstall_hooks`
 
+新機能: フックを入れると、このマシンで説明できない利用が見つかった時点でアラームを表示します（`--notify` でデスクトップ通知も）。
+
 各ツールの詳細は [README.md](README.md) を参照してください。
 
 ## CLI

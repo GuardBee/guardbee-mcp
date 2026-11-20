@@ -1,6 +1,6 @@
 import { readAccount, readPlanUtilization, type AccountInfo } from "./account.js";
 import type { ClaudePaths } from "./paths.js";
-import { readSnapshots, recordSnapshot, toSnapshot, type UsageSnapshot } from "./snapshots.js";
+import { readSnapshots, recordSnapshot, sameReset, toSnapshot, type UsageSnapshot } from "./snapshots.js";
 import { listLiveSessions, remoteLogins, type LiveSession, type RemoteLogin } from "./signals.js";
 import { scanTranscripts, summarize, weightedTokens, type UsageRecord } from "./transcripts.js";
 
@@ -82,10 +82,10 @@ export function buildIntervals(snapshots: UsageSnapshot[], usage: UsageRecord[])
     const b = snapshots[i];
     let window: UsageInterval["window"] | undefined;
     let delta = 0;
-    if (a.fiveHour !== undefined && b.fiveHour !== undefined && a.fiveHourResetsAt === b.fiveHourResetsAt) {
+    if (a.fiveHour !== undefined && b.fiveHour !== undefined && sameReset(a.fiveHourResetsAt, b.fiveHourResetsAt)) {
       window = "five_hour";
       delta = b.fiveHour - a.fiveHour;
-    } else if (a.sevenDay !== undefined && b.sevenDay !== undefined && a.sevenDayResetsAt === b.sevenDayResetsAt) {
+    } else if (a.sevenDay !== undefined && b.sevenDay !== undefined && sameReset(a.sevenDayResetsAt, b.sevenDayResetsAt)) {
       window = "seven_day";
       delta = b.sevenDay - a.sevenDay;
     }

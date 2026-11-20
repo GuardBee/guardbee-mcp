@@ -19,7 +19,8 @@ Asıl suçlu genelde uzun prompt değil, bağlam boyutudur: her mesaj tüm konu�
 | `disable_mcp_servers` | Sunucuları config'lerini kaybetmeden yeni oturumlar için kapatır. | **Varsayılan dry run** |
 | `restore_mcp_servers` | `disable_mcp_servers`'ı geri alır; argümansız çağrılırsa park edilenleri listeler. | **Varsayılan dry run** |
 | `measure_mcp_definitions` | Yapılandırılmış her MCP sunucusunu başlatır, araçlarını listeler ve isim/açıklama/şemalarının kaç token tuttuğunu ölçer. Sonuçlar `optimize_report`'a girer. | Sunucuları çalıştırır |
-| `install_hooks` / `uninstall_hooks` | Oturumun bağlamı eşiği geçince **sana** uyarı gösteren hook. | **Varsayılan dry run** |
+| `install_hooks` / `uninstall_hooks` | Oturumun bağlamı eşiği geçince ve tek bir araç çıktısı bağlamı çok büyütünce **sana** uyarı gösteren hook'lar. | **Varsayılan dry run** |
+| `install_statusline` / `uninstall_statusline` | Claude Code status line'ında bağlam boyutu, plan sayaçları, sıfırlanmaya kalan süre, mesaj başına plan maliyeti ve yabancı kullanım alarmı. | **Varsayılan dry run** |
 
 ### Güvenlik
 
@@ -42,6 +43,34 @@ Plan payı, [`claude-usage-guard`](https://github.com/GuardBee/guardbee-mcp/tree
 npx @guardbee/mcp-token-optimizer install-hooks --threshold 150000 --lang tr --apply
 ```
 
+## Büyük araç çıktısı uyarısı
+
+Aynı `install-hooks`, çok veri döndürebilen araçlar (Read, Bash, Grep, Glob, WebFetch, WebSearch, alt ajanlar, MCP araçları) için bir `PostToolUse` hook'u ekler. Tek bir sonuç 10k token'dan fazla eklediğinde (`--tool-threshold`) neyin şiştiğini ve nasıl küçültüleceğini görürsün:
+
+```
+⚠️ Read (src/generated/schema.ts) bağlama ~38k token ekledi; oturum boyunca her yeni mesajda yeniden okunacak. Büyük dosyaları offset/limit ile parça parça oku ya da önce Grep ile yerini bul.
+```
+
+Görseller ~1.600 token sayılır; oturum başına üç dakikada en fazla bir uyarı. Mesaj sana gösterilir, modelin bağlamına bir şey eklenmez.
+
+## Status line
+
+```
+Opus 5.5 · ctx 314k/1M (~%3.1/mesaj) · 5h 42% ↻2h30m → %100 13:55 · 7d 18% · 🚨 dış kullanım: detect
+```
+
+- **ctx**: güncel bağlam ve pencere boyutu; eşiği geçince sarı, iki katında kırmızı. Kalibrasyondan sonra bir sonraki mesajın 5 saatlik limitten payı.
+- **5h / 7d**: son yanıttaki hesap geneli plan sayaçları (tüm cihazlar), 5 saatlik sıfırlanmaya kalan süre ve mevcut hız limite önce ulaşacaksa ulaşacağı saat.
+- **🚨**: [claude-usage-guard](https://github.com/GuardBee/guardbee-mcp/tree/main/packages/claude-usage-guard/TR.md) alarmı son 12 saatte çaldı.
+
+Ayrıca her taze sayaç okumasını claude-usage-guard için kaydeder; tespit oturum başına değil mesaj başına okuma alır. ~0,1 sn sürer, token harcamaz. Claude Code'da tek status line vardır: mevcut olan `--force` verilmedikçe korunur.
+
+```bash
+npx @guardbee/mcp-token-optimizer install-statusline --lang tr --apply
+```
+
+Hook'lar ve status line bu CLI'ı her prompt, araç çağrısı veya mesajda başlatır. Global kurulumdan (`npm i -g @guardbee/mcp-token-optimizer`) komut düz bir `node` çağrısıdır; npx'ten ise sabit sürümle `npx -y` üzerinden gider, bu daha yavaştır.
+
 ## Araç tanımı maliyeti
 
 `measure_mcp_definitions` etkin her sunucuyu Claude Code gibi başlatır (stdio ya da SSE yanıtları dahil HTTP; `${VAR}` ve `${VAR:-varsayılan}` açılır) ve araçlarını listeler. Rakam, araçlar baştan yüklendiğindeki maliyettir; çok sayıda MCP aracı olduğunda Claude Code bunları tool search arkasına erteler ve kullanılana kadar yalnızca isimleri bağlam tutar.
@@ -60,6 +89,8 @@ npx @guardbee/mcp-token-optimizer sessions
 npx @guardbee/mcp-token-optimizer stop --idle-hours 6 --apply
 npx @guardbee/mcp-token-optimizer mcp
 npx @guardbee/mcp-token-optimizer disable local my-server --project ~/code/app --apply
+npx @guardbee/mcp-token-optimizer install-hooks --lang tr --apply
+npx @guardbee/mcp-token-optimizer install-statusline --lang tr --apply
 ```
 
 ## Sınırlamalar

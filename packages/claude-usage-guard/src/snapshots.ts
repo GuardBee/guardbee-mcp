@@ -13,6 +13,18 @@ export interface UsageSnapshot {
   sevenDayResetsAt?: string;
 }
 
+// Readings from the status line and from Claude Code's cache spell reset times differently
+const RESET_TOLERANCE_MS = 10 * 60_000;
+
+/** Whether two readings' reset times name the same limit window. */
+export function sameReset(a: string | undefined, b: string | undefined): boolean {
+  if (a === b) return true;
+  if (a === undefined || b === undefined) return false;
+  const ta = Date.parse(a);
+  const tb = Date.parse(b);
+  return Number.isFinite(ta) && Number.isFinite(tb) && Math.abs(ta - tb) < RESET_TOLERANCE_MS;
+}
+
 export function snapshotFile(paths?: Partial<ClaudePaths>): string {
   return join(resolvePaths(paths).stateDir, "snapshots.jsonl");
 }

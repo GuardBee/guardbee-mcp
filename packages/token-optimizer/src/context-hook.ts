@@ -5,6 +5,7 @@ import {
   compact,
   contextSize,
   installHooks,
+  readAlarmState,
   resolvePaths,
   selfCommand,
   toPlanPct,
@@ -12,6 +13,7 @@ import {
   type ClaudePaths,
   type HookInstallResult,
 } from "@guardbee/mcp-claude-usage-guard";
+import { TOOL_OUTPUT_MATCHER } from "./tool-output.js";
 
 export const CONTEXT_HOOK_TAG = "guardbee:token-optimizer";
 export const PACKAGE_NAME = "@guardbee/mcp-token-optimizer";
@@ -164,7 +166,8 @@ export function planPctFromCalibration(paths?: Partial<ClaudePaths>): (weighted:
     if (!loaded) {
       loaded = true;
       try {
-        rate = calibrate({ paths, now: Date.now() }).tokensPerPct.five_hour;
+        // The usage guard's alarm keeps the latest calibration; scanning is the fallback
+        rate = readAlarmState(paths).tokensPerPct?.five_hour ?? calibrate({ paths, now: Date.now() }).tokensPerPct.five_hour;
       } catch {
         rate = undefined;
       }
@@ -173,20 +176,30 @@ export function planPctFromCalibration(paths?: Partial<ClaudePaths>): (weighted:
   };
 }
 
+/** Context warnings before each prompt and on resume, and big-tool-output warnings after each tool. */
 export function installContextHooks(options: {
   paths?: Partial<ClaudePaths>;
   apply?: boolean;
   scriptPath?: string;
   version: string;
   threshold?: number;
+  /** Tokens one tool result must add before it is reported */
+  toolThreshold?: number;
   lang?: Lang;
 }): HookInstallResult {
-  const flags = [options.threshold ? `--threshold ${options.threshold}` : "", options.lang && options.lang !== "en" ? `--lang ${options.lang}` : ""].filter(Boolean).join(" ");
+  const flags = [
+    options.threshold ? `--threshold ${options.threshold}` : "",
+    options.toolThreshold ? `--tool-threshold ${options.toolThreshold}` : "",
+    options.lang && options.lang !== "en" ? `--lang ${options.lang}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
   const command = `${selfCommand(options.scriptPath, PACKAGE_NAME, options.version)} hook${flags ? ` ${flags}` : ""}`;
   return installHooks(
     [
       { event: "UserPromptSubmit", command, timeout: 10 },
       { event: "SessionStart", command, matcher: "resume", timeout: 10 },
+      { event: "PostToolUse", command, matcher: TOOL_OUTPUT_MATCHER, timeout: 10 },
     ],
     CONTEXT_HOOK_TAG,
     { paths: options.paths, apply: options.apply, backupDir: join(resolvePaths(options.paths).stateDir, "..", "token-optimizer", "backups") }

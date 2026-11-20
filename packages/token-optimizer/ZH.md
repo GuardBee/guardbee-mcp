@@ -14,7 +14,9 @@ claude mcp add token-optimizer -- npx -y @guardbee/mcp-token-optimizer
 
 ## MCP 工具
 
-`optimize_report`, `list_sessions`, `stop_sessions`, `audit_mcp_servers`, `disable_mcp_servers`, `restore_mcp_servers`, `measure_mcp_definitions`, `install_hooks`, `uninstall_hooks`
+`optimize_report`, `list_sessions`, `stop_sessions`, `audit_mcp_servers`, `disable_mcp_servers`, `restore_mcp_servers`, `measure_mcp_definitions`, `install_hooks`, `uninstall_hooks`, `install_statusline`, `uninstall_statusline`
+
+新增：工具输出过大时的提醒（PostToolUse 钩子），以及显示上下文大小、套餐用量、距重置时间和外部使用警报的状态栏（`install-statusline`）。
 
 各工具的详细说明见 [README.md](README.md)。
 

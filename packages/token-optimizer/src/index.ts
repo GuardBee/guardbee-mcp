@@ -10,3 +10,6 @@ export type { ContextHookOptions, LastCall, Lang } from "./context-hook.js";
 export { configuredServers, expandVars, formatDefinitionCosts, listToolsHttp, listToolsStdio, measureDefinitions, readDefinitionCosts, saveDefinitionCosts } from "./mcp-defs.js";
 export type { ConfiguredServer, DefinitionCost, ServerConfig } from "./mcp-defs.js";
 export { pluginHasMcp, pluginInstallPaths } from "./mcp.js";
+export { DEFAULT_TOOL_THRESHOLD, TOOL_OUTPUT_MATCHER, outputChars, toolOutputHook, toolOutputMessage } from "./tool-output.js";
+export { STATUSLINE_TAG, installStatusLineCommand, statusLine } from "./statusline.js";
+export type { StatusLineOptions } from "./statusline.js";

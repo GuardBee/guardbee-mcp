@@ -3,9 +3,11 @@ import { auditMcpServers, disableMcpServers, restoreMcpServers, type McpScope } 
 import { formatRecommendations, optimizationReport } from "./optimize.js";
 import { formatMcpAudit, formatSessions, formatStop, formatToggle } from "./server.js";
 import { listSessions, stopSessions } from "./sessions.js";
-import { formatHookResult, readHookInput, uninstallHooks } from "@guardbee/mcp-claude-usage-guard";
+import { formatHookResult, readHookInput, uninstallHooks, uninstallStatusLine } from "@guardbee/mcp-claude-usage-guard";
 import { CONTEXT_HOOK_TAG, contextHook, installContextHooks, planPctFromCalibration, type Lang } from "./context-hook.js";
 import { configuredServers, formatDefinitionCosts, measureDefinitions, saveDefinitionCosts } from "./mcp-defs.js";
+import { STATUSLINE_TAG, installStatusLineCommand, statusLine } from "./statusline.js";
+import { toolOutputHook } from "./tool-output.js";
 import { packageVersion } from "./version.js";
 
 const getVersion = packageVersion;
@@ -21,11 +23,18 @@ Usage:
   guardbee-token-optimizer disable <scope> <name> [--project DIR] [--apply]
   guardbee-token-optimizer restore <scope> <name> [--project DIR] [--apply]
   guardbee-token-optimizer measure-mcp [--project DIR] [--timeout SECONDS]   Tool-definition cost per MCP server
-  guardbee-token-optimizer install-hooks [--threshold N] [--lang en|tr] [--apply]   Warn when a session's context grows past N
+  guardbee-token-optimizer install-hooks [--threshold N] [--tool-threshold N] [--lang en|tr] [--apply]
+                                                 Warn when a session's context grows past N tokens (default 200k)
+                                                 and when one tool result adds more than N (default 10k)
   guardbee-token-optimizer uninstall-hooks [--apply]
-  guardbee-token-optimizer hook [--threshold N] [--lang en|tr]   (run by the hooks)
+  guardbee-token-optimizer install-statusline [--threshold N] [--lang en|tr] [--force] [--apply]
+                                                 Context, plan meters, time to reset and the foreign-usage alarm
+                                                 in Claude Code's status line
+  guardbee-token-optimizer uninstall-statusline [--apply]
+  guardbee-token-optimizer hook [--threshold N] [--tool-threshold N] [--lang en|tr]   (run by the hooks)
+  guardbee-token-optimizer statusline [--threshold N] [--lang en|tr]                   (run by Claude Code)
 
-Changes (stop, disable, restore, install-hooks, uninstall-hooks) are dry runs unless --apply is given.
+Changes (stop, disable, restore, install-*, uninstall-*) are dry runs unless --apply is given.
 Scopes: user, local, project, plugin. measure-mcp starts the configured MCP servers to list their tools.
 `;
 
@@ -89,20 +98,57 @@ async function main(): Promise<void> {
       return;
     }
     case "install-hooks":
-      console.log(formatHookResult(installContextHooks({ apply, scriptPath: process.argv[1], version: getVersion(), threshold: num(flag(args, "--threshold")), lang: flag(args, "--lang") as Lang | undefined })));
+      console.log(
+        formatHookResult(
+          installContextHooks({
+            apply,
+            scriptPath: process.argv[1],
+            version: getVersion(),
+            threshold: num(flag(args, "--threshold")),
+            toolThreshold: num(flag(args, "--tool-threshold")),
+            lang: flag(args, "--lang") as Lang | undefined,
+          })
+        )
+      );
       return;
     case "uninstall-hooks":
       console.log(formatHookResult(uninstallHooks(CONTEXT_HOOK_TAG, { apply })));
       return;
+    case "install-statusline":
+      console.log(
+        formatHookResult(
+          installStatusLineCommand({ apply, force: args.includes("--force"), scriptPath: process.argv[1], version: getVersion(), threshold: num(flag(args, "--threshold")), lang: flag(args, "--lang") as Lang | undefined })
+        )
+      );
+      return;
+    case "uninstall-statusline":
+      console.log(formatHookResult(uninstallStatusLine(STATUSLINE_TAG, { apply })));
+      return;
     case "hook": {
-      // Runs inside Claude Code before every prompt: print only the hook's JSON, never fail
+      // Runs inside Claude Code before every prompt and after tools: print only the hook's JSON, never fail
       try {
         const input = await readHookInput();
-        const out = contextHook(input, { threshold: num(flag(args, "--threshold")), lang: flag(args, "--lang") as Lang | undefined, planPct: planPctFromCalibration() });
+        const lang = flag(args, "--lang") as Lang | undefined;
+        const out =
+          input.hook_event_name === "PostToolUse"
+            ? toolOutputHook(input, { threshold: num(flag(args, "--tool-threshold")), lang })
+            : contextHook(input, { threshold: num(flag(args, "--threshold")), lang, planPct: planPctFromCalibration() });
         if (out) process.stdout.write(JSON.stringify(out));
       } catch {
         // a hook must not disturb the session
       }
+      return;
+    }
+    case "statusline": {
+      // Runs on every status line refresh: always print a line, even an empty one
+      let line = "";
+      try {
+        const input = await readHookInput();
+        line = statusLine(input, { threshold: num(flag(args, "--threshold")), lang: flag(args, "--lang") as Lang | undefined, color: !process.env.NO_COLOR });
+      } catch {
+        // render nothing rather than an error
+      }
+      console.log(line);
       return;
     }
     case "--version":

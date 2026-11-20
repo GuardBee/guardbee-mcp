@@ -16,6 +16,8 @@ claude mcp add claude-usage-guard -- npx -y @guardbee/mcp-claude-usage-guard
 
 `detect_foreign_usage`, `usage_report`, `account_status`, `plan_forecast`, `install_hooks`, `uninstall_hooks`
 
+新增：安装钩子后，一旦出现本机无法解释的用量，会立即发出警报（加 `--notify` 还会弹出桌面通知）。
+
 各工具的详细说明见 [README.md](README.md)。
 
 ## CLI

@@ -1,7 +1,7 @@
 import { readPlanUtilization, type PlanWindow } from "./account.js";
 import { analyseIntervals, buildIntervals, type UsageInterval } from "./detect.js";
 import type { ClaudePaths } from "./paths.js";
-import { readSnapshots, recordSnapshot, toSnapshot, type UsageSnapshot } from "./snapshots.js";
+import { readSnapshots, recordSnapshot, sameReset, toSnapshot, type UsageSnapshot } from "./snapshots.js";
 import { scanTranscripts, weightedTokens, type UsageRecord } from "./transcripts.js";
 
 type Window = UsageInterval["window"];
@@ -82,7 +82,7 @@ export function forecastWindow(
     return out;
   }
   const span = PACE_SPAN[window];
-  const sameWindow = calibration.snapshots.filter((s) => resetsOf(s, window) === current.resetsAt && utilizationOf(s, window) !== undefined && s.at >= fetchedAt - span * 2);
+  const sameWindow = calibration.snapshots.filter((s) => sameReset(resetsOf(s, window), current.resetsAt) && utilizationOf(s, window) !== undefined && s.at >= fetchedAt - span * 2);
   const earliest = sameWindow.find((s) => fetchedAt - s.at >= span / 4);
   if (earliest) {
     out.pctPerHour = ((current.utilization - (utilizationOf(earliest, window) as number)) / (fetchedAt - earliest.at)) * 3_600_000;

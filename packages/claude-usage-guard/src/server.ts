@@ -65,10 +65,14 @@ export function registerTools(server: McpServer): void {
     "install_hooks",
     {
       description:
-        "Add Claude Code hooks (SessionStart and Stop in ~/.claude/settings.json) that record a plan reading automatically, so detect_foreign_usage and plan_forecast have history. Leaves other hooks untouched; backs up settings.json. Dry run by default.",
-      inputSchema: z.object({ dryRun: z.boolean().optional().describe("Default true") }),
+        "Add Claude Code hooks (SessionStart and Stop in ~/.claude/settings.json) that record a plan reading automatically, so detect_foreign_usage and plan_forecast have history, and show an alarm when a new reading shows plan usage this machine does not explain. Leaves other hooks untouched; backs up settings.json. Dry run by default.",
+      inputSchema: z.object({
+        lang: z.enum(["en", "tr"]).optional().describe("Alarm language (default en)"),
+        notify: z.boolean().optional().describe("Also raise a desktop notification (macOS, Linux)"),
+        dryRun: z.boolean().optional().describe("Default true"),
+      }),
     },
-    async ({ dryRun }) => text(formatHookResult(installUsageGuardHooks({ apply: dryRun === false, scriptPath: process.argv[1], version: VERSION })))
+    async ({ lang, notify, dryRun }) => text(formatHookResult(installUsageGuardHooks({ apply: dryRun === false, scriptPath: process.argv[1], version: VERSION, lang, notify })))
   );
 
   server.registerTool(
