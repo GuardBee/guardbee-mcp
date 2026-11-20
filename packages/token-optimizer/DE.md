@@ -30,7 +30,9 @@ Claude Desktop:
 
 ## MCP-Tools
 
-`optimize_report`, `list_sessions`, `stop_sessions`, `audit_mcp_servers`, `disable_mcp_servers`, `restore_mcp_servers`
+`optimize_report`, `list_sessions`, `stop_sessions`, `audit_mcp_servers`, `disable_mcp_servers`, `restore_mcp_servers`, `measure_mcp_definitions`, `install_hooks`, `uninstall_hooks`, `install_statusline`, `uninstall_statusline`
+
+Neu: Warnung bei sehr großen Tool-Ausgaben (PostToolUse-Hook) und eine Statuszeile mit Kontextgröße, Plan-Zählern, Zeit bis zum Reset und dem Fremdnutzungs-Alarm (`install-statusline`).
 
 Details zu jedem Tool stehen in [README.md](README.md).
 

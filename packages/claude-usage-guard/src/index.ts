@@ -4,7 +4,10 @@ export { scanTranscripts, summarize, weightedTokens, contextSize, modelFactor, m
 export type { UsageRecord, ToolCallRecord, TranscriptScan, ScanOptions, GroupBy, UsageGroup } from "./transcripts.js";
 export { maskEmail, readAccount, readClaudeJson, readPlanUtilization } from "./account.js";
 export type { AccountInfo, PlanUtilization, PlanWindow } from "./account.js";
-export { readSnapshots, recordSnapshot, snapshotFile, toSnapshot } from "./snapshots.js";
+export { readSnapshots, recordSnapshot, sameReset, snapshotFile, toSnapshot } from "./snapshots.js";
+export { recordLiveReading, snapshotFromRateLimits } from "./live.js";
+export { alarmMessage, alarmStateFile, checkForeignUsage, notifyDesktop, readAlarmState } from "./alarm.js";
+export type { AlarmLang, AlarmResult, AlarmState } from "./alarm.js";
 export type { UsageSnapshot } from "./snapshots.js";
 export { listLiveSessions, parseWho, remoteLogins } from "./signals.js";
 export type { LiveSession, RemoteLogin } from "./signals.js";
@@ -12,4 +15,10 @@ export { analyseIntervals, buildIntervals, detectForeignUsage, formatReport } fr
 export type { DetectionReport, DetectOptions, Signal, UsageInterval, Verdict } from "./detect.js";
 export { compact, formatUsageReport, usageReport } from "./report.js";
 export type { UsageReport } from "./report.js";
+export { calibrate, forecastWindow, formatForecast, planForecast, toPlanPct } from "./forecast.js";
+export type { Calibration, PlanForecast, WindowForecast } from "./forecast.js";
+export { backupFile, formatHookResult, installHooks, installStatusLine, uninstallStatusLine, listTaggedHooks, readHookInput, selfCommand, taggedCommand, uninstallHooks, writeJsonAtomic } from "./hooks.js";
+export type { HookChange, HookInstallResult, HookSpec } from "./hooks.js";
+export { HOOK_TAG, installUsageGuardHooks } from "./install.js";
+export { packageVersion } from "./version.js";
 export { registerTools } from "./server.js";

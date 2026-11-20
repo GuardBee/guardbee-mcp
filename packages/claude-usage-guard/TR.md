@@ -15,6 +15,8 @@ Planın 5 saatlik ve 7 günlük limitleri hesaba bağlı her şey tarafından pa
 | `detect_foreign_usage` | Bir plan okuması kaydeder, okumalar arasındaki sayaç artışını bu makinenin kullanımıyla karşılaştırır; sonuç: `insufficient-data`, `no-evidence`, `suspicious` veya `likely-other-usage`. |
 | `usage_report` | Yerel transcript'lerden bu makinenin Claude Code kullanımı; oturum, gün, proje, giriş noktası veya modele göre, her oturumun en büyük bağlamıyla. |
 | `account_status` | Claude Code'un hangi hesapla oturum açtığı ve son çektiği 5 saatlik / 7 günlük sayaçlar. |
+| `plan_forecast` | Güncel 5 saatlik / 7 günlük sayaçlar, harcama hızı (tüm cihazları kapsayan plan sayacından ya da kalibrasyondan sonra bu makinenin kullanımından) ve limitin sıfırlanmadan önce dolup dolmayacağı. |
+| `install_hooks` / `uninstall_hooks` | Plan okumalarını otomatik kaydeden ve yabancı kullanım alarmını veren (istenirse masaüstü bildirimiyle) Claude Code hook'larını ekler/kaldırır. Varsayılan dry run. |
 
 ## Tespit nasıl çalışır
 
@@ -28,13 +30,39 @@ Planın 5 saatlik ve 7 günlük limitleri hesaba bağlı her şey tarafından pa
 
 "Başka yerden gelen kullanım" mutlaka başka bir kişi demek değildir: kendi claude.ai, masaüstü veya mobil sohbetlerin de aynı limitleri kullanır. Rapor bunu belirtir.
 
-### Yeterli okuma toplamak
+### Yeterli okuma toplamak: hook'lar
 
-Tek okuma yetmez. Gün içinde `detect`'i birkaç kez çalıştır ya da snapshot komutunu zamanla:
+Tek okuma yetmez. Hook'ları bir kez kur; her Claude Code oturum başlangıcı ve tur sonu güncel okumayı kaydeder (fetch zamanına göre tekilleştirilir, sessizdir, oturumu asla engellemez):
 
 ```bash
-*/30 * * * * npx -y @guardbee/mcp-claude-usage-guard snapshot
+npx @guardbee/mcp-claude-usage-guard install-hooks          # değişikliği gösterir
+npx @guardbee/mcp-claude-usage-guard install-hooks --apply  # ~/.claude/settings.json'a yazar (önce yedekler)
+npx @guardbee/mcp-claude-usage-guard uninstall-hooks --apply
 ```
+
+Diğer hook'larına dokunulmaz; bizimkiler komuttaki `# guardbee:claude-usage-guard` etiketiyle bulunur. Claude Code önbellekteki sayaçları açılışta ve `/usage` açıldığında yeniler; yalnızca hook'larla okumalar dakikalık değil oturum başına gelir.
+
+**Her mesajda okuma.** Claude Code son yanıtın canlı sayaçlarını status line'a da verir. [`token-optimizer` status line'ı](https://github.com/GuardBee/guardbee-mcp/tree/main/packages/token-optimizer#status-line) bunları buraya kaydeder (yalnızca taze bir yanıttan sonra ve sayaç oynadıysa ya da on dakika geçtiyse); böylece okumalar oturum başına değil mesaj başına gelir.
+
+### Yabancı kullanım alarmı
+
+Hook'lar kuruluysa her yeni okuma hemen kontrol edilir. Bu makinenin açıklayamadığı bir kullanım dönemi ilk kez görüldüğünde oturumda bir mesaj çıkar (`--notify` ile macOS/Linux masaüstü bildirimi de):
+
+```
+🚨 GuardBee: Plan sayacı 20 Kas 09:10 – 20 Kas 11:00 arasında 8,0 puan arttı; bu makinedeki Claude Code o sırada boştaydı. Kullanım başka bir yerden geliyor: başka bir cihaz ya da kişi, veya senin claude.ai web/masaüstü/mobil sohbetlerin (aynı limiti paylaşır). …
+```
+
+Her dönem için bir kez uyarır; yeni okuma yoksa kontrol bedavadır, varsa ~0,2 sn sürer. Bu makinede hesap değişmesi de alarm verir.
+
+```bash
+npx @guardbee/mcp-claude-usage-guard install-hooks --lang tr --notify --apply
+```
+
+## Plan tahmini ve plan payı
+
+`plan_forecast` her pencereyi ileriye taşır: `5-hour: 62%, 18.0 pt/hour ⚠️ bu hızla limit 14:20 UTC'de, sıfırlanmadan önce dolar`. Pencere sıfırlandıktan sonra kalan bayat okuma tahmin edilmez, bayat olarak raporlanır.
+
+Kalibrasyondan sonra `usage_report` bir **5h plan** sütunu ekler: her oturumun (gün, proje, model) tam bir 5 saatlik limitin ne kadarını harcadığı.
 
 ## Kurulum
 

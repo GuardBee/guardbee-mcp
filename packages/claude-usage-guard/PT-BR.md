@@ -30,7 +30,9 @@ Claude Desktop:
 
 ## Ferramentas MCP
 
-`detect_foreign_usage`, `usage_report`, `account_status`
+`detect_foreign_usage`, `usage_report`, `account_status`, `plan_forecast`, `install_hooks`, `uninstall_hooks`
+
+Novidade: com os hooks instalados, um alarme avisa na hora sobre uso que esta máquina não explica (opcionalmente como notificação na área de trabalho com `--notify`).
 
 Os detalhes de cada ferramenta estão em [README.md](README.md).
 

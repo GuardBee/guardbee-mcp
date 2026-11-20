@@ -30,7 +30,9 @@ Claude Desktop:
 
 ## MCP-Tools
 
-`detect_foreign_usage`, `usage_report`, `account_status`
+`detect_foreign_usage`, `usage_report`, `account_status`, `plan_forecast`, `install_hooks`, `uninstall_hooks`
+
+Neu: Mit installierten Hooks meldet ein Alarm sofort Nutzung, die dieser Rechner nicht erklärt (optional als Desktop-Benachrichtigung mit `--notify`).
 
 Details zu jedem Tool stehen in [README.md](README.md).
 

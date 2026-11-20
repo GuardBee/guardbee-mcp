@@ -30,7 +30,9 @@ Claude Desktop:
 
 ## Ferramentas MCP
 
-`optimize_report`, `list_sessions`, `stop_sessions`, `audit_mcp_servers`, `disable_mcp_servers`, `restore_mcp_servers`
+`optimize_report`, `list_sessions`, `stop_sessions`, `audit_mcp_servers`, `disable_mcp_servers`, `restore_mcp_servers`, `measure_mcp_definitions`, `install_hooks`, `uninstall_hooks`, `install_statusline`, `uninstall_statusline`
+
+Novidades: aviso quando a saída de uma ferramenta é grande demais (hook PostToolUse) e uma linha de status com o tamanho do contexto, os medidores do plano, o tempo até o reset e o alarme de uso externo (`install-statusline`).
 
 Os detalhes de cada ferramenta estão em [README.md](README.md).
 
