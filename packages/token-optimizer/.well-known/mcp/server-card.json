@@ -97,6 +97,101 @@
           }
         }
       }
+    },
+    {
+      "name": "measure_mcp_definitions",
+      "description": "Measure the tokens each configured MCP server's tool definitions take.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "servers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "project": {
+            "type": "string"
+          },
+          "timeoutSeconds": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    {
+      "name": "install_hooks",
+      "description": "Add hooks that warn when a session's context passes a threshold and when one tool result adds a lot of context (dry run by default).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "threshold": {
+            "type": "number"
+          },
+          "lang": {
+            "type": "string",
+            "enum": [
+              "en",
+              "tr"
+            ]
+          },
+          "dryRun": {
+            "type": "boolean"
+          },
+          "toolThreshold": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    {
+      "name": "uninstall_hooks",
+      "description": "Remove the context-warning hooks (dry run by default).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "dryRun": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "name": "install_statusline",
+      "description": "Show context size, plan meters, time to reset, per-message plan cost and the foreign-usage alarm in Claude Code's status line (dry run by default).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "threshold": {
+            "type": "number"
+          },
+          "lang": {
+            "type": "string",
+            "enum": [
+              "en",
+              "tr"
+            ]
+          },
+          "force": {
+            "type": "boolean"
+          },
+          "dryRun": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "name": "uninstall_statusline",
+      "description": "Remove the status line install_statusline set (dry run by default).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "dryRun": {
+            "type": "boolean"
+          }
+        }
+      }
     }
   ]
 }

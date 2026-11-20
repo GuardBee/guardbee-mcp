@@ -30,7 +30,9 @@ Claude Desktop:
 
 ## MCP 도구
 
-`detect_foreign_usage`, `usage_report`, `account_status`
+`detect_foreign_usage`, `usage_report`, `account_status`, `plan_forecast`, `install_hooks`, `uninstall_hooks`
+
+새 기능: 훅을 설치하면 이 기기로 설명되지 않는 사용이 나타나는 즉시 알람을 띄웁니다(`--notify`로 데스크톱 알림도 가능).
 
 각 도구의 자세한 설명은 [README.md](README.md)에 있습니다.
 

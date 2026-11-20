@@ -30,7 +30,9 @@ Claude Desktop:
 
 ## MCP 도구
 
-`optimize_report`, `list_sessions`, `stop_sessions`, `audit_mcp_servers`, `disable_mcp_servers`, `restore_mcp_servers`
+`optimize_report`, `list_sessions`, `stop_sessions`, `audit_mcp_servers`, `disable_mcp_servers`, `restore_mcp_servers`, `measure_mcp_definitions`, `install_hooks`, `uninstall_hooks`, `install_statusline`, `uninstall_statusline`
+
+새 기능: 도구 출력이 너무 클 때 경고(PostToolUse 훅)와 컨텍스트 크기, 플랜 미터, 리셋까지 남은 시간, 외부 사용 알람을 보여 주는 상태 표시줄(`install-statusline`).
 
 각 도구의 자세한 설명은 [README.md](README.md)에 있습니다.
 

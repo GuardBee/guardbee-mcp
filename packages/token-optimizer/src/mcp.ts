@@ -1,6 +1,6 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync } from "fs";
 import { join } from "path";
-import { resolvePaths, scanTranscripts, type ClaudePaths } from "@guardbee/mcp-claude-usage-guard";
+import { backupFile, resolvePaths, scanTranscripts, writeJsonAtomic, type ClaudePaths } from "@guardbee/mcp-claude-usage-guard";
 
 export type McpScope = "user" | "local" | "project" | "plugin" | "external";
 
@@ -38,15 +38,16 @@ function readJson(path: string): Record<string, unknown> | undefined {
 const keysOf = (v: unknown) => (v && typeof v === "object" ? Object.keys(v as object) : []);
 const listOf = (v: unknown) => (Array.isArray(v) ? (v as unknown[]).map(String) : []);
 
-/** Plugins can bring hooks, skills or LSP servers instead; only those shipping an MCP server count here. */
-export function pluginHasMcp(paths: ClaudePaths, id: string): boolean {
+/** Where an installed plugin's files live, from Claude Code's installed_plugins.json. */
+export function pluginInstallPaths(paths: ClaudePaths, id: string): string[] {
   const installed = readJson(join(paths.claudeDir, "plugins", "installed_plugins.json"));
   const installs = ((installed?.plugins ?? {}) as Record<string, Array<{ installPath?: string }>>)[id] ?? [];
-  return installs.some(({ installPath }) => {
-    if (!installPath) return false;
-    if (existsSync(join(installPath, ".mcp.json"))) return true;
-    return !!readJson(join(installPath, ".claude-plugin", "plugin.json"))?.mcpServers;
-  });
+  return installs.map((i) => i.installPath).filter((p): p is string => !!p);
+}
+
+/** Plugins can bring hooks, skills or LSP servers instead; only those shipping an MCP server count here. */
+export function pluginHasMcp(paths: ClaudePaths, id: string): boolean {
+  return pluginInstallPaths(paths, id).some((root) => existsSync(join(root, ".mcp.json")) || !!readJson(join(root, ".claude-plugin", "plugin.json"))?.mcpServers);
 }
 
 /** Tool names carry a sanitised server name (mcp__<name>__tool), so names are compared that way. */
@@ -142,19 +143,9 @@ function readParked(paths: ClaudePaths): ParkedServer[] {
   }
 }
 
-/** Writes beside the target and renames, so a crash never leaves Claude Code with half a config. */
-function writeJsonAtomic(path: string, value: unknown): void {
-  const tmp = `${path}.guardbee-${process.pid}.tmp`;
-  writeFileSync(tmp, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
-  renameSync(tmp, path);
-}
 
 function backup(paths: ClaudePaths, file: string): string {
-  const dir = join(optimizerDir(paths), "backups");
-  mkdirSync(dir, { recursive: true });
-  const target = join(dir, `${file.split(/[\\/]/).pop()}.${Date.now()}`);
-  copyFileSync(file, target);
-  return target;
+  return backupFile(file, join(optimizerDir(paths), "backups"));
 }
 
 export interface ToggleRequest {

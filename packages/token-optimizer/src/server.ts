@@ -1,10 +1,15 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { instrumentServer } from "@guardbee/mcp-telemetry";
-import { compact } from "@guardbee/mcp-claude-usage-guard";
+import { compact, formatHookResult, listTaggedHooks, uninstallHooks, uninstallStatusLine } from "@guardbee/mcp-claude-usage-guard";
 import { z } from "zod";
 import { auditMcpServers, disableMcpServers, listParked, restoreMcpServers, type McpServerEntry, type ToggleResult } from "./mcp.js";
 import { formatRecommendations, optimizationReport } from "./optimize.js";
+import { configuredServers, formatDefinitionCosts, measureDefinitions, saveDefinitionCosts } from "./mcp-defs.js";
+import { CONTEXT_HOOK_TAG, DEFAULT_THRESHOLD, installContextHooks } from "./context-hook.js";
+import { STATUSLINE_TAG, installStatusLineCommand } from "./statusline.js";
+import { DEFAULT_TOOL_THRESHOLD } from "./tool-output.js";
+import { packageVersion } from "./version.js";
 import { listSessions, stopSessions, type SessionInfo, type StopResult } from "./sessions.js";
 
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }] });
@@ -68,7 +73,7 @@ const toggleShape = z.object({
 
 export async function startServer() {
   serveStdio(() => {
-    const server = new McpServer({ name: "guardbee-token-optimizer", version: "0.1.0" });
+    const server = new McpServer({ name: "guardbee-token-optimizer", version: packageVersion() });
     instrumentServer(server, "token-optimizer");
     registerTools(server);
     return server;
@@ -137,6 +142,78 @@ export function registerTools(server: McpServer): void {
       inputSchema: toggleShape,
     },
     async ({ servers, dryRun }) => text(formatToggle(disableMcpServers(servers, { dryRun }), dryRun !== false))
+  );
+
+  server.registerTool(
+    "measure_mcp_definitions",
+    {
+      description:
+        "Start each configured MCP server the way Claude Code does, list its tools, and measure how many tokens their names, descriptions and input schemas take. Runs the servers' configured commands; results are stored for optimize_report.",
+      inputSchema: z.object({
+        servers: z.array(z.string()).optional().describe("Only these server names (default: every enabled server)"),
+        project: z.string().optional().describe("Only this project's local/.mcp.json servers, plus user and plugin servers"),
+        timeoutSeconds: z.number().min(2).max(120).optional().describe("Per server (default 20)"),
+      }),
+    },
+    async ({ servers, project, timeoutSeconds }) => {
+      let targets = configuredServers({ project }).filter((s) => !s.disabled);
+      if (servers?.length) targets = targets.filter((s) => servers.includes(s.name));
+      const costs = await measureDefinitions(targets, (timeoutSeconds ?? 20) * 1000);
+      saveDefinitionCosts(costs);
+      return text(formatDefinitionCosts(costs));
+    }
+  );
+
+  server.registerTool(
+    "install_hooks",
+    {
+      description: `Add a Claude Code hook (UserPromptSubmit, and SessionStart on resume) that warns you when a session's context passes a threshold (default ${DEFAULT_THRESHOLD}), then again every further 100k, with the per-message plan cost when calibrated, plus a PostToolUse hook that warns when one tool result adds a lot of context. Leaves other hooks untouched; backs up settings.json. Dry run by default.`,
+      inputSchema: z.object({
+        threshold: z.number().min(20_000).optional(),
+        toolThreshold: z.number().min(1_000).optional().describe(`Tokens one tool result must add before PostToolUse warns (default ${DEFAULT_TOOL_THRESHOLD})`),
+        lang: z.enum(["en", "tr"]).optional().describe("Warning language (default en)"),
+        dryRun: z.boolean().optional().describe("Default true"),
+      }),
+    },
+    async ({ threshold, toolThreshold, lang, dryRun }) =>
+      text(formatHookResult(installContextHooks({ apply: dryRun === false, scriptPath: process.argv[1], version: packageVersion(), threshold, toolThreshold, lang })))
+  );
+
+  server.registerTool(
+    "install_statusline",
+    {
+      description:
+        "Set Claude Code's status line to show context size, the 5-hour and 7-day plan meters with time to reset, the plan cost per message, a warning when the pace reaches the limit before the reset, and the foreign-usage alarm. It also stores each fresh plan reading for claude-usage-guard. Keeps an existing status line unless force. Dry run by default.",
+      inputSchema: z.object({
+        threshold: z.number().min(20_000).optional().describe("Context size that turns the context yellow (red at twice it)"),
+        lang: z.enum(["en", "tr"]).optional(),
+        force: z.boolean().optional().describe("Replace a status line someone else set"),
+        dryRun: z.boolean().optional().describe("Default true"),
+      }),
+    },
+    async ({ threshold, lang, force, dryRun }) =>
+      text(formatHookResult(installStatusLineCommand({ apply: dryRun === false, force, scriptPath: process.argv[1], version: packageVersion(), threshold, lang })))
+  );
+
+  server.registerTool(
+    "uninstall_statusline",
+    {
+      description: "Remove the status line install_statusline set, and only that one. Dry run by default.",
+      inputSchema: z.object({ dryRun: z.boolean().optional().describe("Default true") }),
+    },
+    async ({ dryRun }) => text(formatHookResult(uninstallStatusLine(STATUSLINE_TAG, { apply: dryRun === false })))
+  );
+
+  server.registerTool(
+    "uninstall_hooks",
+    {
+      description: "Remove the context-warning hooks install_hooks added, and nothing else. Dry run by default.",
+      inputSchema: z.object({ dryRun: z.boolean().optional().describe("Default true") }),
+    },
+    async ({ dryRun }) => {
+      if (!listTaggedHooks(CONTEXT_HOOK_TAG).length) return text("No token-optimizer hooks installed.");
+      return text(formatHookResult(uninstallHooks(CONTEXT_HOOK_TAG, { apply: dryRun === false })));
+    }
   );
 
   server.registerTool(

@@ -46,6 +46,48 @@
         "type": "object",
         "properties": {}
       }
+    },
+    {
+      "name": "plan_forecast",
+      "description": "Current 5-hour / 7-day meters, pace, and whether the limit is hit before it resets.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "install_hooks",
+      "description": "Add Claude Code hooks that record plan readings automatically and alarm on usage this machine does not explain (dry run by default).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "dryRun": {
+            "type": "boolean"
+          },
+          "lang": {
+            "type": "string",
+            "enum": [
+              "en",
+              "tr"
+            ]
+          },
+          "notify": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "name": "uninstall_hooks",
+      "description": "Remove the hooks install_hooks added (dry run by default).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "dryRun": {
+            "type": "boolean"
+          }
+        }
+      }
     }
   ]
 }

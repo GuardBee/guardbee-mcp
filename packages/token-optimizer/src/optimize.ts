@@ -1,5 +1,6 @@
 import { compact, scanTranscripts, summarize, weightedTokens, type ClaudePaths } from "@guardbee/mcp-claude-usage-guard";
 import { auditMcpServers, type McpServerEntry } from "./mcp.js";
+import { readDefinitionCosts, type DefinitionCost } from "./mcp-defs.js";
 import { listSessions, type SessionInfo } from "./sessions.js";
 
 export interface Recommendation {
@@ -18,6 +19,8 @@ export interface OptimizeOptions {
   contextThreshold?: number;
   sessions?: SessionInfo[];
   mcpServers?: McpServerEntry[];
+  /** Earlier measure_mcp_definitions results (default: the stored ones) */
+  definitionCosts?: DefinitionCost[];
 }
 
 // Roughly four characters of tool output per token
@@ -111,6 +114,19 @@ export function optimizationReport(options: OptimizeOptions = {}): Recommendatio
       title: `MCP server ${s.name} produced ${((100 * s.resultChars) / totalChars).toFixed(0)}% of all tool output`,
       detail: `~${compact(s.resultChars / CHARS_PER_TOKEN)} tokens over ${s.calls} calls. Narrower queries, pagination or a summary tool would shrink it.`,
       action: s.toggleable ? "Ask for smaller results, or disable it when not needed" : "Turn it off where it was added (claude.ai connectors, browser extension) when not needed",
+    });
+  }
+
+  // Measured tool definitions: heavy servers that are rarely called are the cheapest win
+  const costs = (options.definitionCosts ?? readDefinitionCosts(options.paths)).filter((c) => c.ok && c.tokens >= 5_000 && now - c.measuredAt < 30 * 86_400_000);
+  for (const c of costs) {
+    const usageOf = servers.find((s) => s.name === c.name || c.name.startsWith(`${s.name}/`));
+    const unusedToo = usageOf ? usageOf.calls === 0 : false;
+    recs.push({
+      impact: unusedToo || c.tokens >= 20_000 ? "high" : "medium",
+      title: `MCP server ${c.name} defines ~${compact(c.tokens)} tokens of tools${unusedToo ? " and was not used" : ""}`,
+      detail: `${c.tools} tools${c.largest.length ? `, largest ${c.largest.map((t) => `${t.name} ~${compact(t.tokens)}`).join(", ")}` : ""}. When loaded up front, that is in every session's context.`,
+      action: unusedToo ? "disable_mcp_servers (dry run first)" : "Disable it in projects that do not need it, or ask its author to trim descriptions and schemas",
     });
   }
 
