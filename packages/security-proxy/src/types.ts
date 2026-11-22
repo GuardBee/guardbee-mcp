@@ -27,7 +27,15 @@ export type HttpUpstreamConfig = {
   protocol?: UpstreamProtocol;
   /** Whose credential the gateway presents: static (headers), token-exchange or oauth-per-user (gateway/upstream-auth.ts). */
   auth?: UpstreamAuth;
+  /**
+   * `streamable-http` (default) or `sse`: the legacy HTTP+SSE transport of the
+   * 2024-11-05 revision, still served by many older servers. An SSE upstream
+   * speaks the 2025-11-25 handshake; 2026-07-28 needs Streamable HTTP.
+   */
+  transport?: HttpTransport;
 };
+
+export type HttpTransport = "streamable-http" | "sse";
 
 /**
  * `auto`: ask the server for 2026-07-28 (server/discover) and fall back to the

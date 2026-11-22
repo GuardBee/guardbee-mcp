@@ -45,7 +45,7 @@ export interface SecurityReport {
   topTools: { tool: string; blocked: number }[];
   /**
    * MCP servers the latest `guardbee-proxy init` before the period's end left
-   * outside the proxy (SSE, disabled, below --min-grade): calls to them bypass
+   * outside the proxy (disabled, below --min-grade): calls to them bypass
    * the policy and are not in this log. Absent when there are none.
    */
   unprotected?: { server: string; reason: string; since: string }[];

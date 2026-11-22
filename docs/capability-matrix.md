@@ -8,15 +8,16 @@ Risk ids follow the official lists: [OWASP Top 10 for LLM Applications 2025](htt
 
 The proxy is the runtime control point. A server it does not sit in front of is not protected.
 
-| | stdio upstream | Streamable HTTP upstream | Legacy SSE upstream |
+| | stdio upstream | Streamable HTTP upstream | Legacy SSE upstream (`transport: sse`) |
 |---|---|---|---|
-| Moved behind the proxy by `guardbee-proxy init` | Yes | Yes (`url` + `headers`) | **No.** Left in the client config and reported |
-| Injection, PII, secrets, tool poisoning, toxic flows, approvals, quotas, audit | Yes | Yes | **No** (the proxy does not speak SSE) |
-| Session and persistent tool pins (rug pull) | Yes | Yes | No |
+| Moved behind the proxy by `guardbee-proxy init` | Yes | Yes (`url` + `headers`) | Yes (`type: "sse"` or a `/sse` URL) |
+| Injection, PII, secrets, tool poisoning, toxic flows, approvals, quotas, audit | Yes | Yes | Yes |
+| Session and persistent tool pins (rug pull) | Yes | Yes | Yes |
 | Build provenance (npm, PyPI, OCI) | Yes (`npx`, `pnpm dlx`, `bunx`, `uvx`, `docker run`, `podman run`) | No (nothing is installed) | No |
 | Sandbox | Yes | No (the server runs elsewhere) | No |
-| Network egress rules (host allowlist, private ranges, cloud metadata) | Through the sandbox's `network: allowlist` | Yes (`upstreams.<name>.network`) | No |
-| Per-user upstream credentials (token exchange, OAuth per user) | No | Yes | No |
+| Network egress rules (host allowlist, private ranges, cloud metadata) | Through the sandbox's `network: allowlist` | Yes (`upstreams.<name>.network`) | Yes |
+| Per-user upstream credentials (token exchange, OAuth per user) | No | Yes | Yes |
+| MCP revision | 2025-11-25 and 2026-07-28 | 2025-11-25 and 2026-07-28 | 2025-11-25 |
 
 | How the agent reaches the proxy | stdio (default) | Streamable HTTP (`listen.transport: http`) |
 |---|---|---|
@@ -105,7 +106,7 @@ The OWASP MCP Top 10 column is the mapping [`mcp-owasp-scan`](../packages/owasp-
 
 ## Not covered
 
-- Legacy SSE servers (see above), and any server or agent that connects without the proxy.
+- Any server or agent that connects without the proxy. Agents reach the proxy over stdio or Streamable HTTP, not SSE.
 - Content safety and harm categories ([#232](https://github.com/GuardBee/guardbee-mcp/issues/232)) and grounding / hallucination checks ([#233](https://github.com/GuardBee/guardbee-mcp/issues/233)).
 - An immutable audit store: the hash chain makes tampering visible; storage that cannot be rewritten is yours to provide (see the proxy README, [Default security profile](../packages/security-proxy/README.md#default-security-profile)).
 - The LLM gateway does not cover the Realtime WebSocket API; images, PDFs and audio are inspected only with `llm.documents` turned on.

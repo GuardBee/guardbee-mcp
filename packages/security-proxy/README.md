@@ -91,7 +91,7 @@ Rules alone are precise but miss most paraphrased attacks: turn the classifier o
 | Coding-agent hook error (bad config, crash) | fail-open: the agent's tool runs | a broken hook never stops the agent | `guardbee-hook install --fail-closed` |
 | Tools no rule names | `defaults.action: allow` | rules list what to stop | `approve` or `block` with `allow` rules for read-only tools |
 | Tool definition changed | persisted pins, `onChange: approve` (the person decides) | an update is often legitimate | `onChange: block`, re-approve with `pins approve` |
-| Legacy SSE servers | left in the client config, reported by `init` | the proxy speaks Streamable HTTP only | move them to `/mcp`, or remove them |
+| Legacy SSE servers | moved behind the proxy by `init` (`transport: sse`), full policy | older servers still serve SSE only | move them to their Streamable HTTP `/mcp` endpoint when they have one |
 | Sandbox | off; `network: open` once a sandbox is set | servers need their usual files | `init --sandbox`, `network: none` or `allowlist` |
 | HTTP listener | `127.0.0.1`; any other host needs API keys or OIDC (enforced) | – | OIDC with groups, TLS at the load balancer |
 | Audit payloads | hashes of arguments, no results | the log should not become a copy of the data | keep `includePayloads: false` |
@@ -119,7 +119,7 @@ The gateway only protects calls that go through it. These are the ways around it
 
 | Bypass | How it shows up | How to close it |
 |---|---|---|
-| A server left in the client config by `init` (legacy SSE, disabled) | `init` writes it to the audit log (`ruleId: bypass:unprotected`); `guardbee-proxy report` lists the latest run's servers under *MCP servers outside the proxy* until an `init` run leaves nothing out | move the server to its Streamable HTTP endpoint (often `/mcp`) and run `init --force` again, or remove it |
+| A server left in the client config by `init` (disabled, below `--min-grade`) | `init` writes it to the audit log (`ruleId: bypass:unprotected`); `guardbee-proxy report` lists the latest run's servers under *MCP servers outside the proxy* until an `init` run leaves nothing out | enable it in the client config and run `init --force` again, or remove it |
 | A server added next to the gateway later, by hand or by a tool's installer | `npx @guardbee/mcp-config-auditor scan <client config>` reports `proxy_bypass` (high, MCP09); `discover --allowlist` across machines ([FLEET.md](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/mcp-config-auditor/FLEET.md)) | run the scan in CI or from MDM; keep the allowlist to the gateway entry only |
 | Someone calls a remote upstream directly, without the gateway | nothing the gateway can see | give the upstream credential only to the gateway: `upstreams.<name>.auth` token exchange or per-user OAuth (the caller's own token is never forwarded; tested), or a static header kept in `guardbee-proxy.yaml` (mode 0600), not in client configs; reach the upstream only from the gateway's network (firewall, Kubernetes NetworkPolicy, the upstream's IP allowlist) |
 | A stdio server reaches the network itself | `network:*` audit events with `network: allowlist` | `sandbox.network: none` or `allowlist` |
@@ -148,7 +148,7 @@ Put every MCP server behind one proxy with a `guardbee-proxy.yaml`. `init` does 
 npx -y @guardbee/mcp-security-proxy@^1 init --client claude-desktop   # or cursor, claude-code, --file ./mcp.json
 ```
 
-It moves each stdio server into `~/.guardbee/guardbee-proxy.yaml` (mode 0600), backs up the client config and points it at the proxy. Streamable HTTP servers (`url`, with their `headers`) move too; legacy SSE servers stay in the client config and are reported, because the proxy does not speak SSE and they would bypass the policy. `--dry-run` prints both files without writing. Or by hand:
+It moves each stdio server into `~/.guardbee/guardbee-proxy.yaml` (mode 0600), backs up the client config and points it at the proxy. Streamable HTTP servers (`url`, with their `headers`) move too, and so do legacy SSE servers (`type: "sse"`, or a URL ending in `/sse`), with `transport: sse`. `--dry-run` prints both files without writing. Or by hand:
 
 ```json
 {
@@ -562,7 +562,15 @@ The proxy speaks MCP **2026-07-28** and **2025-11-25** (and the 2025 revisions b
     stateKeyEnv: GUARDBEE_STATE_KEY   # at least 32 bytes; default: a random key per process
   ```
 - **Sampling.** A 2026-07-28 client cannot be asked for a completion in the middle of another server's call, so with such a client servers' sampling requests are refused (`sampling:unavailable`). A 2026-07-28 *server* that asks for sampling during a call is still handled as before when the agent is on 2025-11-25.
-- **No SSE.** The proxy connects to and serves Streamable HTTP only. `guardbee-proxy init` leaves SSE servers out and points at the `/mcp` endpoint most of them now serve instead of `/sse`.
+- **Legacy SSE upstreams.** A server that only serves the older HTTP+SSE transport goes behind the proxy with `transport: sse`; it gets the same policy, headers, `auth` and `network` rules as a Streamable HTTP upstream (the egress rules guard the stream and the message endpoint the server names). It is spoken to with the 2025-11-25 handshake; `protocol: 2026-07-28` needs Streamable HTTP. The proxy itself serves agents over stdio and Streamable HTTP only.
+
+  ```yaml
+  upstreams:
+    legacy:
+      url: https://mcp.example.com/sse
+      transport: sse          # default: streamable-http
+      headers: { Authorization: "Bearer ${LEGACY_TOKEN}" }
+  ```
 
 ## LLM API Gateway
 

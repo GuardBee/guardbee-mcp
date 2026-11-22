@@ -1,4 +1,4 @@
-import { Client, ProtocolError, ProtocolErrorCode, StreamableHTTPClientTransport, type VersionNegotiationOptions } from "@modelcontextprotocol/client";
+import { Client, ProtocolError, ProtocolErrorCode, SSEClientTransport, StreamableHTTPClientTransport, type VersionNegotiationOptions } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import type {
   CallToolResult,
@@ -180,6 +180,11 @@ export async function upstreamEgressPolicy(server: HttpUpstreamConfig, resolve =
   return { mode, allowHosts, blockPrivate: !onPrivateNetwork };
 }
 
+/** A legacy SSE server predates server/discover: it gets the 2025-11-25 handshake unless `protocol` says otherwise. */
+export function httpProtocol(server: HttpUpstreamConfig): UpstreamProtocol {
+  return server.protocol ?? (server.transport === "sse" ? "2025-11-25" : "auto");
+}
+
 export async function connectHttpUpstream(name: string, server: HttpUpstreamConfig, options: ConnectOptions & { fetch?: (url: string | URL, init?: RequestInit) => Promise<Response> } = {}): Promise<Upstream> {
   const policy = await upstreamEgressPolicy(server);
   const policyFetch = guardedFetch(policy, options.onEgressBlocked ? { onBlocked: options.onEgressBlocked } : {});
@@ -190,11 +195,16 @@ export async function connectHttpUpstream(name: string, server: HttpUpstreamConf
       ...(options.sampling !== undefined ? { sampling: options.sampling } : {}),
     });
   }
-  const { client, toolListeners } = proxyClient(options.sampling ?? false, server.protocol);
-  const transport = new StreamableHTTPClientTransport(new URL(server.url), {
+  const { client, toolListeners } = proxyClient(options.sampling ?? false, httpProtocol(server));
+  const transportOptions = {
     requestInit: server.headers ? { headers: server.headers } : undefined,
     fetch: options.fetch ?? policyFetch,
-  });
+  };
+  // The same egress policy guards both: the SSE stream and the endpoint the server names for POSTs
+  const transport =
+    server.transport === "sse"
+      ? new SSEClientTransport(new URL(server.url), transportOptions)
+      : new StreamableHTTPClientTransport(new URL(server.url), transportOptions);
   await client.connect(transport);
   return clientUpstream(name, client, { ...options, toolListeners });
 }

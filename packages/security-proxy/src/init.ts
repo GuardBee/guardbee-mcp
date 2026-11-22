@@ -89,7 +89,7 @@ function stringRecord(value: unknown): Record<string, string> | undefined {
 
 /**
  * Work out the migration without touching the disk. stdio and Streamable HTTP
- * servers move into the YAML; SSE servers, disabled entries and an existing
+ * servers and legacy SSE servers move into the YAML; disabled entries and an existing
  * proxy entry stay.
  */
 /** The sandbox runtime `init --sandbox` uses when none is named: the one this OS has built in, else a container. */
@@ -153,20 +153,15 @@ export function planInit(clientConfigText: string, yamlPath: string, auditPath: 
       kept.push({ name: key, reason: "disabled" });
     } else if (typeof entry["command"] !== "string") {
       const url = typeof entry["url"] === "string" ? entry["url"] : typeof entry["serverUrl"] === "string" ? entry["serverUrl"] : undefined;
-      if (!url || entry["type"] === "sse") {
+      if (!url) {
         remaining[key] = value;
-        kept.push({
-          name: key,
-          reason: url
-            ? `SSE server: the proxy speaks Streamable HTTP only, so this one bypasses the policy${
-                /\/sse\/?(?:[?#]|$)/.test(url) ? "; many servers (Cloudflare's among them) now serve it at /mcp instead of /sse" : ""
-              }`
-            : "no command or url",
-        });
+        kept.push({ name: key, reason: "no command or url" });
       } else if (admit(key, undefined, undefined, url)) {
         const name = upstreamName(key, taken);
         const headers = stringRecord(entry["headers"]);
-        upstreams[name] = { url, ...(headers ? { headers } : {}) };
+        // type: "sse" (Claude Code, VS Code, Cline), or a bare URL ending in /sse (Cursor, Claude Desktop connectors)
+        const sse = entry["type"] === "sse" || entry["transportType"] === "sse" || (entry["type"] === undefined && /\/sse\/?(?:[?#]|$)/.test(url));
+        upstreams[name] = { url, ...(headers ? { headers } : {}), ...(sse ? { transport: "sse" as const } : {}) };
         migrated[key] = name;
       }
     } else if (admit(key, entry["command"], Array.isArray(entry["args"]) ? entry["args"].map(String) : undefined, undefined)) {

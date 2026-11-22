@@ -6,7 +6,7 @@ import { checkTopicReferences, judgeConfigIssue, policyShape, type TopicDefiniti
 import type { UpstreamAuth } from "./upstream-auth.js";
 import { loadProxyConfig } from "../config.js";
 import os from "os";
-import type { AuditConfig, McpServerConfig, ProxyConfig, UpstreamConfig, UpstreamNetworkConfig, UpstreamProtocol } from "../types.js";
+import type { AuditConfig, HttpTransport, McpServerConfig, ProxyConfig, UpstreamConfig, UpstreamNetworkConfig, UpstreamProtocol } from "../types.js";
 import type { ExporterConfig } from "../audit/exporters.js";
 import type { Label } from "./labels.js";
 import type { PolicyAction, PolicyRule } from "./policy.js";
@@ -205,6 +205,7 @@ const upstreamSchema = z
       ])
       .optional(),
     protocol: z.enum(["auto", "2025-11-25", "2026-07-28"]).optional(),
+    transport: z.enum(["streamable-http", "sse"]).optional(),
     network: z
       .object({
         mode: z.enum(["open", "allowlist"]).optional(),
@@ -229,6 +230,12 @@ const upstreamSchema = z
     }
     if (stdio && value.network !== undefined) {
       ctx.addIssue({ code: "custom", path: ["network"], message: "network rules apply to HTTP upstreams (url); for a stdio server use sandbox.network" });
+    }
+    if (value.transport !== undefined && value.url === undefined) {
+      ctx.addIssue({ code: "custom", path: ["transport"], message: "transport applies to HTTP upstreams (url)" });
+    }
+    if (value.transport === "sse" && value.protocol === "2026-07-28") {
+      ctx.addIssue({ code: "custom", path: ["protocol"], message: "an SSE upstream speaks 2025-11-25: 2026-07-28 needs transport: streamable-http" });
     }
     if (stdio && value.auth !== undefined) ctx.addIssue({ code: "custom", path: ["auth"], message: "auth applies to HTTP upstreams (url): a stdio server gets its credentials through env" });
     if (value.auth && value.auth.mode !== "static" && Object.keys(value.headers ?? {}).some((h) => h.toLowerCase() === "authorization")) {
@@ -617,14 +624,14 @@ function resolveUpstreamAuth(name: string, auth: AuthInput | undefined): Upstrea
 
 function interpolateUpstream(
   name: string,
-  upstream: { command?: string; args?: string[]; env?: Record<string, string>; provenance?: McpServerConfig["provenance"]; sandbox?: McpServerConfig["sandbox"]; url?: string; headers?: Record<string, string>; network?: UpstreamNetworkConfig; protocol?: UpstreamProtocol; auth?: AuthInput },
+  upstream: { command?: string; args?: string[]; env?: Record<string, string>; provenance?: McpServerConfig["provenance"]; sandbox?: McpServerConfig["sandbox"]; url?: string; headers?: Record<string, string>; network?: UpstreamNetworkConfig; protocol?: UpstreamProtocol; transport?: HttpTransport; auth?: AuthInput },
 ): UpstreamConfig {
   const where = `upstreams.${name}`;
   const protocol = upstream.protocol ? { protocol: upstream.protocol } : {};
   if (upstream.url !== undefined) {
     const headers = interpolateRecord(upstream.headers, where);
     const auth = resolveUpstreamAuth(name, upstream.auth);
-    return { url: interpolate(upstream.url, where), ...(headers ? { headers } : {}), ...(upstream.network ? { network: upstream.network } : {}), ...protocol, ...(auth ? { auth } : {}) };
+    return { url: interpolate(upstream.url, where), ...(headers ? { headers } : {}), ...(upstream.network ? { network: upstream.network } : {}), ...protocol, ...(upstream.transport ? { transport: upstream.transport } : {}), ...(auth ? { auth } : {}) };
   }
   return {
     command: interpolate(upstream.command!, where),

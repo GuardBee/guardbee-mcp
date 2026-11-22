@@ -71,7 +71,7 @@ npm install -g @guardbee/mcp-security-proxy
 npx -y @guardbee/mcp-security-proxy@^1 init --client claude-desktop   # 或 cursor、claude-code、--file ./mcp.json
 ```
 
-它会把每个 stdio 服务器移入 `~/.guardbee/guardbee-proxy.yaml`（权限 0600），备份客户端配置，并把配置指向代理。Streamable HTTP 服务器（`url` 及其 `headers`）也会被迁移；旧的 SSE 服务器保留在客户端配置中并会被报告，因为代理不支持 SSE，它们会绕过策略。`--dry-run` 只打印两个文件而不写入。也可以手动配置：
+它会把每个 stdio 服务器移入 `~/.guardbee/guardbee-proxy.yaml`（权限 0600），备份客户端配置，并把配置指向代理。Streamable HTTP 服务器（`url` 及其 `headers`）也会被迁移；旧的 SSE 服务器（`type: "sse"` 或以 `/sse` 结尾的 URL）也会以 `transport: sse` 迁移。`--dry-run` 只打印两个文件而不写入。也可以手动配置：
 
 ```json
 {
@@ -225,7 +225,7 @@ docker run -p 8787:8787 -e GUARDBEE_PROXY_KEY=... -e GUARDBEE_API_KEY=... \
 - **取代会话的机制（HTTP，2026-07-28）。** 污点、PII 令牌、工具固定和异常计数按**用户与上下文**保存：用户来自 OIDC 令牌（使用 API key 的调用者视为同一用户），上下文来自可选的 `X-GuardBee-Context` 请求头（1–128 个字母、数字、`.`、`_`、`:`、`-`，例如每个对话一个值）。没有该请求头时，同一用户的调用共享一个上下文（偏向拦截）。上下文在 `listen.contextIdleSeconds`（默认 1800）秒无请求后释放；会话与上下文总数受 `listen.maxSessions` 限制。发现请求和 `subscriptions/listen`（由 `Mcp-Method` 请求头识别）不占用上下文。
 - **审批。** 2026-07-28 服务器不能在调用中途向客户端发送 elicitation 请求。规则要求调用前审批时，代理以 `input_required` 回应；客户端显示表单并带着答复重发调用，之后调用才会到达服务器。答复放在签名的 `requestState` 中，绑定用户、工具和参数，无法伪造或用于其他调用。只能在服务器返回后进行的审批（结果上的主题规则）和采样审批，若 `approval.channels` 包含 dashboard 则交给它，否则拒绝。负载均衡后的多副本需共享密钥：`listen.stateKeyEnv`（至少 32 字节；默认每个进程随机）。
 - **采样。** 不能在其他服务器调用中途向 2026-07-28 客户端请求补全，因此此类客户端下服务器的采样请求会被拒绝（`sampling:unavailable`）。智能体为 2025-11-25 时，调用中请求采样的 2026-07-28 *服务器*照常处理。
-- **不支持 SSE。** 代理只连接和提供 Streamable HTTP。`guardbee-proxy init` 不迁移 SSE 服务器，并提示多数服务器现已用 `/mcp` 取代 `/sse`。
+- **旧版 SSE 上游。** 只提供旧 HTTP+SSE 传输的服务器可通过 `transport: sse` 放到代理之后，享有与 Streamable HTTP 上游相同的策略、headers、`auth` 和 `network` 规则。它使用 2025-11-25 握手；`protocol: 2026-07-28` 需要 Streamable HTTP。代理本身只通过 stdio 和 Streamable HTTP 为智能体提供服务。
 
 ## MCP 工具
 
