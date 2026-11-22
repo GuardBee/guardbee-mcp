@@ -88,7 +88,7 @@ Kurallar tek başına isabetlidir ama başka kelimelerle yazılmış saldırıla
 | Coding-agent hook hatası (bozuk config, çökme) | fail-open: ajanın tool'u çalışır | bozuk bir hook ajanı durdurmaz | `guardbee-hook install --fail-closed` |
 | Hiçbir kuralın adlandırmadığı tool'lar | `defaults.action: allow` | kurallar neyin durdurulacağını listeler | salt okunur tool'lar için `allow` kurallarıyla `approve` veya `block` |
 | Tool tanımı değişti | kalıcı pin'ler, `onChange: approve` (kişi karar verir) | güncelleme çoğu zaman meşrudur | `onChange: block`, `pins approve` ile yeniden onay |
-| Eski SSE sunucuları | istemci config'inde kalır, `init` raporlar | proxy yalnızca Streamable HTTP konuşur | `/mcp`'ye taşıyın ya da kaldırın |
+| Eski SSE sunucuları | `init` proxy'nin arkasına taşır (`transport: sse`), politikanın tamamı uygulanır | eski sunucuların bir kısmı hâlâ yalnızca SSE sunar | varsa Streamable HTTP `/mcp` uç noktasına geçirin |
 | Sandbox | kapalı; sandbox açılınca `network: open` | sunucuların alışık oldukları dosyalara ihtiyacı var | `init --sandbox`, `network: none` veya `allowlist` |
 | HTTP dinleyici | `127.0.0.1`; başka her host API anahtarı veya OIDC ister (zorunlu) | – | gruplarla OIDC, load balancer'da TLS |
 | Audit içeriği | argümanların hash'i, sonuç yok | log verinin bir kopyasına dönüşmemeli | `includePayloads: false` olarak bırakın |
@@ -116,7 +116,7 @@ Tüm MCP sunucularını bir `guardbee-proxy.yaml` ile tek proxy'nin arkasına ko
 npx -y @guardbee/mcp-security-proxy@^1 init --client claude-desktop   # veya cursor, claude-code, --file ./mcp.json
 ```
 
-Her stdio sunucusunu `~/.guardbee/guardbee-proxy.yaml` dosyasına (izin 0600) taşır, istemci config'inin yedeğini alır ve config'i proxy'ye yönlendirir. Streamable HTTP sunucuları (`url` ve `headers` ile) da taşınır; eski SSE sunucuları istemci config'inde kalır ve raporlanır, çünkü proxy SSE konuşmaz ve bu sunucular politikayı atlar. `--dry-run` iki dosyayı da yazmadan gösterir. Elle yapmak için:
+Her stdio sunucusunu `~/.guardbee/guardbee-proxy.yaml` dosyasına (izin 0600) taşır, istemci config'inin yedeğini alır ve config'i proxy'ye yönlendirir. Streamable HTTP sunucuları (`url` ve `headers` ile) da taşınır; eski SSE sunucuları (`type: "sse"` ya da `/sse` ile biten URL) da `transport: sse` ile taşınır. `--dry-run` iki dosyayı da yazmadan gösterir. Elle yapmak için:
 
 ```json
 {
@@ -352,7 +352,14 @@ Proxy her iki tarafta da MCP **2026-07-28** ve **2025-11-25** (ve ondan önceki 
 - **Oturumun yerine ne geçer (HTTP, 2026-07-28).** Taint, PII token'ları, tool pin'leri ve anomali sayaçları **kullanıcı ve bağlam** başına tutulur: kullanıcı OIDC token'dan (API key ile gelenler tek kullanıcı sayılır), bağlam isteğe bağlı `X-GuardBee-Context` header'ından (1–128 harf, rakam, `.`, `_`, `:`, `-`; örneğin ajan sohbeti başına bir değer) gelir. Header yoksa kullanıcının çağrıları tek bağlamı paylaşır; bu engellemeden yana hata yapar: bir sohbetin okuduğu veri, başka biri dışarı bir şey göndermeye çalıştığında da sayılır. Bağlam `listen.contextIdleSeconds` (varsayılan 1800) saniye istek gelmezse düşer; oturum ve bağlamların toplamını `listen.maxSessions` sınırlar. Keşif ve `subscriptions/listen` istekleri (`Mcp-Method` header'ından tanınır) bağlam almaz.
 - **Onaylar.** 2026-07-28 sunucusu çağrının ortasında istemciye elicitation isteği gönderemez. Bir kural çağrıdan önce onay istediğinde proxy çağrıyı `input_required` ile cevaplar; istemci formu gösterir, cevapla çağrıyı tekrar gönderir ve çağrı ancak o zaman sunucuya ulaşır. Cevap kullanıcıya, araca ve argümanların kendisine bağlı, imzalı bir `requestState` içinde taşınır; başka bir çağrıda kullanılamaz, uydurulamaz. Ancak sunucu cevap verdikten sonra sorulabilen onaylar (sonuçlardaki konu kuralları) ve sampling onayları `approval.channels`'ta dashboard varsa oraya gider, yoksa reddedilir. Yük dengeleyici arkasında her replikaya aynı anahtarı verin: `listen.stateKeyEnv: GUARDBEE_STATE_KEY` (en az 32 bayt; varsayılan: süreç başına rastgele).
 - **Sampling.** 2026-07-28 istemcisinden başka bir sunucunun çağrısının ortasında tamamlama istenemez; böyle bir istemciyle sunucuların sampling istekleri reddedilir (`sampling:unavailable`). Ajan 2025-11-25'teyken çağrı sırasında sampling isteyen bir 2026-07-28 *sunucusu* eskisi gibi karşılanır.
-- **SSE yok.** Proxy yalnızca Streamable HTTP'ye bağlanır ve onu sunar. `guardbee-proxy init` SSE sunucularını dışarıda bırakır ve çoğunun artık `/sse` yerine sunduğu `/mcp` uç noktasını gösterir.
+- **Eski SSE upstream'leri.** Yalnızca eski HTTP+SSE transport'unu sunan bir sunucu `transport: sse` ile proxy'nin arkasına girer; Streamable HTTP upstream'iyle aynı politika, header, `auth` ve `network` kuralları uygulanır (egress kuralları hem akışı hem sunucunun bildirdiği mesaj uç noktasını korur). 2025-11-25 el sıkışmasıyla konuşulur; `protocol: 2026-07-28` Streamable HTTP ister. Proxy'nin kendisi ajanlara yalnızca stdio ve Streamable HTTP sunar.
+
+  ```yaml
+  upstreams:
+    legacy:
+      url: https://mcp.example.com/sse
+      transport: sse          # varsayılan: streamable-http
+  ```
 
 ## LLM API Gateway
 
