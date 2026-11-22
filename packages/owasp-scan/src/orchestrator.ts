@@ -68,7 +68,7 @@ function bucketize(findings: NormalizedFinding[]): OwaspBucket[] {
   });
 }
 
-function buildReport(
+export function buildReport(
   mode: OwaspReport["mode"],
   label: string,
   findings: NormalizedFinding[],
@@ -108,7 +108,7 @@ export interface PathScanOptions {
   withContent?: boolean;
 }
 
-function pushNormalized(findings: NormalizedFinding[], items: Array<Parameters<typeof normalize>[0]>, source: string) {
+export function pushNormalized(findings: NormalizedFinding[], items: Array<Parameters<typeof normalize>[0]>, source: string) {
   for (const item of items) {
     const n = normalize(item, source);
     if (n) findings.push(n);
@@ -518,9 +518,8 @@ function runDiscover(allowlistPath?: string): NormalizedFinding[] {
   return out;
 }
 
-export function scanCatalogJson(raw: string, label = "catalog"): OwaspReport {
-  const start = Date.now();
-  const tools = parseToolsJson(raw);
+/** Toxic-flow and tool-poisoning findings for one tools/list catalog. */
+export function catalogFindings(tools: ReturnType<typeof parseToolsJson>, label = "catalog"): NormalizedFinding[] {
   const findings: NormalizedFinding[] = [];
 
   const toxic = auditCatalog(tools, label);
@@ -558,8 +557,13 @@ export function scanCatalogJson(raw: string, label = "catalog"): OwaspReport {
     })),
     "tool-poisoning"
   );
+  return findings;
+}
 
-  return buildReport("catalog", label, findings, start, { toolCount: tools.length });
+export function scanCatalogJson(raw: string, label = "catalog"): OwaspReport {
+  const start = Date.now();
+  const tools = parseToolsJson(raw);
+  return buildReport("catalog", label, catalogFindings(tools, label), start, { toolCount: tools.length });
 }
 
 export async function scanLive(target: ConnectionTarget, timeoutMs = 15000): Promise<OwaspReport> {

@@ -1,8 +1,11 @@
-export { scanPath, scanLive, scanCatalogJson, scanCatalogFile } from "./orchestrator.js";
+export { scanPath, scanLive, scanCatalogJson, scanCatalogFile, catalogFindings } from "./orchestrator.js";
+export { scanInstalled, DEFAULT_PIN_DIR } from "./installed.js";
+export type { InstalledScanOptions } from "./installed.js";
 export type { PathScanOptions } from "./orchestrator.js";
 export { gradeFromFindings } from "./grade.js";
 export { OWASP_TITLES, resolveOwasp } from "./owaspMap.js";
 export { connectAndListTools } from "./mcpClient.js";
+export type { LiveServerInfo, LiveTool } from "./mcpClient.js";
 export type {
   OwaspReport,
   OwaspBucket,
@@ -10,6 +13,7 @@ export type {
   NormalizedFinding,
   Grade,
   ConnectionTarget,
+  InstalledServer,
   FileCoverage,
   LanguageCoverage,
   ScanCoverage,

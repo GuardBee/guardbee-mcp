@@ -57,8 +57,24 @@ export interface ScanCoverage {
   files: FileCoverage[];
 }
 
+/** One server found in a client config during an `installed` scan, and what happened to it. */
+export interface InstalledServer {
+  /** Clients whose configs list this server (one entry per client, e.g. cursor, claude-code:/repo). */
+  clients: string[];
+  configPaths: string[];
+  name: string;
+  transport: "stdio" | "http";
+  /** scanned: tools/list was read; skipped: not contacted (disabled, or a local server without --run-stdio); error: contact failed. */
+  status: "scanned" | "skipped" | "error";
+  reason?: string;
+  toolCount?: number;
+  serverInfo?: { name: string; version: string };
+  /** Tool definitions changed since the pin stored on an earlier run. */
+  drift?: number;
+}
+
 export interface OwaspReport {
-  mode: "path" | "live" | "catalog";
+  mode: "path" | "live" | "catalog" | "installed";
   grade: Grade;
   score: number;
   scannedFiles?: number;
@@ -76,8 +92,17 @@ export interface OwaspReport {
    * category the path scan can cover was attempted.
    */
   notRun?: OwaspId[];
+  /** `installed` mode: every server found in the machine's client configs. */
+  servers?: InstalledServer[];
 }
 
 export type ConnectionTarget =
   | { type: "stdio"; command: string; args?: string[]; env?: Record<string, string>; cwd?: string }
-  | { type: "http"; url: string };
+  | {
+      type: "http";
+      url: string;
+      /** Headers from the client config (e.g. Authorization), sent on every request. */
+      headers?: Record<string, string>;
+      /** streamable (default for `live`), sse (legacy), or auto: Streamable HTTP first, then SSE. */
+      transport?: "streamable" | "sse" | "auto";
+    };
