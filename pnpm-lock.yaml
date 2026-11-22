@@ -452,6 +452,9 @@ importers:
       '@guardbee/mcp-prompt-injection-scanner':
         specifier: workspace:^
         version: link:../prompt-injection-scanner
+      '@guardbee/mcp-rug-pull-detector':
+        specifier: workspace:^
+        version: link:../rug-pull-detector
       '@guardbee/mcp-secret-scanner':
         specifier: workspace:^
         version: link:../secret-scanner

@@ -34,8 +34,14 @@ export function defaultHostConfigPaths(home: string = homedir(), os: NodeJS.Plat
     { client: "claude-code", path: join(home, ".claude.json") },
     { client: "windsurf", path: join(home, ".codeium", "windsurf", "mcp_config.json") },
     { client: "gemini-cli", path: join(home, ".gemini", "settings.json") },
+    { client: "codex", path: join(process.env.CODEX_HOME ?? join(home, ".codex"), "config.toml") },
+    { client: "kiro", path: join(home, ".kiro", "settings", "mcp.json") },
+    { client: "copilot-cli", path: join(home, ".copilot", "mcp-config.json") },
+    { client: "amazon-q", path: join(home, ".aws", "amazonq", "mcp.json") },
+    { client: "lm-studio", path: join(home, ".lmstudio", "mcp.json") },
   ];
   const cline = (codeUser: string) => join(codeUser, "globalStorage", "saoudrizwan.claude-dev", "settings", "cline_mcp_settings.json");
+  const roo = (codeUser: string) => join(codeUser, "globalStorage", "rooveterinaryinc.roo-cline", "settings", "mcp_settings.json");
 
   if (os === "darwin") {
     paths.push(
@@ -44,7 +50,9 @@ export function defaultHostConfigPaths(home: string = homedir(), os: NodeJS.Plat
       { client: "vscode-insiders", path: join(home, "Library", "Application Support", "Code - Insiders", "User", "mcp.json") },
       { client: "cursor-app", path: join(home, "Library", "Application Support", "Cursor", "User", "mcp.json") },
       { client: "cline", path: cline(join(home, "Library", "Application Support", "Code", "User")) },
-      { client: "zed", path: join(home, ".config", "zed", "settings.json") }
+      { client: "roo-code", path: roo(join(home, "Library", "Application Support", "Code", "User")) },
+      { client: "zed", path: join(home, ".config", "zed", "settings.json") },
+      { client: "opencode", path: join(home, ".config", "opencode", "opencode.json") }
     );
   } else if (os === "win32") {
     const appData = process.env.APPDATA ?? join(home, "AppData", "Roaming");
@@ -54,7 +62,9 @@ export function defaultHostConfigPaths(home: string = homedir(), os: NodeJS.Plat
       { client: "vscode-insiders", path: join(appData, "Code - Insiders", "User", "mcp.json") },
       { client: "cursor-app", path: join(appData, "Cursor", "User", "mcp.json") },
       { client: "cline", path: cline(join(appData, "Code", "User")) },
-      { client: "zed", path: join(appData, "Zed", "settings.json") }
+      { client: "roo-code", path: roo(join(appData, "Code", "User")) },
+      { client: "zed", path: join(appData, "Zed", "settings.json") },
+      { client: "opencode", path: join(home, ".config", "opencode", "opencode.json") }
     );
   } else {
     // linux / others
@@ -65,7 +75,9 @@ export function defaultHostConfigPaths(home: string = homedir(), os: NodeJS.Plat
       { client: "vscode-insiders", path: join(config, "Code - Insiders", "User", "mcp.json") },
       { client: "cursor-app", path: join(config, "Cursor", "User", "mcp.json") },
       { client: "cline", path: cline(join(config, "Code", "User")) },
-      { client: "zed", path: join(config, "zed", "settings.json") }
+      { client: "roo-code", path: roo(join(config, "Code", "User")) },
+      { client: "zed", path: join(config, "zed", "settings.json") },
+      { client: "opencode", path: join(config, "opencode", "opencode.json") }
     );
   }
 
@@ -73,7 +85,7 @@ export function defaultHostConfigPaths(home: string = homedir(), os: NodeJS.Plat
 }
 
 /** Clients whose file is a general settings file: no MCP servers in it is normal, not an error. */
-const SETTINGS_FILES = new Set(["claude-code", "gemini-cli", "zed"]);
+const SETTINGS_FILES = new Set(["claude-code", "gemini-cli", "zed", "codex", "opencode"]);
 
 /** JSON with comments and trailing commas (Zed, VS Code), made parseable; strings are left intact. */
 export function stripJsonc(text: string): string {
@@ -127,12 +139,190 @@ function zedServers(root: Record<string, unknown>): ParsedServer[] {
   });
 }
 
+function stringMap(value: unknown): Record<string, string> {
+  return Object.fromEntries(Object.entries(record(value) ?? {}).filter((e): e is [string, string] => typeof e[1] === "string"));
+}
+
+/** opencode's "mcp": { name: { type: "local", command: [cmd, ...args], environment } | { type: "remote", url, headers } }. */
+function opencodeServers(root: Record<string, unknown>): ParsedServer[] {
+  return Object.entries(record(root["mcp"]) ?? {}).flatMap(([name, value]) => {
+    const rec = record(value);
+    if (!rec) return [];
+    const command = Array.isArray(rec["command"]) ? rec["command"].filter((a): a is string => typeof a === "string") : [];
+    return [
+      {
+        name,
+        ...(command[0] ? { command: command[0] } : {}),
+        args: command.slice(1),
+        env: stringMap(rec["environment"]),
+        ...(typeof rec["url"] === "string" ? { url: rec["url"] } : {}),
+        headers: stringMap(rec["headers"]),
+        autoApprove: undefined,
+        ...(rec["enabled"] === false ? { disabled: true } : {}),
+      },
+    ];
+  });
+}
+
+/** One TOML value of the kinds Codex's MCP tables use: string, number, boolean, array of strings, inline table of strings. */
+function tomlValue(raw: string): unknown {
+  const text = raw.trim();
+  if (text.startsWith('"') || text.startsWith("'")) return tomlString(text).value;
+  if (text === "true" || text === "false") return text === "true";
+  if (/^-?\d+(\.\d+)?$/.test(text)) return Number(text);
+  if (text.startsWith("[")) return tomlItems(text.slice(1, text.lastIndexOf("]"))).map((item) => tomlValue(item));
+  if (text.startsWith("{")) {
+    const out: Record<string, unknown> = {};
+    for (const item of tomlItems(text.slice(1, text.lastIndexOf("}")))) {
+      const eq = item.indexOf("=");
+      if (eq > 0) out[tomlKey(item.slice(0, eq))] = tomlValue(item.slice(eq + 1));
+    }
+    return out;
+  }
+  return text;
+}
+
+function tomlString(text: string): { value: string; end: number } {
+  const quote = text[0]!;
+  let value = "";
+  let i = 1;
+  for (; i < text.length && text[i] !== quote; i++) {
+    if (quote === '"' && text[i] === "\\" && i + 1 < text.length) {
+      const next = text[++i]!;
+      value += next === "n" ? "\n" : next === "t" ? "\t" : next;
+    } else value += text[i];
+  }
+  return { value, end: i };
+}
+
+/** Split a TOML array or inline-table body on top-level commas. */
+function tomlItems(body: string): string[] {
+  const items: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i]!;
+    if (ch === '"' || ch === "'") i += tomlString(body.slice(i)).end;
+    else if (ch === "[" || ch === "{") depth++;
+    else if (ch === "]" || ch === "}") depth--;
+    else if (ch === "," && depth === 0) {
+      items.push(body.slice(start, i));
+      start = i + 1;
+    }
+  }
+  items.push(body.slice(start));
+  return items.map((item) => item.trim()).filter(Boolean);
+}
+
+function tomlKey(raw: string): string {
+  const key = raw.trim();
+  return key.startsWith('"') || key.startsWith("'") ? tomlString(key).value : key;
+}
+
+/** Split a dotted table header (mcp_servers."my.server".env) into its keys. */
+function tomlPath(header: string): string[] {
+  const parts: string[] = [];
+  let i = 0;
+  while (i < header.length) {
+    const ch = header[i]!;
+    if (ch === '"' || ch === "'") {
+      const { value, end } = tomlString(header.slice(i));
+      parts.push(value);
+      i += end + 1;
+    } else if (ch === ".") i++;
+    else {
+      let j = i;
+      while (j < header.length && header[j] !== ".") j++;
+      parts.push(header.slice(i, j).trim());
+      i = j;
+    }
+  }
+  return parts;
+}
+
+/** Drop a # comment that is not inside a string. */
+function stripTomlComment(line: string): string {
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]!;
+    if (ch === '"' || ch === "'") i += tomlString(line.slice(i)).end;
+    else if (ch === "#") return line.slice(0, i);
+  }
+  return line;
+}
+
+/**
+ * Codex keeps MCP servers in ~/.codex/config.toml as [mcp_servers.<name>]
+ * tables (and [mcp_servers.<name>.env] sub-tables). Only those tables are
+ * read; a value that spans several lines is joined until its brackets close.
+ */
+export function parseCodexToml(text: string): ParsedServer[] {
+  const tables = new Map<string, Record<string, unknown>>();
+  let current: Record<string, unknown> | null = null;
+  let sub: string | null = null;
+  const lines = text.split(/\r?\n/);
+  for (let n = 0; n < lines.length; n++) {
+    let line = stripTomlComment(lines[n]!).trim();
+    if (!line) continue;
+    const header = /^\[([^\[\]]+)\]$/.exec(line);
+    if (header) {
+      const path = tomlPath(header[1]!);
+      if (path[0] === "mcp_servers" && path[1]) {
+        const table = tables.get(path[1]) ?? {};
+        tables.set(path[1], table);
+        current = table;
+        sub = path[2] ?? null;
+      } else {
+        current = null;
+      }
+      continue;
+    }
+    if (!current) continue;
+    const eq = line.indexOf("=");
+    if (eq <= 0) continue;
+    let raw = line.slice(eq + 1);
+    const balance = (value: string) => {
+      let depth = 0;
+      for (let i = 0; i < value.length; i++) {
+        const ch = value[i]!;
+        if (ch === '"' || ch === "'") i += tomlString(value.slice(i)).end;
+        else if (ch === "[" || ch === "{") depth++;
+        else if (ch === "]" || ch === "}") depth--;
+      }
+      return depth;
+    };
+    while (balance(raw) > 0 && n + 1 < lines.length) raw += " " + stripTomlComment(lines[++n]!).trim();
+    const key = tomlKey(line.slice(0, eq));
+    if (sub) {
+      const nested = record(current[sub]) ?? {};
+      nested[key] = tomlValue(raw);
+      current[sub] = nested;
+    } else current[key] = tomlValue(raw);
+  }
+  return [...tables].map(([name, rec]) => ({
+    name,
+    ...(typeof rec["command"] === "string" ? { command: rec["command"] } : {}),
+    args: Array.isArray(rec["args"]) ? rec["args"].filter((a): a is string => typeof a === "string") : [],
+    env: stringMap(rec["env"]),
+    ...(typeof rec["url"] === "string" ? { url: rec["url"] } : {}),
+    headers: stringMap(rec["http_headers"] ?? rec["headers"]),
+    autoApprove: undefined,
+    ...(rec["enabled"] === false ? { disabled: true } : {}),
+  }));
+}
+
 /**
  * The MCP servers in one client's file, grouped by where they apply. Claude
  * Code keeps user servers at the top of ~/.claude.json and per-project
  * servers under projects["<path>"].mcpServers.
  */
 export function parseHostConfig(client: string, text: string): { groups: Array<{ client: string; servers: ParsedServer[] }>; error?: string } {
+  if (client === "codex") {
+    try {
+      return { groups: [{ client, servers: parseCodexToml(text) }] };
+    } catch (err) {
+      return { groups: [], error: err instanceof Error ? err.message : String(err) };
+    }
+  }
   let root: Record<string, unknown> | null;
   try {
     root = record(JSON.parse(stripJsonc(text)));
@@ -141,6 +331,7 @@ export function parseHostConfig(client: string, text: string): { groups: Array<{
   }
   if (!root) return { groups: [], error: "Config root is not a JSON object" };
   if (client === "zed") return { groups: [{ client, servers: zedServers(root) }] };
+  if (client === "opencode") return { groups: [{ client, servers: opencodeServers(root) }] };
   const top = parseMcpConfig(JSON.stringify(root));
   const groups: Array<{ client: string; servers: ParsedServer[] }> = [];
   if (!top.error) groups.push({ client, servers: top.servers });

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { startServer } from "./server.js";
 import { scanPath, scanLive, scanCatalogFile } from "./orchestrator.js";
+import { scanInstalled } from "./installed.js";
 import { buildSarif } from "./sarif.js";
 import type { ConnectionTarget, OwaspReport } from "./types.js";
 import { readFileSync } from "fs";
@@ -27,6 +28,11 @@ Usage (CLI):
   guardbee-owasp-scan live --url=<url>         Live tools/list + toxic-flow + poisoning
   guardbee-owasp-scan live --stdio=<cmd> [--arg=...]
   guardbee-owasp-scan catalog <tools.json>     Audit a tools/list JSON dump
+  guardbee-owasp-scan installed                Find the MCP servers configured on this machine
+                                               (Claude, Cursor, VS Code, Codex, Gemini CLI, …),
+                                               connect and audit their tools: poisoning, toxic
+                                               flows within and across servers, tool shadowing,
+                                               Shadow MCP and tool changes since the last run
 
 Options:
   --format=text|json|sarif
@@ -36,6 +42,11 @@ Options:
   --allowlist=<path>             Allowlist for Shadow MCP discover
   --with-supply-chain            Also run MCP04 (OSV + slopsquat; needs network)
   --with-content                 Also run MCP06 (prompt injection on content)
+  --run-stdio                    installed: also start local (stdio) servers to read their
+                                 tools. This runs their code with the env from your config
+  --timeout=<ms>                 installed/live: per-server timeout (default 15000)
+  --pin-dir=<dir>                installed: where tool pins are kept (default ~/.guardbee/tool-pins)
+  --no-pin                       installed: do not read or write tool pins
 `);
 }
 
@@ -51,6 +62,9 @@ function parseArgs(args: string[]) {
   let allowlist: string | undefined;
   let withSupplyChain = false;
   let withContent = false;
+  let runStdio = false;
+  let timeoutMs = 15000;
+  let pinDir: string | false | undefined;
 
   for (const arg of args) {
     if (arg.startsWith("--format=")) format = arg.split("=")[1] ?? "text";
@@ -63,9 +77,13 @@ function parseArgs(args: string[]) {
     else if (arg.startsWith("--allowlist=")) allowlist = arg.slice("--allowlist=".length);
     else if (arg === "--with-supply-chain") withSupplyChain = true;
     else if (arg === "--with-content") withContent = true;
+    else if (arg === "--run-stdio") runStdio = true;
+    else if (arg.startsWith("--timeout=")) timeoutMs = parseInt(arg.slice("--timeout=".length), 10) || 15000;
+    else if (arg.startsWith("--pin-dir=")) pinDir = arg.slice("--pin-dir=".length);
+    else if (arg === "--no-pin") pinDir = false;
     else if (!arg.startsWith("--")) positionals.push(arg);
   }
-  return { positionals, format, failOn, maxFiles, url, stdio, stdioArgs, discoverShadow, allowlist, withSupplyChain, withContent };
+  return { positionals, format, failOn, maxFiles, url, stdio, stdioArgs, discoverShadow, allowlist, withSupplyChain, withContent, runStdio, timeoutMs, pinDir };
 }
 
 function shouldFail(findings: { severity: string }[], failOn: string): boolean {
@@ -91,6 +109,15 @@ function emit(report: OwaspReport, format: string, failOn: string, fallbackUri?:
     }
     if (report.toolCount !== undefined) console.log(`  tools: ${report.toolCount}`);
     if (report.notRun?.length) console.log(`  notRun: ${report.notRun.join(", ")}`);
+    if (report.servers?.length) {
+      console.log("");
+      for (const s of report.servers) {
+        const what = s.status === "scanned" ? `${s.toolCount ?? 0} tool(s)${s.drift ? `, ${s.drift} changed since pinned` : ""}` : s.reason ?? "";
+        console.log(`  ${s.status === "scanned" ? "✓" : s.status === "error" ? "✗" : "–"} ${s.name} [${s.transport}] ${s.clients.join(", ")}: ${what}`);
+      }
+      const skipped = report.servers.filter((s) => s.status === "skipped" && s.transport === "stdio" && !/disabled/.test(s.reason ?? "")).length;
+      if (skipped > 0) console.log(`  ${skipped} local server(s) were not started. Re-run with --run-stdio to audit their tools.`);
+    }
     console.log("");
     for (const bucket of report.byOwasp) {
       if (bucket.findingCount === 0) continue;
@@ -148,15 +175,26 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (firstArg === "installed") {
+    const report = await scanInstalled({
+      allowlistPath: opts.allowlist,
+      runStdio: opts.runStdio,
+      timeoutMs: opts.timeoutMs,
+      pinDir: opts.pinDir,
+    });
+    emit(report, opts.format, opts.failOn);
+    return;
+  }
+
   if (firstArg === "live") {
     let target: ConnectionTarget;
-    if (opts.url) target = { type: "http", url: opts.url };
+    if (opts.url) target = { type: "http", url: opts.url, transport: "auto" };
     else if (opts.stdio) target = { type: "stdio", command: opts.stdio, args: opts.stdioArgs };
     else {
       console.error("Usage: guardbee-owasp-scan live --url=<url> | --stdio=<cmd> [--arg=...]");
       process.exit(2);
     }
-    const report = await scanLive(target);
+    const report = await scanLive(target, opts.timeoutMs);
     emit(report, opts.format, opts.failOn);
     return;
   }

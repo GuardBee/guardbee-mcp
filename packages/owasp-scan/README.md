@@ -22,6 +22,9 @@ npx @guardbee/mcp-owasp-scan live --stdio=npx --arg=-y --arg=@modelcontextprotoc
 
 # Grade a saved tools/list response
 npx @guardbee/mcp-owasp-scan catalog ./tools.json --format=json
+
+# Audit every MCP server configured on this machine, in every client
+npx @guardbee/mcp-owasp-scan installed --run-stdio
 ```
 
 As an MCP server (Claude Desktop, Cursor, VS Code):
@@ -42,8 +45,24 @@ As an MCP server (Claude Desktop, Cursor, VS Code):
 | Mode | Input | What runs |
 |---|---|---|
 | `scan <path>` | A file or directory | secret-scanner, mcp-server-auditor, oauth-auditor, audit-gap-auditor, context-oversharing-auditor, toxic-flow-auditor, tool-poisoning-scanner |
-| `live` | `--url=<streamable HTTP URL>` or `--stdio=<command>` with `--arg=…` | Connects, calls `tools/list`, then toxic-flow-auditor and tool-poisoning-scanner |
+| `live` | `--url=<Streamable HTTP or legacy SSE URL>` or `--stdio=<command>` with `--arg=…` | Connects, calls `tools/list`, then toxic-flow-auditor and tool-poisoning-scanner |
 | `catalog <tools.json>` | A `tools/list` dump (`{ "tools": [...] }` or a bare array) | Same checks as `live`, offline |
+| `installed` | Nothing: reads the MCP client configs on this machine | Connects to every configured server, then the `live` checks per server plus cross-server checks (below) |
+
+### `installed`: every server on this machine
+
+`installed` finds the MCP servers configured in Claude Desktop, Claude Code (user and per-project), Cursor, VS Code, Windsurf, Cline, Roo Code, Zed, Gemini CLI, Codex (`~/.codex/config.toml`), Kiro, Copilot CLI, Amazon Q, LM Studio and opencode, contacts each one once (a server listed in several clients is one server) and reports:
+
+- **Per server:** tool poisoning and toxic flows in its `tools/list`, as `live` does.
+- **Across servers:** the agent sees every connected server's tools at once, so a lethal trifecta split over three harmless-looking servers (`cross_server_lethal_trifecta`) and the same or a look-alike tool name on two servers (`cross_server_tool_shadow`, `confusable_tool_name`) are reported. A single-server scan cannot see either.
+- **Changes since the last run (rug pull):** tool definitions are pinned in `~/.guardbee/tool-pins` on the first run; a changed description or schema is reported as `tool_definition_drift` (critical) on every run until you re-approve it by deleting that server's pin file. Pins hold the tool definitions and the server's command line or URL, never env or header values.
+- **Shadow MCP (MCP09):** with `--allowlist=<path>`, servers that are not approved.
+
+Remote servers are always contacted, with the headers from their config, over Streamable HTTP and then legacy SSE if that fails. **Local (stdio) servers are only started with `--run-stdio`**, because starting one runs its code on your machine with the env from your config; without it they are listed as skipped. Disabled entries are never started. A server that cannot be reached is listed with the error and the scan goes on.
+
+```bash
+npx @guardbee/mcp-owasp-scan installed --run-stdio --allowlist=./mcp-allowlist.json --format=sarif --fail-on=high
+```
 
 `scan` reads TypeScript/JavaScript, Python (FastMCP, official SDK, low-level server), Go (official go-sdk, mark3labs/mcp-go) and Rust (rmcp `#[tool]` / `#[tool_router]`) MCP servers in full: tool definitions, handler sinks and OAuth rules. Other languages (Java, Kotlin, C#, Ruby, PHP, Swift) get the language-neutral rules only (secrets, URLs, config). The report's `coverage` lists every source file with its language, that depth (`full` or `patterns`) and the number of tool definitions found, plus a per-language summary (`languages:` in text output), so a file the scan could not read deeply is visible rather than silently passing.
 
@@ -84,7 +103,11 @@ As an MCP server (Claude Desktop, Cursor, VS Code):
 | `--discover-shadow` | off | Add the MCP09 host inventory to `scan` |
 | `--with-supply-chain` | off | Add MCP04 (OSV dependency audit + slopsquat; needs network) |
 | `--with-content` | off | Add MCP06 (prompt injection on docs/content under the path) |
-| `--allowlist=<path>` | – | Approved servers for `--discover-shadow` |
+| `--allowlist=<path>` | – | Approved servers for `--discover-shadow` and `installed` |
+| `--run-stdio` | off | `installed`: also start local (stdio) servers to read their tools |
+| `--timeout=<ms>` | `15000` | `installed` and `live`: per-server connect and `tools/list` timeout |
+| `--pin-dir=<dir>` | `~/.guardbee/tool-pins` | `installed`: where tool pins are kept |
+| `--no-pin` | off | `installed`: do not read or write tool pins |
 
 Exit codes: `0` clean (or below `--fail-on`), `1` findings at or above `--fail-on`, `2` usage error.
 

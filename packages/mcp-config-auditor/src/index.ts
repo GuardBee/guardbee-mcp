@@ -17,7 +17,7 @@ export { parseSkillMarkdown, unrestrictedTool, findSkillShadowing, skillNameFrom
 export type { ParsedSkill, NamedSkill } from "./skills.js";
 export { allowlistUrlFor, buildInventory, fetchDashboardAllowlist, inventoryKey, uploadInventory, redactArgs, sanitizeUrl, DEFAULT_UPLOAD_URL } from "./inventory.js";
 export type { InventoryEntry, InventoryReport } from "./inventory.js";
-export { parseHostConfig, stripJsonc } from "./discover.js";
+export { parseCodexToml, parseHostConfig, stripJsonc } from "./discover.js";
 export { registerTools } from "./server.js";
 export { formatGrades, gradeFindings, gradeServer, loadIndexForGrades } from "./grades.js";
 export type { ServerGrade } from "./grades.js";

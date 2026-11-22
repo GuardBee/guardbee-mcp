@@ -79,7 +79,7 @@ The OWASP MCP Top 10 column is the mapping [`mcp-owasp-scan`](../packages/owasp-
 |---|---|---|---|
 | `mcp-security-proxy` | Runtime gateway (MCP, LLM API, A2A) and coding-agent hooks | stdio, Streamable HTTP | Runtime controls; report categories map to LLM01, LLM02, LLM03, LLM05, LLM06, LLM07, LLM10 |
 | `mcp-db-gateway` | Runtime gateway between an LLM and a database | stdio | – |
-| `mcp-owasp-scan` | Static and live scan of an MCP codebase or server, SARIF | stdio, CLI | MCP01–MCP10 (MCP04, MCP06, MCP09 opt-in) |
+| `mcp-owasp-scan` | Static and live scan of an MCP codebase or server; `installed` audits every server configured on the machine, across servers; SARIF | stdio, CLI | MCP01–MCP10 (MCP04, MCP06, MCP09 opt-in) |
 | `security-suite` | Every scanner from one install | stdio, CLI | as the packages it runs |
 | `mcp-secret-scanner` | Secrets in files, git history, agent transcripts | stdio, CLI | MCP01 |
 | `mcp-server-auditor` | Tool definitions: excessive agency, shell/eval/SQL/SSRF sinks | stdio, CLI | MCP01, MCP02, MCP05 |
