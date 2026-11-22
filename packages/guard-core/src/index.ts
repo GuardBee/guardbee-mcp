@@ -53,3 +53,6 @@ export { DEFAULT_MCP_INDEX_URL, MCP_GRADES, gradeBelow, imageRepository, isMcpGr
 export type { LoadMcpIndexOptions, LoadedMcpIndex, McpGrade, McpIndex, McpIndexEntry, McpIndexMatch, McpIndexPackage, McpIndexReason } from "./mcp-index.js";
 export { Judge, JudgeError, judgeConfigIssue, judgeFromEnv } from "./judge.js";
 export type { AlignmentBehavior, AlignmentJudgement, InjectionJudgement, JudgeConfig, JudgeModel, JudgeVerdict } from "./judge.js";
+
+export { deobfuscatedReadings } from "./deobfuscate.js";
+export type { Deobfuscated, Obfuscation } from "./deobfuscate.js";

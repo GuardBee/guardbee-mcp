@@ -1,3 +1,5 @@
+import { deobfuscatedReadings, type Obfuscation } from "./deobfuscate.js";
+
 export type ScanResult =
   | { action: "allow" }
   | { action: "block"; reason: string }
@@ -302,8 +304,12 @@ export interface InjectionFinding {
   broad: boolean;
   match: string;
   index: number;
-  /** Set when the phrase was found inside a decoded base64 run. */
-  encoding?: "base64";
+  /**
+   * Set when the phrase was found only after decoding or cleaning the text:
+   * inside a base64 or hex run, behind escapes, look-alike letters,
+   * leetspeak or letter-by-letter spacing.
+   */
+  encoding?: "base64" | Obfuscation;
 }
 
 const BASE64_RUN = /[A-Za-z0-9+/]{24,}={0,2}/g;
@@ -323,7 +329,7 @@ function decodedBase64Runs(text: string): { text: string; index: number }[] {
   return runs;
 }
 
-function matchRules(text: string, rules: readonly InjectionRule[], offset = 0, encoding?: "base64"): InjectionFinding[] {
+function matchRules(text: string, rules: readonly InjectionRule[], offset = 0, encoding?: InjectionFinding["encoding"]): InjectionFinding[] {
   const findings: InjectionFinding[] = [];
   for (const rule of rules) {
     for (const match of text.matchAll(rule.pattern)) {
@@ -345,12 +351,23 @@ function matchRules(text: string, rules: readonly InjectionRule[], offset = 0, e
 /**
  * Every rule match in the text, plus precise-rule matches inside base64 runs
  * that decode to text (an instruction hidden from both the reader and a plain
- * pattern scan).
+ * pattern scan) and in its deobfuscated readings (escapes, look-alike
+ * letters, hex, leetspeak, spaced-out letters). A rule found in the text
+ * itself is not reported again from a reading; the index of a finding from a
+ * whole-text reading is its position in that reading.
  */
 export function findInjections(text: string): InjectionFinding[] {
   const precise = INJECTION_RULES.filter((rule) => !rule.broad);
   const findings = matchRules(text, INJECTION_RULES);
   for (const run of decodedBase64Runs(text)) findings.push(...matchRules(run.text, precise, run.index, "base64"));
+  const seen = new Set(findings.map((finding) => finding.ruleId));
+  for (const reading of deobfuscatedReadings(text)) {
+    for (const finding of matchRules(reading.text, precise, reading.index, reading.how)) {
+      if (seen.has(finding.ruleId)) continue;
+      seen.add(finding.ruleId);
+      findings.push(finding);
+    }
+  }
   return findings;
 }
 
@@ -364,7 +381,8 @@ function collectStrings(value: unknown, out: string[] = []): string[] {
 }
 
 function describe(finding: InjectionFinding): string {
-  return `${finding.ruleId}${finding.encoding ? " (base64-encoded)" : ""} — ${finding.name}`;
+  const how = finding.encoding === "base64" || finding.encoding === "hex" ? `${finding.encoding}-encoded` : finding.encoding ? `hidden by ${finding.encoding}` : "";
+  return `${finding.ruleId}${how ? ` (${how})` : ""} — ${finding.name}`;
 }
 
 const BLOCKING: ReadonlySet<InjectionRule["severity"]> = new Set(["high", "critical"]);
