@@ -1,5 +1,13 @@
 # @guardbee/security-suite
 
+## 0.8.3
+
+### Patch Changes
+
+- Updated dependencies [[`6aa6450`](https://github.com/GuardBee/guardbee-mcp/commit/6aa6450e48b2d255b29431d07aab3f06aa14a6d8)]:
+  - @guardbee/mcp-owasp-scan@0.7.0
+  - @guardbee/mcp-config-auditor@0.11.0
+
 ## 0.8.2
 
 ### Patch Changes
