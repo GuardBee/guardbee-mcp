@@ -41,6 +41,10 @@ GuardBee 的 MCP（Model Context Protocol）服务器系列——一个 monorepo
 | [`packages/unbounded-consumption-auditor`](packages/unbounded-consumption-auditor) | `@guardbee/mcp-unbounded-consumption-auditor` | 扫描 LLM/智能体应用代码中的无限制资源消耗（"denial of wallet"，OWASP LLM Top 10 2025, LLM10）——缺少输出 token 上限、手写 LLM HTTP 调用缺少超时、无上限的工具调用/重试循环、显式关闭框架安全限制（LangChain max_iterations、openai-agents max_turns），以及看不出限流的 MCP 工具处理函数 |
 | [`packages/claude-usage-guard`](packages/claude-usage-guard) | `@guardbee/mcp-claude-usage-guard` | 你的 Claude 套餐用量都来自你自己吗？将账户级套餐计量与本机 Claude Code 记录随时间对比，标记本地无法解释的用量，以及账户切换、使用你登录凭据的 SDK/脚本和远程登录 |
 | [`packages/token-optimizer`](packages/token-optimizer) | `@guardbee/mcp-token-optimizer` | 找出消耗 Claude Code token 的源头并停止：过大的上下文、塞满上下文的文件读取和 MCP 工具、未使用的 MCP 服务器、空闲会话；停止/禁用默认仅演练且可撤销 |
+| [`packages/document-scanner`](packages/document-scanner) | `@guardbee/mcp-document-scanner` | 在文档到达 LLM 之前，找出 PDF、截图和扫描件中的 PII 与凭据——PDF 文本层加可选 OCR（土耳其语和英语） |
+| [`packages/injection-model`](packages/injection-model) | `@guardbee/injection-model` | （可选）土耳其语 + 英语 prompt 注入与越狱的本地分类器——CPU 上的 int8 ONNX，离线运行；供代理（`classifier:`）和 prompt-injection-scanner（`--classifier`）使用 |
+| [`packages/ner`](packages/ner) | `@guardbee/ner` | （可选）本地 BERTurk NER，识别土耳其语人名以便脱敏——CPU 上的 ONNX Runtime，离线，进程内或 sidecar |
+| [`packages/security-engineer`](packages/security-engineer) | `@guardbee/mcp-security-engineer` | 用你的编码智能体在仓库中修复 GuardBee AI Security Engineer 的发现，并在线上站点验证修复 |
 | [`packages/secret-scanner`](packages/secret-scanner) | `@guardbee/mcp-secret-scanner` | 扫描文件中泄露的密钥和 API key |
 | [`packages/security-proxy`](packages/security-proxy) | `@guardbee/mcp-security-proxy` | MCP 安全网关：把多个 MCP 服务器置于同一策略之后——有毒数据流（lethal trifecta）拦截、人工审批、PII 脱敏、哈希链审计日志 |
 | [`packages/security-suite`](packages/security-suite) | `@guardbee/security-suite` | 一次安装获得下列全部扫描器和审计工具：一个按所选分组提供工具的 MCP 服务器，以及可运行任意包的 CLI |

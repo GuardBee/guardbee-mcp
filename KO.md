@@ -41,6 +41,11 @@ GuardBee의 MCP 서버 모음입니다. AI 에이전트와 애플리케이션 �
 - [`@guardbee/mcp-unbounded-consumption-auditor`](packages/unbounded-consumption-auditor/KO.md) — LLM/에이전트 코드에서 OWASP LLM Top 10 2025의 LLM10 '무제한 소비(denial of wallet)' 패턴을 찾습니다: 출력 토큰 제한 누락, 직접 만든 LLM HTTP 호출의 타임아웃 누락, 무제한 도구 호출·재시도 루프, 비활성화된 안전 한도, 속도 제한 없는 MCP 도구.
 - [`@guardbee/mcp-claude-usage-guard`](packages/claude-usage-guard/KO.md) — Claude 플랜 사용량이 모두 본인 것인가? 계정 전체 플랜 미터를 이 머신의 Claude Code 트랜스크립트와 시간에 따라 비교해 로컬에서 설명되지 않는 사용, 계정 전환, 로그인을 쓰는 SDK/스크립트, 원격 로그인을 표시.
 - [`@guardbee/mcp-token-optimizer`](packages/token-optimizer/KO.md) — Claude Code 토큰을 소모하는 원인을 찾아 중지: 과도한 컨텍스트, 컨텍스트를 채우는 파일 읽기와 MCP 도구, 사용하지 않는 MCP 서버, 유휴 세션. 중지/비활성화는 기본적으로 드라이런이며 되돌릴 수 있음.
+- [`@guardbee/mcp-document-scanner`](packages/document-scanner/KO.md) — PDF, 스크린샷, 스캔 문서 속 개인정보와 자격 증명을 LLM에 닿기 전에 탐지(PDF 텍스트 레이어 + 선택적 OCR, 튀르키예어·영어).
+- [`@guardbee/injection-model`](packages/injection-model/KO.md) — (선택) 튀르키예어·영어 프롬프트 인젝션/탈옥 로컬 분류기. CPU에서 int8 ONNX로 오프라인 실행되며 프록시와 prompt-injection-scanner가 사용.
+- [`@guardbee/ner`](packages/ner/KO.md) — (선택) 마스킹을 위해 튀르키예어 인명을 찾는 로컬 BERTurk NER. CPU에서 ONNX Runtime으로 오프라인 실행, 프로세스 내 또는 사이드카로 사용.
+- [`@guardbee/mcp-reverse-shield`](packages/reverse-shield/KO.md) — 배포한 앱이 리버스 엔지니어에게 넘겨주는 것을 보고: 웹 빌드와 운영 사이트, Electron, Android APK/AAB, iOS IPA, Unity/PyInstaller/Java, 네이티브 및 .NET 바이너리. 수정 제안 포함.
+- [`@guardbee/mcp-security-engineer`](packages/security-engineer/KO.md) — GuardBee AI Security Engineer 발견 사항을 코딩 에이전트로 내 저장소에서 수정하고 운영 사이트에서 검증.
 - [`@guardbee/mcp-vector-store-scanner`](packages/vector-store-scanner/KO.md) — 벡터 데이터베이스 엔드포인트(Weaviate, Qdrant, Chroma, Elasticsearch/OpenSearch, Redis, Postgres/pgvector)를 점검해 임베딩과 RAG 데이터가 인증 없이 노출되어 있는지 확인합니다.
 - [`@guardbee/mcp-vulnerability-scanner`](packages/vulnerability-scanner/KO.md) — GuardBee 보안 스캔을 실행하고 결과를 조회하며, AI 기반 수정 가이드를 제공합니다.
 

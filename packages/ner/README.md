@@ -1,6 +1,6 @@
 # @guardbee/ner
 
-**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ner/TR.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ner/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ner/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ner/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ner/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ner/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ner/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/ner/DE.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/ner.svg)](https://www.npmjs.com/package/@guardbee/ner)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/ner.svg)](https://www.npmjs.com/package/@guardbee/ner)

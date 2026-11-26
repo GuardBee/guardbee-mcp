@@ -1,6 +1,6 @@
 # @guardbee/mcp-reverse-shield
 
-**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/reverse-shield/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/reverse-shield/ZH.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/reverse-shield/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/reverse-shield/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/reverse-shield/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/reverse-shield/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/reverse-shield/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/reverse-shield/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/reverse-shield/DE.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-reverse-shield.svg)](https://www.npmjs.com/package/@guardbee/mcp-reverse-shield)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-reverse-shield.svg)](https://www.npmjs.com/package/@guardbee/mcp-reverse-shield)

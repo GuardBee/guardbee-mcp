@@ -1,6 +1,6 @@
 # @guardbee/mcp-security-engineer
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe**
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 **GuardBee AI Güvenlik Mühendisi**'nin bulgularını kendi kodlama ajanınla (Claude Code, Cursor, VS Code) kendi deponda düzelt, ardından düzeltmeyi canlı sitede doğrula.
 
