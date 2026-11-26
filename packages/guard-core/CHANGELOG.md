@@ -1,5 +1,11 @@
 # @guardbee/guard-core
 
+## 1.7.0
+
+### Minor Changes
+
+- [#329](https://github.com/GuardBee/guardbee-mcp/pull/329) [`2c3904d`](https://github.com/GuardBee/guardbee-mcp/commit/2c3904de62c20e536a07663c891500bec7ab4dd0) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Prompt-injection rules now see through obfuscation: `findInjections` also runs the precise rules on the text with escapes (HTML, URL, JS), fullwidth letters and zero-width characters, Cyrillic/Greek look-alike letters, hex dumps, leetspeak and spaced-out letters taken off. A finding says how it was hidden (`encoding`). The proxy and every scanner built on guard-core get this with no config change; on `injection-bench` it adds no false alarm.
+
 ## 1.6.0
 
 ### Minor Changes

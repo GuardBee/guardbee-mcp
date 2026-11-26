@@ -1,5 +1,16 @@
 # @guardbee/mcp-security-proxy
 
+## 1.42.0
+
+### Minor Changes
+
+- [#328](https://github.com/GuardBee/guardbee-mcp/pull/328) [`a228db6`](https://github.com/GuardBee/guardbee-mcp/commit/a228db6e9e723f5fb88d4c70a41110ba5d43846c) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - Legacy SSE upstreams: `upstreams.<name>.transport: sse` puts a server that only serves the older HTTP+SSE transport behind the gateway, with the same policy, headers, `auth` and `network` egress rules as a Streamable HTTP upstream. `guardbee-proxy init` now moves SSE servers (`type: "sse"`, or a URL ending in `/sse`) behind the proxy instead of leaving them outside it.
+
+### Patch Changes
+
+- Updated dependencies [[`2c3904d`](https://github.com/GuardBee/guardbee-mcp/commit/2c3904de62c20e536a07663c891500bec7ab4dd0)]:
+  - @guardbee/guard-core@1.7.0
+
 ## 1.41.0
 
 ### Minor Changes

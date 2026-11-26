@@ -1,5 +1,18 @@
 # @guardbee/mcp-config-auditor
 
+## 0.11.0
+
+### Minor Changes
+
+- [#327](https://github.com/GuardBee/guardbee-mcp/pull/327) [`6aa6450`](https://github.com/GuardBee/guardbee-mcp/commit/6aa6450e48b2d255b29431d07aab3f06aa14a6d8) Thanks [@4hmetuyar](https://github.com/4hmetuyar)! - `guardbee-owasp-scan installed`: find every MCP server configured on the machine, connect to each and audit its tools in one command. Reports tool poisoning and toxic flows per server, lethal trifectas and tool shadowing that only exist across servers, tool definitions that changed since the last run (pins in `~/.guardbee/tool-pins`) and Shadow MCP against an allowlist. Remote servers use the headers from their config and fall back to legacy SSE; local servers start only with `--run-stdio`. `live --url` also falls back to SSE.
+  
+  Discovery now reads Codex (`~/.codex/config.toml`), Kiro, Copilot CLI, Amazon Q, LM Studio, Roo Code and opencode configs.
+
+### Patch Changes
+
+- Updated dependencies [[`2c3904d`](https://github.com/GuardBee/guardbee-mcp/commit/2c3904de62c20e536a07663c891500bec7ab4dd0)]:
+  - @guardbee/guard-core@1.7.0
+
 ## 0.10.0
 
 ### Minor Changes
