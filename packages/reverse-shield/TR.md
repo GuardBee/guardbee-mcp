@@ -1,6 +1,6 @@
 # @guardbee/mcp-reverse-shield
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md)
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 Yayınladığın uygulamanın bir tersine mühendise **neyi bedavaya verdiğini** söyleyen bir MCP server.
 

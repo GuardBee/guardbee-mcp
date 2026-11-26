@@ -41,6 +41,11 @@ GuardBee の MCP サーバー群です。AI エージェントとアプリケー
 - [`@guardbee/mcp-unbounded-consumption-auditor`](packages/unbounded-consumption-auditor/JA.md) — LLM/エージェントのコードで、OWASP LLM Top 10 2025 の LLM10「無制限な消費（denial of wallet）」のパターンを検出します：出力トークン上限の欠如、自前の LLM HTTP 呼び出しのタイムアウト欠如、無制限のツール呼び出しやリトライ、無効化された安全上限、レート制限のない MCP ツール。
 - [`@guardbee/mcp-claude-usage-guard`](packages/claude-usage-guard/JA.md) — Claude プランの使用量はすべて自分のものか？アカウント全体のプランメーターをこのマシンの Claude Code トランスクリプトと時系列で比較し、ローカルで説明できない使用、アカウント切り替え、ログインを使う SDK/スクリプト、リモートログインを検出。
 - [`@guardbee/mcp-token-optimizer`](packages/token-optimizer/JA.md) — Claude Code のトークンを消費しているものを特定して止める：肥大化したコンテキスト、コンテキストを埋めるファイル読み込みや MCP ツール、未使用の MCP サーバー、アイドルセッション。停止/無効化はデフォルトでドライランかつ元に戻せる。
+- [`@guardbee/mcp-document-scanner`](packages/document-scanner/JA.md) — PDF、スクリーンショット、スキャン文書の中の個人情報と認証情報を、LLM に届く前に検出（PDF テキストレイヤー＋オプションの OCR、トルコ語・英語）。
+- [`@guardbee/injection-model`](packages/injection-model/JA.md) — （オプション）トルコ語・英語のプロンプトインジェクション／ジェイルブレイクを検出するローカル分類器。CPU 上の int8 ONNX でオフライン動作し、プロキシと prompt-injection-scanner が利用。
+- [`@guardbee/ner`](packages/ner/JA.md) — （オプション）マスキング用にトルコ語の人名を検出するローカル BERTurk NER。CPU 上の ONNX Runtime でオフライン動作し、プロセス内またはサイドカーで利用。
+- [`@guardbee/mcp-reverse-shield`](packages/reverse-shield/JA.md) — 公開したアプリがリバースエンジニアに渡してしまうものを報告：Web ビルドと本番サイト、Electron、Android APK/AAB、iOS IPA、Unity/PyInstaller/Java、ネイティブおよび .NET バイナリ。修正案付き。
+- [`@guardbee/mcp-security-engineer`](packages/security-engineer/JA.md) — GuardBee AI Security Engineer の検出結果をコーディングエージェントで自分のリポジトリ上で修正し、本番サイトで検証。
 - [`@guardbee/mcp-vector-store-scanner`](packages/vector-store-scanner/JA.md) — ベクトルデータベースのエンドポイント（Weaviate、Qdrant、Chroma、Elasticsearch/OpenSearch、Redis、Postgres/pgvector）を調べ、埋め込みや RAG データが認証なしで公開されていないかを確認します。
 - [`@guardbee/mcp-vulnerability-scanner`](packages/vulnerability-scanner/JA.md) — GuardBee のセキュリティスキャンを起動して結果を照会し、AI による修正ガイダンスを提供します。
 

@@ -1,6 +1,6 @@
 # @guardbee/mcp-document-scanner
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe**
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 PDF'lerde, ekran görüntülerinde ve taranmış belgelerde **kişisel veri ve credential** arayan bir MCP sunucusu ve CLI — belgeler bir LLM'e verilmeden önce. Proxy'deki veya DLP'deki metin kontrolleri bir PDF ekini ya da görseli okunamayan bir blob olarak görür; bu paket onu okur: önce PDF'in metin katmanı, metni olmayan sayfalar ve görseller için OCR (Türkçe ve İngilizce).
 

@@ -1,6 +1,6 @@
 # @guardbee/mcp-document-scanner
 
-**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/document-scanner/TR.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/document-scanner/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/document-scanner/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/document-scanner/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/document-scanner/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/document-scanner/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/document-scanner/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/document-scanner/DE.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-document-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-document-scanner)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-document-scanner.svg)](https://www.npmjs.com/package/@guardbee/mcp-document-scanner)

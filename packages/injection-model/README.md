@@ -1,5 +1,7 @@
 # @guardbee/injection-model
 
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/injection-model/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/injection-model/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/injection-model/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/injection-model/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/injection-model/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/injection-model/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/injection-model/DE.md)
+
 An optional local classifier for prompt injections and jailbreaks in **Turkish and English**, for GuardBee. It is a small multilingual transformer fine-tuned for the job, quantized to int8 ONNX, and runs offline on CPU. It can run in-process or as a sidecar HTTP service.
 
 GuardBee's injection rules are precise but match only phrases they know. On the [Turkish + English benchmark](../injection-bench) they catch 11–19% of attacks. The classifier is the fast first pass that covers the rest: paraphrases, translations, Turkish suffix forms (*yoksaymanı istiyorum*, *dikkate almayacaksın*) and jailbreak personas. The [LLM judge](../security-proxy/README.md#llm-judge-optional) stays a slower second opinion for what is still borderline.

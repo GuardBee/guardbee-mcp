@@ -1,6 +1,6 @@
 # @guardbee/mcp-security-engineer
 
-**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/security-engineer/TR.md)
+**🇬🇧 English** | [🇹🇷 Türkçe](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/security-engineer/TR.md) | [🇨🇳 中文](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/security-engineer/ZH.md) | [🇯🇵 日本語](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/security-engineer/JA.md) | [🇰🇷 한국어](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/security-engineer/KO.md) | [🇧🇷 Português](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/security-engineer/PT-BR.md) | [🇪🇸 Español](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/security-engineer/ES.md) | [🇩🇪 Deutsch](https://github.com/GuardBee/guardbee-mcp/blob/main/packages/security-engineer/DE.md)
 
 [![npm version](https://img.shields.io/npm/v/@guardbee/mcp-security-engineer.svg)](https://www.npmjs.com/package/@guardbee/mcp-security-engineer)
 [![npm downloads](https://img.shields.io/npm/dm/@guardbee/mcp-security-engineer.svg)](https://www.npmjs.com/package/@guardbee/mcp-security-engineer)

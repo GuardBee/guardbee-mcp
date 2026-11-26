@@ -1,6 +1,6 @@
 # @guardbee/ner
 
-[🇬🇧 English](README.md) | **🇹🇷 Türkçe**
+[🇬🇧 English](README.md) | **🇹🇷 Türkçe** | [🇨🇳 中文](ZH.md) | [🇯🇵 日本語](JA.md) | [🇰🇷 한국어](KO.md) | [🇧🇷 Português](PT-BR.md) | [🇪🇸 Español](ES.md) | [🇩🇪 Deutsch](DE.md)
 
 Türkçe kişi adlarını bulur. Regex ile yakalanamayan bu verinin de TC Kimlik No, IBAN ve e-posta gibi maskelenmesini sağlar. Yerel bir BERTurk NER modeli ONNX Runtime ile CPU'da çalışır: internet gerekmez, kurum içinde çalışır, hiçbir veri makineden çıkmaz.
 
